@@ -39,3 +39,10 @@ bank:
     mock-mode: true
     base-url: ${CITIC_BASE_URL:https://api.example.invalid/citic}
     app-id: ${CITIC_APP_ID:}
+
+statement:
+  collection:
+    mode: ${STATEMENT_COLLECTION_MODE:file}
+
+kingdee:
+  mock-mode: ${KINGDEE_MOCK_MODE:true}

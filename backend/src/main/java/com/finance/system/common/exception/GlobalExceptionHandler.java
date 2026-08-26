@@ -50,6 +50,7 @@ public class GlobalExceptionHandler {
             case 403 -> HttpStatus.FORBIDDEN;
             case 404 -> HttpStatus.NOT_FOUND;
             case 409 -> HttpStatus.CONFLICT;
+            case 502 -> HttpStatus.BAD_GATEWAY;
             case 501 -> HttpStatus.NOT_IMPLEMENTED;
             default -> HttpStatus.INTERNAL_SERVER_ERROR;
         };
