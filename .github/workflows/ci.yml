@@ -10,6 +10,26 @@ permissions:
   contents: read
 
 jobs:
+  release-contract:
+    name: Release contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Verify migration and integration boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          migration_dir=backend/src/main/resources/db/migration
+          test -f "$migration_dir/V1__init_rbac_and_bank_accounts.sql"
+          test -f "$migration_dir/V2__statement_import_and_voucher_push.sql"
+          compgen -G "$migration_dir/V3__*.sql" > /dev/null
+          if git grep -n -I -E '(BANK|KINGDEE)_(API_)?(KEY|SECRET|TOKEN)=[^${[:space:]]+' -- . ':!docs/deployment-guide.md'; then
+            echo "Production bank or Kingdee credentials must not be committed."
+            exit 1
+          fi
+
   backend:
     name: Backend (Java 17 / Maven)
     runs-on: ubuntu-latest

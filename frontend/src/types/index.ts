@@ -29,6 +29,33 @@ export type AuthTokenResponse = {
   user: User;
 };
 
+export type BankAccount = {
+  id: number;
+  bankCode: string;
+  accountName: string;
+  maskedAccountNumber: string;
+  currency: string;
+  availableBalance: number | string;
+  status: string;
+};
+
+export type BankTransferRequest = {
+  bankCode: string;
+  payerAccountId: number;
+  payeeName: string;
+  payeeAccount: string;
+  payeeBank: string;
+  amount: number | string;
+  remark: string;
+};
+
+export type BankTransferResponse = {
+  bankCode: string;
+  bankReference: string;
+  status: string;
+  message: string;
+};
+
 export type StatementRecordInput = {
   statementNo: string;
   bankAccountId?: number;
@@ -118,4 +145,57 @@ export type StatementAuditEvent = {
 export type StatementDetail = {
   statement: StatementRecord;
   auditTrail: StatementAuditEvent[];
+};
+
+export type ConnectionSummary = {
+  connectionCode: string;
+  displayName: string;
+  providerType: string;
+  enabled: boolean;
+  status: string;
+  lastCheckedAt?: string;
+};
+
+export type ConnectionConfiguration = {
+  enabled: boolean;
+  status: string;
+  message: string;
+  supportedProviderTypes: string[];
+  connections: ConnectionSummary[];
+};
+
+export type ConnectionOverview = {
+  enabled: boolean;
+  status: string;
+  message: string;
+  connections: ConnectionSummary[];
+};
+
+export type OperationTask = {
+  taskNo: string;
+  taskType: string;
+  connectionCode?: string;
+  status: string;
+  requestId?: string;
+  summary?: string;
+  startedAt?: string;
+  completedAt?: string;
+  createdAt: string;
+};
+
+export type OperationLog = {
+  taskId?: number;
+  level: string;
+  eventType: string;
+  result: string;
+  requestId?: string;
+  message?: string;
+  occurredAt: string;
+};
+
+export type DataQueryCapability = {
+  capability: string;
+  enabled: boolean;
+  status: string;
+  message: string;
 };

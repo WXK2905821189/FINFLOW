@@ -1,6 +1,14 @@
 import { http } from './http';
 import type {
   AuthTokenResponse,
+  ConnectionConfiguration,
+  ConnectionOverview,
+  DataQueryCapability,
+  OperationLog,
+  OperationTask,
+  BankAccount,
+  BankTransferRequest,
+  BankTransferResponse,
   PageResponse,
   StatementAuditEvent,
   StatementDashboard,
@@ -16,6 +24,15 @@ export const authApi = {
   login: (username: string, password: string) => http.post<never, AuthTokenResponse>('/auth/login', { username, password }),
   register: (data: { username: string; email: string; password: string }) => http.post<never, User>('/auth/register', data),
   me: () => http.get<never, User>('/auth/me'),
+};
+
+export const bankApi = {
+  accounts: () => http.get<never, BankAccount[]>('/bank-accounts'),
+  transfer: (data: BankTransferRequest) => http.post<never, BankTransferResponse>('/transfers', data),
+};
+
+export const userApi = {
+  list: (params: { page?: number; size?: number }) => http.get<never, PageResponse<User>>('/users', { params }),
 };
 
 type StatementListParams = {
@@ -39,4 +56,16 @@ export const statementApi = {
   get: (id: number) => http.get<never, StatementDetail>(`/statements/${id}`),
   review: (id: number, data: StatementReviewRequest) => http.post<never, StatementRecord>(`/statements/${id}/review`, data),
   pushVoucher: (id: number) => http.post<never, StatementRecord>(`/statements/${id}/voucher-push`),
+};
+
+type OperationListParams = { page?: number; size?: number; connectionCode?: string; status?: string; requestId?: string };
+
+// Operations APIs are deliberately read-only in phase one. They expose FINFLOW
+// facts and simulated/unavailable state only; no browser action can establish a bank connection.
+export const operationsApi = {
+  configuration: (section: 'applications' | 'contracts' | 'preferences') => http.get<never, ConnectionConfiguration>('/connections/configuration', { params: { section } }),
+  connectionOverview: () => http.get<never, ConnectionOverview>('/operations/connections'),
+  tasks: (params: OperationListParams) => http.get<never, PageResponse<OperationTask>>('/operations/tasks', { params }),
+  logs: (params: OperationListParams) => http.get<never, PageResponse<OperationLog>>('/operations/logs', { params }),
+  dataCapability: (resource: string) => http.get<never, DataQueryCapability>(`/data/${resource}`),
 };
