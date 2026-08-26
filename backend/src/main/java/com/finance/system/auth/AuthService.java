@@ -11,8 +11,8 @@ import com.finance.system.domain.service.SysUserService;
 import com.finance.system.security.JwtService;
 import com.finance.system.security.UserPrincipal;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -44,7 +44,7 @@ public class AuthService {
                     jwtService.expirationSeconds(),
                     currentUser(user)
             );
-        } catch (BadCredentialsException exception) {
+        } catch (AuthenticationException exception) {
             throw new BusinessException(401, "Account or password is invalid");
         }
     }

@@ -1,0 +1,66 @@
+# FINFLOW 阿里云生产部署指南
+
+本文说明如何将 FINFLOW 部署到阿里云生产环境。后端以 Spring Boot JAR 运行，前端为 Vite 构建出的静态文件。
+
+## 前置条件
+
+- 已开通阿里云 VPC，并为应用、数据库和负载均衡规划私网网段与安全组。
+- 已准备 Linux 运行环境（ECS、容器服务或容器实例均可），安装 Java 17。构建前端的环境需要 Node.js 20 与 pnpm 9。
+- 已创建 RDS MySQL 实例及独立生产库。应用运行账号需具备目标库的 `SELECT`、`INSERT`、`UPDATE`、`DELETE`、`CREATE`、`ALTER`、`INDEX` 和 `REFERENCES` 权限，以便 Flyway 执行迁移。
+- RDS 与后端位于同一 VPC，RDS 白名单或安全组仅允许后端安全组访问 3306 端口；不得将 RDS 暴露到公网。
+- 已配置 HTTPS：使用阿里云证书管理服务签发或导入证书，在 ALB/SLB 或 Nginx 终止 TLS。仅向公网开放 443；后端 8080 仅允许负载均衡或内网访问。
+- 已准备对象存储、日志服务和监控告警（至少覆盖实例存活、5xx、CPU/内存、RDS 连接与慢查询）。
+
+## 生产环境变量
+
+以后端环境变量或密钥注入方式设置以下值。生产环境启用 `prod` profile；机密应保存到 KMS、容器服务密钥或 CI/CD 密钥库，不能写入镜像、代码库或日志。
+
+| 变量 | 是否必填 | 说明 |
+| --- | --- | --- |
+| `SPRING_PROFILES_ACTIVE` | 是 | 固定为 `prod`。 |
+| `DB_URL` | 是 | JDBC 连接串，例如 `jdbc:mysql://<rds-private-endpoint>:3306/finance_system?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=true`。 |
+| `DB_USERNAME` | 是 | 生产数据库应用账号。 |
+| `DB_PASSWORD` | 是 | 生产数据库应用账号密码。 |
+| `JWT_SECRET` | 是 | 随机生成的高强度密钥；不得使用开发环境默认值。 |
+| `JWT_EXPIRATION` | 否 | JWT 有效期，默认 `2h`。 |
+| `CITIC_MOCK_MODE` | 是 | 生产应设为 `false`。 |
+| `CITIC_BASE_URL` | 接入真实中信银行时必填 | 银行接口基地址。 |
+| `CITIC_APP_ID` | 接入真实中信银行时必填 | 银行接口应用标识。 |
+| `SERVER_PORT` | 否 | 监听端口；未设置时为 `8080`。 |
+
+当前前端通过同源 `/api` 调用后端，生产 Web 服务器或负载均衡应将 `/api` 反向代理到后端服务。前端没有定义 `VITE_*` 生产变量；部署时使用构建产物 `frontend/dist`，并确保 `/api` 的代理规则已生效。
+
+## 数据库迁移
+
+1. 在变更窗口前对 RDS 执行可恢复的全量备份，并验证能恢复到独立实例。
+2. 使用受限账号连接目标生产库，确认库名、字符集、时区以及网络连通性正确。
+3. 部署新的后端 JAR，并以 `SPRING_PROFILES_ACTIVE=prod` 启动。应用启动时 Flyway 会自动执行 `classpath:db/migration` 中尚未应用的迁移。
+4. 检查启动日志，确认 Flyway 迁移成功且没有校验、权限或锁等待错误；同时确认数据库中的 `flyway_schema_history` 记录了预期版本。
+5. 再切换或放量应用流量。多实例发布时，先只启动一个实例完成迁移，再扩容其余实例，避免并发迁移带来的不确定性。
+
+不要手工修改 `flyway_schema_history`，也不要对已发布迁移文件改名或改内容。所有结构变更都应以新的版本化迁移提交。
+
+## 健康检查
+
+当前后端未引入 Spring Boot Actuator，因此没有 `/actuator/health` 端点。可将以下匿名可访问的端点作为发布后存活检查：
+
+```bash
+curl --fail --silent --show-error https://<api-domain>/v3/api-docs > /dev/null
+```
+
+返回 HTTP 200 表示应用已启动并能处理请求。还应在发布后检查：
+
+- 后端日志中没有 Flyway 或数据库连接错误。
+- 使用预先创建的低权限测试账号完成一次登录，确认 `/api/auth/login` 可用。
+- 前端首页、静态资源和 `/api` 代理均返回正常响应。
+
+在 ALB/SLB 中把健康检查路径设为 `/v3/api-docs`，协议与监听器保持一致，期望状态码为 `200`；健康检查来源安全组必须可访问后端 8080。
+
+## 回滚
+
+1. 立即停止流量切换或将负载均衡权重切回上一稳定版本，保留故障实例以收集日志。
+2. 将后端 JAR 和前端静态文件恢复为上一个已验证的发布产物，并等待负载均衡健康检查全部通过。
+3. 验证登录、关键 API、前端静态资源和错误率恢复正常后，再恢复常规流量。
+4. 数据库迁移通常不可自动回滚。若本次迁移只包含向后兼容的新增变更，可保留该数据库版本并回滚应用；若迁移造成不兼容变更，先在隔离环境演练恢复，再根据备份恢复 RDS 或发布一条经评审的前向修复迁移。
+5. 记录发布版本、Flyway 版本、故障时间线和恢复动作，并在后续发布前补齐根因修复与回滚演练。
+
