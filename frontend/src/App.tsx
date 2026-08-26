@@ -1,33 +1,336 @@
-import { useEffect, useState } from 'react';
-import { BrowserRouter, Navigate, Outlet, Route, Routes, Link, useLocation, useNavigate } from 'react-router-dom';
-import { Layout, Menu, Button, Avatar, Dropdown, Space, Card, Col, Row, Statistic, Table, Tag, Form, Input, Select, InputNumber, DatePicker, message, Empty, Result, Modal } from 'antd';
-import { DashboardOutlined, BankOutlined, TransactionOutlined, TeamOutlined, LogoutOutlined, UserOutlined, PlusOutlined, SearchOutlined, ArrowUpOutlined, ArrowDownOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
+import { useCallback, useEffect, useMemo, useState, type DependencyList } from 'react';
+import {
+  Alert,
+  Avatar,
+  Button,
+  Card,
+  Col,
+  Descriptions,
+  Drawer,
+  Dropdown,
+  Empty,
+  Form,
+  Input,
+  Layout,
+  Menu,
+  Modal,
+  Pagination,
+  Radio,
+  Result,
+  Row,
+  Skeleton,
+  Space,
+  Statistic,
+  Table,
+  Tag,
+  Timeline,
+  Upload,
+  message,
+  type MenuProps,
+  type TableColumnsType,
+} from 'antd';
+import {
+  AuditOutlined,
+  CheckCircleOutlined,
+  DashboardOutlined,
+  DatabaseOutlined,
+  FileAddOutlined,
+  FileSearchOutlined,
+  LogoutOutlined,
+  ReloadOutlined,
+  SafetyCertificateOutlined,
+  SendOutlined,
+  UserOutlined,
+} from '@ant-design/icons';
+import { BrowserRouter, Link, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { statementApi, authApi } from './services/api';
+import { ApiRequestError } from './services/http';
 import { useAuthStore } from './store/auth';
-import { transactions, users as seedUsers } from './data/demo';
-import type { TransferForm, User } from './types';
+import type {
+  PageResponse,
+  StatementAuditEvent,
+  StatementDetail,
+  StatementDashboard,
+  StatementImportBatch,
+  StatementRecord,
+  StatementRecordInput,
+  StatementReviewRequest,
+} from './types';
 import './styles.css';
 
 const { Header, Sider, Content } = Layout;
-const money = (n: number) => `¥${Math.abs(n).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`;
 
-function AuthGuard() { const user = useAuthStore((s) => s.user); return user ? <Outlet /> : <Navigate to="/login" replace />; }
-function Shell() {
-  const location = useLocation(); const navigate = useNavigate(); const { user, logout, hasPermission } = useAuthStore();
-  const items = [{ key: '/dashboard', icon: <DashboardOutlined />, label: <Link to="/dashboard">仪表盘</Link> }, { key: '/transfer', icon: <BankOutlined />, label: <Link to="/transfer">发起转账</Link> }, { key: '/transactions', icon: <TransactionOutlined />, label: <Link to="/transactions">交易记录</Link> }, ...(hasPermission('user:manage') ? [{ key: '/users', icon: <TeamOutlined />, label: <Link to="/users">用户管理</Link> }] : [])];
-  return <Layout className="app-shell"><Sider breakpoint="lg" collapsedWidth="0"><div className="brand"><div className="brand-mark">F</div><span>FINFLOW</span></div><div className="workspace-label">企业财务工作台</div><Menu theme="dark" mode="inline" selectedKeys={[location.pathname]} items={items} /></Sider><Layout><Header className="topbar"><div><div className="eyebrow">中信银行 · 运营中心</div><h1>{items.find((i) => i.key === location.pathname)?.label || '财务工作台'}</h1></div><Dropdown menu={{ items: [{ key: 'profile', label: '个人资料', icon: <UserOutlined /> }, { type: 'divider' }, { key: 'logout', label: '退出登录', icon: <LogoutOutlined />, onClick: logout }] }}><Button type="text" className="profile-button"><Avatar size={32} icon={<UserOutlined />} /><span>{user?.username}</span></Button></Dropdown></Header><Content className="page-content"><Outlet /></Content></Layout></Layout>;
+const pageTitles: Record<string, string> = {
+  '/dashboard': '财务工作台',
+  '/statements/import': '导入流水',
+  '/statements/batches': '流水批次',
+  '/statements/review': '人工复核',
+  '/statements/vouchers': '金蝶制证',
+  '/statements/reconciliation': '对账与追溯',
+};
+
+const money = (value?: number | string) => {
+  const amount = Number(value);
+  return Number.isFinite(amount) ? `¥${amount.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '--';
+};
+
+const dateTime = (value?: string) => (value ? value.replace('T', ' ').replace(/\.\d+$/, '') : '--');
+
+const statusColor = (status?: string) => {
+  if (!status) return 'default';
+  if (/(APPROVED|PUSHED|COMPLETED|VALID|SUCCESS)/.test(status)) return 'green';
+  if (/(PENDING|PROCESSING|NOT_PUSHED)/.test(status)) return 'gold';
+  if (/(REJECTED|INVALID|FAILED|ERROR)/.test(status)) return 'red';
+  return 'blue';
+};
+
+function StatusTag({ status }: { status?: string }) {
+  return <Tag color={statusColor(status)}>{status || '--'}</Tag>;
 }
 
-function Login() { const navigate = useNavigate(); const login = useAuthStore((s) => s.login); const [loading, setLoading] = useState(false); const onFinish = (values: { username: string; password: string }) => { setLoading(true); window.setTimeout(() => { login({ ...seedUsers[0], username: values.username || 'admin' }); setLoading(false); navigate('/dashboard'); }, 350); }; return <div className="auth-page"><div className="auth-panel"><div className="brand brand-light"><div className="brand-mark">F</div><span>FINFLOW</span></div><div className="auth-copy"><div className="eyebrow">企业级资金管理平台</div><h1>让每一笔资金，<br /><em>清晰且可追溯。</em></h1><p>从账户概览到支付审批，在一个安静可靠的工作台里完成日常财务协作。</p></div><div className="auth-note"><SafetyCertificateOutlined /> 数据访问受角色权限保护</div></div><div className="auth-form-wrap"><div className="auth-form"><span className="section-kicker">欢迎回来</span><h2>登录财务工作台</h2><p className="muted">使用您的企业账号继续</p><Form layout="vertical" onFinish={onFinish} initialValues={{ username: 'admin' }}><Form.Item label="账号" name="username" rules={[{ required: true, message: '请输入账号' }]}><Input size="large" placeholder="用户名或邮箱" /></Form.Item><Form.Item label="密码" name="password" rules={[{ required: true, message: '请输入密码' }]}><Input.Password size="large" placeholder="请输入密码" /></Form.Item><div className="form-meta"><span>登录即表示同意平台安全政策</span><Link to="/register">注册账号</Link></div><Button loading={loading} htmlType="submit" type="primary" size="large" block>进入工作台</Button></Form></div></div></div>; }
-function Register() { const navigate = useNavigate(); return <div className="auth-page auth-page-simple"><div className="auth-form-wrap"><div className="auth-form"><Link to="/login" className="back-link">← 返回登录</Link><span className="section-kicker">创建成员账号</span><h2>注册企业账号</h2><p className="muted">注册后由管理员分配企业权限</p><Form layout="vertical" onFinish={() => { message.success('注册申请已提交，请等待管理员激活'); navigate('/login'); }}><Form.Item label="用户名" name="username" rules={[{ required: true }]}><Input size="large" /></Form.Item><Form.Item label="工作邮箱" name="email" rules={[{ required: true, type: 'email' }]}><Input size="large" /></Form.Item><Form.Item label="密码" name="password" rules={[{ required: true, min: 8 }]}><Input.Password size="large" /></Form.Item><Form.Item label="确认密码" name="confirm" dependencies={['password']} rules={[{ required: true }, ({ getFieldValue }) => ({ validator(_, value) { return !value || getFieldValue('password') === value ? Promise.resolve() : Promise.reject(new Error('两次密码不一致')); } })]}><Input.Password size="large" /></Form.Item><Button htmlType="submit" type="primary" size="large" block>提交注册</Button></Form></div></div></div>; }
+function ResourceFailure({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+  const description = error instanceof Error ? error.message : '请求未能完成，请稍后重试';
+  return <Alert className="resource-alert" type="error" showIcon message="数据暂不可用" description={description} action={<Button size="small" icon={<ReloadOutlined />} onClick={onRetry}>重试</Button>} />;
+}
 
-function Dashboard() { const income = transactions.filter((t) => t.amount > 0).reduce((a, t) => a + t.amount, 0); const expense = transactions.filter((t) => t.amount < 0).reduce((a, t) => a + t.amount, 0); return <><div className="page-heading"><div><span className="section-kicker">2026 年 8 月 26 日</span><h2>资金概览</h2><p className="muted">今天也保持对现金流的清晰掌控。</p></div><Button type="primary" icon={<PlusOutlined />}><Link className="button-link" to="/transfer">发起转账</Link></Button></div><Row gutter={[16, 16]}><Col xs={24} sm={12} lg={6}><Card className="metric-card"><Statistic title="可用余额" value={1286400.52} precision={2} prefix="¥" /><span className="metric-foot positive">较上月 +8.6%</span></Card></Col><Col xs={24} sm={12} lg={6}><Card className="metric-card"><Statistic title="本月收入" value={income} precision={2} prefix="¥" /><span className="metric-foot positive"><ArrowUpOutlined /> 已入账</span></Card></Col><Col xs={24} sm={12} lg={6}><Card className="metric-card"><Statistic title="本月支出" value={Math.abs(expense)} precision={2} prefix="¥" /><span className="metric-foot negative"><ArrowDownOutlined /> 已入账</span></Card></Col><Col xs={24} sm={12} lg={6}><Card className="metric-card accent"><Statistic title="待处理转账" value={3} suffix="笔" /><span className="metric-foot">待审批 ¥42,800.00</span></Card></Col></Row><Row gutter={[16, 16]} className="dashboard-grid"><Col xs={24} lg={16}><Card title="最近交易" extra={<Link to="/transactions">查看全部 →</Link>}><TransactionTable compact /></Card></Col><Col xs={24} lg={8}><Card title="银行账户" extra={<Tag color="blue">2 个启用</Tag>}><div className="account-item"><div className="account-icon"><BankOutlined /></div><div><strong>中信银行 · 基本户</strong><span>尾号 4821</span></div><b>¥ 986,400.52</b></div><div className="account-item"><div className="account-icon secondary"><BankOutlined /></div><div><strong>中信银行 · 一般户</strong><span>尾号 7306</span></div><b>¥ 300,000.00</b></div><div className="cashflow"><span>近 6 个月净现金流</span><strong>+ ¥ 246,820.00</strong><div className="bars">{[35, 54, 42, 70, 58, 84].map((h, i) => <i key={i} style={{ height: `${h}%` }} />)}</div><div className="bar-labels"><span>3月</span><span>4月</span><span>5月</span><span>6月</span><span>7月</span><span>8月</span></div></div></Card></Col></Row></>; }
+function useRemote<T>(loader: () => Promise<T>, dependencies: DependencyList) {
+  const [data, setData] = useState<T>();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<unknown>();
+  const reload = useCallback(async () => {
+    setLoading(true);
+    setError(undefined);
+    try {
+      setData(await loader());
+    } catch (reason) {
+      setError(reason);
+    } finally {
+      setLoading(false);
+    }
+  }, dependencies);
 
-const columns = [{ title: '交易编号', dataIndex: 'id', key: 'id', render: (v: string) => <span className="mono">{v}</span> }, { title: '交易时间', dataIndex: 'date', key: 'date' }, { title: '对方', dataIndex: 'counterparty', key: 'counterparty' }, { title: '摘要', dataIndex: 'summary', key: 'summary' }, { title: '金额', dataIndex: 'amount', key: 'amount', align: 'right' as const, render: (v: number) => <strong className={v > 0 ? 'amount-positive' : 'amount-negative'}>{v > 0 ? '+' : '-'} {money(v)}</strong> }, { title: '状态', dataIndex: 'status', key: 'status', render: (v: string) => <Tag color={v === '已入账' ? 'green' : v === '处理中' ? 'gold' : 'red'}>{v}</Tag> }];
-function TransactionTable({ compact = false }: { compact?: boolean }) { return <Table rowKey="id" columns={columns} dataSource={compact ? transactions.slice(0, 3) : transactions} pagination={compact ? false : { pageSize: 10 }} scroll={{ x: 760 }} />; }
-function Transactions() { const [keyword, setKeyword] = useState(''); const filtered = transactions.filter((t) => `${t.id}${t.counterparty}${t.summary}`.includes(keyword)); return <><div className="page-heading"><div><span className="section-kicker">资金流水</span><h2>交易记录</h2><p className="muted">查看和追溯企业全部资金活动。</p></div><Button icon={<ArrowDownOutlined />}>导出记录</Button></div><Card className="filter-card"><Space wrap><Input prefix={<SearchOutlined />} placeholder="搜索编号、对方或摘要" value={keyword} onChange={(e) => setKeyword(e.target.value)} style={{ width: 280 }} /><Select defaultValue="全部类型" options={['全部类型', '收入', '支出'].map((x) => ({ label: x, value: x }))} /><DatePicker placeholder="开始日期" /><span className="filter-separator">至</span><DatePicker placeholder="结束日期" /></Space></Card><Card><TransactionTable /></Card></>; }
-function Transfer() { const [form] = Form.useForm<TransferForm>(); const [step, setStep] = useState(0); const submit = () => setStep(1); const confirm = () => { setStep(2); message.success('转账申请已提交，等待财务经理审批'); }; return <><div className="page-heading"><div><span className="section-kicker">资金管理 / 新建</span><h2>发起转账</h2><p className="muted">请仔细核对收款信息，提交后将进入审批流程。</p></div></div><Card className="transfer-card"><div className="steps"><div className={step >= 0 ? 'active' : ''}><b>01</b><span>填写信息</span></div><i /><div className={step >= 1 ? 'active' : ''}><b>02</b><span>确认申请</span></div><i /><div className={step >= 2 ? 'active' : ''}><b>03</b><span>提交结果</span></div></div>{step === 0 && <Form form={form} layout="vertical" onFinish={submit} className="transfer-form"><div className="form-section"><h3>付款信息</h3><Form.Item label="付款银行账户" name="bankCode" rules={[{ required: true, message: '请选择付款账户' }]}><Select size="large" placeholder="请选择账户" options={[{ value: 'CITIC', label: '中信银行 · 基本户（尾号 4821） · 可用 ¥986,400.52' }, { value: 'CITIC_GENERAL', label: '中信银行 · 一般户（尾号 7306） · 可用 ¥300,000.00' }]} /></Form.Item></div><div className="form-section"><h3>收款信息</h3><Row gutter={16}><Col xs={24} sm={12}><Form.Item label="收款方名称" name="payeeName" rules={[{ required: true }]}><Input size="large" placeholder="请输入企业或个人名称" /></Form.Item></Col><Col xs={24} sm={12}><Form.Item label="收款银行" name="payeeBank" rules={[{ required: true }]}><Input size="large" placeholder="请输入开户行" /></Form.Item></Col></Row><Form.Item label="收款账号" name="payeeAccount" rules={[{ required: true, pattern: /^\d{10,30}$/, message: '请输入 10-30 位数字账号' }]}><Input size="large" placeholder="请输入收款银行账号" /></Form.Item><Row gutter={16}><Col xs={24} sm={12}><Form.Item label="转账金额（人民币）" name="amount" rules={[{ required: true, type: 'number', min: 0.01, message: '请输入有效金额' }]}><InputNumber size="large" prefix="¥" min={0.01} precision={2} style={{ width: '100%' }} placeholder="0.00" /></Form.Item></Col><Col xs={24} sm={12}><Form.Item label="用途 / 摘要" name="remark" rules={[{ required: true }]}><Input size="large" placeholder="例如：8 月供应商结算款" /></Form.Item></Col></Row></div><div className="form-actions"><Button>保存草稿</Button><Button type="primary" htmlType="submit">下一步：确认申请</Button></div></Form>}{step === 1 && <div className="confirm-panel"><h3>请确认转账信息</h3><p className="confirm-amount">¥ {Number(form.getFieldValue('amount') || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}</p><div className="confirm-grid"><span>付款账户</span><b>{form.getFieldValue('bankCode') === 'CITIC_GENERAL' ? '中信银行 · 一般户（尾号 7306）' : '中信银行 · 基本户（尾号 4821）'}</b><span>收款方</span><b>{form.getFieldValue('payeeName')} · {form.getFieldValue('payeeBank')}</b><span>收款账号</span><b>**** **** **** {String(form.getFieldValue('payeeAccount')).slice(-4)}</b><span>用途摘要</span><b>{form.getFieldValue('remark')}</b></div><div className="form-actions"><Button onClick={() => setStep(0)}>返回修改</Button><Button type="primary" onClick={confirm}>确认提交申请</Button></div></div>}{step === 2 && <Result status="success" title="转账申请已提交" subTitle="申请编号 TR20260826001，财务经理审批通过后将进入执行流程。" extra={<Button type="primary" onClick={() => { form.resetFields(); setStep(0); }}>继续发起转账</Button>} />}</Card></>; }
+  useEffect(() => { void reload(); }, [reload]);
+  return { data, loading, error, reload };
+}
 
-function Users() { const [data, setData] = useState(seedUsers); const [open, setOpen] = useState(false); const [form] = Form.useForm(); const add = (v: { username?: string; email?: string; roles?: string }) => { setData([...data, { id: Date.now(), username: v.username || 'new.user', email: v.email || '', status: '启用', roles: [v.roles || '财务专员'], permissions: ['dashboard:view'] }]); setOpen(false); form.resetFields(); message.success('用户已创建'); }; return <><div className="page-heading"><div><span className="section-kicker">系统管理</span><h2>用户管理</h2><p className="muted">管理企业成员、角色与访问状态。</p></div><Button type="primary" icon={<PlusOutlined />} onClick={() => setOpen(true)}>新增用户</Button></div><Card className="filter-card"><Space><Input prefix={<SearchOutlined />} placeholder="搜索用户名或邮箱" /><Select defaultValue="全部状态" options={['全部状态', '启用', '停用'].map((x) => ({ label: x, value: x }))} /></Space></Card><Card><Table rowKey="id" dataSource={data} columns={[{ title: '用户', render: (_: unknown, r: User) => <Space><Avatar icon={<UserOutlined />} /><div><strong>{r.username}</strong><span className="table-sub">{r.email}</span></div></Space> }, { title: '手机号', dataIndex: 'phone' }, { title: '角色', dataIndex: 'roles', render: (v: string[]) => v.map((x) => <Tag key={x} color="blue">{x}</Tag>) }, { title: '状态', dataIndex: 'status', render: (v: string) => <Tag color={v === '启用' ? 'green' : 'default'}>{v}</Tag> }, { title: '操作', render: () => <Button type="link">编辑</Button> }]} pagination={false} /></Card><Modal title="新增企业用户" open={open} onCancel={() => setOpen(false)} onOk={() => form.submit()} okText="创建用户" cancelText="取消"><Form form={form} layout="vertical" onFinish={add}><Form.Item name="username" label="用户名" rules={[{ required: true }]}><Input /></Form.Item><Form.Item name="email" label="工作邮箱" rules={[{ required: true, type: 'email' }]}><Input /></Form.Item><Form.Item name="roles" label="角色" initialValue="财务专员"><Select options={['财务专员', '财务经理', '业务查看者'].map((x) => ({ label: x, value: x }))} /></Form.Item></Form></Modal></>; }
-function Forbidden() { return <Result status="403" title="无权访问" subTitle="您的当前角色没有访问该页面的权限。" extra={<Button type="primary"><Link to="/dashboard" className="button-link">返回仪表盘</Link></Button>} />; }
-function AppRoutes() { const hydrate = useAuthStore((s) => s.hydrate); useEffect(() => hydrate(), [hydrate]); return <Routes><Route path="/login" element={<Login />} /><Route path="/register" element={<Register />} /><Route element={<AuthGuard />}><Route element={<Shell />}><Route path="/dashboard" element={<Dashboard />} /><Route path="/transfer" element={<Transfer />} /><Route path="/transactions" element={<Transactions />} /><Route path="/users" element={<Users />} /><Route path="/403" element={<Forbidden />} /></Route></Route><Route path="*" element={<Navigate to="/dashboard" replace />} /></Routes>; }
-export default function App() { return <BrowserRouter><AppRoutes /></BrowserRouter>; }
+function AuthGuard() {
+  const status = useAuthStore((state) => state.status);
+  const location = useLocation();
+  if (status === 'restoring') return <PageLoading />;
+  return status === 'authenticated' ? <Outlet /> : <Navigate to="/login" replace state={{ from: `${location.pathname}${location.search}` }} />;
+}
+
+function PermissionGuard({ permission }: { permission: string }) {
+  const hasPermission = useAuthStore((state) => state.hasPermission);
+  return hasPermission(permission) ? <Outlet /> : <Navigate to="/403" replace />;
+}
+
+function PageLoading() {
+  return <div className="page-loading"><Skeleton active paragraph={{ rows: 5 }} /></div>;
+}
+
+function Shell() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout, hasPermission } = useAuthStore();
+  const items: MenuProps['items'] = [
+    ...(hasPermission('dashboard:view') ? [{ key: '/dashboard', icon: <DashboardOutlined />, label: <Link to="/dashboard">仪表盘</Link> }] : []),
+    {
+      type: 'group',
+      label: '自动入账',
+      children: [
+        ...(hasPermission('statement:import') ? [{ key: '/statements/import', icon: <FileAddOutlined />, label: <Link to="/statements/import">导入流水</Link> }] : []),
+        ...(hasPermission('statement:view') ? [{ key: '/statements/batches', icon: <DatabaseOutlined />, label: <Link to="/statements/batches">流水批次</Link> }] : []),
+        ...(hasPermission('statement:review') ? [{ key: '/statements/review', icon: <FileSearchOutlined />, label: <Link to="/statements/review">人工复核</Link> }] : []),
+        ...(hasPermission('voucher:push') ? [{ key: '/statements/vouchers', icon: <SendOutlined />, label: <Link to="/statements/vouchers">金蝶制证</Link> }] : []),
+        ...(hasPermission('reconciliation:view') ? [{ key: '/statements/reconciliation', icon: <AuditOutlined />, label: <Link to="/statements/reconciliation">对账与追溯</Link> }] : []),
+      ],
+    },
+  ];
+  const menuItems = items.filter((item) => item?.type !== 'group' || item.children?.length);
+  const logoutAndRedirect = () => {
+    logout();
+    navigate('/login');
+  };
+  return <Layout className="app-shell"><Sider breakpoint="lg" collapsedWidth="0"><div className="brand"><div className="brand-mark">F</div><span>FINFLOW</span></div><div className="workspace-label">企业财务工作台</div><Menu theme="dark" mode="inline" selectedKeys={[location.pathname]} items={menuItems} /></Sider><Layout><Header className="topbar"><div><div className="eyebrow">FINFLOW / 自动入账</div><h1>{pageTitles[location.pathname] || '财务工作台'}</h1></div><Dropdown menu={{ items: [{ key: 'profile', label: user?.email || '个人资料', icon: <UserOutlined /> }, { type: 'divider' }, { key: 'logout', label: '退出登录', icon: <LogoutOutlined />, onClick: logoutAndRedirect }] }}><Button type="text" className="profile-button"><Avatar size={32} icon={<UserOutlined />} /><span>{user?.username}</span></Button></Dropdown></Header><Content className="page-content"><Outlet /></Content></Layout></Layout>;
+}
+
+function Login() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const login = useAuthStore((state) => state.login);
+  const status = useAuthStore((state) => state.status);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string>();
+  const next = (location.state as { from?: string } | null)?.from;
+  const target = next?.startsWith('/') && !next.startsWith('//') && !next.startsWith('/login') ? next : '/dashboard';
+  if (status === 'authenticated') return <Navigate to={target} replace />;
+  const submit = async (values: { username: string; password: string }) => {
+    setLoading(true);
+    setError(undefined);
+    try {
+      await login(values.username, values.password);
+      navigate(target, { replace: true });
+    } catch (reason) {
+      setError(reason instanceof ApiRequestError && reason.status === 401 ? '账号或密码错误' : reason instanceof Error ? reason.message : '登录未能完成，请稍后重试');
+    } finally {
+      setLoading(false);
+    }
+  };
+  return <div className="auth-page"><div className="auth-panel"><div className="brand brand-light"><div className="brand-mark">F</div><span>FINFLOW</span></div><div className="auth-copy"><div className="eyebrow">企业级资金管理平台</div><h1>让每一笔资金，<br /><em>清晰且可追溯。</em></h1><p>从流水导入到人工复核与制证追溯，在一个受控工作台完成协作。</p></div><div className="auth-note"><SafetyCertificateOutlined /> 数据访问受角色权限保护</div></div><div className="auth-form-wrap"><div className="auth-form"><span className="section-kicker">欢迎回来</span><h2>登录财务工作台</h2><p className="muted">使用您的企业账号继续</p>{location.search.includes('reason=expired') && <Alert className="login-alert" type="warning" showIcon message="登录已失效，请重新登录" />}{error && <Alert className="login-alert" type="error" showIcon message={error} />}<Form layout="vertical" onFinish={submit}><Form.Item label="账号" name="username" rules={[{ required: true, message: '请输入账号' }]}><Input size="large" autoFocus placeholder="用户名或邮箱" /></Form.Item><Form.Item label="密码" name="password" rules={[{ required: true, message: '请输入密码' }]}><Input.Password size="large" placeholder="请输入密码" /></Form.Item><div className="form-meta"><span>登录即表示同意平台安全政策</span><Link to="/register">注册账号</Link></div><Button loading={loading} htmlType="submit" type="primary" size="large" block>进入工作台</Button></Form></div></div></div>;
+}
+
+function Register() {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<'success' | 'error'>();
+  const [error, setError] = useState<string>();
+  const submit = async (values: { username: string; email: string; password: string }) => {
+    setLoading(true);
+    setError(undefined);
+    try {
+      await authApi.register(values);
+      setResult('success');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : '注册未能完成，请稍后重试');
+      setResult('error');
+    } finally {
+      setLoading(false);
+    }
+  };
+  if (result === 'success') return <div className="auth-page auth-page-simple"><div className="auth-form-wrap"><Result status="success" title="注册已提交" subTitle="账号需由管理员激活后才能访问企业数据。" extra={<Button type="primary" onClick={() => navigate('/login')}>返回登录</Button>} /></div></div>;
+  return <div className="auth-page auth-page-simple"><div className="auth-form-wrap"><div className="auth-form"><Link to="/login" className="back-link">返回登录</Link><span className="section-kicker">创建成员账号</span><h2>注册企业账号</h2><p className="muted">注册后由管理员分配企业权限</p>{result === 'error' && <Alert className="login-alert" type="error" showIcon message={error} />}<Form layout="vertical" onFinish={submit}><Form.Item label="用户名" name="username" rules={[{ required: true }, { min: 3, max: 64 }]}><Input size="large" /></Form.Item><Form.Item label="工作邮箱" name="email" rules={[{ required: true, type: 'email' }]}><Input size="large" /></Form.Item><Form.Item label="密码" name="password" rules={[{ required: true, min: 8 }, { pattern: /^(?=.*[A-Za-z])(?=.*\d).+$/, message: '密码需同时包含字母和数字' }]}><Input.Password size="large" /></Form.Item><Form.Item label="确认密码" name="confirm" dependencies={['password']} rules={[{ required: true }, ({ getFieldValue }) => ({ validator: (_, value) => !value || getFieldValue('password') === value ? Promise.resolve() : Promise.reject(new Error('两次密码不一致')) })]}><Input.Password size="large" /></Form.Item><Button loading={loading} htmlType="submit" type="primary" size="large" block>提交注册</Button></Form></div></div></div>;
+}
+
+function Dashboard() {
+  return <><div className="page-heading"><div><span className="section-kicker">财务总览</span><h2>工作台</h2><p className="muted">资金概览接口接入后将在此展示服务端汇总，不使用本地演示金额。</p></div></div><Card><Empty description="资金概览数据源尚未接入" /></Card></>;
+}
+
+type ImportFormValues = { sourceName?: string; sourceMode: 'JSON' | 'MOCK'; payload?: string };
+
+function parseStatementPayload(text: string): { sourceName?: string; records: StatementRecordInput[] } {
+  const parsed: unknown = JSON.parse(text);
+  if (Array.isArray(parsed)) return { records: parsed as StatementRecordInput[] };
+  if (parsed && typeof parsed === 'object' && Array.isArray((parsed as { records?: unknown }).records)) {
+    const body = parsed as { sourceName?: unknown; records: StatementRecordInput[] };
+    return { sourceName: typeof body.sourceName === 'string' ? body.sourceName : undefined, records: body.records };
+  }
+  throw new Error('JSON 必须是流水数组，或包含 records 数组的对象');
+}
+
+function ImportStatements() {
+  const [form] = Form.useForm<ImportFormValues>();
+  const [loading, setLoading] = useState(false);
+  const [batch, setBatch] = useState<StatementImportBatch>();
+  const [error, setError] = useState<string>();
+  const mode = Form.useWatch('sourceMode', form) || 'JSON';
+  const submit = async (values: ImportFormValues) => {
+    setLoading(true);
+    setError(undefined);
+    try {
+      const payload = values.sourceMode === 'JSON' ? parseStatementPayload(values.payload || '') : { records: [] as StatementRecordInput[] };
+      const result = await statementApi.import({ sourceName: values.sourceName || payload.sourceName, records: payload.records });
+      setBatch(result);
+      message.success('服务端已返回导入批次');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : '导入请求未能完成');
+    } finally {
+      setLoading(false);
+    }
+  };
+  const readJson = (file: File) => {
+    void file.text().then((text) => form.setFieldValue('payload', text)).catch(() => setError('无法读取所选文件'));
+    return Upload.LIST_IGNORE;
+  };
+  return <><div className="page-heading"><div><span className="section-kicker">自动入账 / 入口</span><h2>导入流水</h2><p className="muted">JSON 内容由服务端校验并创建批次；模拟来源仅请求服务端当前配置的采集器。</p></div></div><Row gutter={[16, 16]}><Col xs={24} xl={15}><Card title="新建导入批次"><Form form={form} layout="vertical" initialValues={{ sourceMode: 'JSON' }} onFinish={submit}><Form.Item label="导入来源" name="sourceMode"><Radio.Group options={[{ value: 'JSON', label: 'JSON 文件或内容' }, { value: 'MOCK', label: '模拟来源（服务端采集器）' }]} /></Form.Item><Form.Item label="来源名称" name="sourceName" rules={[{ max: 128 }]}><Input placeholder={mode === 'JSON' ? '例如：2026-08-银行流水.json' : '例如：本地模拟采集'} /></Form.Item>{mode === 'JSON' ? <><Form.Item label="选择 JSON 文件"><Upload accept="application/json,.json" maxCount={1} beforeUpload={readJson}><Button>选择文件</Button></Upload></Form.Item><Form.Item label="JSON 内容" name="payload" rules={[{ required: true, message: '请提供 JSON 流水内容' }]} extra="支持流水数组，或包含 sourceName 和 records 数组的对象。"><Input.TextArea rows={12} placeholder="粘贴待导入的 JSON 内容" /></Form.Item></> : <Alert type="info" showIcon message="不会在浏览器生成模拟流水" description="该请求只触发服务端已配置的模拟采集器；若服务端未启用该采集器，页面会显示其返回的错误。" />} {error && <Alert className="form-error" type="error" showIcon message="导入未完成" description={error} />}<Button type="primary" htmlType="submit" loading={loading}>{mode === 'JSON' ? '提交 JSON 导入' : '请求模拟来源导入'}</Button></Form></Card></Col><Col xs={24} xl={9}>{batch ? <Card title="服务端导入结果"><Descriptions column={1} size="small"><Descriptions.Item label="批次编号"><span className="mono">{batch.batchNo}</span></Descriptions.Item><Descriptions.Item label="状态"><StatusTag status={batch.status} /></Descriptions.Item><Descriptions.Item label="来源">{batch.sourceType} {batch.sourceName ? `· ${batch.sourceName}` : ''}</Descriptions.Item><Descriptions.Item label="总记录数">{batch.totalCount}</Descriptions.Item><Descriptions.Item label="已导入">{batch.importedCount}</Descriptions.Item><Descriptions.Item label="重复">{batch.duplicateCount}</Descriptions.Item><Descriptions.Item label="无效">{batch.invalidCount}</Descriptions.Item>{batch.errorMessage && <Descriptions.Item label="服务端说明">{batch.errorMessage}</Descriptions.Item>}</Descriptions></Card> : <Card title="导入结果"><Empty description="提交后展示服务端返回的批次结果" /></Card>}</Col></Row></>;
+}
+
+function BatchList() {
+  const [page, setPage] = useState(1);
+  const [status, setStatus] = useState<string>();
+  const loader = useCallback(() => statementApi.listBatches({ page, size: 20, status }), [page, status]);
+  const { data, loading, error, reload } = useRemote<PageResponse<StatementImportBatch>>(loader, [loader]);
+  const columns: TableColumnsType<StatementImportBatch> = [{ title: '批次编号', dataIndex: 'batchNo', render: (value) => <span className="mono">{value}</span> }, { title: '来源', render: (_, row) => <>{row.sourceType}<span className="table-sub">{row.sourceName || '--'}</span></> }, { title: '状态', dataIndex: 'status', render: (value) => <StatusTag status={value} /> }, { title: '记录', render: (_, row) => <span>{row.importedCount} / {row.totalCount}</span> }, { title: '重复 / 无效', render: (_, row) => <span>{row.duplicateCount} / {row.invalidCount}</span> }, { title: '完成时间', dataIndex: 'completedAt', render: (value) => dateTime(value) }];
+  return <><div className="page-heading"><div><span className="section-kicker">自动入账 / 批次</span><h2>流水批次</h2><p className="muted">批次数据仅来自服务端导入记录。</p></div><Link to="/statements/import"><Button type="primary" icon={<FileAddOutlined />}>导入流水</Button></Link></div><Card className="filter-card"><Space wrap><label>批次状态</label><Input value={status} onChange={(event) => { setPage(1); setStatus(event.target.value || undefined); }} placeholder="输入服务端状态" allowClear /></Space></Card><Card>{error ? <ResourceFailure error={error} onRetry={reload} /> : <><Table rowKey="id" loading={loading} columns={columns} dataSource={data?.records || []} pagination={false} locale={{ emptyText: <Empty description="暂无服务端流水批次" /> }} scroll={{ x: 780 }} />{data && data.total > data.size && <Pagination className="table-pagination" current={data.page} pageSize={data.size} total={data.total} showSizeChanger={false} onChange={setPage} />}</>}</Card></>;
+}
+
+function AuditDrawer({ statement, onClose }: { statement?: StatementRecord; onClose: () => void }) {
+  const loader = useCallback(() => statement ? statementApi.get(statement.id) : Promise.resolve<StatementDetail | undefined>(undefined), [statement]);
+  const { data, loading, error, reload } = useRemote<StatementDetail | undefined>(loader, [loader]);
+  const auditTrail: StatementAuditEvent[] = data?.auditTrail || [];
+  return <Drawer title={statement ? `追溯记录 · ${statement.statementNo}` : '追溯记录'} width={520} open={Boolean(statement)} onClose={onClose}>{loading ? <Skeleton active paragraph={{ rows: 6 }} /> : error ? <ResourceFailure error={error} onRetry={reload} /> : auditTrail.length ? <Timeline items={auditTrail.map((event) => ({ color: event.result === 'SUCCESS' ? 'green' : event.result === 'FAILED' ? 'red' : 'blue', children: <div><strong>{event.action}</strong><div className="table-sub">{event.previousStatus || '--'} → {event.currentStatus || '--'} · 操作人 {event.operatorId || '--'}</div>{event.detail && <div className="timeline-detail">{event.detail}</div>}<div className="table-sub">{dateTime(event.createdAt)}</div></div> }))} /> : <Empty description="该流水暂无追溯事件" />}</Drawer>;
+}
+
+function ReviewStatements() {
+  const [page, setPage] = useState(1);
+  const [selected, setSelected] = useState<StatementRecord>();
+  const [trace, setTrace] = useState<StatementRecord>();
+  const [form] = Form.useForm<StatementReviewRequest>();
+  const [submitting, setSubmitting] = useState(false);
+  const loader = useCallback(() => statementApi.list({ page, size: 20, reviewStatus: 'PENDING' }), [page]);
+  const { data, loading, error, reload } = useRemote<PageResponse<StatementRecord>>(loader, [loader]);
+  const review = async () => {
+    const values = await form.validateFields();
+    if (!selected) return;
+    setSubmitting(true);
+    try {
+      await statementApi.review(selected.id, values);
+      message.success('服务端已更新复核状态');
+      setSelected(undefined);
+      form.resetFields();
+      await reload();
+    } catch (reason) {
+      message.error(reason instanceof Error ? reason.message : '复核未能完成');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  const columns: TableColumnsType<StatementRecord> = [{ title: '流水号', dataIndex: 'statementNo', render: (value) => <span className="mono">{value}</span> }, { title: '交易时间', dataIndex: 'transactionTime', render: (value) => dateTime(value) }, { title: '对方', render: (_, row) => <>{row.counterpartyName || '--'}<span className="table-sub">{row.maskedCounterpartyAccount || '--'}</span></> }, { title: '金额', dataIndex: 'amount', align: 'right', render: (value) => <strong>{money(value)}</strong> }, { title: '校验', dataIndex: 'validationStatus', render: (value, row) => <><StatusTag status={value} />{row.validationMessage && <span className="table-sub">{row.validationMessage}</span>}</> }, { title: '操作', fixed: 'right', render: (_, row) => <Space><Button type="link" onClick={() => setSelected(row)}>复核</Button><Button type="link" onClick={() => setTrace(row)}>追溯</Button></Space> }];
+  return <><div className="page-heading"><div><span className="section-kicker">自动入账 / 控制点</span><h2>人工复核</h2><p className="muted">仅展示服务端标记为待复核的流水，不在前端预判校验或复核结果。</p></div></div><Card>{error ? <ResourceFailure error={error} onRetry={reload} /> : <><Table rowKey="id" loading={loading} columns={columns} dataSource={data?.records || []} pagination={false} locale={{ emptyText: <Empty description="当前没有待复核流水" /> }} scroll={{ x: 900 }} />{data && data.total > data.size && <Pagination className="table-pagination" current={data.page} pageSize={data.size} total={data.total} showSizeChanger={false} onChange={setPage} />}</>}</Card><Modal title={selected ? `复核流水 ${selected.statementNo}` : '复核流水'} open={Boolean(selected)} onCancel={() => { setSelected(undefined); form.resetFields(); }} onOk={() => void review()} okText="提交复核" confirmLoading={submitting} destroyOnClose><Form form={form} layout="vertical" initialValues={{ action: 'APPROVE' }}><Form.Item label="复核结论" name="action" rules={[{ required: true }]}><Radio.Group options={[{ value: 'APPROVE', label: '通过' }, { value: 'REJECT', label: '驳回' }]} /></Form.Item><Form.Item noStyle shouldUpdate={(previous, current) => previous.action !== current.action}>{({ getFieldValue }) => <Form.Item label="复核说明" name="comment" rules={getFieldValue('action') === 'REJECT' ? [{ required: true, message: '驳回时必须填写说明' }] : []}><Input.TextArea rows={4} maxLength={500} placeholder="填写服务端可审计的复核说明" /></Form.Item>}</Form.Item></Form></Modal><AuditDrawer statement={trace} onClose={() => setTrace(undefined)} /></>;
+}
+
+function VoucherStatements() {
+  const [page, setPage] = useState(1);
+  const [trace, setTrace] = useState<StatementRecord>();
+  const [pushingId, setPushingId] = useState<number>();
+  const loader = useCallback(() => statementApi.list({ page, size: 20 }), [page]);
+  const { data, loading, error, reload } = useRemote<PageResponse<StatementRecord>>(loader, [loader]);
+  const push = async (record: StatementRecord) => {
+    setPushingId(record.id);
+    try {
+      await statementApi.pushVoucher(record.id);
+      message.success('服务端已返回制证处理结果');
+      await reload();
+    } catch (reason) {
+      message.error(reason instanceof Error ? reason.message : '制证请求未能完成');
+    } finally {
+      setPushingId(undefined);
+    }
+  };
+  const columns: TableColumnsType<StatementRecord> = [{ title: '流水号', dataIndex: 'statementNo', render: (value) => <span className="mono">{value}</span> }, { title: '复核状态', dataIndex: 'reviewStatus', render: (value) => <StatusTag status={value} /> }, { title: '金额', dataIndex: 'amount', align: 'right', render: (value) => money(value) }, { title: '制证状态', dataIndex: 'pushStatus', render: (value, row) => <><StatusTag status={value} />{row.pushMessage && <span className="table-sub">{row.pushMessage}</span>}</> }, { title: '金蝶凭证号', dataIndex: 'voucherNo', render: (value) => value ? <span className="mono">{value}</span> : '--' }, { title: '操作', fixed: 'right', render: (_, row) => <Space>{row.reviewStatus === 'APPROVED' && row.pushStatus !== 'PUSHED' && <Button type="link" loading={pushingId === row.id} onClick={() => void push(row)}>请求制证</Button>}<Button type="link" onClick={() => setTrace(row)}>追溯</Button></Space> }];
+  return <><div className="page-heading"><div><span className="section-kicker">自动入账 / 外部结果</span><h2>金蝶制证</h2><p className="muted">制证状态、凭证号和服务端说明均以接口响应为准。</p></div></div><Card>{error ? <ResourceFailure error={error} onRetry={reload} /> : <><Table rowKey="id" loading={loading} columns={columns} dataSource={data?.records || []} pagination={false} locale={{ emptyText: <Empty description="暂无可追溯的制证记录" /> }} scroll={{ x: 880 }} />{data && data.total > data.size && <Pagination className="table-pagination" current={data.page} pageSize={data.size} total={data.total} showSizeChanger={false} onChange={setPage} />}</>}</Card><AuditDrawer statement={trace} onClose={() => setTrace(undefined)} /></>;
+}
+
+function Reconciliation() {
+  const dashboardLoader = useCallback(() => statementApi.dashboard(), []);
+  const statementsLoader = useCallback(() => statementApi.list({ page: 1, size: 10 }), []);
+  const dashboard = useRemote<StatementDashboard>(dashboardLoader, [dashboardLoader]);
+  const statements = useRemote<PageResponse<StatementRecord>>(statementsLoader, [statementsLoader]);
+  const [trace, setTrace] = useState<StatementRecord>();
+  const metrics = dashboard.data;
+  return <><div className="page-heading"><div><span className="section-kicker">自动入账 / 对账</span><h2>对账与追溯</h2><p className="muted">汇总与流水追溯分开加载；任一接口失败不会被显示为零值。</p></div></div>{dashboard.error ? <ResourceFailure error={dashboard.error} onRetry={dashboard.reload} /> : <Row gutter={[16, 16]}>{[['导入流水', metrics?.totalCount], ['待复核', metrics?.pendingReviewCount], ['已复核通过', metrics?.approvedCount], ['已制证', metrics?.pushedCount]].map(([title, value]) => <Col xs={24} sm={12} xl={6} key={String(title)}><Card className="metric-card"><Statistic title={title as string} value={dashboard.loading ? undefined : value as number | undefined} suffix="笔" valueStyle={{ color: '#16262b' }} /></Card></Col>)}</Row>}<Row gutter={[16, 16]} className="dashboard-grid"><Col xs={24} xl={10}><Card title="金额汇总">{dashboard.loading ? <Skeleton active paragraph={{ rows: 4 }} /> : dashboard.error ? null : <Descriptions column={1} size="small"><Descriptions.Item label="导入金额">{money(metrics?.totalAmount)}</Descriptions.Item><Descriptions.Item label="已复核金额">{money(metrics?.approvedAmount)}</Descriptions.Item><Descriptions.Item label="已制证金额">{money(metrics?.pushedAmount)}</Descriptions.Item><Descriptions.Item label="无效流水">{metrics?.invalidCount ?? '--'} 笔</Descriptions.Item><Descriptions.Item label="已驳回">{metrics?.rejectedCount ?? '--'} 笔</Descriptions.Item></Descriptions>}</Card></Col><Col xs={24} xl={14}><Card title="最近流水" extra={<Link to="/statements/batches">查看批次</Link>}>{statements.error ? <ResourceFailure error={statements.error} onRetry={statements.reload} /> : <Table rowKey="id" loading={statements.loading} pagination={false} dataSource={statements.data?.records || []} locale={{ emptyText: <Empty description="暂无可追溯流水" /> }} columns={[{ title: '流水号', dataIndex: 'statementNo', render: (value) => <span className="mono">{value}</span> }, { title: '金额', dataIndex: 'amount', align: 'right', render: (value) => money(value) }, { title: '复核', dataIndex: 'reviewStatus', render: (value) => <StatusTag status={value} /> }, { title: '制证', dataIndex: 'pushStatus', render: (value) => <StatusTag status={value} /> }, { title: '追溯', render: (_, row) => <Button type="link" onClick={() => setTrace(row)}>查看</Button> }]} scroll={{ x: 700 }} />}</Card></Col></Row><AuditDrawer statement={trace} onClose={() => setTrace(undefined)} /></>;
+}
+
+function Forbidden() {
+  return <Result status="403" title="暂无访问权限" subTitle="当前角色没有访问该自动入账页面的权限。" extra={<Link to="/dashboard"><Button type="primary">返回工作台</Button></Link>} />;
+}
+
+function AppRoutes() {
+  const hydrate = useAuthStore((state) => state.hydrate);
+  useEffect(() => { void hydrate(); }, [hydrate]);
+  return <Routes><Route path="/login" element={<Login />} /><Route path="/register" element={<Register />} /><Route element={<AuthGuard />}><Route element={<Shell />}><Route path="/dashboard" element={<Dashboard />} /><Route element={<PermissionGuard permission="statement:import" />}><Route path="/statements/import" element={<ImportStatements />} /></Route><Route element={<PermissionGuard permission="statement:view" />}><Route path="/statements/batches" element={<BatchList />} /></Route><Route element={<PermissionGuard permission="statement:review" />}><Route path="/statements/review" element={<ReviewStatements />} /></Route><Route element={<PermissionGuard permission="voucher:push" />}><Route path="/statements/vouchers" element={<VoucherStatements />} /></Route><Route element={<PermissionGuard permission="reconciliation:view" />}><Route path="/statements/reconciliation" element={<Reconciliation />} /></Route><Route path="/403" element={<Forbidden />} /></Route></Route><Route path="*" element={<Navigate to="/dashboard" replace />} /></Routes>;
+}
+
+export default function App() {
+  return <BrowserRouter><AppRoutes /></BrowserRouter>;
+}
