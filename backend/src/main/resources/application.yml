@@ -1,0 +1,41 @@
+spring:
+  application:
+    name: finance-system-backend
+  profiles:
+    default: dev
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  jackson:
+    time-zone: Asia/Shanghai
+    serialization:
+      write-dates-as-timestamps: false
+
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    banner: false
+
+app:
+  jwt:
+    secret: dev-only-secret-change-me-before-production-2026
+    expiration: 2h
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+bank:
+  citic:
+    mock-mode: true
+    base-url: ${CITIC_BASE_URL:https://api.example.invalid/citic}
+    app-id: ${CITIC_APP_ID:}
