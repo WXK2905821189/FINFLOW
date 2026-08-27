@@ -497,7 +497,12 @@ public class BankDataSyncService {
     }
 
     private String safeMessage(RuntimeException exception) {
-        String message = exception.getMessage();
-        return message == null || message.isBlank() ? "Synchronization failed" : sanitize(message).substring(0, Math.min(500, sanitize(message).length()));
+        if (!(exception instanceof BusinessException)) {
+            return "Bank data synchronization failed during internal processing";
+        }
+        String message = sanitize(exception.getMessage());
+        return message == null || message.isBlank()
+                ? "Bank data synchronization failed"
+                : message.substring(0, Math.min(500, message.length()));
     }
 }

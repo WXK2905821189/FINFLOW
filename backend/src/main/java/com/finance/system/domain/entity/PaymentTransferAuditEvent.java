@@ -12,6 +12,7 @@ public class PaymentTransferAuditEvent {
     private Long id;
     private Long companyId;
     private Long paymentId;
+    private String requestId;
     private String action;
     private String previousStatus;
     private String currentStatus;
@@ -21,6 +22,7 @@ public class PaymentTransferAuditEvent {
     public Long getId() { return id; } public void setId(Long v) { id = v; }
     public Long getCompanyId() { return companyId; } public void setCompanyId(Long v) { companyId = v; }
     public Long getPaymentId() { return paymentId; } public void setPaymentId(Long v) { paymentId = v; }
+    public String getRequestId() { return requestId; } public void setRequestId(String v) { requestId = v; }
     public String getAction() { return action; } public void setAction(String v) { action = v; }
     public String getPreviousStatus() { return previousStatus; } public void setPreviousStatus(String v) { previousStatus = v; }
     public String getCurrentStatus() { return currentStatus; } public void setCurrentStatus(String v) { currentStatus = v; }

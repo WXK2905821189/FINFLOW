@@ -14,6 +14,7 @@ public class PaymentTransfer {
     private Long companyId;
     private String paymentNo;
     private String idempotencyKey;
+    private String requestId;
     private Long payerAccountId;
     private String bankCode;
     private String payeeName;
@@ -32,12 +33,16 @@ public class PaymentTransfer {
     private String externalReference;
     private String externalStatus;
     private String errorMessage;
+    private Long resolvedBy;
+    private LocalDateTime resolvedAt;
+    private String resolutionComment;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     public Long getId() { return id; } public void setId(Long v) { id = v; }
     public Long getCompanyId() { return companyId; } public void setCompanyId(Long v) { companyId = v; }
     public String getPaymentNo() { return paymentNo; } public void setPaymentNo(String v) { paymentNo = v; }
     public String getIdempotencyKey() { return idempotencyKey; } public void setIdempotencyKey(String v) { idempotencyKey = v; }
+    public String getRequestId() { return requestId; } public void setRequestId(String v) { requestId = v; }
     public Long getPayerAccountId() { return payerAccountId; } public void setPayerAccountId(Long v) { payerAccountId = v; }
     public String getBankCode() { return bankCode; } public void setBankCode(String v) { bankCode = v; }
     public String getPayeeName() { return payeeName; } public void setPayeeName(String v) { payeeName = v; }
@@ -56,6 +61,9 @@ public class PaymentTransfer {
     public String getExternalReference() { return externalReference; } public void setExternalReference(String v) { externalReference = v; }
     public String getExternalStatus() { return externalStatus; } public void setExternalStatus(String v) { externalStatus = v; }
     public String getErrorMessage() { return errorMessage; } public void setErrorMessage(String v) { errorMessage = v; }
+    public Long getResolvedBy() { return resolvedBy; } public void setResolvedBy(Long v) { resolvedBy = v; }
+    public LocalDateTime getResolvedAt() { return resolvedAt; } public void setResolvedAt(LocalDateTime v) { resolvedAt = v; }
+    public String getResolutionComment() { return resolutionComment; } public void setResolutionComment(String v) { resolutionComment = v; }
     public LocalDateTime getCreatedAt() { return createdAt; } public void setCreatedAt(LocalDateTime v) { createdAt = v; }
     public LocalDateTime getUpdatedAt() { return updatedAt; } public void setUpdatedAt(LocalDateTime v) { updatedAt = v; }
 }

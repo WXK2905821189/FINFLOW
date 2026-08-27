@@ -225,6 +225,7 @@ function Login() {
   const target = next?.startsWith('/') && !next.startsWith('//') && !next.startsWith('/login') ? next : '/dashboard';
   if (status === 'authenticated') return <Navigate to={target} replace />;
   const submit = async (values: { username: string; password: string }) => {
+    if (loading) return;
     setLoading(true);
     setError(undefined);
     try {
@@ -245,6 +246,7 @@ function Register() {
   const [result, setResult] = useState<'success' | 'error'>();
   const [error, setError] = useState<string>();
   const submit = async (values: { username: string; email: string; password: string }) => {
+    if (loading) return;
     setLoading(true);
     setError(undefined);
     try {
@@ -284,6 +286,7 @@ function ImportStatements() {
   const [error, setError] = useState<string>();
   const mode = Form.useWatch('sourceMode', form) || 'JSON';
   const submit = async (values: ImportFormValues) => {
+    if (loading) return;
     setLoading(true);
     setError(undefined);
     try {
@@ -329,6 +332,7 @@ function ReviewStatements() {
   const loader = useCallback(() => statementApi.list({ page, size: 20, reviewStatus: 'PENDING' }), [page]);
   const { data, loading, error, reload } = useRemote<PageResponse<StatementRecord>>(loader, [loader]);
   const review = async () => {
+    if (submitting) return;
     const values = await form.validateFields();
     if (!selected) return;
     setSubmitting(true);
@@ -355,6 +359,7 @@ function VoucherStatements() {
   const loader = useCallback(() => statementApi.list({ page, size: 20 }), [page]);
   const { data, loading, error, reload } = useRemote<PageResponse<StatementRecord>>(loader, [loader]);
   const push = async (record: StatementRecord) => {
+    if (pushingId !== undefined) return;
     setPushingId(record.id);
     try {
       await statementApi.pushVoucher(record.id);
@@ -420,6 +425,7 @@ function OperationTasks() {
   const loader = useCallback(() => bankPipelineApi.listJobs({ page, size: 20, status }), [page, status]);
   const { data, loading, error, reload } = useRemote<PageResponse<BankSyncJob>>(loader, [loader]);
   const trigger = async () => {
+    if (triggering) return;
     const values = await form.validateFields();
     setTriggering(true);
     try {
