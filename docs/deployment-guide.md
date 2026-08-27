@@ -19,7 +19,7 @@
 | --- | --- | --- |
 | `SPRING_PROFILES_ACTIVE` | 是 | 固定为 `prod`。 |
 | `DB_URL` | 是 | JDBC 连接串，例如 `jdbc:mysql://<rds-private-endpoint>:3306/finance_system?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=true`。 |
-| `DB_USERNAME` | 是 | 生产数据库应用账号。 |
+| `DB_USERNAME` | 是 | 生产数据库应用账号；生产配置无默认值，缺失时必须阻止启动。 |
 | `DB_PASSWORD` | 是 | 生产数据库应用账号密码。 |
 | `JWT_SECRET` | 是 | 随机生成的高强度密钥；不得使用开发环境默认值。 |
 | `JWT_EXPIRATION` | 否 | JWT 有效期，默认 `2h`。 |
@@ -27,6 +27,18 @@
 | `KINGDEE_MOCK_MODE` | 是 | 一期固定为 `true`，仅生成可追溯的模拟凭证号，不向真实金蝶发送请求。 |
 | `CITIC_MOCK_MODE` | 否 | 现有支付/调拨演示适配器的开关；自动入账一期不依赖此配置，生产不得配置真实中信连接信息。 |
 | `SERVER_PORT` | 否 | 监听端口；未设置时为 `8080`。 |
+
+生产配置不提供数据库 URL 或用户名默认值，`DB_URL`、`DB_USERNAME`、`DB_PASSWORD` 和 `JWT_SECRET` 缺一项都应使 Spring Boot 启动失败。发布平台应在启动前完成非秘密变量存在性检查，并且只输出变量名，不输出变量值：
+
+```bash
+set -eu
+for name in SPRING_PROFILES_ACTIVE DB_URL DB_USERNAME DB_PASSWORD JWT_SECRET; do
+  test -n "${!name:-}" || { echo "missing required variable: $name" >&2; exit 1; }
+done
+test "$SPRING_PROFILES_ACTIVE" = prod
+```
+
+这项脚本是部署闸门，不替代应用自身的配置校验；当前应用尚未提供独立的启动校验组件，发布记录必须登记该 P1 缺口，直到组件或等效平台校验经过演练。
 
 当前前端通过同源 `/api` 调用后端，生产 Web 服务器或负载均衡应将 `/api` 反向代理到后端服务。前端没有定义 `VITE_*` 生产变量；部署时使用构建产物 `frontend/dist`，并确保 `/api` 的代理规则已生效。
 
@@ -43,8 +55,8 @@
 
 1. 在变更窗口前对 RDS 执行可恢复的全量备份，并验证能恢复到独立实例。
 2. 使用受限账号连接目标生产库，确认库名、字符集、时区以及网络连通性正确。
-3. 部署新的后端 JAR，并以 `SPRING_PROFILES_ACTIVE=prod` 启动。应用启动时 Flyway 会按照版本顺序执行 `classpath:db/migration` 中尚未应用的迁移：`V1__init_rbac_and_bank_accounts.sql`、`V2__statement_import_and_voucher_push.sql`、随后是连接与运营一期所需的 `V3__*.sql`。
-4. 当前迁移目录尚未包含 `V3__*.sql` 时，连接与运营一期不得上线。补齐 V3 后，先在隔离环境完成 V1 -> V2 -> V3 的空库迁移和已有 V1/V2 数据库的增量迁移验证，再进入生产变更窗口。
+3. 部署新的后端 JAR，并以 `SPRING_PROFILES_ACTIVE=prod` 启动。应用启动时 Flyway 必须按照版本顺序执行 `classpath:db/migration` 中尚未应用的迁移：`V1` -> `V2` -> `V3` -> `V4` -> `V5` -> `V6`。
+4. 当前仓库已包含 `V6__tenant_statement_payment_and_session_safety.sql`。后端已在 H2 开发库完成 V1 -> V6 空库启动验证；进入生产变更窗口前仍需在隔离 MySQL 完成空库全量、已有库增量和重复启动验证。
 5. 检查启动日志，确认 Flyway 迁移成功且没有校验、权限或锁等待错误；同时确认数据库中的 `flyway_schema_history` 记录了预期版本。自动入账和连接运营模块应分别验证批次、流水、审计、连接档案、任务和操作日志表可读写。
 6. 再切换或放量应用流量。多实例发布时，先只启动一个实例完成迁移，再扩容其余实例，避免并发迁移带来的不确定性。
 
@@ -66,7 +78,7 @@ curl --fail --silent --show-error https://<api-domain>/v3/api-docs > /dev/null
 - 使用受控的 JSON 文件或模拟来源完成一次“导入 -> 复核 -> 模拟制证 -> 追溯”冒烟验证；确认重复导入不产生第二笔流水或凭证，且页面明确显示“模拟制证”。
 - 在不配置任何真实银行或金蝶凭据的前提下，验证连接与运营页面能读取连接档案、任务与操作日志；不得将“连接正常”解释为已连通真实外部系统。
 
-在 ALB/SLB 中把健康检查路径设为 `/v3/api-docs`，协议与监听器保持一致，期望状态码为 `200`；健康检查来源安全组必须可访问后端 8080。
+在 ALB/SLB 中把健康检查路径设为 `/v3/api-docs`，协议与监听器保持一致，期望状态码为 `200`；健康检查来源安全组必须可访问后端 8080。若启动校验、Flyway 或数据库连接失败，服务不得进入健康池。
 
 ## 回滚
 
@@ -80,3 +92,23 @@ curl --fail --silent --show-error https://<api-domain>/v3/api-docs > /dev/null
 ## 自动入账一期边界
 
 2026 年 9 月的一期版本只发布文件导入或模拟来源、校验落库、人工复核、金蝶模拟制证、状态追踪、对账和审计追溯。真实银行 SDK/API、定时拉取银行流水、真实金蝶凭证提交和真实银行/总账对账均不属于本次部署范围；不得在环境变量、镜像、流水线或日志中放置任何银行或金蝶生产凭据。
+
+## SYS-01、SYS-02、SYS-16 执行登记
+
+执行日期：2026-08-27；候选版本：`v0.2.0-rc.2` 后续修复工作树；分支：`codex/auto-accounting-release`。
+
+| 用例 | 结果 | 证据与阻断 |
+| --- | --- | --- |
+| SYS-01 构建 | 通过（保留 P2） | 后端 Maven 测试 7/7 通过；前端 TypeScript 检查与 Vite 生产构建通过，主 JS 约 1.22 MB，存在包体优化告警。 |
+| SYS-02 迁移 | 部分通过 | V1-V6 文件顺序和 H2 启动迁移已验证；真实 MySQL 空库/增量/重复启动仍待执行。 |
+| SYS-16 部署 | 部分通过 | 生产数据库和 JWT 默认值已移除，应用启动校验组件已加入；尚未在真实生产等价环境完成健康检查、备份恢复和回滚演练。 |
+
+## P0/P1 风险台账
+
+| 编号 | 级别 | 风险 | 当前处置 |
+| --- | --- | --- | --- |
+| DEP-P1-001 | P1 | Windows 目标 JAR 曾被进程锁定。 | 本次未以重打包失败作为代码失败；发布前在干净制品目录完成一次 `verify`。 |
+| DEP-P1-002 | P1 | 真实 MySQL、备份恢复、健康检查和回滚无执行证据。 | 需在测试服务器完成演练并归档非敏感结果。 |
+| DEP-P1-003 | P1 | 连接凭据轮换、任务重试和全链路审计仍缺 API/E2E 证据。 | 在真实银行接入前用模拟器补齐集成测试；真实银行调用保持 0。 |
+
+证书、密钥库、银行 SDK、私钥、Token 和生产业务数据不作为本次测试物料，不得提交到仓库或 CI。

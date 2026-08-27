@@ -23,6 +23,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
+import java.util.Locale;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
@@ -67,7 +69,7 @@ public class BankPipelineController {
     }
 
     @GetMapping("/bank-data/{resource}")
-    @PreAuthorize("hasAuthority('bankdata:view')")
+    @PreAuthorize("hasAnyAuthority('bankdata:view', 'bankdata:balance:view', 'bankdata:statement:view', 'bankdata:receipt:view', 'bankdata:reconciliation:view', 'bankdata:payment:view', 'bankdata:payroll:view')")
     @Operation(summary = "Query a controlled bank data projection")
     public ApiResponse<PageResponse<BankDataProjectionResponse>> projection(
             @PathVariable String resource,
@@ -79,7 +81,22 @@ public class BankPipelineController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
             @AuthenticationPrincipal UserPrincipal principal) {
+        if (!principal.getAuthorities().stream().anyMatch(authority -> authority.getAuthority().equals("bankdata:view"))
+                && !principal.getAuthorities().stream().anyMatch(authority -> authority.getAuthority().equals(permissionFor(resource)))) {
+            throw new org.springframework.security.access.AccessDeniedException("Bank data projection permission is required");
+        }
         return ApiResponse.success(service.queryProjection(principal.getId(), resource, page, size, status,
                 accountId, keyword, from, to));
+    }
+
+    private String permissionFor(String resource) {
+        return Map.of(
+                "balances", "bankdata:balance:view",
+                "statements", "bankdata:statement:view",
+                "receipts", "bankdata:receipt:view",
+                "reconciliations", "bankdata:reconciliation:view",
+                "payments", "bankdata:payment:view",
+                "payroll", "bankdata:payroll:view"
+        ).getOrDefault(resource == null ? "" : resource.trim().toLowerCase(Locale.ROOT), "bankdata:invalid");
     }
 }

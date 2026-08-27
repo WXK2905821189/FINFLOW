@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -28,10 +29,13 @@ public class BankController {
 
     private final BankServiceFactory bankServiceFactory;
     private final BankAccountService bankAccountService;
+    private final PaymentTransferService paymentTransferService;
 
-    public BankController(BankServiceFactory bankServiceFactory, BankAccountService bankAccountService) {
+    public BankController(BankServiceFactory bankServiceFactory, BankAccountService bankAccountService,
+                          PaymentTransferService paymentTransferService) {
         this.bankServiceFactory = bankServiceFactory;
         this.bankAccountService = bankAccountService;
+        this.paymentTransferService = paymentTransferService;
     }
 
     @GetMapping("/banks")
@@ -66,9 +70,34 @@ public class BankController {
 
     @PostMapping("/transfers")
     @PreAuthorize("hasAuthority('transfer:create')")
-    @Operation(summary = "Submit a bank transfer to the selected adapter")
+    @Operation(summary = "Create an idempotent transfer application")
     public ApiResponse<BankTransferResponse> transfer(@Valid @RequestBody BankTransferRequest request,
+                                                      @RequestHeader("Idempotency-Key") String idempotencyKey,
                                                       @AuthenticationPrincipal UserPrincipal principal) {
-        return ApiResponse.success("Transfer accepted", bankAccountService.submitTransfer(principal.getId(), request));
+        return ApiResponse.success("Transfer application created", paymentTransferService.create(principal.getId(), request, idempotencyKey));
+    }
+
+    @PostMapping("/transfers/{id}/approve")
+    @PreAuthorize("hasAuthority('transfer:approve')")
+    @Operation(summary = "Approve a transfer created by another user")
+    public ApiResponse<BankTransferResponse> approveTransfer(@PathVariable Long id,
+                                                              @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success("Transfer approved", paymentTransferService.approve(principal.getId(), id));
+    }
+
+    @PostMapping("/transfers/{id}/execute")
+    @PreAuthorize("hasAuthority('transfer:execute')")
+    @Operation(summary = "Execute an approved transfer exactly once")
+    public ApiResponse<BankTransferResponse> executeTransfer(@PathVariable Long id,
+                                                              @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success("Transfer execution completed", paymentTransferService.execute(principal.getId(), id));
+    }
+
+    @GetMapping("/transfers/{id}")
+    @PreAuthorize("hasAuthority('transaction:view')")
+    @Operation(summary = "Get a transfer application in the current company")
+    public ApiResponse<BankTransferResponse> transfer(@PathVariable Long id,
+                                                       @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success(paymentTransferService.get(principal.getId(), id));
     }
 }

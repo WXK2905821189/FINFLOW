@@ -20,7 +20,7 @@ public class MockCiticBankSdkClient implements CiticBankSdkClient {
     @Override
     public CiticBankSdkResult submitPayment(BankAccount payerAccount, BankTransferCommand command) {
         return new CiticBankSdkResult(
-                "CITIC-MOCK-" + UUID.randomUUID().toString().replace("-", "").substring(0, 16).toUpperCase(),
+                "CITIC-MOCK-" + command.requestReference(),
                 "ACCEPTED",
                 "Accepted by CITIC mock adapter"
         );

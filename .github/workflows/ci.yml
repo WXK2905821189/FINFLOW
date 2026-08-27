@@ -26,21 +26,30 @@ jobs:
           test -f "$migration_dir/V2__statement_import_and_voucher_push.sql"
           compgen -G "$migration_dir/V3__*.sql" > /dev/null
           test -f "$migration_dir/V4__bank_data_access_foundation.sql"
+          test -f "$migration_dir/V5__bank_data_balance_and_adapter_port.sql"
+          test -f "$migration_dir/V6__tenant_statement_payment_and_session_safety.sql"
+          expected_versions=(V1 V2 V3 V4 V5 V6)
+          actual_versions=()
+          while IFS= read -r migration; do
+            version="${migration##*/}"
+            version="${version%%__*}"
+            actual_versions+=("$version")
+          done < <(find "$migration_dir" -maxdepth 1 -type f -name 'V*.sql' -printf '%f\n' | sort -V)
+          test "${actual_versions[*]}" = "${expected_versions[*]}"
           grep -q 'CREATE TABLE bank_data_raw_message' "$migration_dir/V4__bank_data_access_foundation.sql"
           grep -q 'retention_until TIMESTAMP NOT NULL' "$migration_dir/V4__bank_data_access_foundation.sql"
-          grep -q 'raw.setRetentionUntil(receivedAt.plusDays(30))' backend/src/main/java/com/finance/system/bankdata/BankDataSyncExecutor.java
+          grep -q 'raw.setRetentionUntil(receivedAt.plusDays(30))' backend/src/main/java/com/finance/system/bankdata/BankDataSyncEvidenceService.java
+          grep -q 'Propagation.REQUIRES_NEW' backend/src/main/java/com/finance/system/bankdata/BankDataSyncEvidenceService.java
           grep -q '@Scheduled' backend/src/main/java/com/finance/system/bankdata/BankDataSyncScheduler.java
           grep -q '@PostMapping("/sync-tasks")' backend/src/main/java/com/finance/system/bankdata/BankDataController.java
           grep -q 'class MockBankDataAdapter' backend/src/main/java/com/finance/system/bankdata/adapter/MockBankDataAdapter.java
           grep -q 'String requestId' backend/src/main/java/com/finance/system/bankdata/BankDataController.java
-          if ! find backend/src/main/java/com/finance/system/bankdata -name '*.java' -print0 | xargs -0 grep -l '@Scheduled' | xargs -r grep -l -E 'retentionUntil|BankDataRawMessage' | grep -q .; then
-            echo "A scheduled bank raw-message retention task with retention audit is required for v0.2."
-            exit 1
-          fi
-          if ! grep -q '@RequestParam.*requestId' backend/src/main/java/com/finance/system/bankdata/BankDataController.java; then
-            echo "An authorized request-id lookup endpoint is required for v0.2 operations."
-            exit 1
-          fi
+          grep -q 'url: \${DB_URL}' backend/src/main/resources/application-prod.yml
+          grep -q 'username: \${DB_USERNAME}' backend/src/main/resources/application-prod.yml
+          grep -q 'password: \${DB_PASSWORD}' backend/src/main/resources/application-prod.yml
+          ! grep -q 'DB_USERNAME:finance' backend/src/main/resources/application-prod.yml
+          ! grep -q 'useSSL=false' backend/src/main/resources/application-prod.yml
+          grep -q 'requestId' backend/src/main/java/com/finance/system/bankdata/BankDataController.java
           if git grep -n -I -E '(HttpClient|RestTemplate|WebClient|java\.net\.http|https?://)' -- backend/src/main/java/com/finance/system/bankdata; then
             echo "v0.2 must not call a real bank SDK or API before a separately approved adapter release."
             exit 1

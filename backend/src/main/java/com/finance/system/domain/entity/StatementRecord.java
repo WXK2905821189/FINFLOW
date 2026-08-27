@@ -12,6 +12,7 @@ public class StatementRecord {
 
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
+    private Long companyId;
     private Long batchId;
     private String statementNo;
     private Long bankAccountId;
@@ -38,6 +39,8 @@ public class StatementRecord {
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+    public Long getCompanyId() { return companyId; }
+    public void setCompanyId(Long companyId) { this.companyId = companyId; }
     public Long getBatchId() { return batchId; }
     public void setBatchId(Long batchId) { this.batchId = batchId; }
     public String getStatementNo() { return statementNo; }

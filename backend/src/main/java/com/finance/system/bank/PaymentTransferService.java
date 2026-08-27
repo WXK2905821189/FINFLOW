@@ -1,0 +1,215 @@
+package com.finance.system.bank;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.finance.system.bank.dto.BankTransferRequest;
+import com.finance.system.bank.dto.BankTransferResponse;
+import com.finance.system.bankdata.scope.CompanyScopeService;
+import com.finance.system.common.exception.BusinessException;
+import com.finance.system.domain.entity.BankAccount;
+import com.finance.system.domain.entity.PaymentTransfer;
+import com.finance.system.domain.entity.PaymentTransferAuditEvent;
+import com.finance.system.domain.mapper.BankAccountMapper;
+import com.finance.system.domain.mapper.PaymentTransferAuditEventMapper;
+import com.finance.system.domain.mapper.PaymentTransferMapper;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.Locale;
+import java.util.UUID;
+
+/** Stateful transfer workflow. Only the adapter owns any future balance mutation. */
+@Service
+public class PaymentTransferService {
+
+    private static final String PENDING_APPROVAL = "PENDING_APPROVAL";
+    private static final String APPROVED = "APPROVED";
+    private static final String EXECUTING = "EXECUTING";
+    private static final String SUBMITTED = "SUBMITTED";
+    private static final String FAILED = "FAILED";
+    private static final String UNKNOWN = "UNKNOWN";
+
+    private final CompanyScopeService companyScope;
+    private final PaymentTransferMapper paymentMapper;
+    private final PaymentTransferAuditEventMapper auditMapper;
+    private final BankAccountMapper accountMapper;
+    private final BankServiceFactory bankServiceFactory;
+
+    public PaymentTransferService(CompanyScopeService companyScope, PaymentTransferMapper paymentMapper,
+                                  PaymentTransferAuditEventMapper auditMapper, BankAccountMapper accountMapper,
+                                  BankServiceFactory bankServiceFactory) {
+        this.companyScope = companyScope;
+        this.paymentMapper = paymentMapper;
+        this.auditMapper = auditMapper;
+        this.accountMapper = accountMapper;
+        this.bankServiceFactory = bankServiceFactory;
+    }
+
+    @Transactional
+    public BankTransferResponse create(Long userId, BankTransferRequest request, String idempotencyKey) {
+        long companyId = companyScope.companyIdForUser(userId);
+        String key = requireIdempotencyKey(idempotencyKey);
+        PaymentTransfer existing = paymentMapper.selectOne(new LambdaQueryWrapper<PaymentTransfer>()
+                .eq(PaymentTransfer::getCompanyId, companyId)
+                .eq(PaymentTransfer::getIdempotencyKey, key));
+        if (existing != null) {
+            if (!sameRequest(existing, request)) {
+                throw new BusinessException(409, "Idempotency key was already used for a different transfer");
+            }
+            return response(existing);
+        }
+        BankAccount payer = account(companyId, request.payerAccountId());
+        if (!"ACTIVE".equalsIgnoreCase(payer.getStatus())) throw new BusinessException(409, "Payer account is not active");
+        if (!payer.getBankCode().equalsIgnoreCase(request.bankCode())) {
+            throw new BusinessException(400, "Payer account does not belong to the selected bank");
+        }
+        PaymentTransfer payment = new PaymentTransfer();
+        payment.setCompanyId(companyId);
+        payment.setPaymentNo("PAY-" + UUID.randomUUID().toString().replace("-", "").substring(0, 20).toUpperCase(Locale.ROOT));
+        payment.setIdempotencyKey(key);
+        payment.setPayerAccountId(payer.getId());
+        payment.setBankCode(payer.getBankCode());
+        payment.setPayeeName(request.payeeName().trim());
+        payment.setPayeeAccount(request.payeeAccount().trim());
+        payment.setPayeeAccountMasked(mask(request.payeeAccount()));
+        payment.setPayeeBank(request.payeeBank().trim());
+        payment.setAmount(request.amount().setScale(2));
+        payment.setCurrency(payer.getCurrency());
+        payment.setRemark(request.remark().trim());
+        payment.setStatus(PENDING_APPROVAL);
+        payment.setCreatedBy(userId);
+        try {
+            paymentMapper.insert(payment);
+        } catch (DuplicateKeyException exception) {
+            PaymentTransfer concurrent = paymentMapper.selectOne(new LambdaQueryWrapper<PaymentTransfer>()
+                    .eq(PaymentTransfer::getCompanyId, companyId)
+                    .eq(PaymentTransfer::getIdempotencyKey, key));
+            if (concurrent != null && sameRequest(concurrent, request)) return response(concurrent);
+            throw new BusinessException(409, "Idempotency key was already used for a different transfer");
+        }
+        audit(payment, "CREATE", null, PENDING_APPROVAL, userId, "Transfer application created; no bank call or balance change");
+        return response(payment);
+    }
+
+    @Transactional
+    public BankTransferResponse approve(Long userId, Long paymentId) {
+        long companyId = companyScope.companyIdForUser(userId);
+        PaymentTransfer payment = require(paymentId, companyId);
+        if (payment.getCreatedBy().equals(userId)) throw new BusinessException(403, "Creators cannot approve their own transfers");
+        int updated = paymentMapper.update(null, new LambdaUpdateWrapper<PaymentTransfer>()
+                .set(PaymentTransfer::getStatus, APPROVED)
+                .set(PaymentTransfer::getApprovedBy, userId)
+                .set(PaymentTransfer::getApprovedAt, LocalDateTime.now())
+                .eq(PaymentTransfer::getId, paymentId).eq(PaymentTransfer::getCompanyId, companyId)
+                .eq(PaymentTransfer::getStatus, PENDING_APPROVAL));
+        if (updated != 1) throw new BusinessException(409, "Transfer is not awaiting approval");
+        PaymentTransfer approved = require(paymentId, companyId);
+        audit(approved, "APPROVE", PENDING_APPROVAL, APPROVED, userId, null);
+        return response(approved);
+    }
+
+    @Transactional
+    public BankTransferResponse execute(Long userId, Long paymentId) {
+        long companyId = companyScope.companyIdForUser(userId);
+        PaymentTransfer payment = require(paymentId, companyId);
+        if (!APPROVED.equals(payment.getStatus())) throw new BusinessException(409, "Only approved transfers can be executed");
+        BankAccount payer = account(companyId, payment.getPayerAccountId());
+        if (payer.getAvailableBalance().compareTo(payment.getAmount()) < 0) {
+            throw new BusinessException(409, "Available balance is insufficient");
+        }
+        int claimed = paymentMapper.update(null, new LambdaUpdateWrapper<PaymentTransfer>()
+                .set(PaymentTransfer::getStatus, EXECUTING)
+                .set(PaymentTransfer::getExecutedBy, userId)
+                .set(PaymentTransfer::getExecutedAt, LocalDateTime.now())
+                .eq(PaymentTransfer::getId, paymentId).eq(PaymentTransfer::getCompanyId, companyId)
+                .eq(PaymentTransfer::getStatus, APPROVED));
+        if (claimed != 1) throw new BusinessException(409, "Transfer execution is already in progress or has completed");
+        try {
+            BankTransferResponse bankResult = bankServiceFactory.get(payment.getBankCode()).submitTransfer(payer,
+                    new BankTransferCommand(payment.getPaymentNo(), payment.getPayeeName(), payment.getPayeeAccount(),
+                            payment.getPayeeBank(), payment.getAmount(), payment.getRemark()));
+            String next = accepted(bankResult.status()) ? SUBMITTED : FAILED;
+            paymentMapper.update(null, new LambdaUpdateWrapper<PaymentTransfer>()
+                    .set(PaymentTransfer::getStatus, next)
+                    .set(PaymentTransfer::getExternalReference, bankResult.bankReference())
+                    .set(PaymentTransfer::getExternalStatus, bankResult.status())
+                    .set(PaymentTransfer::getErrorMessage, next.equals(FAILED) ? safe(bankResult.message()) : null)
+                    .eq(PaymentTransfer::getId, paymentId).eq(PaymentTransfer::getCompanyId, companyId)
+                    .eq(PaymentTransfer::getStatus, EXECUTING));
+            PaymentTransfer result = require(paymentId, companyId);
+            audit(result, "EXECUTE", EXECUTING, next, userId, bankResult.message());
+            return response(result);
+        } catch (RuntimeException exception) {
+            paymentMapper.update(null, new LambdaUpdateWrapper<PaymentTransfer>()
+                    .set(PaymentTransfer::getStatus, UNKNOWN)
+                    .set(PaymentTransfer::getExternalStatus, UNKNOWN)
+                    .set(PaymentTransfer::getErrorMessage, safe(exception.getMessage()))
+                    .eq(PaymentTransfer::getId, paymentId).eq(PaymentTransfer::getCompanyId, companyId)
+                    .eq(PaymentTransfer::getStatus, EXECUTING));
+            PaymentTransfer result = require(paymentId, companyId);
+            audit(result, "EXECUTE", EXECUTING, UNKNOWN, userId,
+                    "External outcome is unknown; reconciliation is required before any retry");
+            return response(result);
+        }
+    }
+
+    public BankTransferResponse get(Long userId, Long paymentId) {
+        return response(require(paymentId, companyScope.companyIdForUser(userId)));
+    }
+
+    private PaymentTransfer require(Long id, long companyId) {
+        PaymentTransfer payment = paymentMapper.selectOne(new LambdaQueryWrapper<PaymentTransfer>()
+                .eq(PaymentTransfer::getId, id).eq(PaymentTransfer::getCompanyId, companyId));
+        if (payment == null) throw new BusinessException(404, "Transfer not found");
+        return payment;
+    }
+
+    private BankAccount account(long companyId, Long accountId) {
+        BankAccount account = accountMapper.selectOne(new LambdaQueryWrapper<BankAccount>()
+                .eq(BankAccount::getId, accountId).eq(BankAccount::getCompanyId, companyId));
+        if (account == null) throw new BusinessException(404, "Payer account not found");
+        return account;
+    }
+
+    private void audit(PaymentTransfer payment, String action, String previous, String current, Long operator, String detail) {
+        PaymentTransferAuditEvent event = new PaymentTransferAuditEvent();
+        event.setCompanyId(payment.getCompanyId()); event.setPaymentId(payment.getId()); event.setAction(action);
+        event.setPreviousStatus(previous); event.setCurrentStatus(current); event.setOperatorId(operator); event.setDetail(safe(detail));
+        auditMapper.insert(event);
+    }
+
+    private BankTransferResponse response(PaymentTransfer payment) {
+        String message = payment.getErrorMessage() == null ? "Transfer application " + payment.getStatus() : payment.getErrorMessage();
+        return new BankTransferResponse(payment.getId(), payment.getPaymentNo(), payment.getBankCode(),
+                payment.getExternalReference(), payment.getStatus(), message);
+    }
+
+    private String requireIdempotencyKey(String value) {
+        if (value == null || value.isBlank()) throw new BusinessException(400, "Idempotency-Key header is required");
+        String key = value.trim();
+        if (key.length() > 96) throw new BusinessException(400, "Idempotency-Key is too long");
+        return key;
+    }
+
+    private boolean sameRequest(PaymentTransfer payment, BankTransferRequest request) {
+        return payment.getPayerAccountId().equals(request.payerAccountId())
+                && payment.getBankCode().equalsIgnoreCase(request.bankCode())
+                && payment.getAmount().compareTo(request.amount()) == 0
+                && payment.getPayeeName().equals(request.payeeName().trim())
+                && payment.getPayeeAccount().equals(request.payeeAccount().trim())
+                && payment.getPayeeBank().equals(request.payeeBank().trim());
+    }
+
+    private boolean accepted(String status) { return "ACCEPTED".equalsIgnoreCase(status) || "SUBMITTED".equalsIgnoreCase(status); }
+    private String mask(String value) { String account = value.trim(); return account.length() <= 4 ? "****" : "****" + account.substring(account.length() - 4); }
+    private String safe(String value) {
+        if (value == null) return null;
+        String sanitized = value
+                .replaceAll("(?i)(password|secret|token|authorization|private[_ -]?key)\\s*[:=]\\s*[^,;\\s]+", "$1=[REDACTED]")
+                .replaceAll("(?<!\\d)\\d{8,}(?!\\d)", "****");
+        return sanitized.substring(0, Math.min(500, sanitized.length()));
+    }
+}

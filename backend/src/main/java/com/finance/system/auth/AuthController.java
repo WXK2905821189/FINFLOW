@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestHeader;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -41,5 +42,14 @@ public class AuthController {
     @Operation(summary = "Get the current authenticated user")
     public ApiResponse<CurrentUserResponse> me(@AuthenticationPrincipal UserPrincipal principal) {
         return ApiResponse.success(authService.currentUser(principal));
+    }
+
+    @PostMapping("/logout")
+    @Operation(summary = "Revoke the current JWT session")
+    public ApiResponse<Void> logout(@AuthenticationPrincipal UserPrincipal principal,
+                                    @RequestHeader("Authorization") String authorization) {
+        String token = authorization.startsWith("Bearer ") ? authorization.substring(7) : authorization;
+        authService.logout(principal, token);
+        return ApiResponse.success("Signed out", null);
     }
 }

@@ -12,6 +12,7 @@ public class SysUser {
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
     private Long companyId;
+    private Integer tokenVersion;
     private String username;
     private String passwordHash;
     private String email;
@@ -24,6 +25,8 @@ public class SysUser {
     public void setId(Long id) { this.id = id; }
     public Long getCompanyId() { return companyId; }
     public void setCompanyId(Long companyId) { this.companyId = companyId; }
+    public Integer getTokenVersion() { return tokenVersion; }
+    public void setTokenVersion(Integer tokenVersion) { this.tokenVersion = tokenVersion; }
     public String getUsername() { return username; }
     public void setUsername(String username) { this.username = username; }
     public String getPasswordHash() { return passwordHash; }

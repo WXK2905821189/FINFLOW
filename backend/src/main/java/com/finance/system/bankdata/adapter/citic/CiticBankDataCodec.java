@@ -37,10 +37,21 @@ public final class CiticBankDataCodec {
         }
         String transportStatus = response.httpStatus() >= 200 && response.httpStatus() < 300
                 && "SUCCESS".equalsIgnoreCase(response.transportCode()) ? "SUCCESS" : "FAILED";
-        String businessStatus = "SUCCESS".equalsIgnoreCase(response.businessCode()) ? "SUCCESS" : "FAILED";
-        boolean accepted = "SUCCESS".equals(transportStatus) && "SUCCESS".equals(businessStatus);
+        String businessStatus = businessStatus(response.businessCode());
+        boolean accepted = "SUCCESS".equals(transportStatus)
+                && ("SUCCESS".equals(businessStatus) || "PENDING".equals(businessStatus));
         return new CiticParsedResponse(transportStatus, businessStatus, trim(response.bankRequestNo()), accepted,
-                accepted ? "CITIC transport and business status accepted" : "CITIC response requires reconciliation");
+                "PENDING".equals(businessStatus) ? "CITIC response accepted but requires reconciliation"
+                        : accepted ? "CITIC transport and business status accepted" : "CITIC response requires reconciliation");
+    }
+
+    private static String businessStatus(String value) {
+        if (value == null || value.isBlank()) return "FAILED";
+        return switch (value.trim().toUpperCase()) {
+            case "SUCCESS", "AAAAAAA" -> "SUCCESS";
+            case "PENDING", "PROCESSING", "AAAAAAE" -> "PENDING";
+            default -> "FAILED";
+        };
     }
 
     private static String trim(String value) {

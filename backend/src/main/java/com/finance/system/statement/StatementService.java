@@ -17,6 +17,7 @@ import com.finance.system.domain.mapper.BankAccountMapper;
 import com.finance.system.domain.mapper.StatementAuditEventMapper;
 import com.finance.system.domain.mapper.StatementImportBatchMapper;
 import com.finance.system.domain.mapper.StatementRecordMapper;
+import com.finance.system.bankdata.scope.CompanyScopeService;
 import com.finance.system.statement.collector.StatementCollection;
 import com.finance.system.statement.collector.StatementCollector;
 import com.finance.system.statement.dto.StatementAuditEventResponse;
@@ -60,25 +61,30 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
     private final BankAccountMapper bankAccountMapper;
     private final ObjectMapper objectMapper;
     private final KingdeeVoucherGateway kingdeeGateway;
+    private final CompanyScopeService companyScope;
 
     public StatementService(StatementCollector collector,
                             StatementImportBatchMapper batchMapper,
                             StatementAuditEventMapper auditMapper,
                             BankAccountMapper bankAccountMapper,
                             ObjectMapper objectMapper,
-                            KingdeeVoucherGateway kingdeeGateway) {
+                            KingdeeVoucherGateway kingdeeGateway,
+                            CompanyScopeService companyScope) {
         this.collector = collector;
         this.batchMapper = batchMapper;
         this.auditMapper = auditMapper;
         this.bankAccountMapper = bankAccountMapper;
         this.objectMapper = objectMapper;
         this.kingdeeGateway = kingdeeGateway;
+        this.companyScope = companyScope;
     }
 
     @Transactional
     public StatementImportBatchResponse importBatch(StatementImportRequest request, Long operatorId) {
+        long companyId = companyScope.companyIdForUser(operatorId);
         StatementCollection collection = collector.collect(request);
         StatementImportBatch batch = new StatementImportBatch();
+        batch.setCompanyId(companyId);
         batch.setBatchNo("STB-" + UUID.randomUUID().toString().replace("-", "").substring(0, 20).toUpperCase(Locale.ROOT));
         batch.setSourceType(collection.sourceType());
         batch.setSourceName(collection.sourceName());
@@ -98,13 +104,14 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
             String statementNo = normalizeStatementNo(input.statementNo());
             if (!batchStatementNumbers.add(statementNo)
                     || baseMapper.selectCount(new LambdaQueryWrapper<StatementRecord>()
+                    .eq(StatementRecord::getCompanyId, companyId)
                     .eq(StatementRecord::getStatementNo, statementNo)) > 0) {
                 duplicates++;
                 continue;
             }
 
-            String validationMessage = validate(input);
-            StatementRecord statement = toEntity(input, statementNo, batch.getId(), validationMessage);
+            String validationMessage = validate(input, companyId);
+            StatementRecord statement = toEntity(input, statementNo, batch.getId(), companyId, validationMessage);
             baseMapper.insert(statement);
             imported++;
             if (!validationMessage.isBlank()) {
@@ -124,8 +131,10 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
     }
 
     public PageResponse<StatementResponse> pageStatements(int page, int size, String validationStatus,
-                                                            String reviewStatus, String pushStatus) {
+                                                            String reviewStatus, String pushStatus, Long userId) {
+        long companyId = companyScope.companyIdForUser(userId);
         LambdaQueryWrapper<StatementRecord> query = new LambdaQueryWrapper<StatementRecord>()
+                .eq(StatementRecord::getCompanyId, companyId)
                 .eq(validationStatus != null && !validationStatus.isBlank(), StatementRecord::getValidationStatus, validationStatus)
                 .eq(reviewStatus != null && !reviewStatus.isBlank(), StatementRecord::getReviewStatus, reviewStatus)
                 .eq(pushStatus != null && !pushStatus.isBlank(), StatementRecord::getPushStatus, pushStatus)
@@ -136,12 +145,11 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
                 result.getRecords().stream().map(this::toResponse).toList());
     }
 
-    public StatementDetailResponse getDetail(Long id) {
-        StatementRecord statement = getById(id);
-        if (statement == null) {
-            throw new BusinessException(404, "Statement not found");
-        }
+    public StatementDetailResponse getDetail(Long id, Long userId) {
+        long companyId = companyScope.companyIdForUser(userId);
+        StatementRecord statement = require(id, companyId);
         List<StatementAuditEventResponse> trail = auditMapper.selectList(new LambdaQueryWrapper<StatementAuditEvent>()
+                        .eq(StatementAuditEvent::getCompanyId, companyId)
                         .eq(StatementAuditEvent::getStatementId, id)
                         .orderByAsc(StatementAuditEvent::getCreatedAt)
                         .orderByAsc(StatementAuditEvent::getId))
@@ -151,8 +159,11 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
 
     @Transactional
     public StatementResponse review(Long id, StatementReviewRequest request, Long operatorId) {
-        StatementRecord existing = require(id);
-        StatementImportBatch batch = batchMapper.selectById(existing.getBatchId());
+        long companyId = companyScope.companyIdForUser(operatorId);
+        StatementRecord existing = require(id, companyId);
+        StatementImportBatch batch = batchMapper.selectOne(new LambdaQueryWrapper<StatementImportBatch>()
+                .eq(StatementImportBatch::getId, existing.getBatchId())
+                .eq(StatementImportBatch::getCompanyId, companyId));
         if (batch != null && java.util.Objects.equals(batch.getCreatedBy(), operatorId)) {
             throw new BusinessException(403, "Importers cannot review their own statements");
         }
@@ -176,11 +187,12 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
                 .set(StatementRecord::getReviewedBy, operatorId)
                 .set(StatementRecord::getReviewedAt, LocalDateTime.now())
                 .eq(StatementRecord::getId, id)
+                .eq(StatementRecord::getCompanyId, companyId)
                 .eq(StatementRecord::getReviewStatus, REVIEW_PENDING));
         if (updated != 1) {
             throw new BusinessException(409, "Statement review status has changed");
         }
-        StatementRecord result = require(id);
+        StatementRecord result = require(id, companyId);
         audit(result, "REVIEW_" + action, "SUCCESS", REVIEW_PENDING, result.getReviewStatus(), operatorId,
                 trimToNull(request.comment()));
         return toResponse(result);
@@ -188,7 +200,8 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
 
     @Transactional
     public StatementResponse pushVoucher(Long id, Long operatorId) {
-        StatementRecord existing = require(id);
+        long companyId = companyScope.companyIdForUser(operatorId);
+        StatementRecord existing = require(id, companyId);
         if (!VALID.equals(existing.getValidationStatus()) || !REVIEW_APPROVED.equals(existing.getReviewStatus())) {
             throw new BusinessException(409, "Only validated and approved statements can be pushed");
         }
@@ -199,19 +212,21 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
         int claimed = baseMapper.update(null, new LambdaUpdateWrapper<StatementRecord>()
                 .set(StatementRecord::getPushStatus, PUSH_PROCESSING)
                 .eq(StatementRecord::getId, id)
+                .eq(StatementRecord::getCompanyId, companyId)
                 .in(StatementRecord::getPushStatus, PUSH_NOT_STARTED, "FAILED"));
         if (claimed != 1) {
             throw new BusinessException(409, "Statement push is already in progress or has completed");
         }
 
-        StatementRecord processing = require(id);
+        StatementRecord processing = require(id, companyId);
         KingdeeVoucherResult result = kingdeeGateway.push(processing);
         if (!PUSHED.equalsIgnoreCase(result.status())) {
             baseMapper.update(null, new LambdaUpdateWrapper<StatementRecord>()
                     .set(StatementRecord::getPushStatus, "FAILED")
                     .set(StatementRecord::getPushMessage, trimToNull(result.message()))
-                    .eq(StatementRecord::getId, id));
-            StatementRecord failed = require(id);
+                    .eq(StatementRecord::getId, id)
+                    .eq(StatementRecord::getCompanyId, companyId));
+            StatementRecord failed = require(id, companyId);
             audit(failed, "PUSH_VOUCHER", "FAILED", previousPushStatus, failed.getPushStatus(), operatorId,
                     failed.getPushMessage());
             return toResponse(failed);
@@ -222,32 +237,40 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
                 .set(StatementRecord::getPushMessage, trimToNull(result.message()))
                 .set(StatementRecord::getPushedAt, LocalDateTime.now())
                 .eq(StatementRecord::getId, id)
+                .eq(StatementRecord::getCompanyId, companyId)
                 .eq(StatementRecord::getPushStatus, PUSH_PROCESSING));
-        StatementRecord pushed = require(id);
+        StatementRecord pushed = require(id, companyId);
         audit(pushed, "PUSH_VOUCHER", "SUCCESS", previousPushStatus, pushed.getPushStatus(), operatorId,
                 pushed.getVoucherNo());
         return toResponse(pushed);
     }
 
-    public PageResponse<StatementImportBatchResponse> pageBatches(int page, int size) {
+    public PageResponse<StatementImportBatchResponse> pageBatches(int page, int size, Long userId) {
+        long companyId = companyScope.companyIdForUser(userId);
         Page<StatementImportBatch> result = batchMapper.selectPage(
                 new Page<>(Math.max(1, page), Math.min(100, Math.max(1, size))),
-                new LambdaQueryWrapper<StatementImportBatch>().orderByDesc(StatementImportBatch::getCreatedAt)
+                new LambdaQueryWrapper<StatementImportBatch>().eq(StatementImportBatch::getCompanyId, companyId)
+                        .orderByDesc(StatementImportBatch::getCreatedAt)
                         .orderByDesc(StatementImportBatch::getId));
         return new PageResponse<>(result.getCurrent(), result.getSize(), result.getTotal(),
                 result.getRecords().stream().map(this::toBatchResponse).toList());
     }
 
-    public StatementImportBatchResponse getBatch(Long id) {
-        StatementImportBatch batch = batchMapper.selectById(id);
+    public StatementImportBatchResponse getBatch(Long id, Long userId) {
+        long companyId = companyScope.companyIdForUser(userId);
+        StatementImportBatch batch = batchMapper.selectOne(new LambdaQueryWrapper<StatementImportBatch>()
+                .eq(StatementImportBatch::getId, id)
+                .eq(StatementImportBatch::getCompanyId, companyId));
         if (batch == null) {
             throw new BusinessException(404, "Import batch not found");
         }
         return toBatchResponse(batch);
     }
 
-    public StatementDashboardResponse dashboard() {
-        List<StatementRecord> records = list();
+    public StatementDashboardResponse dashboard(Long userId) {
+        long companyId = companyScope.companyIdForUser(userId);
+        List<StatementRecord> records = list(new LambdaQueryWrapper<StatementRecord>()
+                .eq(StatementRecord::getCompanyId, companyId));
         long pending = records.stream().filter(s -> REVIEW_PENDING.equals(s.getReviewStatus())).count();
         long approved = records.stream().filter(s -> REVIEW_APPROVED.equals(s.getReviewStatus())).count();
         long rejected = records.stream().filter(s -> REVIEW_REJECTED.equals(s.getReviewStatus())).count();
@@ -260,13 +283,15 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
                 totalAmount, approvedAmount, pushedAmount);
     }
 
-    private String validate(StatementRecordInput input) {
+    private String validate(StatementRecordInput input, long companyId) {
         List<String> errors = new ArrayList<>();
         if (input.statementNo() == null || input.statementNo().isBlank()) errors.add("statementNo is required");
         else if (input.statementNo().trim().length() > 128) errors.add("statementNo is too long");
         if (input.bankAccountId() == null) errors.add("bankAccountId is required");
         else {
-            BankAccount account = bankAccountMapper.selectById(input.bankAccountId());
+            BankAccount account = bankAccountMapper.selectOne(new LambdaQueryWrapper<BankAccount>()
+                    .eq(BankAccount::getId, input.bankAccountId())
+                    .eq(BankAccount::getCompanyId, companyId));
             if (account == null) errors.add("bankAccountId does not exist");
         }
         if (input.transactionTime() == null) errors.add("transactionTime is required");
@@ -284,8 +309,10 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
         return String.join("; ", errors);
     }
 
-    private StatementRecord toEntity(StatementRecordInput input, String statementNo, Long batchId, String validationMessage) {
+    private StatementRecord toEntity(StatementRecordInput input, String statementNo, Long batchId, long companyId,
+                                     String validationMessage) {
         StatementRecord statement = new StatementRecord();
+        statement.setCompanyId(companyId);
         statement.setBatchId(batchId);
         statement.setStatementNo(statementNo);
         statement.setBankAccountId(input.bankAccountId());
@@ -308,6 +335,7 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
     private void audit(StatementRecord statement, String action, String result, String previous, String current,
                        Long operatorId, String detail) {
         StatementAuditEvent event = new StatementAuditEvent();
+        event.setCompanyId(statement.getCompanyId());
         event.setStatementId(statement.getId());
         event.setBatchId(statement.getBatchId());
         event.setAction(action);
@@ -319,8 +347,10 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
         auditMapper.insert(event);
     }
 
-    private StatementRecord require(Long id) {
-        StatementRecord statement = getById(id);
+    private StatementRecord require(Long id, long companyId) {
+        StatementRecord statement = getOne(new LambdaQueryWrapper<StatementRecord>()
+                .eq(StatementRecord::getId, id)
+                .eq(StatementRecord::getCompanyId, companyId));
         if (statement == null) throw new BusinessException(404, "Statement not found");
         return statement;
     }

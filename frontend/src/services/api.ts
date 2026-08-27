@@ -29,6 +29,9 @@ export const authApi = {
   login: (username: string, password: string) => http.post<never, AuthTokenResponse>('/auth/login', { username, password }),
   register: (data: { username: string; email: string; password: string }) => http.post<never, User>('/auth/register', data),
   me: () => http.get<never, User>('/auth/me'),
+  logout: (token?: string) => http.post<never, void>('/auth/logout', undefined, token ? {
+    headers: { Authorization: `Bearer ${token}` },
+  } : undefined),
 };
 
 export const bankApi = {

@@ -18,10 +18,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UserDetailsServiceImpl userDetailsService;
+    private final AuthSessionService authSessionService;
 
-    public JwtAuthenticationFilter(JwtService jwtService, UserDetailsServiceImpl userDetailsService) {
+    public JwtAuthenticationFilter(JwtService jwtService, UserDetailsServiceImpl userDetailsService,
+                                   AuthSessionService authSessionService) {
         this.jwtService = jwtService;
         this.userDetailsService = userDetailsService;
+        this.authSessionService = authSessionService;
     }
 
     @Override
@@ -38,7 +41,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String username = jwtService.extractUsername(token);
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserPrincipal principal = (UserPrincipal) userDetailsService.loadUserByUsername(username);
-                if (jwtService.isValid(token, principal)) {
+                if (jwtService.isValid(token, principal)
+                        && authSessionService.isActive(jwtService.extractUserId(token), jwtService.extractTokenId(token),
+                        jwtService.extractTokenVersion(token))) {
                     UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                             principal, null, principal.getAuthorities());
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));

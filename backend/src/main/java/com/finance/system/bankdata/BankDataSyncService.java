@@ -57,6 +57,7 @@ public class BankDataSyncService {
     private final BankAccountMapper bankAccountMapper;
     private final ConnectionProfileMapper connectionProfileMapper;
     private final BankDataSyncExecutor executor;
+    private final BankDataSyncEvidenceService evidenceService;
     private final Map<String, BankDataAdapter> adapters;
 
     public BankDataSyncService(CompanyScopeService companyScope,
@@ -68,6 +69,7 @@ public class BankDataSyncService {
                                BankAccountMapper bankAccountMapper,
                                ConnectionProfileMapper connectionProfileMapper,
                                BankDataSyncExecutor executor,
+                               BankDataSyncEvidenceService evidenceService,
                                List<BankDataAdapter> adapterList) {
         this.companyScope = companyScope;
         this.taskMapper = taskMapper;
@@ -78,6 +80,7 @@ public class BankDataSyncService {
         this.bankAccountMapper = bankAccountMapper;
         this.connectionProfileMapper = connectionProfileMapper;
         this.executor = executor;
+        this.evidenceService = evidenceService;
         this.adapters = adapterList.stream().collect(Collectors.toUnmodifiableMap(
                 adapter -> adapter.adapterCode().toUpperCase(Locale.ROOT), adapter -> adapter));
     }
@@ -294,7 +297,7 @@ public class BankDataSyncService {
             task.setErrorMessage(safeMessage(exception));
             task.setCompletedAt(LocalDateTime.now());
             taskMapper.updateById(task);
-            insertLog(task, "ERROR", "SYNC_FAILED", "FAILED", null, task.getErrorMessage());
+            evidenceService.recordFailure(task, task.getErrorMessage());
         }
         return getTaskDetail(task.getId(), companyId);
     }

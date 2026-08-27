@@ -46,15 +46,17 @@ public class StatementController {
     @Operation(summary = "List statement import batches")
     public ApiResponse<PageResponse<StatementImportBatchResponse>> batches(
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        return ApiResponse.success(statementService.pageBatches(page, size));
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success(statementService.pageBatches(page, size, principal.getId()));
     }
 
     @GetMapping("/statement-imports/{id}")
     @PreAuthorize("hasAuthority('statement:view')")
     @Operation(summary = "Get a statement import batch")
-    public ApiResponse<StatementImportBatchResponse> batch(@PathVariable Long id) {
-        return ApiResponse.success(statementService.getBatch(id));
+    public ApiResponse<StatementImportBatchResponse> batch(@PathVariable Long id,
+                                                            @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success(statementService.getBatch(id, principal.getId()));
     }
 
     @GetMapping("/statements")
@@ -65,15 +67,18 @@ public class StatementController {
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String validationStatus,
             @RequestParam(required = false) String reviewStatus,
-            @RequestParam(required = false) String pushStatus) {
-        return ApiResponse.success(statementService.pageStatements(page, size, validationStatus, reviewStatus, pushStatus));
+            @RequestParam(required = false) String pushStatus,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success(statementService.pageStatements(page, size, validationStatus, reviewStatus, pushStatus,
+                principal.getId()));
     }
 
     @GetMapping("/statements/{id}")
     @PreAuthorize("hasAuthority('statement:view')")
     @Operation(summary = "Get a statement with audit trail")
-    public ApiResponse<StatementDetailResponse> statement(@PathVariable Long id) {
-        return ApiResponse.success(statementService.getDetail(id));
+    public ApiResponse<StatementDetailResponse> statement(@PathVariable Long id,
+                                                           @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success(statementService.getDetail(id, principal.getId()));
     }
 
     @PostMapping("/statements/{id}/review")
@@ -96,7 +101,7 @@ public class StatementController {
     @GetMapping("/reconciliation/dashboard")
     @PreAuthorize("hasAuthority('reconciliation:view')")
     @Operation(summary = "Get statement reconciliation dashboard totals")
-    public ApiResponse<StatementDashboardResponse> dashboard() {
-        return ApiResponse.success(statementService.dashboard());
+    public ApiResponse<StatementDashboardResponse> dashboard(@AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success(statementService.dashboard(principal.getId()));
     }
 }

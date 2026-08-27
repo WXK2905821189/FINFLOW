@@ -36,4 +36,14 @@ class CiticBankDataCodecTest {
         assertEquals("citic-sandbox-v1", new CiticCertificateReference("citic-sandbox-v1").alias());
         assertThrows(RuntimeException.class, () -> new CiticCertificateReference("-----BEGIN PRIVATE KEY-----"));
     }
+
+    @Test
+    void mapsKnownPendingCodeToReconciliationWithoutTreatingItAsSuccess() {
+        CiticParsedResponse pending = CiticBankDataCodec.parseStatus(
+                new CiticTransportResponse(200, "SUCCESS", "AAAAAAE", "BANK-3", "unused"));
+
+        assertTrue(pending.accepted());
+        assertEquals("PENDING", pending.businessStatus());
+        assertTrue(pending.safeSummary().contains("reconciliation"));
+    }
 }

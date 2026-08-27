@@ -1,6 +1,8 @@
 # Java / Maven
 backend/target/
 *.class
+.m2-local/
+.vite/
 
 # Frontend
 frontend/node_modules/

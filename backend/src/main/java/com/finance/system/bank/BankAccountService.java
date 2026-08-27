@@ -4,15 +4,12 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.finance.system.bank.dto.BankAccountRequest;
 import com.finance.system.bank.dto.BankAccountResponse;
-import com.finance.system.bank.dto.BankTransferRequest;
-import com.finance.system.bank.dto.BankTransferResponse;
 import com.finance.system.common.exception.BusinessException;
 import com.finance.system.domain.entity.BankAccount;
 import com.finance.system.domain.mapper.BankAccountMapper;
 import com.finance.system.bankdata.scope.CompanyScopeService;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -55,28 +52,6 @@ public class BankAccountService extends ServiceImpl<BankAccountMapper, BankAccou
         apply(request, account);
         updateById(account);
         return toResponse(account);
-    }
-
-    public BankTransferResponse submitTransfer(Long userId, BankTransferRequest request) {
-        long companyId = companyScope.companyIdForUser(userId);
-        BankAccount payer = getOne(new LambdaQueryWrapper<BankAccount>()
-                .eq(BankAccount::getId, request.payerAccountId())
-                .eq(BankAccount::getCompanyId, companyId));
-        if (payer == null) {
-            throw new BusinessException(404, "Payer account not found");
-        }
-        if (!"ACTIVE".equalsIgnoreCase(payer.getStatus())) {
-            throw new BusinessException(409, "Payer account is not active");
-        }
-        if (!payer.getBankCode().equalsIgnoreCase(request.bankCode())) {
-            throw new BusinessException(400, "Payer account does not belong to the selected bank");
-        }
-        BigDecimal availableBalance = bankServiceFactory.get(request.bankCode()).queryAvailableBalance(payer);
-        if (availableBalance.compareTo(request.amount()) < 0) {
-            throw new BusinessException(409, "Available balance is insufficient");
-        }
-        return bankServiceFactory.get(request.bankCode()).submitTransfer(payer, new BankTransferCommand(
-                request.payeeName(), request.payeeAccount(), request.payeeBank(), request.amount(), request.remark()));
     }
 
     private void apply(BankAccountRequest request, BankAccount account) {

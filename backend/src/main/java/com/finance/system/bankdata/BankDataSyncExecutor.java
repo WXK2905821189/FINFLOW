@@ -17,7 +17,6 @@ import com.finance.system.domain.entity.BankDataSyncLog;
 import com.finance.system.domain.entity.BankDataSyncTask;
 import com.finance.system.domain.mapper.BankAccountMapper;
 import com.finance.system.domain.mapper.BankDataBalanceMapper;
-import com.finance.system.domain.mapper.BankDataRawMessageMapper;
 import com.finance.system.domain.mapper.BankDataStatementMapper;
 import com.finance.system.domain.mapper.BankDataSyncLogMapper;
 import com.finance.system.domain.mapper.BankDataSyncTaskMapper;
@@ -44,7 +43,7 @@ public class BankDataSyncExecutor {
 
     private final BankDataSyncTaskMapper taskMapper;
     private final BankDataBalanceMapper balanceMapper;
-    private final BankDataRawMessageMapper rawMessageMapper;
+    private final BankDataSyncEvidenceService evidenceService;
     private final BankDataStatementMapper statementMapper;
     private final BankDataSyncLogMapper logMapper;
     private final BankAccountMapper bankAccountMapper;
@@ -53,7 +52,7 @@ public class BankDataSyncExecutor {
 
     public BankDataSyncExecutor(BankDataSyncTaskMapper taskMapper,
                                 BankDataBalanceMapper balanceMapper,
-                                BankDataRawMessageMapper rawMessageMapper,
+                                BankDataSyncEvidenceService evidenceService,
                                 BankDataStatementMapper statementMapper,
                                 BankDataSyncLogMapper logMapper,
                                 BankAccountMapper bankAccountMapper,
@@ -61,7 +60,7 @@ public class BankDataSyncExecutor {
                                 List<BankDataAdapter> adapterList) {
         this.taskMapper = taskMapper;
         this.balanceMapper = balanceMapper;
-        this.rawMessageMapper = rawMessageMapper;
+        this.evidenceService = evidenceService;
         this.statementMapper = statementMapper;
         this.logMapper = logMapper;
         this.bankAccountMapper = bankAccountMapper;
@@ -90,18 +89,8 @@ public class BankDataSyncExecutor {
         List<BankDataBalanceEntry> balances = collection.balances() == null ? List.of() : collection.balances();
         String rawPayload = serialize(collection);
         LocalDateTime receivedAt = LocalDateTime.now();
-        BankDataRawMessage raw = new BankDataRawMessage();
-        raw.setCompanyId(companyId);
-        raw.setTaskId(task.getId());
-        raw.setAdapterCode(task.getAdapterCode());
-        raw.setBankRequestNo(collection.bankRequestNo());
-        raw.setContentSha256(sha256(rawPayload));
-        raw.setPayload(rawPayload);
-        raw.setReceivedAt(receivedAt);
-        raw.setRetentionUntil(receivedAt.plusDays(30));
-        rawMessageMapper.insert(raw);
-        log(task, "INFO", "RAW_MESSAGE_PERSISTED", "RECORDED", collection.bankRequestNo(),
-                "Raw bank data response recorded before normalization");
+        BankDataRawMessage raw = evidenceService.persistRaw(task, collection.bankRequestNo(), rawPayload,
+                sha256(rawPayload), receivedAt);
 
         int normalized = 0;
         int duplicates = 0;

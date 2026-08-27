@@ -13,6 +13,7 @@ public class UserPrincipal implements UserDetails {
     private final Long id;
     private final String username;
     private final String passwordHash;
+    private final int tokenVersion;
     private final boolean enabled;
     private final List<GrantedAuthority> authorities;
 
@@ -20,6 +21,7 @@ public class UserPrincipal implements UserDetails {
         this.id = user.getId();
         this.username = user.getUsername();
         this.passwordHash = user.getPasswordHash();
+        this.tokenVersion = user.getTokenVersion() == null ? 0 : user.getTokenVersion();
         this.enabled = "ACTIVE".equalsIgnoreCase(user.getStatus());
         this.authorities = authorityCodes.stream().map(SimpleGrantedAuthority::new).map(GrantedAuthority.class::cast).toList();
     }
@@ -27,6 +29,7 @@ public class UserPrincipal implements UserDetails {
     public Long getId() {
         return id;
     }
+    public int getTokenVersion() { return tokenVersion; }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
