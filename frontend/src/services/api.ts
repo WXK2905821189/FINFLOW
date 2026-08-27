@@ -7,6 +7,10 @@ import type {
   OperationLog,
   OperationTask,
   BankAccount,
+  BankDataProjection,
+  BankSyncJob,
+  BankSyncJobDetail,
+  BankSyncJobTrigger,
   BankTransferRequest,
   BankTransferResponse,
   PageResponse,
@@ -68,4 +72,15 @@ export const operationsApi = {
   tasks: (params: OperationListParams) => http.get<never, PageResponse<OperationTask>>('/operations/tasks', { params }),
   logs: (params: OperationListParams) => http.get<never, PageResponse<OperationLog>>('/operations/logs', { params }),
   dataCapability: (resource: string) => http.get<never, DataQueryCapability>(`/data/${resource}`),
+};
+
+type BankDataQueryParams = { page?: number; size?: number; status?: string; accountId?: string; keyword?: string; from?: string; to?: string };
+
+// v0.2 exposes only internal job resources and business projections. The client
+// never requests bank SDK payloads, raw messages, credentials, or sync logs.
+export const bankPipelineApi = {
+  triggerJob: (data: BankSyncJobTrigger) => http.post<never, BankSyncJob>('/bank-sync-jobs', data),
+  listJobs: (params: { page?: number; size?: number; status?: string; jobType?: string }) => http.get<never, PageResponse<BankSyncJob>>('/bank-sync-jobs', { params }),
+  getJob: (id: number) => http.get<never, BankSyncJobDetail>(`/bank-sync-jobs/${id}`),
+  queryProjection: (resource: string, params: BankDataQueryParams) => http.get<never, PageResponse<BankDataProjection>>(`/bank-data/${resource}`, { params }),
 };

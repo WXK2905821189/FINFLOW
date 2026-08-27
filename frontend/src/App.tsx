@@ -34,12 +34,14 @@ import {
   AuditOutlined,
   BankOutlined,
   CheckCircleOutlined,
+  ClockCircleOutlined,
   DashboardOutlined,
   DatabaseOutlined,
   FileAddOutlined,
   FileSearchOutlined,
   FileTextOutlined,
   LogoutOutlined,
+  PlayCircleOutlined,
   RadarChartOutlined,
   ReloadOutlined,
   SafetyCertificateOutlined,
@@ -51,13 +53,17 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import { BrowserRouter, Link, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
-import { statementApi, authApi, operationsApi } from './services/api';
+import { statementApi, authApi, bankPipelineApi, operationsApi } from './services/api';
 import { ApiRequestError } from './services/http';
 import { useAuthStore } from './store/auth';
 import type {
   PageResponse,
   ConnectionConfiguration,
   ConnectionOverview,
+  BankDataProjection,
+  BankSyncJob,
+  BankSyncJobDetail,
+  BankSyncJobTrigger,
   DataQueryCapability,
   OperationLog,
   OperationTask,
@@ -84,17 +90,17 @@ const pageTitles: Record<string, string> = {
   '/transactions': '交易记录',
   '/users': '用户管理',
   '/connections/apps': '应用管理',
-  '/connections/contracts': '签约管理',
+  '/connections/agreements': '签约管理',
   '/connections/preferences': '个性化设置',
-  '/operations/connections': '直联状态监控',
+  '/operations/connectivity': '直联状态监控',
   '/operations/tasks': '任务执行',
   '/operations/logs': '日志查询',
-  '/data/balances': '余额查询',
-  '/data/statements': '流水查询',
-  '/data/receipts': '回单查询',
-  '/data/reconciliation-statements': '对账单查询',
-  '/data/payments': '支付记录查询',
-  '/data/payroll': '代发查询',
+  '/bank-data/balances': '余额查询',
+  '/bank-data/statements': '流水查询',
+  '/bank-data/receipts': '回单查询',
+  '/bank-data/reconciliations': '对账单查询',
+  '/bank-data/payments': '支付记录查询',
+  '/bank-data/payroll': '代发查询',
 };
 
 const money = (value?: number | string) => {
@@ -189,9 +195,9 @@ function Shell() {
       icon: <ApartmentOutlined />,
       label: '连接与运营',
       children: [
-        ...(canViewConnection ? [{ key: 'connection-management', icon: <SettingOutlined />, label: '直联管理', children: [{ key: '/connections/apps', label: <Link to="/connections/apps">应用管理</Link> }, { key: '/connections/contracts', label: <Link to="/connections/contracts">签约管理</Link> }, { key: '/connections/preferences', label: <Link to="/connections/preferences">个性化设置</Link> }] }] : []),
-        ...((hasPermission('operation:monitor') || hasPermission('operation:log:view')) ? [{ key: 'monitoring-and-logs', icon: <RadarChartOutlined />, label: '监控与日志', children: [...(hasPermission('operation:monitor') ? [{ key: '/operations/connections', label: <Link to="/operations/connections">直联状态监控</Link> }, { key: '/operations/tasks', label: <Link to="/operations/tasks">任务执行</Link> }] : []), ...(hasPermission('operation:log:view') ? [{ key: '/operations/logs', label: <Link to="/operations/logs">日志查询</Link> }] : [])] }] : []),
-        ...(hasPermission('data:query') ? [{ key: 'data-query', icon: <SearchOutlined />, label: '数据查询', children: [{ key: '/data/balances', label: <Link to="/data/balances">余额</Link> }, { key: '/data/statements', label: <Link to="/data/statements">流水</Link> }, { key: '/data/receipts', label: <Link to="/data/receipts">回单</Link> }, { key: '/data/reconciliation-statements', label: <Link to="/data/reconciliation-statements">对账单</Link> }, { key: '/data/payments', label: <Link to="/data/payments">支付记录</Link> }, { key: '/data/payroll', label: <Link to="/data/payroll">代发</Link> }] }] : []),
+        ...(canViewConnection ? [{ key: 'connection-management', icon: <SettingOutlined />, label: '直联管理', children: [{ key: '/connections/apps', label: <Link to="/connections/apps">应用管理</Link> }, { key: '/connections/agreements', label: <Link to="/connections/agreements">签约管理</Link> }, { key: '/connections/preferences', label: <Link to="/connections/preferences">个性化设置</Link> }] }] : []),
+        ...((hasPermission('operation:monitor') || hasPermission('operation:log:view')) ? [{ key: 'monitoring-and-logs', icon: <RadarChartOutlined />, label: '监控与日志', children: [...(hasPermission('operation:monitor') ? [{ key: '/operations/connectivity', label: <Link to="/operations/connectivity">直联状态监控</Link> }, { key: '/operations/tasks', label: <Link to="/operations/tasks">任务执行</Link> }] : []), ...(hasPermission('operation:log:view') ? [{ key: '/operations/logs', label: <Link to="/operations/logs">日志查询</Link> }] : [])] }] : []),
+        ...((['bankdata:balance:view', 'bankdata:statement:view', 'bankdata:receipt:view', 'bankdata:reconciliation:view', 'bankdata:payment:view', 'bankdata:payroll:view'] as const).some(hasPermission) ? [{ key: 'data-query', icon: <SearchOutlined />, label: '数据查询', children: [...(hasPermission('bankdata:balance:view') ? [{ key: '/bank-data/balances', label: <Link to="/bank-data/balances">余额</Link> }] : []), ...(hasPermission('bankdata:statement:view') ? [{ key: '/bank-data/statements', label: <Link to="/bank-data/statements">流水</Link> }] : []), ...(hasPermission('bankdata:receipt:view') ? [{ key: '/bank-data/receipts', label: <Link to="/bank-data/receipts">回单</Link> }] : []), ...(hasPermission('bankdata:reconciliation:view') ? [{ key: '/bank-data/reconciliations', label: <Link to="/bank-data/reconciliations">对账单</Link> }] : []), ...(hasPermission('bankdata:payment:view') ? [{ key: '/bank-data/payments', label: <Link to="/bank-data/payments">支付记录</Link> }] : []), ...(hasPermission('bankdata:payroll:view') ? [{ key: '/bank-data/payroll', label: <Link to="/bank-data/payroll">代发</Link> }] : [])] }] : []),
       ],
     },
   ];
@@ -395,13 +401,41 @@ function ConnectionMonitoring() {
   return <><div className="page-heading"><div><span className="section-kicker">连接与运营 / 监控与日志</span><h2>直联状态监控</h2><p className="muted">仅呈现服务端的受控状态摘要，不将模拟或未启用状态描述为银行已连接。</p></div></div>{error ? <ResourceFailure error={error} onRetry={reload} /> : <Card title="连接状态"><>{loading ? <Skeleton active paragraph={{ rows: 6 }} /> : <><PhaseOneNotice status={data?.status} message={data?.message} /><Table rowKey="connectionCode" columns={columns} dataSource={data?.connections || []} pagination={false} locale={{ emptyText: <Empty description="没有可监控的直联对象" /> }} scroll={{ x: 760 }} /></>}</></Card>}</>;
 }
 
+function SyncJobDrawer({ job, onClose }: { job?: BankSyncJob; onClose: () => void }) {
+  const loader = useCallback(() => job ? bankPipelineApi.getJob(job.id) : Promise.resolve<BankSyncJobDetail | undefined>(undefined), [job]);
+  const { data, loading, error, reload } = useRemote<BankSyncJobDetail | undefined>(loader, [loader]);
+  const detail = data?.job;
+  return <Drawer title={job ? `同步任务 · ${job.jobNo}` : '同步任务'} width={540} open={Boolean(job)} onClose={onClose}>{loading ? <Skeleton active paragraph={{ rows: 7 }} /> : error ? <ResourceFailure error={error} onRetry={reload} /> : detail ? <><PhaseOneNotice status={detail.status} /><Descriptions column={1} size="small" bordered><Descriptions.Item label="任务类型">{detail.jobType}</Descriptions.Item><Descriptions.Item label="触发方式">{detail.triggerType}</Descriptions.Item><Descriptions.Item label="连接标识">{detail.connectionCode || '--'}</Descriptions.Item><Descriptions.Item label="请求编号"><span className="mono">{detail.requestId || '--'}</span></Descriptions.Item><Descriptions.Item label="创建时间">{dateTime(detail.createdAt)}</Descriptions.Item><Descriptions.Item label="开始 / 完成">{dateTime(detail.startedAt)} / {dateTime(detail.completedAt)}</Descriptions.Item><Descriptions.Item label="服务端摘要">{detail.summary || '--'}</Descriptions.Item></Descriptions><h3 className="drawer-section-title">状态时间线</h3>{data.timeline?.length ? <Timeline items={data.timeline.map((event) => ({ color: statusColor(event.status), children: <div><StatusTag status={event.status} /><strong>{event.stage}</strong>{event.message && <div className="timeline-detail">{event.message}</div>}<div className="table-sub">{dateTime(event.occurredAt)} · <span className="mono">{event.requestId || detail.requestId || '--'}</span></div></div> }))} /> : <Empty description="服务端未返回状态时间线" />}</> : <Empty description="未找到同步任务详情" />}</Drawer>;
+}
+
 function OperationTasks() {
+  const hasPermission = useAuthStore((state) => state.hasPermission);
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<string>();
-  const loader = useCallback(() => operationsApi.tasks({ page, size: 20, status }), [page, status]);
-  const { data, loading, error, reload } = useRemote<PageResponse<OperationTask>>(loader, [loader]);
-  const columns: TableColumnsType<OperationTask> = [{ title: '任务编号', dataIndex: 'taskNo', render: (value) => <span className="mono">{value}</span> }, { title: '任务类型', dataIndex: 'taskType' }, { title: '连接标识', dataIndex: 'connectionCode', render: (value) => value || '--' }, { title: '状态', dataIndex: 'status', render: (value) => <StatusTag status={value} /> }, { title: '请求编号', dataIndex: 'requestId', render: (value) => value ? <span className="mono">{value}</span> : '--' }, { title: '开始时间', dataIndex: 'startedAt', render: (value) => dateTime(value) }, { title: '摘要', dataIndex: 'summary', ellipsis: true, render: (value) => value || '--' }];
-  return <><div className="page-heading"><div><span className="section-kicker">连接与运营 / 监控与日志</span><h2>任务执行</h2><p className="muted">任务列表只读，浏览器不提供重试、触发同步或外部连接动作。</p></div></div><Card className="filter-card"><Space wrap><label>状态</label><Input value={status} allowClear placeholder="输入服务端状态" onChange={(event) => { setPage(1); setStatus(event.target.value || undefined); }} /></Space></Card><Card>{error ? <ResourceFailure error={error} onRetry={reload} /> : <><PhaseOneNotice /><Table rowKey="taskNo" loading={loading} columns={columns} dataSource={data?.records || []} pagination={false} locale={{ emptyText: <Empty description="当前没有任务执行记录" /> }} scroll={{ x: 940 }} />{data && data.total > data.size && <Pagination className="table-pagination" current={data.page} pageSize={data.size} total={data.total} showSizeChanger={false} onChange={setPage} />}</>}</Card></>;
+  const [selected, setSelected] = useState<BankSyncJob>();
+  const [triggerOpen, setTriggerOpen] = useState(false);
+  const [triggering, setTriggering] = useState(false);
+  const [form] = Form.useForm<BankSyncJobTrigger>();
+  const loader = useCallback(() => bankPipelineApi.listJobs({ page, size: 20, status }), [page, status]);
+  const { data, loading, error, reload } = useRemote<PageResponse<BankSyncJob>>(loader, [loader]);
+  const trigger = async () => {
+    const values = await form.validateFields();
+    setTriggering(true);
+    try {
+      const job = await bankPipelineApi.triggerJob(values);
+      message.success(`服务端已创建同步任务 ${job.jobNo}`);
+      setTriggerOpen(false);
+      form.resetFields();
+      await reload();
+      setSelected(job);
+    } catch (reason) {
+      message.error(reason instanceof Error ? reason.message : '未能创建同步任务');
+    } finally {
+      setTriggering(false);
+    }
+  };
+  const columns: TableColumnsType<BankSyncJob> = [{ title: '任务编号', dataIndex: 'jobNo', render: (value) => <span className="mono">{value}</span> }, { title: '任务类型', dataIndex: 'jobType' }, { title: '触发方式', dataIndex: 'triggerType' }, { title: '连接标识', dataIndex: 'connectionCode', render: (value) => value || '--' }, { title: '状态', dataIndex: 'status', render: (value) => <StatusTag status={value} /> }, { title: '请求编号', dataIndex: 'requestId', render: (value) => value ? <span className="mono">{value}</span> : '--' }, { title: '创建时间', dataIndex: 'createdAt', render: (value) => dateTime(value) }, { title: '操作', fixed: 'right', render: (_, row) => <Button type="link" onClick={() => setSelected(row)}>详情</Button> }];
+  return <><div className="page-heading"><div><span className="section-kicker">连接与运营 / 监控与日志</span><h2>任务执行</h2><p className="muted">任务由服务端持久化、幂等与审计；浏览器只提交受控触发请求并查看安全摘要。</p></div>{hasPermission('bank-sync:trigger') && <Button type="primary" icon={<PlayCircleOutlined />} onClick={() => setTriggerOpen(true)}>手动触发同步</Button>}</div><Card className="filter-card"><Space wrap><label>状态</label><Input value={status} allowClear placeholder="输入服务端状态" onChange={(event) => { setPage(1); setStatus(event.target.value || undefined); }} /></Space></Card><Card>{error ? <ResourceFailure error={error} onRetry={reload} /> : <><PhaseOneNotice /><Table rowKey="id" loading={loading} columns={columns} dataSource={data?.records || []} pagination={false} locale={{ emptyText: <Empty description="当前没有服务端同步任务" /> }} scroll={{ x: 980 }} />{data && data.total > data.size && <Pagination className="table-pagination" current={data.page} pageSize={data.size} total={data.total} showSizeChanger={false} onChange={setPage} />}</>}</Card><Modal title="手动触发同步" open={triggerOpen} onCancel={() => { setTriggerOpen(false); form.resetFields(); }} onOk={() => void trigger()} okText="创建同步任务" confirmLoading={triggering} destroyOnClose><Alert type="warning" showIcon message="不会直接调用银行" description="提交后由服务端创建可追溯任务；未启用或模拟适配器将由服务端返回对应状态。" /><Form form={form} layout="vertical" initialValues={{ jobType: 'STATEMENT_PULL' }} className="sync-job-form"><Form.Item label="任务类型" name="jobType" rules={[{ required: true }]}><Input placeholder="例如：STATEMENT_PULL" /></Form.Item><Form.Item label="连接标识" name="connectionCode"><Input placeholder="可选，由服务端校验授权范围" /></Form.Item><Form.Item label="开始时间" name="windowStart"><Input placeholder="可选 ISO-8601 时间" /></Form.Item><Form.Item label="结束时间" name="windowEnd"><Input placeholder="可选 ISO-8601 时间" /></Form.Item></Form></Modal><SyncJobDrawer job={selected} onClose={() => setSelected(undefined)} /></>;
 }
 
 function OperationLogs() {
@@ -413,12 +447,26 @@ function OperationLogs() {
   return <><div className="page-heading"><div><span className="section-kicker">连接与运营 / 监控与日志</span><h2>日志查询</h2><p className="muted">仅显示服务端脱敏的日志摘要；密钥、令牌、私钥和完整账号不会在浏览器中回显。</p></div></div><Card className="filter-card"><Space wrap><label>请求编号</label><Input value={requestId} allowClear placeholder="输入请求编号" onChange={(event) => { setPage(1); setRequestId(event.target.value || undefined); }} /></Space></Card><Card>{error ? <ResourceFailure error={error} onRetry={reload} /> : <><PhaseOneNotice /><Table rowKey={(row) => `${row.taskId || '--'}-${row.occurredAt}-${row.eventType}`} loading={loading} columns={columns} dataSource={data?.records || []} pagination={false} locale={{ emptyText: <Empty description="当前筛选没有日志" /> }} scroll={{ x: 920 }} />{data && data.total > data.size && <Pagination className="table-pagination" current={data.page} pageSize={data.size} total={data.total} showSizeChanger={false} onChange={setPage} />}</>}</Card></>;
 }
 
-const dataQueryTitles: Record<string, string> = { balances: '余额查询', statements: '流水查询', receipts: '回单查询', 'reconciliation-statements': '对账单查询', payments: '支付记录查询', payroll: '代发查询' };
+const bankDataResources = {
+  balances: { title: '余额查询', permission: 'bankdata:balance:view' },
+  statements: { title: '流水查询', permission: 'bankdata:statement:view' },
+  receipts: { title: '回单查询', permission: 'bankdata:receipt:view' },
+  reconciliations: { title: '对账单查询', permission: 'bankdata:reconciliation:view' },
+  payments: { title: '支付记录查询', permission: 'bankdata:payment:view' },
+  payroll: { title: '代发查询', permission: 'bankdata:payroll:view' },
+} as const;
 
-function DataQueryPage({ resource }: { resource: keyof typeof dataQueryTitles }) {
-  const loader = useCallback(() => operationsApi.dataCapability(resource), [resource]);
-  const { data, loading, error, reload } = useRemote<DataQueryCapability>(loader, [loader]);
-  return <><div className="page-heading"><div><span className="section-kicker">连接与运营 / 数据查询</span><h2>{dataQueryTitles[resource]}</h2><p className="muted">读取范围由服务端按账户授权控制；页面不会构造银行余额、流水、回单、支付或代发记录。</p></div></div>{error ? <ResourceFailure error={error} onRetry={reload} /> : <Card title="查询能力"><>{loading ? <Skeleton active paragraph={{ rows: 4 }} /> : <><PhaseOneNotice status={data?.status} message={data?.message} /><Descriptions column={1} size="small"><Descriptions.Item label="查询类型">{data?.capability || dataQueryTitles[resource]}</Descriptions.Item><Descriptions.Item label="服务端状态"><StatusTag status={data?.status} /></Descriptions.Item><Descriptions.Item label="可用性">{data?.enabled ? '服务端已开放受控事实查询' : '服务端尚未开放该查询'}</Descriptions.Item></Descriptions></>}</></Card>}</>;
+function BankDataQueryPage({ resource }: { resource: keyof typeof bankDataResources }) {
+  const [page, setPage] = useState(1);
+  const [submitted, setSubmitted] = useState(false);
+  const [filters, setFilters] = useState({ keyword: '', accountId: '', status: '' });
+  const [draft, setDraft] = useState(filters);
+  const loader = useCallback(() => bankPipelineApi.queryProjection(resource, { page, size: 20, keyword: filters.keyword || undefined, accountId: filters.accountId || undefined, status: filters.status || undefined }), [resource, page, filters]);
+  const { data, loading, error, reload } = useRemote<PageResponse<BankDataProjection>>(loader, [loader]);
+  const query = () => { setPage(1); setFilters(draft); setSubmitted(true); };
+  const columns: TableColumnsType<BankDataProjection> = [{ title: '来源记录', dataIndex: 'sourceRecordId', render: (value) => value ? <span className="mono">{value}</span> : '--' }, { title: '来源系统', dataIndex: 'sourceSystem', render: (value) => value || '--' }, { title: '账户', dataIndex: 'accountMasked', render: (value) => value || '--' }, { title: '发生时间', dataIndex: 'occurredAt', render: (value) => dateTime(value) }, { title: '方向', dataIndex: 'direction', render: (value) => value || '--' }, { title: '金额', dataIndex: 'amount', align: 'right', render: (value, row) => value === undefined ? '--' : `${money(value)}${row.currency ? ` ${row.currency}` : ''}` }, { title: '状态', dataIndex: 'status', render: (value) => <StatusTag status={value} /> }, { title: '摘要', dataIndex: 'summary', ellipsis: true, render: (value) => value || '--' }];
+  const definition = bankDataResources[resource];
+  return <><div className="page-heading"><div><span className="section-kicker">连接与运营 / 银行数据投影</span><h2>{definition.title}</h2><p className="muted">仅消费服务端企业与账户授权后的业务投影；不读取原始报文、同步日志、密钥或令牌。</p></div></div><Card className="filter-card"><Space wrap><Input value={draft.keyword} placeholder="记录编号或摘要" onChange={(event) => setDraft((current) => ({ ...current, keyword: event.target.value }))} /><Input value={draft.accountId} placeholder="账户标识" onChange={(event) => setDraft((current) => ({ ...current, accountId: event.target.value }))} /><Input value={draft.status} placeholder="服务端状态" onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value }))} /><Button type="primary" icon={<SearchOutlined />} onClick={query}>查询</Button></Space></Card><Card title="查询结果">{error ? <ResourceFailure error={error} onRetry={reload} /> : !submitted && !loading ? <Empty description="设置筛选条件后点击查询；没有默认或浏览器生成的数据。" /> : <><PhaseOneNotice /><Table rowKey="id" loading={loading} columns={columns} dataSource={data?.records || []} pagination={false} locale={{ emptyText: <Empty description="服务端未返回符合条件的业务投影" /> }} scroll={{ x: 1000 }} />{data && data.total > data.size && <Pagination className="table-pagination" current={data.page} pageSize={data.size} total={data.total} showSizeChanger={false} onChange={(next) => { setPage(next); setSubmitted(true); }} />}</>}</Card></>;
 }
 
 function Forbidden() {
@@ -428,7 +476,7 @@ function Forbidden() {
 function AppRoutes() {
   const hydrate = useAuthStore((state) => state.hydrate);
   useEffect(() => { void hydrate(); }, [hydrate]);
-  return <Routes><Route path="/login" element={<Login />} /><Route path="/register" element={<Register />} /><Route element={<AuthGuard />}><Route element={<Shell />}><Route path="/dashboard" element={<Dashboard />} /><Route element={<PermissionGuard permissions={['transfer:create']} />}><Route path="/transfer" element={<PreservedFinancePage title="发起转账" description="高风险资金操作保持独立，不由连接与运营模块触发或改写。" />} /></Route><Route element={<PermissionGuard permissions={['transaction:view']} />}><Route path="/transactions" element={<PreservedFinancePage title="交易记录" description="交易流水入口已保留，连接与运营查询不会替代交易记录。" />} /></Route><Route element={<PermissionGuard permissions={['user:manage']} />}><Route path="/users" element={<PreservedFinancePage title="用户管理" description="用户管理入口已保留，连接与运营权限不提升用户管理权限。" />} /></Route><Route element={<PermissionGuard permissions={['statement:import']} />}><Route path="/statements/import" element={<ImportStatements />} /></Route><Route element={<PermissionGuard permissions={['statement:view']} />}><Route path="/statements/batches" element={<BatchList />} /></Route><Route element={<PermissionGuard permissions={['statement:review']} />}><Route path="/statements/review" element={<ReviewStatements />} /></Route><Route element={<PermissionGuard permissions={['voucher:push']} />}><Route path="/statements/vouchers" element={<VoucherStatements />} /></Route><Route element={<PermissionGuard permissions={['reconciliation:view']} />}><Route path="/statements/reconciliation" element={<Reconciliation />} /></Route><Route element={<PermissionGuard permissions={['connection:view', 'connection:manage']} />}><Route path="/connections/apps" element={<ConnectionConfigurationPage section="applications" title="应用管理" description="管理未来直联应用的受控元数据；一期不建立真实银行连接。" />} /><Route path="/connections/contracts" element={<ConnectionConfigurationPage section="contracts" title="签约管理" description="展示签约准备度和模拟标记，不代表银行签约已生效。" />} /><Route path="/connections/preferences" element={<ConnectionConfigurationPage section="preferences" title="个性化设置" description="展示服务端配置摘要；浏览器不读取或保存密钥、证书或令牌。" />} /></Route><Route element={<PermissionGuard permissions={['operation:monitor']} />}><Route path="/operations/connections" element={<ConnectionMonitoring />} /><Route path="/operations/tasks" element={<OperationTasks />} /></Route><Route element={<PermissionGuard permissions={['operation:log:view']} />}><Route path="/operations/logs" element={<OperationLogs />} /></Route><Route element={<PermissionGuard permissions={['data:query']} />}><Route path="/data/balances" element={<DataQueryPage resource="balances" />} /><Route path="/data/statements" element={<DataQueryPage resource="statements" />} /><Route path="/data/receipts" element={<DataQueryPage resource="receipts" />} /><Route path="/data/reconciliation-statements" element={<DataQueryPage resource="reconciliation-statements" />} /><Route path="/data/payments" element={<DataQueryPage resource="payments" />} /><Route path="/data/payroll" element={<DataQueryPage resource="payroll" />} /></Route><Route path="/403" element={<Forbidden />} /></Route></Route><Route path="*" element={<Navigate to="/dashboard" replace />} /></Routes>;
+  return <Routes><Route path="/login" element={<Login />} /><Route path="/register" element={<Register />} /><Route element={<AuthGuard />}><Route element={<Shell />}><Route path="/dashboard" element={<Dashboard />} /><Route element={<PermissionGuard permissions={['transfer:create']} />}><Route path="/transfer" element={<PreservedFinancePage title="发起转账" description="高风险资金操作保持独立，不由连接与运营模块触发或改写。" />} /></Route><Route element={<PermissionGuard permissions={['transaction:view']} />}><Route path="/transactions" element={<PreservedFinancePage title="交易记录" description="交易流水入口已保留，连接与运营查询不会替代交易记录。" />} /></Route><Route element={<PermissionGuard permissions={['user:manage']} />}><Route path="/users" element={<PreservedFinancePage title="用户管理" description="用户管理入口已保留，连接与运营权限不提升用户管理权限。" />} /></Route><Route element={<PermissionGuard permissions={['statement:import']} />}><Route path="/statements/import" element={<ImportStatements />} /></Route><Route element={<PermissionGuard permissions={['statement:view']} />}><Route path="/statements/batches" element={<BatchList />} /></Route><Route element={<PermissionGuard permissions={['statement:review']} />}><Route path="/statements/review" element={<ReviewStatements />} /></Route><Route element={<PermissionGuard permissions={['voucher:push']} />}><Route path="/statements/vouchers" element={<VoucherStatements />} /></Route><Route element={<PermissionGuard permissions={['reconciliation:view']} />}><Route path="/statements/reconciliation" element={<Reconciliation />} /></Route><Route element={<PermissionGuard permissions={['connection:view', 'connection:manage']} />}><Route path="/connections/apps" element={<ConnectionConfigurationPage section="applications" title="应用管理" description="管理未来直联应用的受控元数据；一期不建立真实银行连接。" />} /><Route path="/connections/agreements" element={<ConnectionConfigurationPage section="contracts" title="签约管理" description="展示签约准备度和模拟标记，不代表银行签约已生效。" />} /><Route path="/connections/preferences" element={<ConnectionConfigurationPage section="preferences" title="个性化设置" description="展示服务端配置摘要；浏览器不读取或保存密钥、证书或令牌。" />} /></Route><Route element={<PermissionGuard permissions={['operation:monitor']} />}><Route path="/operations/connectivity" element={<ConnectionMonitoring />} /><Route path="/operations/tasks" element={<OperationTasks />} /></Route><Route element={<PermissionGuard permissions={['operation:log:view']} />}><Route path="/operations/logs" element={<OperationLogs />} /></Route><Route element={<PermissionGuard permissions={['bankdata:balance:view']} />}><Route path="/bank-data/balances" element={<BankDataQueryPage resource="balances" />} /></Route><Route element={<PermissionGuard permissions={['bankdata:statement:view']} />}><Route path="/bank-data/statements" element={<BankDataQueryPage resource="statements" />} /></Route><Route element={<PermissionGuard permissions={['bankdata:receipt:view']} />}><Route path="/bank-data/receipts" element={<BankDataQueryPage resource="receipts" />} /></Route><Route element={<PermissionGuard permissions={['bankdata:reconciliation:view']} />}><Route path="/bank-data/reconciliations" element={<BankDataQueryPage resource="reconciliations" />} /></Route><Route element={<PermissionGuard permissions={['bankdata:payment:view']} />}><Route path="/bank-data/payments" element={<BankDataQueryPage resource="payments" />} /></Route><Route element={<PermissionGuard permissions={['bankdata:payroll:view']} />}><Route path="/bank-data/payroll" element={<BankDataQueryPage resource="payroll" />} /></Route><Route path="/403" element={<Forbidden />} /></Route></Route><Route path="*" element={<Navigate to="/dashboard" replace />} /></Routes>;
 }
 
 export default function App() {

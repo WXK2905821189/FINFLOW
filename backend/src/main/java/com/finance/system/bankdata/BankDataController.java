@@ -1,0 +1,100 @@
+package com.finance.system.bankdata;
+
+import com.finance.system.bankdata.dto.BankDataReconciliationResponse;
+import com.finance.system.bankdata.dto.BankDataStatementDetailResponse;
+import com.finance.system.bankdata.dto.BankDataStatementResponse;
+import com.finance.system.bankdata.dto.BankDataSyncRequest;
+import com.finance.system.bankdata.dto.BankDataSyncTaskDetailResponse;
+import com.finance.system.bankdata.dto.BankDataSyncTaskResponse;
+import com.finance.system.common.api.ApiResponse;
+import com.finance.system.common.api.PageResponse;
+import com.finance.system.security.UserPrincipal;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.time.LocalDateTime;
+
+@RestController
+@RequestMapping("/api/bank-data")
+@SecurityRequirement(name = "bearerAuth")
+public class BankDataController {
+
+    private final BankDataSyncService service;
+
+    public BankDataController(BankDataSyncService service) {
+        this.service = service;
+    }
+
+    @PostMapping("/sync-tasks")
+    @PreAuthorize("hasAuthority('bankdata:sync')")
+    @Operation(summary = "Trigger a simulated bank data synchronization")
+    public ApiResponse<BankDataSyncTaskDetailResponse> trigger(
+            @Valid @RequestBody BankDataSyncRequest request,
+            @RequestHeader(value = "X-Request-Id", required = false) String requestId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success("Bank data synchronization completed", service.trigger(principal.getId(), request, requestId));
+    }
+
+    @GetMapping("/sync-tasks")
+    @PreAuthorize("hasAuthority('bankdata:view')")
+    @Operation(summary = "List bank data synchronization tasks")
+    public ApiResponse<PageResponse<BankDataSyncTaskResponse>> tasks(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String adapterCode,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success(service.listTasks(principal.getId(), page, size, status, adapterCode));
+    }
+
+    @GetMapping("/sync-tasks/{id}")
+    @PreAuthorize("hasAuthority('bankdata:view')")
+    @Operation(summary = "Get a bank data synchronization task and logs")
+    public ApiResponse<BankDataSyncTaskDetailResponse> task(@PathVariable Long id,
+                                                             @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success(service.getTaskDetail(principal.getId(), id));
+    }
+
+    @GetMapping("/statements")
+    @PreAuthorize("hasAuthority('bankdata:view')")
+    @Operation(summary = "Query normalized bank data statements")
+    public ApiResponse<PageResponse<BankDataStatementResponse>> statements(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) Long bankAccountId,
+            @RequestParam(required = false) String direction,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success(service.listStatements(principal.getId(), page, size, bankAccountId, direction, from, to));
+    }
+
+    @GetMapping("/statements/{id}")
+    @PreAuthorize("hasAuthority('bankdata:view')")
+    @Operation(summary = "Get a normalized bank statement with provenance")
+    public ApiResponse<BankDataStatementDetailResponse> statement(@PathVariable Long id,
+                                                                   @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success(service.getStatement(principal.getId(), id));
+    }
+
+    @GetMapping("/reconciliation/summary")
+    @PreAuthorize("hasAuthority('bankdata:reconciliation:view')")
+    @Operation(summary = "Get bank data reconciliation summary")
+    public ApiResponse<BankDataReconciliationResponse> reconciliation(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success(service.reconciliation(principal.getId()));
+    }
+
+}

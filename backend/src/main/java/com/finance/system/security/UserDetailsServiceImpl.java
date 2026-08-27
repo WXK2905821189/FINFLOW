@@ -20,7 +20,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        var user = userService.findByUsername(username)
+        var user = userService.findByLoginIdentifier(username)
                 .orElseThrow(() -> new UsernameNotFoundException("Account or password is invalid"));
         return new UserPrincipal(user, rbacService.authorityCodes(user.getId()));
     }

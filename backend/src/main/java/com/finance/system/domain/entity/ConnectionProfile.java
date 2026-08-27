@@ -11,6 +11,7 @@ public class ConnectionProfile {
 
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
+    private Long companyId;
     private String connectionCode;
     private String displayName;
     private String providerType;
@@ -22,6 +23,8 @@ public class ConnectionProfile {
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+    public Long getCompanyId() { return companyId; }
+    public void setCompanyId(Long companyId) { this.companyId = companyId; }
     public String getConnectionCode() { return connectionCode; }
     public void setConnectionCode(String connectionCode) { this.connectionCode = connectionCode; }
     public String getDisplayName() { return displayName; }

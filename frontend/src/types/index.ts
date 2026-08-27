@@ -199,3 +199,50 @@ export type DataQueryCapability = {
   status: string;
   message: string;
 };
+
+export type BankSyncJobTrigger = {
+  jobType: string;
+  connectionCode?: string;
+  windowStart?: string;
+  windowEnd?: string;
+};
+
+export type BankSyncJob = {
+  id: number;
+  jobNo: string;
+  jobType: string;
+  triggerType: string;
+  connectionCode?: string;
+  status: string;
+  requestId?: string;
+  summary?: string;
+  startedAt?: string;
+  completedAt?: string;
+  createdAt: string;
+};
+
+export type BankSyncJobEvent = {
+  status: string;
+  stage: string;
+  message?: string;
+  requestId?: string;
+  occurredAt: string;
+};
+
+export type BankSyncJobDetail = {
+  job: BankSyncJob;
+  timeline: BankSyncJobEvent[];
+};
+
+export type BankDataProjection = {
+  id: string | number;
+  sourceSystem?: string;
+  sourceRecordId?: string;
+  status?: string;
+  occurredAt?: string;
+  accountMasked?: string;
+  amount?: number | string;
+  currency?: string;
+  direction?: string;
+  summary?: string;
+};

@@ -5,10 +5,12 @@ import com.finance.system.bank.dto.BankAccountResponse;
 import com.finance.system.bank.dto.BankTransferRequest;
 import com.finance.system.bank.dto.BankTransferResponse;
 import com.finance.system.common.api.ApiResponse;
+import com.finance.system.security.UserPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -42,28 +44,31 @@ public class BankController {
     @GetMapping("/bank-accounts")
     @PreAuthorize("hasAuthority('bank:view')")
     @Operation(summary = "List masked bank accounts")
-    public ApiResponse<List<BankAccountResponse>> accounts() {
-        return ApiResponse.success(bankAccountService.listResponses());
+    public ApiResponse<List<BankAccountResponse>> accounts(@AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success(bankAccountService.listResponses(principal.getId()));
     }
 
     @PostMapping("/bank-accounts")
     @PreAuthorize("hasAuthority('bank:manage')")
     @Operation(summary = "Create a bank account")
-    public ApiResponse<BankAccountResponse> createAccount(@Valid @RequestBody BankAccountRequest request) {
-        return ApiResponse.success("Bank account created", bankAccountService.create(request));
+    public ApiResponse<BankAccountResponse> createAccount(@Valid @RequestBody BankAccountRequest request,
+                                                          @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success("Bank account created", bankAccountService.create(principal.getId(), request));
     }
 
     @PutMapping("/bank-accounts/{id}")
     @PreAuthorize("hasAuthority('bank:manage')")
     @Operation(summary = "Update a bank account")
-    public ApiResponse<BankAccountResponse> updateAccount(@PathVariable Long id, @Valid @RequestBody BankAccountRequest request) {
-        return ApiResponse.success("Bank account updated", bankAccountService.updateAccount(id, request));
+    public ApiResponse<BankAccountResponse> updateAccount(@PathVariable Long id, @Valid @RequestBody BankAccountRequest request,
+                                                          @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success("Bank account updated", bankAccountService.updateAccount(principal.getId(), id, request));
     }
 
     @PostMapping("/transfers")
     @PreAuthorize("hasAuthority('transfer:create')")
     @Operation(summary = "Submit a bank transfer to the selected adapter")
-    public ApiResponse<BankTransferResponse> transfer(@Valid @RequestBody BankTransferRequest request) {
-        return ApiResponse.success("Transfer accepted", bankAccountService.submitTransfer(request));
+    public ApiResponse<BankTransferResponse> transfer(@Valid @RequestBody BankTransferRequest request,
+                                                      @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success("Transfer accepted", bankAccountService.submitTransfer(principal.getId(), request));
     }
 }

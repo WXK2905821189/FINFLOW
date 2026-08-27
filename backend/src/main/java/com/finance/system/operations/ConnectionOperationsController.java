@@ -7,9 +7,11 @@ import com.finance.system.operations.dto.ConnectionOverviewResponse;
 import com.finance.system.operations.dto.DataQueryCapabilityResponse;
 import com.finance.system.operations.dto.OperationLogResponse;
 import com.finance.system.operations.dto.OperationTaskResponse;
+import com.finance.system.security.UserPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -31,15 +33,16 @@ public class ConnectionOperationsController {
     @PreAuthorize("hasAnyAuthority('connection:view', 'connection:manage')")
     @Operation(summary = "Read safe connection configuration metadata")
     public ApiResponse<ConnectionConfigurationResponse> configuration(
-            @RequestParam(required = false) String section) {
-        return ApiResponse.success(service.configuration(section));
+            @RequestParam(required = false) String section,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success(service.configuration(principal.getId(), section));
     }
 
     @GetMapping("/operations/connections")
     @PreAuthorize("hasAuthority('operation:monitor')")
     @Operation(summary = "Read connection status overview")
-    public ApiResponse<ConnectionOverviewResponse> connections() {
-        return ApiResponse.success(service.overview());
+    public ApiResponse<ConnectionOverviewResponse> connections(@AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success(service.overview(principal.getId()));
     }
 
     @GetMapping("/operations/tasks")
@@ -50,8 +53,9 @@ public class ConnectionOperationsController {
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String connectionCode,
             @RequestParam(required = false) String status,
-            @RequestParam(required = false) String requestId) {
-        return ApiResponse.success(service.tasks(page, size, connectionCode, status, requestId));
+            @RequestParam(required = false) String requestId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success(service.tasks(principal.getId(), page, size, connectionCode, status, requestId));
     }
 
     @GetMapping("/operations/logs")
@@ -62,8 +66,9 @@ public class ConnectionOperationsController {
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String connectionCode,
             @RequestParam(required = false) String status,
-            @RequestParam(required = false) String requestId) {
-        return ApiResponse.success(service.logs(page, size, connectionCode, status, requestId));
+            @RequestParam(required = false) String requestId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success(service.logs(principal.getId(), page, size, connectionCode, status, requestId));
     }
 
     @GetMapping("/data/{resource}")

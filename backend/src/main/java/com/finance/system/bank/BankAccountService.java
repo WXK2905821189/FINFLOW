@@ -9,6 +9,7 @@ import com.finance.system.bank.dto.BankTransferResponse;
 import com.finance.system.common.exception.BusinessException;
 import com.finance.system.domain.entity.BankAccount;
 import com.finance.system.domain.mapper.BankAccountMapper;
+import com.finance.system.bankdata.scope.CompanyScopeService;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -18,26 +19,35 @@ import java.util.List;
 public class BankAccountService extends ServiceImpl<BankAccountMapper, BankAccount> {
 
     private final BankServiceFactory bankServiceFactory;
+    private final CompanyScopeService companyScope;
 
-    public BankAccountService(BankServiceFactory bankServiceFactory) {
+    public BankAccountService(BankServiceFactory bankServiceFactory, CompanyScopeService companyScope) {
         this.bankServiceFactory = bankServiceFactory;
+        this.companyScope = companyScope;
     }
 
-    public List<BankAccountResponse> listResponses() {
-        return list(new LambdaQueryWrapper<BankAccount>().orderByAsc(BankAccount::getId)).stream()
+    public List<BankAccountResponse> listResponses(Long userId) {
+        long companyId = companyScope.companyIdForUser(userId);
+        return list(new LambdaQueryWrapper<BankAccount>()
+                .eq(BankAccount::getCompanyId, companyId)
+                .orderByAsc(BankAccount::getId)).stream()
                 .map(this::toResponse).toList();
     }
 
-    public BankAccountResponse create(BankAccountRequest request) {
+    public BankAccountResponse create(Long userId, BankAccountRequest request) {
         bankServiceFactory.get(request.bankCode());
         BankAccount account = new BankAccount();
+        account.setCompanyId(companyScope.companyIdForUser(userId));
         apply(request, account);
         save(account);
         return toResponse(account);
     }
 
-    public BankAccountResponse updateAccount(Long id, BankAccountRequest request) {
-        BankAccount account = getById(id);
+    public BankAccountResponse updateAccount(Long userId, Long id, BankAccountRequest request) {
+        long companyId = companyScope.companyIdForUser(userId);
+        BankAccount account = getOne(new LambdaQueryWrapper<BankAccount>()
+                .eq(BankAccount::getId, id)
+                .eq(BankAccount::getCompanyId, companyId));
         if (account == null) {
             throw new BusinessException(404, "Bank account not found");
         }
@@ -47,8 +57,11 @@ public class BankAccountService extends ServiceImpl<BankAccountMapper, BankAccou
         return toResponse(account);
     }
 
-    public BankTransferResponse submitTransfer(BankTransferRequest request) {
-        BankAccount payer = getById(request.payerAccountId());
+    public BankTransferResponse submitTransfer(Long userId, BankTransferRequest request) {
+        long companyId = companyScope.companyIdForUser(userId);
+        BankAccount payer = getOne(new LambdaQueryWrapper<BankAccount>()
+                .eq(BankAccount::getId, request.payerAccountId())
+                .eq(BankAccount::getCompanyId, companyId));
         if (payer == null) {
             throw new BusinessException(404, "Payer account not found");
         }

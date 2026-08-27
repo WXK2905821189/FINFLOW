@@ -25,6 +25,26 @@ jobs:
           test -f "$migration_dir/V1__init_rbac_and_bank_accounts.sql"
           test -f "$migration_dir/V2__statement_import_and_voucher_push.sql"
           compgen -G "$migration_dir/V3__*.sql" > /dev/null
+          test -f "$migration_dir/V4__bank_data_access_foundation.sql"
+          grep -q 'CREATE TABLE bank_data_raw_message' "$migration_dir/V4__bank_data_access_foundation.sql"
+          grep -q 'retention_until TIMESTAMP NOT NULL' "$migration_dir/V4__bank_data_access_foundation.sql"
+          grep -q 'raw.setRetentionUntil(receivedAt.plusDays(30))' backend/src/main/java/com/finance/system/bankdata/BankDataSyncExecutor.java
+          grep -q '@Scheduled' backend/src/main/java/com/finance/system/bankdata/BankDataSyncScheduler.java
+          grep -q '@PostMapping("/sync-tasks")' backend/src/main/java/com/finance/system/bankdata/BankDataController.java
+          grep -q 'class MockBankDataAdapter' backend/src/main/java/com/finance/system/bankdata/adapter/MockBankDataAdapter.java
+          grep -q 'String requestId' backend/src/main/java/com/finance/system/bankdata/BankDataController.java
+          if ! find backend/src/main/java/com/finance/system/bankdata -name '*.java' -print0 | xargs -0 grep -l '@Scheduled' | xargs -r grep -l -E 'retentionUntil|BankDataRawMessage' | grep -q .; then
+            echo "A scheduled bank raw-message retention task with retention audit is required for v0.2."
+            exit 1
+          fi
+          if ! grep -q '@RequestParam.*requestId' backend/src/main/java/com/finance/system/bankdata/BankDataController.java; then
+            echo "An authorized request-id lookup endpoint is required for v0.2 operations."
+            exit 1
+          fi
+          if git grep -n -I -E '(HttpClient|RestTemplate|WebClient|java\.net\.http|https?://)' -- backend/src/main/java/com/finance/system/bankdata; then
+            echo "v0.2 must not call a real bank SDK or API before a separately approved adapter release."
+            exit 1
+          fi
           if git grep -n -I -E '(BANK|KINGDEE)_(API_)?(KEY|SECRET|TOKEN)=[^${[:space:]]+' -- . ':!docs/deployment-guide.md'; then
             echo "Production bank or Kingdee credentials must not be committed."
             exit 1

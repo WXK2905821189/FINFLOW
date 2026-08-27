@@ -11,6 +11,7 @@ public class ConnectionOperationLog {
 
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
+    private Long companyId;
     private Long taskId;
     private String level;
     private String eventType;
@@ -21,6 +22,8 @@ public class ConnectionOperationLog {
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+    public Long getCompanyId() { return companyId; }
+    public void setCompanyId(Long companyId) { this.companyId = companyId; }
     public Long getTaskId() { return taskId; }
     public void setTaskId(Long taskId) { this.taskId = taskId; }
     public String getLevel() { return level; }

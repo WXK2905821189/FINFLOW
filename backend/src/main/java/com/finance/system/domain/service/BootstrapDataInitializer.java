@@ -37,6 +37,7 @@ public class BootstrapDataInitializer implements ApplicationRunner {
         SysRole adminRole = rbacService.findRoleByCode("ADMIN").orElseThrow(
                 () -> new IllegalStateException("Flyway RBAC seed data is missing"));
         SysUser admin = new SysUser();
+        admin.setCompanyId(1L);
         admin.setUsername("admin");
         admin.setEmail("admin@finflow.local");
         admin.setPasswordHash(passwordEncoder.encode("Admin@123"));

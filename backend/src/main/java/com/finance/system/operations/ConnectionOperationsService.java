@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.finance.system.common.api.PageResponse;
 import com.finance.system.common.exception.BusinessException;
+import com.finance.system.bankdata.scope.CompanyScopeService;
 import com.finance.system.domain.entity.ConnectionOperationLog;
 import com.finance.system.domain.entity.ConnectionOperationTask;
 import com.finance.system.domain.entity.ConnectionProfile;
@@ -34,18 +35,22 @@ public class ConnectionOperationsService {
     private final ConnectionProfileMapper profileMapper;
     private final ConnectionOperationTaskMapper taskMapper;
     private final ConnectionOperationLogMapper logMapper;
+    private final CompanyScopeService companyScope;
 
     public ConnectionOperationsService(ConnectionProfileMapper profileMapper,
                                        ConnectionOperationTaskMapper taskMapper,
-                                       ConnectionOperationLogMapper logMapper) {
+                                       ConnectionOperationLogMapper logMapper,
+                                       CompanyScopeService companyScope) {
         this.profileMapper = profileMapper;
         this.taskMapper = taskMapper;
         this.logMapper = logMapper;
+        this.companyScope = companyScope;
     }
 
-    public ConnectionConfigurationResponse configuration(String section) {
+    public ConnectionConfigurationResponse configuration(Long userId, String section) {
+        long companyId = companyScope.companyIdForUser(userId);
         validateSection(section);
-        List<ConnectionSummaryResponse> connections = profiles().stream().map(this::toSummary).toList();
+        List<ConnectionSummaryResponse> connections = profiles(companyId).stream().map(this::toSummary).toList();
         return new ConnectionConfigurationResponse(
                 false,
                 "NOT_ENABLED",
@@ -54,8 +59,9 @@ public class ConnectionOperationsService {
                 connections);
     }
 
-    public ConnectionOverviewResponse overview() {
-        List<ConnectionProfile> profiles = profiles();
+    public ConnectionOverviewResponse overview(Long userId) {
+        long companyId = companyScope.companyIdForUser(userId);
+        List<ConnectionProfile> profiles = profiles(companyId);
         List<ConnectionSummaryResponse> connections = profiles.stream().map(this::toSummary).toList();
         boolean enabled = profiles.stream().anyMatch(profile -> Boolean.TRUE.equals(profile.getEnabled()));
         String status = profiles.isEmpty() ? "NOT_ENABLED" : (enabled ? "SIMULATED" : "DISABLED");
@@ -65,10 +71,12 @@ public class ConnectionOperationsService {
         return new ConnectionOverviewResponse(enabled, status, message, connections);
     }
 
-    public PageResponse<OperationTaskResponse> tasks(int page, int size, String connectionCode,
+    public PageResponse<OperationTaskResponse> tasks(Long userId, int page, int size, String connectionCode,
                                                        String status, String requestId) {
-        Long connectionId = findConnectionId(connectionCode);
+        long companyId = companyScope.companyIdForUser(userId);
+        Long connectionId = findConnectionId(companyId, connectionCode);
         LambdaQueryWrapper<ConnectionOperationTask> query = new LambdaQueryWrapper<ConnectionOperationTask>()
+                .eq(ConnectionOperationTask::getCompanyId, companyId)
                 .eq(connectionId != null, ConnectionOperationTask::getConnectionId, connectionId)
                 .eq(status != null && !status.isBlank(), ConnectionOperationTask::getStatus, normalize(status))
                 .eq(requestId != null && !requestId.isBlank(), ConnectionOperationTask::getRequestId, requestId.trim())
@@ -78,7 +86,7 @@ public class ConnectionOperationsService {
             return new PageResponse<>(Math.max(1, page), boundedSize(size), 0, List.of());
         }
         Page<ConnectionOperationTask> result = taskMapper.selectPage(new Page<>(Math.max(1, page), boundedSize(size)), query);
-        Map<Long, ConnectionProfile> profiles = profileMap(result.getRecords().stream()
+        Map<Long, ConnectionProfile> profiles = profileMap(companyId, result.getRecords().stream()
                 .map(ConnectionOperationTask::getConnectionId).toList());
         List<OperationTaskResponse> records = result.getRecords().stream()
                 .map(task -> toTaskResponse(task, profiles.get(task.getConnectionId())))
@@ -86,19 +94,22 @@ public class ConnectionOperationsService {
         return new PageResponse<>(result.getCurrent(), result.getSize(), result.getTotal(), records);
     }
 
-    public PageResponse<OperationLogResponse> logs(int page, int size, String connectionCode,
+    public PageResponse<OperationLogResponse> logs(Long userId, int page, int size, String connectionCode,
                                                     String status, String requestId) {
-        Long connectionId = findConnectionId(connectionCode);
+        long companyId = companyScope.companyIdForUser(userId);
+        Long connectionId = findConnectionId(companyId, connectionCode);
         if (connectionCode != null && !connectionCode.isBlank() && connectionId == null) {
             return new PageResponse<>(Math.max(1, page), boundedSize(size), 0, List.of());
         }
         LambdaQueryWrapper<ConnectionOperationLog> query = new LambdaQueryWrapper<ConnectionOperationLog>()
+                .eq(ConnectionOperationLog::getCompanyId, companyId)
                 .eq(status != null && !status.isBlank(), ConnectionOperationLog::getResult, normalize(status))
                 .eq(requestId != null && !requestId.isBlank(), ConnectionOperationLog::getRequestId, requestId.trim())
                 .orderByDesc(ConnectionOperationLog::getOccurredAt)
                 .orderByDesc(ConnectionOperationLog::getId);
         if (connectionId != null) {
             List<Long> taskIds = taskMapper.selectList(new LambdaQueryWrapper<ConnectionOperationTask>()
+                            .eq(ConnectionOperationTask::getCompanyId, companyId)
                             .eq(ConnectionOperationTask::getConnectionId, connectionId))
                     .stream().map(ConnectionOperationTask::getId).toList();
             if (taskIds.isEmpty()) {
@@ -124,23 +135,27 @@ public class ConnectionOperationsService {
         );
     }
 
-    private List<ConnectionProfile> profiles() {
+    private List<ConnectionProfile> profiles(long companyId) {
         return profileMapper.selectList(new LambdaQueryWrapper<ConnectionProfile>()
+                .eq(ConnectionProfile::getCompanyId, companyId)
                 .orderByAsc(ConnectionProfile::getConnectionCode)
                 .orderByAsc(ConnectionProfile::getId));
     }
 
-    private Long findConnectionId(String connectionCode) {
+    private Long findConnectionId(long companyId, String connectionCode) {
         if (connectionCode == null || connectionCode.isBlank()) return null;
         ConnectionProfile profile = profileMapper.selectOne(new LambdaQueryWrapper<ConnectionProfile>()
+                .eq(ConnectionProfile::getCompanyId, companyId)
                 .eq(ConnectionProfile::getConnectionCode, connectionCode.trim()));
         return profile == null ? null : profile.getId();
     }
 
-    private Map<Long, ConnectionProfile> profileMap(List<Long> ids) {
+    private Map<Long, ConnectionProfile> profileMap(long companyId, List<Long> ids) {
         List<Long> distinctIds = ids.stream().filter(java.util.Objects::nonNull).distinct().toList();
         if (distinctIds.isEmpty()) return Map.of();
-        return profileMapper.selectByIds(distinctIds).stream()
+        return profileMapper.selectList(new LambdaQueryWrapper<ConnectionProfile>()
+                        .eq(ConnectionProfile::getCompanyId, companyId)
+                        .in(ConnectionProfile::getId, distinctIds)).stream()
                 .collect(Collectors.toMap(ConnectionProfile::getId, Function.identity()));
     }
 

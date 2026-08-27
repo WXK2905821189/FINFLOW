@@ -748,6 +748,21 @@ a {
   overflow-wrap: anywhere;
 }
 
+.drawer-section-title {
+  margin: 24px 0 14px;
+  color: #26383d;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.sync-job-form {
+  margin-top: 18px;
+}
+
+.sync-job-form .ant-form-item:last-child {
+  margin-bottom: 0;
+}
+
 .phase-one-notice {
   margin-bottom: 16px;
 }

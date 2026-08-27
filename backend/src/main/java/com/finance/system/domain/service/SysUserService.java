@@ -29,6 +29,17 @@ public class SysUserService extends ServiceImpl<SysUserMapper, SysUser> {
                 .eq(SysUser::getUsername, username)));
     }
 
+    public Optional<SysUser> findByLoginIdentifier(String identifier) {
+        if (identifier == null || identifier.isBlank()) {
+            return Optional.empty();
+        }
+        String value = identifier.trim();
+        Optional<SysUser> byUsername = findByUsername(value);
+        return byUsername.isPresent()
+                ? byUsername
+                : findByEmail(value.toLowerCase());
+    }
+
     public Optional<SysUser> findByEmail(String email) {
         return Optional.ofNullable(baseMapper.selectOne(new LambdaQueryWrapper<SysUser>()
                 .eq(SysUser::getEmail, email)));
@@ -53,6 +64,7 @@ public class SysUserService extends ServiceImpl<SysUserMapper, SysUser> {
             throw new BusinessException(400, "An initial password of at least 8 characters is required");
         }
         SysUser user = new SysUser();
+        user.setCompanyId(1L);
         copyRequest(request, user);
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         save(user);
