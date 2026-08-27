@@ -4,16 +4,19 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.finance.system.bankdata.adapter.BankDataAdapter;
+import com.finance.system.bankdata.adapter.BankDataBalanceEntry;
 import com.finance.system.bankdata.adapter.BankDataCollection;
 import com.finance.system.bankdata.adapter.BankDataEntry;
 import com.finance.system.bankdata.adapter.BankDataSyncContext;
 import com.finance.system.common.exception.BusinessException;
 import com.finance.system.domain.entity.BankAccount;
+import com.finance.system.domain.entity.BankDataBalance;
 import com.finance.system.domain.entity.BankDataRawMessage;
 import com.finance.system.domain.entity.BankDataStatement;
 import com.finance.system.domain.entity.BankDataSyncLog;
 import com.finance.system.domain.entity.BankDataSyncTask;
 import com.finance.system.domain.mapper.BankAccountMapper;
+import com.finance.system.domain.mapper.BankDataBalanceMapper;
 import com.finance.system.domain.mapper.BankDataRawMessageMapper;
 import com.finance.system.domain.mapper.BankDataStatementMapper;
 import com.finance.system.domain.mapper.BankDataSyncLogMapper;
@@ -40,6 +43,7 @@ public class BankDataSyncExecutor {
     private static final String INVALID = "INVALID";
 
     private final BankDataSyncTaskMapper taskMapper;
+    private final BankDataBalanceMapper balanceMapper;
     private final BankDataRawMessageMapper rawMessageMapper;
     private final BankDataStatementMapper statementMapper;
     private final BankDataSyncLogMapper logMapper;
@@ -48,6 +52,7 @@ public class BankDataSyncExecutor {
     private final Map<String, BankDataAdapter> adapters;
 
     public BankDataSyncExecutor(BankDataSyncTaskMapper taskMapper,
+                                BankDataBalanceMapper balanceMapper,
                                 BankDataRawMessageMapper rawMessageMapper,
                                 BankDataStatementMapper statementMapper,
                                 BankDataSyncLogMapper logMapper,
@@ -55,6 +60,7 @@ public class BankDataSyncExecutor {
                                 ObjectMapper objectMapper,
                                 List<BankDataAdapter> adapterList) {
         this.taskMapper = taskMapper;
+        this.balanceMapper = balanceMapper;
         this.rawMessageMapper = rawMessageMapper;
         this.statementMapper = statementMapper;
         this.logMapper = logMapper;
@@ -81,6 +87,7 @@ public class BankDataSyncExecutor {
                 task.getBankAccountId(), task.getTaskNo(), task.getRequestId());
         BankDataCollection collection = Objects.requireNonNull(adapter.collect(context), "Adapter returned no collection");
         List<BankDataEntry> entries = collection.entries() == null ? List.of() : collection.entries();
+        List<BankDataBalanceEntry> balances = collection.balances() == null ? List.of() : collection.balances();
         String rawPayload = serialize(collection);
         LocalDateTime receivedAt = LocalDateTime.now();
         BankDataRawMessage raw = new BankDataRawMessage();
@@ -93,6 +100,8 @@ public class BankDataSyncExecutor {
         raw.setReceivedAt(receivedAt);
         raw.setRetentionUntil(receivedAt.plusDays(30));
         rawMessageMapper.insert(raw);
+        log(task, "INFO", "RAW_MESSAGE_PERSISTED", "RECORDED", collection.bankRequestNo(),
+                "Raw bank data response recorded before normalization");
 
         int normalized = 0;
         int duplicates = 0;
@@ -126,9 +135,36 @@ public class BankDataSyncExecutor {
             }
         }
 
+        for (BankDataBalanceEntry balance : balances) {
+            String validationMessage = validateBalance(balance, companyId, task.getBankAccountId());
+            if (!validationMessage.isBlank()) {
+                invalid++;
+                log(task, "WARN", "BALANCE_VALIDATION", "INVALID", collection.bankRequestNo(), validationMessage);
+                continue;
+            }
+            BankDataBalance snapshot = toBalance(balance, task, raw, collection.bankRequestNo());
+            try {
+                if (balanceMapper.selectCount(new LambdaQueryWrapper<BankDataBalance>()
+                        .eq(BankDataBalance::getCompanyId, companyId)
+                        .eq(BankDataBalance::getBankAccountId, snapshot.getBankAccountId())
+                        .eq(BankDataBalance::getAsOfTime, snapshot.getAsOfTime())) > 0) {
+                    duplicates++;
+                    log(task, "INFO", "BALANCE_DEDUPLICATED", "DUPLICATE", collection.bankRequestNo(),
+                            "Bank balance snapshot key already exists");
+                    continue;
+                }
+                balanceMapper.insert(snapshot);
+                normalized++;
+            } catch (DuplicateKeyException duplicateKeyException) {
+                duplicates++;
+                log(task, "INFO", "BALANCE_DEDUPLICATED", "DUPLICATE", collection.bankRequestNo(),
+                        "Bank balance snapshot key already exists");
+            }
+        }
+
         task.setBankRequestNo(collection.bankRequestNo());
         task.setStatus(invalid == 0 ? "SUCCEEDED" : "PARTIAL");
-        task.setRawCount(entries.size());
+        task.setRawCount(entries.size() + balances.size());
         task.setNormalizedCount(normalized);
         task.setDuplicateCount(duplicates);
         task.setInvalidCount(invalid);
@@ -158,6 +194,22 @@ public class BankDataSyncExecutor {
         return "";
     }
 
+    private String validateBalance(BankDataBalanceEntry entry, long companyId, Long expectedAccountId) {
+        if (entry == null) return "balance entry is required";
+        if (entry.asOfTime() == null) return "balance asOfTime is required";
+        if (entry.bankAccountId() == null || !entry.bankAccountId().equals(expectedAccountId)) {
+            return "balance bankAccountId is outside the sync scope";
+        }
+        BankAccount account = bankAccountMapper.selectOne(new LambdaQueryWrapper<BankAccount>()
+                .eq(BankAccount::getId, entry.bankAccountId())
+                .eq(BankAccount::getCompanyId, companyId));
+        if (account == null) return "balance bankAccountId is not in the current company";
+        if (entry.availableBalance() == null) return "availableBalance is required";
+        if (entry.availableBalance().scale() > 2) return "availableBalance must have at most two decimal places";
+        if (entry.currency() != null && !"CNY".equalsIgnoreCase(entry.currency())) return "balance currency must be CNY";
+        return "";
+    }
+
     private BankDataStatement toStatement(BankDataEntry entry, BankDataSyncTask task, BankDataRawMessage raw,
                                            String collectionBankRequestNo) {
         BankDataStatement statement = new BankDataStatement();
@@ -176,6 +228,22 @@ public class BankDataSyncExecutor {
         statement.setSummary(trimToNull(entry.summary()));
         statement.setValidationStatus(VALID);
         return statement;
+    }
+
+    private BankDataBalance toBalance(BankDataBalanceEntry entry, BankDataSyncTask task, BankDataRawMessage raw,
+                                      String collectionBankRequestNo) {
+        BankDataBalance balance = new BankDataBalance();
+        balance.setCompanyId(task.getCompanyId());
+        balance.setTaskId(task.getId());
+        balance.setRawMessageId(raw.getId());
+        balance.setBankAccountId(entry.bankAccountId());
+        balance.setBankRequestNo(entry.bankRequestNo() == null ? collectionBankRequestNo : entry.bankRequestNo());
+        balance.setAvailableBalance(entry.availableBalance().setScale(2));
+        balance.setCurrency(entry.currency() == null || entry.currency().isBlank()
+                ? "CNY" : entry.currency().trim().toUpperCase(Locale.ROOT));
+        balance.setAsOfTime(entry.asOfTime());
+        balance.setValidationStatus(VALID);
+        return balance;
     }
 
     private void log(BankDataSyncTask task, String level, String eventType, String result,

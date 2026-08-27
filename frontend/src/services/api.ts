@@ -8,6 +8,7 @@ import type {
   OperationTask,
   BankAccount,
   BankDataProjection,
+  BankDataProjectionPage,
   BankSyncJob,
   BankSyncJobDetail,
   BankSyncJobTrigger,
@@ -82,5 +83,5 @@ export const bankPipelineApi = {
   triggerJob: (data: BankSyncJobTrigger) => http.post<never, BankSyncJob>('/bank-sync-jobs', data),
   listJobs: (params: { page?: number; size?: number; status?: string; jobType?: string }) => http.get<never, PageResponse<BankSyncJob>>('/bank-sync-jobs', { params }),
   getJob: (id: number) => http.get<never, BankSyncJobDetail>(`/bank-sync-jobs/${id}`),
-  queryProjection: (resource: string, params: BankDataQueryParams) => http.get<never, PageResponse<BankDataProjection>>(`/bank-data/${resource}`, { params }),
+  queryProjection: (resource: string, params: BankDataQueryParams) => http.get<never, BankDataProjectionPage>(`/bank-data/${resource}`, { params }),
 };

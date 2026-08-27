@@ -19,7 +19,10 @@ class MockBankDataAdapterTest {
         assertEquals("MOCK", adapter.adapterCode());
         assertEquals(first, second);
         assertEquals(1, first.entries().size());
+        assertEquals(1, first.balances().size());
         assertEquals(2L, first.entries().get(0).bankAccountId());
+        assertEquals(2L, first.balances().get(0).bankAccountId());
         assertNotNull(first.entries().get(0).amount());
+        assertNotNull(first.balances().get(0).availableBalance());
     }
 }

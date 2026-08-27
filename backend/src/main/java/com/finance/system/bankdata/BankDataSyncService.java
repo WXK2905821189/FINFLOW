@@ -11,6 +11,8 @@ import com.finance.system.bankdata.dto.BankDataSyncRequest;
 import com.finance.system.bankdata.dto.BankDataSyncTaskDetailResponse;
 import com.finance.system.bankdata.dto.BankDataSyncTaskResponse;
 import com.finance.system.bankdata.dto.BankDataProjectionResponse;
+import com.finance.system.bankdata.dto.BankDataBalanceResponse;
+import com.finance.system.bankdata.dto.BankDataConnectionResponse;
 import com.finance.system.bankdata.dto.BankSyncJobDetailResponse;
 import com.finance.system.bankdata.dto.BankSyncJobEventResponse;
 import com.finance.system.bankdata.dto.BankSyncJobResponse;
@@ -20,12 +22,14 @@ import com.finance.system.common.api.PageResponse;
 import com.finance.system.common.exception.BusinessException;
 import com.finance.system.domain.entity.BankAccount;
 import com.finance.system.domain.entity.BankDataRawMessage;
+import com.finance.system.domain.entity.BankDataBalance;
 import com.finance.system.domain.entity.BankDataStatement;
 import com.finance.system.domain.entity.BankDataSyncLog;
 import com.finance.system.domain.entity.BankDataSyncTask;
 import com.finance.system.domain.entity.ConnectionProfile;
 import com.finance.system.domain.mapper.BankAccountMapper;
 import com.finance.system.domain.mapper.BankDataRawMessageMapper;
+import com.finance.system.domain.mapper.BankDataBalanceMapper;
 import com.finance.system.domain.mapper.BankDataStatementMapper;
 import com.finance.system.domain.mapper.BankDataSyncLogMapper;
 import com.finance.system.domain.mapper.BankDataSyncTaskMapper;
@@ -47,6 +51,7 @@ public class BankDataSyncService {
     private final CompanyScopeService companyScope;
     private final BankDataSyncTaskMapper taskMapper;
     private final BankDataStatementMapper statementMapper;
+    private final BankDataBalanceMapper balanceMapper;
     private final BankDataRawMessageMapper rawMessageMapper;
     private final BankDataSyncLogMapper logMapper;
     private final BankAccountMapper bankAccountMapper;
@@ -57,6 +62,7 @@ public class BankDataSyncService {
     public BankDataSyncService(CompanyScopeService companyScope,
                                BankDataSyncTaskMapper taskMapper,
                                BankDataStatementMapper statementMapper,
+                               BankDataBalanceMapper balanceMapper,
                                BankDataRawMessageMapper rawMessageMapper,
                                BankDataSyncLogMapper logMapper,
                                BankAccountMapper bankAccountMapper,
@@ -66,6 +72,7 @@ public class BankDataSyncService {
         this.companyScope = companyScope;
         this.taskMapper = taskMapper;
         this.statementMapper = statementMapper;
+        this.balanceMapper = balanceMapper;
         this.rawMessageMapper = rawMessageMapper;
         this.logMapper = logMapper;
         this.bankAccountMapper = bankAccountMapper;
@@ -81,6 +88,9 @@ public class BankDataSyncService {
     }
 
     public BankSyncJobDetailResponse triggerJob(Long userId, BankSyncJobTriggerRequest request, String requestId) {
+        if (!"STATEMENT_PULL".equalsIgnoreCase(request.jobType())) {
+            throw new BusinessException(400, "Only STATEMENT_PULL is available for the simulated bank data adapter");
+        }
         long companyId = companyScope.companyIdForUser(userId);
         BankAccount account = bankAccountMapper.selectOne(new LambdaQueryWrapper<BankAccount>()
                 .eq(BankAccount::getCompanyId, companyId)
@@ -138,6 +148,17 @@ public class BankDataSyncService {
                 .contains(normalized)) {
             throw new BusinessException(404, "Bank data projection not found");
         }
+        if ("balances".equals(normalized)) {
+            PageResponse<BankDataBalanceResponse> balances = listBalances(userId, page, size, bankAccountId,
+                    status, from, to);
+            List<BankDataProjectionResponse> records = balances.records().stream()
+                    .map(balance -> new BankDataProjectionResponse(String.valueOf(balance.id()), "BANKDATA",
+                            "BALANCE-" + balance.id(), balance.validationStatus(), balance.asOfTime(),
+                            balance.accountMasked(), balance.availableBalance(), balance.currency(), null,
+                            "Available balance snapshot"))
+                    .toList();
+            return new PageResponse<>(balances.page(), balances.size(), balances.total(), records);
+        }
         if (!"statements".equals(normalized)) {
             return new PageResponse<>(Math.max(1, page), boundedSize(size), 0, List.of());
         }
@@ -163,6 +184,42 @@ public class BankDataSyncService {
                         statement.getCurrency(), statement.getDirection(), statement.getSummary()))
                 .toList();
         return new PageResponse<>(result.getCurrent(), result.getSize(), result.getTotal(), records);
+    }
+
+    public PageResponse<BankDataBalanceResponse> listBalances(Long userId, int page, int size,
+                                                               Long bankAccountId, LocalDateTime from, LocalDateTime to) {
+        return listBalances(userId, page, size, bankAccountId, null, from, to);
+    }
+
+    private PageResponse<BankDataBalanceResponse> listBalances(Long userId, int page, int size,
+                                                                Long bankAccountId, String validationStatus,
+                                                                LocalDateTime from, LocalDateTime to) {
+        long companyId = companyScope.companyIdForUser(userId);
+        LambdaQueryWrapper<BankDataBalance> query = new LambdaQueryWrapper<BankDataBalance>()
+                .eq(BankDataBalance::getCompanyId, companyId)
+                .eq(bankAccountId != null, BankDataBalance::getBankAccountId, bankAccountId)
+                .eq(validationStatus != null && !validationStatus.isBlank(), BankDataBalance::getValidationStatus,
+                        validationStatus == null ? null : validationStatus.trim().toUpperCase(Locale.ROOT))
+                .ge(from != null, BankDataBalance::getAsOfTime, from)
+                .le(to != null, BankDataBalance::getAsOfTime, to)
+                .orderByDesc(BankDataBalance::getAsOfTime)
+                .orderByDesc(BankDataBalance::getId);
+        Page<BankDataBalance> result = balanceMapper.selectPage(new Page<>(Math.max(1, page), boundedSize(size)), query);
+        return new PageResponse<>(result.getCurrent(), result.getSize(), result.getTotal(),
+                result.getRecords().stream().map(balance -> toBalanceResponse(balance, companyId)).toList());
+    }
+
+    public List<BankDataConnectionResponse> listConnections(Long userId) {
+        long companyId = companyScope.companyIdForUser(userId);
+        return connectionProfileMapper.selectList(new LambdaQueryWrapper<ConnectionProfile>()
+                        .eq(ConnectionProfile::getCompanyId, companyId)
+                        .orderByAsc(ConnectionProfile::getConnectionCode)
+                        .orderByAsc(ConnectionProfile::getId))
+                .stream().map(profile -> new BankDataConnectionResponse(profile.getConnectionCode(),
+                        profile.getDisplayName(), profile.getProviderType(), Boolean.TRUE.equals(profile.getEnabled()),
+                        profile.getStatus(), profile.getLastCheckedAt(),
+                        "No credential, private key, token, or certificate content is stored or returned"))
+                .toList();
     }
 
     public BankDataSyncTaskDetailResponse triggerForCompany(long companyId, Long requestedBy,
@@ -397,6 +454,20 @@ public class BankDataSyncService {
                 statement.getValidationMessage(), statement.getCreatedAt());
     }
 
+    private BankDataBalanceResponse toBalanceResponse(BankDataBalance balance, long companyId) {
+        BankDataRawMessage raw = rawMessageMapper.selectOne(new LambdaQueryWrapper<BankDataRawMessage>()
+                .eq(BankDataRawMessage::getId, balance.getRawMessageId())
+                .eq(BankDataRawMessage::getCompanyId, companyId));
+        BankAccount account = bankAccountMapper.selectOne(new LambdaQueryWrapper<BankAccount>()
+                .eq(BankAccount::getId, balance.getBankAccountId())
+                .eq(BankAccount::getCompanyId, companyId));
+        return new BankDataBalanceResponse(balance.getId(), balance.getTaskId(), balance.getRawMessageId(),
+                raw == null ? null : raw.getContentSha256(), raw == null ? null : raw.getRetentionUntil(),
+                balance.getBankAccountId(), account == null ? null : maskAccount(account.getAccountNumber()),
+                balance.getBankRequestNo(), balance.getAvailableBalance(), balance.getCurrency(), balance.getAsOfTime(),
+                balance.getValidationStatus(), balance.getValidationMessage(), balance.getCreatedAt());
+    }
+
     private BankDataSyncLogResponse toLogResponse(BankDataSyncLog log) {
         return new BankDataSyncLogResponse(log.getId(), log.getLevel(), log.getEventType(), log.getResult(),
                 log.getRequestId(), log.getBankRequestNo(), sanitize(log.getMessage()), log.getCreatedAt());
@@ -406,6 +477,12 @@ public class BankDataSyncService {
         if (value == null) return null;
         return value.replaceAll("(?i)(password|secret|token|authorization|private[_ -]?key)\\s*[:=]\\s*[^,;\\s]+", "$1=[REDACTED]")
                 .replaceAll("(?<!\\d)\\d{8,}(?!\\d)", "****");
+    }
+
+    private String maskAccount(String value) {
+        if (value == null || value.isBlank()) return null;
+        String account = value.trim();
+        return account.length() <= 4 ? "****" : "****" + account.substring(account.length() - 4);
     }
 
     private String normalize(String value, String defaultValue) {

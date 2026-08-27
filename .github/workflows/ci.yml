@@ -49,6 +49,14 @@ jobs:
             echo "Production bank or Kingdee credentials must not be committed."
             exit 1
           fi
+          test -f docs/v0.2/bank-data-runbook.md
+          grep -q 'Java 17 与 Java 8 SDK 兼容性验证' docs/v0.2/bank-data-runbook.md
+          grep -q '网络白名单、IP 与 MAC 变更' docs/v0.2/bank-data-runbook.md
+          grep -q '证书目录、日志目录与敏感配置注入' docs/v0.2/bank-data-runbook.md
+          if find . -type f \( -iname '*.p12' -o -iname '*.pfx' -o -iname '*.jks' -o -iname '*.keystore' -o -iname '*.pem' -o -iname '*.key' -o -iname '*citic*.jar' \) -not -path './frontend/node_modules/*' -print -quit | grep -q .; then
+            echo "Bank SDK binaries, certificates, keystores, or private keys must not be committed."
+            exit 1
+          fi
 
   backend:
     name: Backend (Java 17 / Maven)

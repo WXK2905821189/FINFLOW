@@ -1,6 +1,8 @@
 package com.finance.system.bankdata;
 
 import com.finance.system.bankdata.dto.BankDataReconciliationResponse;
+import com.finance.system.bankdata.dto.BankDataBalanceResponse;
+import com.finance.system.bankdata.dto.BankDataConnectionResponse;
 import com.finance.system.bankdata.dto.BankDataStatementDetailResponse;
 import com.finance.system.bankdata.dto.BankDataStatementResponse;
 import com.finance.system.bankdata.dto.BankDataSyncRequest;
@@ -25,6 +27,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/bank-data")
@@ -45,6 +48,13 @@ public class BankDataController {
             @RequestHeader(value = "X-Request-Id", required = false) String requestId,
             @AuthenticationPrincipal UserPrincipal principal) {
         return ApiResponse.success("Bank data synchronization completed", service.trigger(principal.getId(), request, requestId));
+    }
+
+    @GetMapping("/connections")
+    @PreAuthorize("hasAuthority('bankdata:view')")
+    @Operation(summary = "List safe bank data connection metadata")
+    public ApiResponse<List<BankDataConnectionResponse>> connections(@AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success(service.listConnections(principal.getId()));
     }
 
     @GetMapping("/sync-tasks")
@@ -87,6 +97,19 @@ public class BankDataController {
     public ApiResponse<BankDataStatementDetailResponse> statement(@PathVariable Long id,
                                                                    @AuthenticationPrincipal UserPrincipal principal) {
         return ApiResponse.success(service.getStatement(principal.getId(), id));
+    }
+
+    @GetMapping("/balances")
+    @PreAuthorize("hasAnyAuthority('bankdata:view', 'bankdata:balance:view')")
+    @Operation(summary = "Query normalized bank balance snapshots")
+    public ApiResponse<PageResponse<BankDataBalanceResponse>> balances(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) Long bankAccountId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success(service.listBalances(principal.getId(), page, size, bankAccountId, from, to));
     }
 
     @GetMapping("/reconciliation/summary")

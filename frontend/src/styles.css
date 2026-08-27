@@ -763,6 +763,35 @@ a {
   margin-bottom: 0;
 }
 
+.trace-link {
+  display: inline-block;
+  margin-top: 14px;
+  color: #1f6b55;
+  font-size: 13px;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.query-request-id {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: -2px 0 16px;
+  color: #64777c;
+  font-size: 12px;
+}
+
+.query-request-id a {
+  color: #1f6b55;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.projection-detail {
+  margin-top: 16px;
+}
+
 .phase-one-notice {
   margin-bottom: 16px;
 }

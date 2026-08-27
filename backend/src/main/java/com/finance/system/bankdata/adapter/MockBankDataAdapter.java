@@ -19,7 +19,7 @@ public class MockBankDataAdapter implements BankDataAdapter {
     @Override
     public BankDataCollection collect(BankDataSyncContext context) {
         if (context.bankAccountId() == null) {
-            return new BankDataCollection("MOCK-EMPTY-" + context.companyId(), List.of());
+            return new BankDataCollection("MOCK-EMPTY-" + context.companyId(), List.of(), List.of());
         }
         String scope = context.companyId() + "-" + context.bankAccountId();
         return new BankDataCollection(
@@ -34,6 +34,12 @@ public class MockBankDataAdapter implements BankDataAdapter {
                         "CNY",
                         "模拟付款方",
                         "MOCK-ACCOUNT-0001",
-                        "模拟银行流水")));
+                        "模拟银行流水")),
+                List.of(new BankDataBalanceEntry(
+                        "MOCK-BANK-" + scope,
+                        context.bankAccountId(),
+                        new BigDecimal("100000.00"),
+                        "CNY",
+                        LocalDateTime.of(2026, 8, 27, 9, 0))));
     }
 }

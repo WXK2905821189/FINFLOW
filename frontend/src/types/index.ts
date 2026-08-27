@@ -245,4 +245,12 @@ export type BankDataProjection = {
   currency?: string;
   direction?: string;
   summary?: string;
+  requestId?: string;
+};
+
+export type BankDataProjectionPage = PageResponse<BankDataProjection> & {
+  enabled?: boolean;
+  status?: string;
+  message?: string;
+  requestId?: string;
 };

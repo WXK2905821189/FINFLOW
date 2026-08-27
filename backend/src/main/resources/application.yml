@@ -46,3 +46,10 @@ statement:
 
 kingdee:
   mock-mode: ${KINGDEE_MOCK_MODE:true}
+
+bankdata:
+  adapter:
+    mode: mock
+  sync:
+    schedule-enabled: false
+    fixed-delay-ms: 600000
