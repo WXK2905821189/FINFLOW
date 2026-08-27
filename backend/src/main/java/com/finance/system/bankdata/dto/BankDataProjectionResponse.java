@@ -13,6 +13,10 @@ public record BankDataProjectionResponse(
         BigDecimal amount,
         String currency,
         String direction,
-        String summary
+        String summary,
+        String syncJobNo,
+        String requestId,
+        LocalDateTime lastSyncedAt,
+        boolean simulated
 ) {
 }

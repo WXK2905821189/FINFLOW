@@ -42,15 +42,17 @@ public final class CiticBankDataCodec {
                 && ("SUCCESS".equals(businessStatus) || "PENDING".equals(businessStatus));
         return new CiticParsedResponse(transportStatus, businessStatus, trim(response.bankRequestNo()), accepted,
                 "PENDING".equals(businessStatus) ? "CITIC response accepted but requires reconciliation"
+                        : "UNKNOWN".equals(businessStatus) ? "CITIC response status is unknown and requires manual reconciliation"
                         : accepted ? "CITIC transport and business status accepted" : "CITIC response requires reconciliation");
     }
 
     private static String businessStatus(String value) {
-        if (value == null || value.isBlank()) return "FAILED";
+        if (value == null || value.isBlank()) return "UNKNOWN";
         return switch (value.trim().toUpperCase()) {
             case "SUCCESS", "AAAAAAA" -> "SUCCESS";
             case "PENDING", "PROCESSING", "AAAAAAE" -> "PENDING";
-            default -> "FAILED";
+            case "FAILED", "EEEEEEE" -> "FAILED";
+            default -> "UNKNOWN";
         };
     }
 

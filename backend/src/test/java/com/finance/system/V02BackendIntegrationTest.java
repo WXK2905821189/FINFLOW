@@ -3,20 +3,31 @@ package com.finance.system;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.finance.system.bank.citic.CiticBankSdkClient;
 import com.finance.system.bankdata.adapter.BankDataAdapter;
+import com.finance.system.bankdata.adapter.BankDataBalanceEntry;
 import com.finance.system.bankdata.adapter.BankDataCollection;
 import com.finance.system.bankdata.adapter.BankDataEntry;
+import com.finance.system.bankdata.adapter.BankDataSyncContext;
+import com.finance.system.bankdata.BankDataRawRetentionService;
+import com.finance.system.bankdata.BankDataRetentionProperties;
+import com.finance.system.bankdata.BankDataSyncService;
 import com.finance.system.domain.entity.BankAccount;
+import com.finance.system.domain.entity.BankDataBalance;
 import com.finance.system.domain.entity.BankDataRawMessage;
+import com.finance.system.domain.entity.BankDataStatement;
 import com.finance.system.domain.entity.BankDataSyncLog;
 import com.finance.system.domain.entity.BankDataSyncTask;
 import com.finance.system.domain.entity.Company;
+import com.finance.system.domain.entity.ConnectionProfile;
 import com.finance.system.domain.entity.SysUser;
 import com.finance.system.domain.entity.SysUserRole;
 import com.finance.system.domain.mapper.BankAccountMapper;
+import com.finance.system.domain.mapper.BankDataBalanceMapper;
 import com.finance.system.domain.mapper.BankDataRawMessageMapper;
+import com.finance.system.domain.mapper.BankDataStatementMapper;
 import com.finance.system.domain.mapper.BankDataSyncLogMapper;
 import com.finance.system.domain.mapper.BankDataSyncTaskMapper;
 import com.finance.system.domain.mapper.CompanyMapper;
+import com.finance.system.domain.mapper.ConnectionProfileMapper;
 import com.finance.system.domain.mapper.SysUserMapper;
 import com.finance.system.domain.mapper.SysUserRoleMapper;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -80,6 +91,18 @@ class V02BackendIntegrationTest {
     private BankDataRawMessageMapper rawMessageMapper;
     @Autowired
     private BankDataSyncLogMapper syncLogMapper;
+    @Autowired
+    private BankDataStatementMapper bankDataStatementMapper;
+    @Autowired
+    private BankDataBalanceMapper bankDataBalanceMapper;
+    @Autowired
+    private ConnectionProfileMapper connectionProfileMapper;
+    @Autowired
+    private BankDataSyncService bankDataSyncService;
+    @Autowired
+    private BankDataRawRetentionService rawRetentionService;
+    @Autowired
+    private BankDataRetentionProperties retentionProperties;
 
     @SpyBean
     private CiticBankSdkClient citicBankSdkClient;
@@ -177,8 +200,8 @@ class V02BackendIntegrationTest {
                         .content("{\"bankAccountId\":2,\"adapterCode\":\"MOCK\"}"))
                 .andExpect(status().isConflict());
         long syncBId = triggerBankData(companyBToken, accountB.getId(), "QA-BANK-B-" + UUID.randomUUID());
-        String statementAKey = "MOCK-STATEMENT-1-1-20260827";
-        String statementBKey = "MOCK-STATEMENT-" + companyB.getId() + "-" + accountB.getId() + "-20260827";
+        String statementAKey = "MOCK-STATEMENT-1-1-20260827-P1";
+        String statementBKey = "MOCK-STATEMENT-" + companyB.getId() + "-" + accountB.getId() + "-20260827-P1";
 
         mockMvc.perform(get("/api/bank-data/statements").header("Authorization", bearer(adminToken)))
                 .andExpect(status().isOk())
@@ -191,6 +214,35 @@ class V02BackendIntegrationTest {
         mockMvc.perform(get("/api/bank-data/sync-tasks/" + syncAId).header("Authorization", bearer(companyBToken)))
                 .andExpect(status().isNotFound());
         assertNotNull(syncTaskMapper.selectById(syncBId));
+    }
+
+    @Test
+    void bankSyncJobRequiresExplicitScopedAccount() throws Exception {
+        String adminToken = login("admin", "Admin@123");
+        userRoleMapper.insert(new SysUserRole(userB.getId(), 3L));
+        String companyBToken = login(userB.getUsername(), PASSWORD);
+
+        mockMvc.perform(post("/api/bank-sync-jobs")
+                        .header("Authorization", bearer(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"jobType\":\"STATEMENT_PULL\"}"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(post("/api/bank-sync-jobs")
+                        .header("Authorization", bearer(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"jobType\":\"STATEMENT_PULL\",\"bankAccountId\":" + accountB.getId() + "}"))
+                .andExpect(status().isNotFound());
+
+        mockMvc.perform(post("/api/bank-sync-jobs")
+                        .header("Authorization", bearer(companyBToken))
+                        .header("X-Request-Id", "QA-JOB-" + UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"jobType\":\"STATEMENT_PULL\",\"bankAccountId\":" + accountB.getId()
+                                + ",\"windowStart\":\"2026-08-27T00:00:00\",\"windowEnd\":\"2026-08-28T00:00:00\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.jobNo").isString())
+                .andExpect(jsonPath("$.data.status").value("SUCCEEDED"));
     }
 
     @Test
@@ -380,6 +432,83 @@ class V02BackendIntegrationTest {
                 .get(0).getPayload().contains("normalization-failure"));
     }
 
+    @Test
+    void bankDataPhaseTwoHandlesWindowsPaginationDedupAndRetentionCleanup() throws Exception {
+        String token = login(userB.getUsername(), PASSWORD);
+        String requestId = "QA-PHASE2-" + UUID.randomUUID();
+
+        String response = mockMvc.perform(post("/api/bank-data/sync-tasks")
+                        .header("Authorization", bearer(token))
+                        .header("X-Request-Id", requestId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"bankAccountId\":" + accountB.getId()
+                                + ",\"adapterCode\":\"MOCK_PHASE2\","
+                                + "\"windowStart\":\"2026-08-26T12:00:00\","
+                                + "\"windowEnd\":\"2026-08-28T06:00:00\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.task.status").value("SUCCEEDED"))
+                .andExpect(jsonPath("$.data.task.rawCount").value(7))
+                .andExpect(jsonPath("$.data.task.normalizedCount").value(4))
+                .andExpect(jsonPath("$.data.task.duplicateCount").value(3))
+                .andReturn().getResponse().getContentAsString();
+        long taskId = objectMapper.readTree(response).get("data").get("task").get("id").asLong();
+
+        assertEquals(taskId, triggerPhase2BankData(token, accountB.getId(), requestId));
+        assertEquals(6, rawMessageMapper.selectCount(new LambdaQueryWrapper<BankDataRawMessage>()
+                .eq(BankDataRawMessage::getTaskId, taskId)));
+
+        java.util.List<BankDataStatement> statements = bankDataStatementMapper.selectList(
+                new LambdaQueryWrapper<BankDataStatement>()
+                        .eq(BankDataStatement::getTaskId, taskId)
+                        .orderByAsc(BankDataStatement::getTransactionTime));
+        assertEquals(3, statements.size());
+        assertEquals("PHASE2-20260826-001", statements.get(0).getStatementNo());
+        assertEquals("PHASE2-20260827-001", statements.get(1).getStatementNo());
+        assertEquals("PHASE2-20260828-001", statements.get(2).getStatementNo());
+        assertEquals(1, bankDataBalanceMapper.selectCount(new LambdaQueryWrapper<BankDataBalance>()
+                .eq(BankDataBalance::getTaskId, taskId)));
+
+        BankDataRawMessage raw = rawMessageMapper.selectOne(new LambdaQueryWrapper<BankDataRawMessage>()
+                .eq(BankDataRawMessage::getTaskId, taskId)
+                .last("LIMIT 1"));
+        raw.setRetentionUntil(LocalDateTime.now().minusDays(1));
+        rawMessageMapper.updateById(raw);
+        retentionProperties.setCleanupEnabled(false);
+        assertEquals(0, rawRetentionService.cleanupExpiredRawPayloads());
+        retentionProperties.setCleanupEnabled(true);
+        retentionProperties.setBatchLimit(1);
+        assertEquals(1, rawRetentionService.cleanupExpiredRawPayloads());
+        BankDataRawMessage purged = rawMessageMapper.selectById(raw.getId());
+        assertNotNull(purged.getPurgedAt());
+        assertTrue(purged.getPayload().contains("[PURGED]"));
+        assertEquals(3, bankDataStatementMapper.selectCount(new LambdaQueryWrapper<BankDataStatement>()
+                .eq(BankDataStatement::getTaskId, taskId)));
+        assertTrue(syncLogMapper.selectCount(new LambdaQueryWrapper<BankDataSyncLog>()
+                .eq(BankDataSyncLog::getTaskId, taskId)
+                .eq(BankDataSyncLog::getEventType, "RAW_PAYLOAD_PURGED")) > 0);
+        retentionProperties.setCleanupEnabled(false);
+    }
+
+    @Test
+    void scheduledBankDataSyncReusesRequestIdentityForSameWindow() {
+        ConnectionProfile profile = new ConnectionProfile();
+        profile.setCompanyId(companyB.getId());
+        profile.setConnectionCode("QA-PHASE2-" + UUID.randomUUID().toString().replace("-", "").substring(0, 8));
+        profile.setDisplayName("QA phase2 connection");
+        profile.setProviderType("MOCK");
+        profile.setEnabled(true);
+        profile.setStatus("SIMULATED");
+        connectionProfileMapper.insert(profile);
+
+        bankDataSyncService.triggerScheduledSyncs();
+        bankDataSyncService.triggerScheduledSyncs();
+
+        assertEquals(1, syncTaskMapper.selectCount(new LambdaQueryWrapper<BankDataSyncTask>()
+                .eq(BankDataSyncTask::getCompanyId, companyB.getId())
+                .eq(BankDataSyncTask::getConnectionId, profile.getId())
+                .eq(BankDataSyncTask::getTriggerType, "SCHEDULED")));
+    }
+
     @TestConfiguration(proxyBeanMethods = false)
     static class FaultInjectingAdapterConfiguration {
 
@@ -400,6 +529,55 @@ class V02BackendIntegrationTest {
                 }
             };
         }
+
+        @Bean
+        BankDataAdapter phaseTwoAdapter() {
+            return new BankDataAdapter() {
+                @Override
+                public String adapterCode() {
+                    return "MOCK_PHASE2";
+                }
+
+                @Override
+                public BankDataCollection collect(BankDataSyncContext context) {
+                    String date = String.format(java.util.Locale.ROOT, "%04d%02d%02d",
+                            context.windowStart().getYear(), context.windowStart().getMonthValue(),
+                            context.windowStart().getDayOfMonth());
+                    if (context.pageNumber() != null && context.pageNumber() > 1) {
+                        return new BankDataCollection("PHASE2-REQ-" + date + "-P2", java.util.List.of(),
+                                java.util.List.of(), false, null, "SUCCESS", "SUCCESS");
+                    }
+                    BankDataEntry first = new BankDataEntry("PHASE2-BANK-" + date,
+                            "PHASE2-" + date + "-001", context.bankAccountId(),
+                            context.windowStart().plusHours(2), "INCOME", new BigDecimal("11.00"),
+                            "CNY", "QA", "123456789012", "phase2 first");
+                    BankDataEntry duplicate = new BankDataEntry("PHASE2-BANK-" + date,
+                            "PHASE2-" + date + "-001", context.bankAccountId(),
+                            context.windowStart().plusHours(2), "INCOME", new BigDecimal("11.00"),
+                            "CNY", "QA", "123456789012", "phase2 duplicate");
+                    BankDataBalanceEntry balance = new BankDataBalanceEntry("PHASE2-BANK-" + date,
+                            context.bankAccountId(), new BigDecimal("1234.00"), "CNY",
+                            context.windowEnd().minusMinutes(1));
+                    boolean includeBalance = date.equals("20260826");
+                    return new BankDataCollection("PHASE2-REQ-" + date + "-P1",
+                            java.util.List.of(duplicate, first),
+                            includeBalance ? java.util.List.of(balance) : java.util.List.of(), true, "page-2",
+                            "SUCCESS", "SUCCESS");
+                }
+            };
+        }
+    }
+
+    private long triggerPhase2BankData(String token, Long accountId, String requestId) throws Exception {
+        String response = mockMvc.perform(post("/api/bank-data/sync-tasks")
+                        .header("Authorization", bearer(token)).header("X-Request-Id", requestId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"bankAccountId\":" + accountId + ",\"adapterCode\":\"MOCK_PHASE2\","
+                                + "\"windowStart\":\"2026-08-26T12:00:00\","
+                                + "\"windowEnd\":\"2026-08-28T06:00:00\"}"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        return objectMapper.readTree(response).get("data").get("task").get("id").asLong();
     }
 
     private long importStatement(String token, Long accountId, String statementNo) throws Exception {

@@ -41,7 +41,7 @@ public class BankDataController {
     }
 
     @PostMapping("/sync-tasks")
-    @PreAuthorize("hasAuthority('bankdata:sync')")
+    @PreAuthorize("hasAnyAuthority('bankdata:sync', 'bankdata:sync:trigger')")
     @Operation(summary = "Trigger a simulated bank data synchronization")
     public ApiResponse<BankDataSyncTaskDetailResponse> trigger(
             @Valid @RequestBody BankDataSyncRequest request,

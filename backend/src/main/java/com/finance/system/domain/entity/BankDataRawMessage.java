@@ -17,6 +17,7 @@ public class BankDataRawMessage {
     private String bankRequestNo;
     private String contentSha256;
     private String payload;
+    private LocalDateTime purgedAt;
     private LocalDateTime receivedAt;
     private LocalDateTime retentionUntil;
 
@@ -34,6 +35,8 @@ public class BankDataRawMessage {
     public void setContentSha256(String contentSha256) { this.contentSha256 = contentSha256; }
     public String getPayload() { return payload; }
     public void setPayload(String payload) { this.payload = payload; }
+    public LocalDateTime getPurgedAt() { return purgedAt; }
+    public void setPurgedAt(LocalDateTime purgedAt) { this.purgedAt = purgedAt; }
     public LocalDateTime getReceivedAt() { return receivedAt; }
     public void setReceivedAt(LocalDateTime receivedAt) { this.receivedAt = receivedAt; }
     public LocalDateTime getRetentionUntil() { return retentionUntil; }

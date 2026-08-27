@@ -53,3 +53,7 @@ bankdata:
   sync:
     schedule-enabled: false
     fixed-delay-ms: 600000
+  retention:
+    cleanup-enabled: false
+    cleanup-fixed-delay-ms: 3600000
+    batch-limit: 100

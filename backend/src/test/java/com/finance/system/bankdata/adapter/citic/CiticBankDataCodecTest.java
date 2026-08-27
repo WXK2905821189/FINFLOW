@@ -46,4 +46,18 @@ class CiticBankDataCodecTest {
         assertEquals("PENDING", pending.businessStatus());
         assertTrue(pending.safeSummary().contains("reconciliation"));
     }
+
+    @Test
+    void mapsKnownFailureAndUnknownCodesWithoutAutoSuccess() {
+        CiticParsedResponse failed = CiticBankDataCodec.parseStatus(
+                new CiticTransportResponse(200, "SUCCESS", "EEEEEEE", "BANK-4", "unused"));
+        CiticParsedResponse unknown = CiticBankDataCodec.parseStatus(
+                new CiticTransportResponse(200, "SUCCESS", "NEWCODE", "BANK-5", "unused"));
+
+        assertFalse(failed.accepted());
+        assertEquals("FAILED", failed.businessStatus());
+        assertFalse(unknown.accepted());
+        assertEquals("UNKNOWN", unknown.businessStatus());
+        assertTrue(unknown.safeSummary().contains("manual reconciliation"));
+    }
 }

@@ -1,6 +1,7 @@
 package com.finance.system.bankdata;
 
 import com.finance.system.bankdata.dto.BankDataProjectionResponse;
+import com.finance.system.bankdata.dto.BankDataProjectionPageResponse;
 import com.finance.system.bankdata.dto.BankSyncJobDetailResponse;
 import com.finance.system.bankdata.dto.BankSyncJobResponse;
 import com.finance.system.bankdata.dto.BankSyncJobTriggerRequest;
@@ -38,7 +39,7 @@ public class BankPipelineController {
     }
 
     @PostMapping("/bank-sync-jobs")
-    @PreAuthorize("hasAnyAuthority('bankdata:sync', 'bank-sync:trigger')")
+    @PreAuthorize("hasAnyAuthority('bankdata:sync', 'bankdata:sync:trigger', 'bank-sync:trigger')")
     @Operation(summary = "Create a controlled bank synchronization job")
     public ApiResponse<BankSyncJobResponse> trigger(
             @Valid @RequestBody BankSyncJobTriggerRequest request,
@@ -56,8 +57,11 @@ public class BankPipelineController {
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String jobType,
+            @RequestParam(required = false) String connectionCode,
+            @RequestParam(required = false) String requestId,
             @AuthenticationPrincipal UserPrincipal principal) {
-        return ApiResponse.success(service.listJobs(principal.getId(), page, size, status, jobType));
+        return ApiResponse.success(service.listJobs(principal.getId(), page, size, status, jobType,
+                connectionCode, requestId));
     }
 
     @GetMapping("/bank-sync-jobs/{id}")
@@ -71,7 +75,7 @@ public class BankPipelineController {
     @GetMapping("/bank-data/{resource}")
     @PreAuthorize("hasAnyAuthority('bankdata:view', 'bankdata:balance:view', 'bankdata:statement:view', 'bankdata:receipt:view', 'bankdata:reconciliation:view', 'bankdata:payment:view', 'bankdata:payroll:view')")
     @Operation(summary = "Query a controlled bank data projection")
-    public ApiResponse<PageResponse<BankDataProjectionResponse>> projection(
+    public ApiResponse<BankDataProjectionPageResponse> projection(
             @PathVariable String resource,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -80,13 +84,16 @@ public class BankPipelineController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
+            @RequestParam(required = false) String sourceSystem,
+            @RequestParam(required = false) String syncJobNo,
+            @RequestParam(required = false) String requestId,
             @AuthenticationPrincipal UserPrincipal principal) {
         if (!principal.getAuthorities().stream().anyMatch(authority -> authority.getAuthority().equals("bankdata:view"))
                 && !principal.getAuthorities().stream().anyMatch(authority -> authority.getAuthority().equals(permissionFor(resource)))) {
             throw new org.springframework.security.access.AccessDeniedException("Bank data projection permission is required");
         }
         return ApiResponse.success(service.queryProjection(principal.getId(), resource, page, size, status,
-                accountId, keyword, from, to));
+                accountId, keyword, from, to, sourceSystem, syncJobNo, requestId));
     }
 
     private String permissionFor(String resource) {

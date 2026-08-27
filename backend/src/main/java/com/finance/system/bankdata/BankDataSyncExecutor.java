@@ -28,11 +28,17 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -40,6 +46,8 @@ public class BankDataSyncExecutor {
 
     private static final String VALID = "VALID";
     private static final String INVALID = "INVALID";
+    private static final int PAGE_SIZE = 100;
+    private static final int MAX_PAGES_PER_WINDOW = 100;
 
     private final BankDataSyncTaskMapper taskMapper;
     private final BankDataBalanceMapper balanceMapper;
@@ -82,27 +90,93 @@ public class BankDataSyncExecutor {
             throw new BusinessException(400, "Bank data adapter is not available");
         }
 
-        BankDataSyncContext context = new BankDataSyncContext(companyId, task.getConnectionId(),
-                task.getBankAccountId(), task.getTaskNo(), task.getRequestId());
-        BankDataCollection collection = Objects.requireNonNull(adapter.collect(context), "Adapter returned no collection");
-        List<BankDataEntry> entries = collection.entries() == null ? List.of() : collection.entries();
-        List<BankDataBalanceEntry> balances = collection.balances() == null ? List.of() : collection.balances();
-        String rawPayload = serialize(collection);
-        LocalDateTime receivedAt = LocalDateTime.now();
-        BankDataRawMessage raw = evidenceService.persistRaw(task, collection.bankRequestNo(), rawPayload,
-                sha256(rawPayload), receivedAt);
+        List<WindowRange> windows = splitWindows(task.getWindowStart(), task.getWindowEnd());
+        List<CollectedStatement> collectedStatements = new ArrayList<>();
+        List<CollectedBalance> collectedBalances = new ArrayList<>();
+        int rawCount = 0;
+        String lastBankRequestNo = null;
+        for (WindowRange window : windows) {
+            String cursor = null;
+            int page = 1;
+            while (page <= MAX_PAGES_PER_WINDOW) {
+                BankDataSyncContext context = new BankDataSyncContext(companyId, task.getConnectionId(),
+                        task.getBankAccountId(), task.getTaskNo(), task.getRequestId(), window.start(), window.end(),
+                        page, cursor, PAGE_SIZE, "STATEMENT");
+                BankDataCollection collection = Objects.requireNonNull(adapter.collect(context), "Adapter returned no collection");
+                String status = normalizeStatus(collection.status() == null ? collection.bankStatusCode() : collection.status());
+                String rawPayload = serialize(collection);
+                BankDataRawMessage raw = evidenceService.persistRaw(task, collection.bankRequestNo(), rawPayload,
+                        sha256(rawPayload), LocalDateTime.now());
+                lastBankRequestNo = collection.bankRequestNo();
+                log(task, "INFO", "BANK_PAGE_COLLECTED", status, collection.bankRequestNo(),
+                        "Collected window " + window.start() + " to " + window.end() + ", page " + page);
+                if (!"SUCCESS".equals(status)) {
+                    task.setBankRequestNo(lastBankRequestNo);
+                    task.setStatus(status);
+                    task.setRawCount(rawCount);
+                    task.setNormalizedCount(0);
+                    task.setDuplicateCount(0);
+                    task.setInvalidCount(0);
+                    task.setErrorMessage("PENDING".equals(status) ? "Bank response is pending reconciliation"
+                            : "UNKNOWN".equals(status) ? "Bank response status is unknown and requires manual reconciliation"
+                            : "Bank response failed safely before normalization");
+                    task.setCompletedAt(LocalDateTime.now());
+                    taskMapper.updateById(task);
+                    return task;
+                }
+
+                List<BankDataEntry> pageEntries = collection.entries() == null ? List.of() : collection.entries();
+                List<BankDataBalanceEntry> pageBalances = collection.balances() == null ? List.of() : collection.balances();
+                rawCount += pageEntries.size() + pageBalances.size();
+                pageEntries.forEach(entry -> collectedStatements.add(new CollectedStatement(entry, raw, collection.bankRequestNo())));
+                pageBalances.forEach(balance -> collectedBalances.add(new CollectedBalance(balance, raw, collection.bankRequestNo())));
+                // An empty page is terminal even when a vendor response incorrectly leaves hasMore=true.
+                // This prevents an adapter defect from causing repeated requests until the safety cap.
+                if (pageEntries.isEmpty() && pageBalances.isEmpty()) {
+                    break;
+                }
+                if (!collection.hasMore()) {
+                    break;
+                }
+                String nextCursor = collection.nextCursor();
+                if (nextCursor == null || nextCursor.isBlank() || Objects.equals(nextCursor, cursor)) {
+                    throw new BusinessException(409, "Bank data adapter returned an unsafe pagination cursor");
+                }
+                cursor = nextCursor;
+                page++;
+            }
+            if (page > MAX_PAGES_PER_WINDOW) {
+                throw new BusinessException(409, "Bank data adapter pagination did not terminate safely");
+            }
+        }
+
+        collectedStatements.sort(Comparator
+                .comparing((CollectedStatement item) -> item.entry().transactionTime(), Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(item -> item.entry().statementNo(), Comparator.nullsLast(String::compareTo)));
+        collectedBalances.sort(Comparator
+                .comparing((CollectedBalance item) -> item.entry().asOfTime(), Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(item -> item.entry().bankRequestNo(), Comparator.nullsLast(String::compareTo)));
 
         int normalized = 0;
         int duplicates = 0;
         int invalid = 0;
-        for (BankDataEntry entry : entries) {
+        Set<String> statementKeys = new HashSet<>();
+        for (CollectedStatement collected : collectedStatements) {
+            BankDataEntry entry = collected.entry();
             String validationMessage = validate(entry, companyId, task.getBankAccountId());
             if (!validationMessage.isBlank()) {
                 invalid++;
-                log(task, "WARN", "STATEMENT_VALIDATION", "INVALID", collection.bankRequestNo(), validationMessage);
+                log(task, "WARN", "STATEMENT_VALIDATION", "INVALID", collected.bankRequestNo(), validationMessage);
                 continue;
             }
-            BankDataStatement statement = toStatement(entry, task, raw, collection.bankRequestNo());
+            BankDataStatement statement = toStatement(entry, task, collected.raw(), collected.bankRequestNo());
+            String statementKey = statementKey(statement);
+            if (!statementKeys.add(statementKey)) {
+                duplicates++;
+                log(task, "INFO", "STATEMENT_DEDUPLICATED", "DUPLICATE", collected.bankRequestNo(),
+                        "Duplicate statement found across windows or pages");
+                continue;
+            }
             try {
                 if (statementMapper.selectCount(new LambdaQueryWrapper<BankDataStatement>()
                         .eq(BankDataStatement::getCompanyId, companyId)
@@ -111,7 +185,7 @@ public class BankDataSyncExecutor {
                         .eq(BankDataStatement::getTransactionTime, statement.getTransactionTime())
                         .eq(BankDataStatement::getAmount, statement.getAmount())) > 0) {
                     duplicates++;
-                    log(task, "INFO", "STATEMENT_DEDUPLICATED", "DUPLICATE", collection.bankRequestNo(),
+                    log(task, "INFO", "STATEMENT_DEDUPLICATED", "DUPLICATE", collected.bankRequestNo(),
                             "Composite bank statement key already exists");
                     continue;
                 }
@@ -119,26 +193,35 @@ public class BankDataSyncExecutor {
                 normalized++;
             } catch (DuplicateKeyException duplicateKeyException) {
                 duplicates++;
-                log(task, "INFO", "STATEMENT_DEDUPLICATED", "DUPLICATE", collection.bankRequestNo(),
+                log(task, "INFO", "STATEMENT_DEDUPLICATED", "DUPLICATE", collected.bankRequestNo(),
                         "Composite bank statement key already exists");
             }
         }
 
-        for (BankDataBalanceEntry balance : balances) {
+        Set<String> balanceKeys = new HashSet<>();
+        for (CollectedBalance collected : collectedBalances) {
+            BankDataBalanceEntry balance = collected.entry();
             String validationMessage = validateBalance(balance, companyId, task.getBankAccountId());
             if (!validationMessage.isBlank()) {
                 invalid++;
-                log(task, "WARN", "BALANCE_VALIDATION", "INVALID", collection.bankRequestNo(), validationMessage);
+                log(task, "WARN", "BALANCE_VALIDATION", "INVALID", collected.bankRequestNo(), validationMessage);
                 continue;
             }
-            BankDataBalance snapshot = toBalance(balance, task, raw, collection.bankRequestNo());
+            BankDataBalance snapshot = toBalance(balance, task, collected.raw(), collected.bankRequestNo());
+            String balanceKey = balanceKey(snapshot);
+            if (!balanceKeys.add(balanceKey)) {
+                duplicates++;
+                log(task, "INFO", "BALANCE_DEDUPLICATED", "DUPLICATE", collected.bankRequestNo(),
+                        "Duplicate balance found across windows or pages");
+                continue;
+            }
             try {
                 if (balanceMapper.selectCount(new LambdaQueryWrapper<BankDataBalance>()
                         .eq(BankDataBalance::getCompanyId, companyId)
                         .eq(BankDataBalance::getBankAccountId, snapshot.getBankAccountId())
                         .eq(BankDataBalance::getAsOfTime, snapshot.getAsOfTime())) > 0) {
                     duplicates++;
-                    log(task, "INFO", "BALANCE_DEDUPLICATED", "DUPLICATE", collection.bankRequestNo(),
+                    log(task, "INFO", "BALANCE_DEDUPLICATED", "DUPLICATE", collected.bankRequestNo(),
                             "Bank balance snapshot key already exists");
                     continue;
                 }
@@ -146,22 +229,40 @@ public class BankDataSyncExecutor {
                 normalized++;
             } catch (DuplicateKeyException duplicateKeyException) {
                 duplicates++;
-                log(task, "INFO", "BALANCE_DEDUPLICATED", "DUPLICATE", collection.bankRequestNo(),
+                log(task, "INFO", "BALANCE_DEDUPLICATED", "DUPLICATE", collected.bankRequestNo(),
                         "Bank balance snapshot key already exists");
             }
         }
 
-        task.setBankRequestNo(collection.bankRequestNo());
+        task.setBankRequestNo(lastBankRequestNo);
         task.setStatus(invalid == 0 ? "SUCCEEDED" : "PARTIAL");
-        task.setRawCount(entries.size() + balances.size());
+        task.setRawCount(rawCount);
         task.setNormalizedCount(normalized);
         task.setDuplicateCount(duplicates);
         task.setInvalidCount(invalid);
         task.setCompletedAt(LocalDateTime.now());
         taskMapper.updateById(task);
-        log(task, "INFO", "SYNC_COMPLETED", task.getStatus(), collection.bankRequestNo(),
+        log(task, "INFO", "SYNC_COMPLETED", task.getStatus(), lastBankRequestNo,
                 "Bank data synchronization completed without external network calls");
         return task;
+    }
+
+    private List<WindowRange> splitWindows(LocalDateTime requestedStart, LocalDateTime requestedEnd) {
+        LocalDateTime start = requestedStart == null ? LocalDateTime.of(2026, 8, 27, 0, 0) : requestedStart;
+        LocalDateTime end = requestedEnd == null ? start.plusDays(1) : requestedEnd;
+        if (!end.isAfter(start)) {
+            throw new BusinessException(400, "Bank data sync window end must be after start");
+        }
+        List<WindowRange> windows = new ArrayList<>();
+        LocalDateTime cursor = start;
+        while (cursor.isBefore(end)) {
+            LocalDate nextDate = cursor.toLocalDate().plusDays(1);
+            LocalDateTime next = LocalDateTime.of(nextDate, LocalTime.MIDNIGHT);
+            if (next.isAfter(end)) next = end;
+            windows.add(new WindowRange(cursor, next));
+            cursor = next;
+        }
+        return windows;
     }
 
     private String validate(BankDataEntry entry, long companyId, Long expectedAccountId) {
@@ -277,4 +378,29 @@ public class BankDataSyncExecutor {
         String account = value.trim();
         return account.length() <= 4 ? "****" : "****" + account.substring(account.length() - 4);
     }
+
+    private String normalizeStatus(String value) {
+        if (value == null || value.isBlank()) return "UNKNOWN";
+        return switch (value.trim().toUpperCase(Locale.ROOT)) {
+            case "SUCCESS", "AAAAAAA" -> "SUCCESS";
+            case "PENDING", "PROCESSING", "AAAAAAE" -> "PENDING";
+            case "FAILED", "EEEEEEE" -> "FAILED";
+            default -> "UNKNOWN";
+        };
+    }
+
+    private String statementKey(BankDataStatement statement) {
+        return statement.getBankAccountId() + "|" + statement.getStatementNo() + "|"
+                + statement.getTransactionTime() + "|" + statement.getAmount();
+    }
+
+    private String balanceKey(BankDataBalance balance) {
+        return balance.getBankAccountId() + "|" + balance.getAsOfTime();
+    }
+
+    private record WindowRange(LocalDateTime start, LocalDateTime end) {}
+
+    private record CollectedStatement(BankDataEntry entry, BankDataRawMessage raw, String bankRequestNo) {}
+
+    private record CollectedBalance(BankDataBalanceEntry entry, BankDataRawMessage raw, String bankRequestNo) {}
 }

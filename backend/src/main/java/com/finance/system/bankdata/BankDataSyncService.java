@@ -11,6 +11,7 @@ import com.finance.system.bankdata.dto.BankDataSyncRequest;
 import com.finance.system.bankdata.dto.BankDataSyncTaskDetailResponse;
 import com.finance.system.bankdata.dto.BankDataSyncTaskResponse;
 import com.finance.system.bankdata.dto.BankDataProjectionResponse;
+import com.finance.system.bankdata.dto.BankDataProjectionPageResponse;
 import com.finance.system.bankdata.dto.BankDataBalanceResponse;
 import com.finance.system.bankdata.dto.BankDataConnectionResponse;
 import com.finance.system.bankdata.dto.BankSyncJobDetailResponse;
@@ -38,7 +39,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.dao.DuplicateKeyException;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -59,6 +63,8 @@ public class BankDataSyncService {
     private final BankDataSyncExecutor executor;
     private final BankDataSyncEvidenceService evidenceService;
     private final Map<String, BankDataAdapter> adapters;
+
+    private record SyncWindow(LocalDateTime start, LocalDateTime end) {}
 
     public BankDataSyncService(CompanyScopeService companyScope,
                                BankDataSyncTaskMapper taskMapper,
@@ -87,7 +93,7 @@ public class BankDataSyncService {
 
     public BankDataSyncTaskDetailResponse trigger(Long userId, BankDataSyncRequest request, String requestId) {
         long companyId = companyScope.companyIdForUser(userId);
-        return triggerForCompany(companyId, userId, request, requestId);
+        return triggerForCompany(companyId, userId, request, requestId, "MANUAL");
     }
 
     public BankSyncJobDetailResponse triggerJob(Long userId, BankSyncJobTriggerRequest request, String requestId) {
@@ -96,17 +102,17 @@ public class BankDataSyncService {
         }
         long companyId = companyScope.companyIdForUser(userId);
         BankAccount account = bankAccountMapper.selectOne(new LambdaQueryWrapper<BankAccount>()
+                .eq(BankAccount::getId, request.bankAccountId())
                 .eq(BankAccount::getCompanyId, companyId)
-                .eq(BankAccount::getStatus, "ACTIVE")
-                .orderByAsc(BankAccount::getId)
-                .last("LIMIT 1"));
+                .eq(BankAccount::getStatus, "ACTIVE"));
         if (account == null) {
-            throw new BusinessException(404, "No active bank account is available in the current company");
+            throw new BusinessException(404, "Bank account not found in the current company");
         }
         String safeRequestId = requestId == null || requestId.isBlank()
                 ? UUID.randomUUID().toString() : requestId.trim();
+        SyncWindow window = parseWindow(request.windowStart(), request.windowEnd());
         BankDataSyncTaskDetailResponse detail = trigger(userId,
-                new BankDataSyncRequest(request.connectionCode(), account.getId(), "MOCK"), safeRequestId);
+                new BankDataSyncRequest(request.connectionCode(), account.getId(), "MOCK", window.start(), window.end()), safeRequestId);
         BankDataSyncTaskResponse task = detail.task();
         BankSyncJobResponse job = new BankSyncJobResponse(task.id(), task.taskNo(),
                 normalize(request.jobType(), "STATEMENT_PULL"), "MANUAL", task.connectionCode(), task.status(),
@@ -120,11 +126,13 @@ public class BankDataSyncService {
         return new BankSyncJobDetailResponse(job, timeline);
     }
 
-    public PageResponse<BankSyncJobResponse> listJobs(Long userId, int page, int size, String status, String jobType) {
+    public PageResponse<BankSyncJobResponse> listJobs(Long userId, int page, int size, String status, String jobType,
+                                                      String connectionCode, String requestId) {
         if (jobType != null && !jobType.isBlank() && !"STATEMENT_PULL".equalsIgnoreCase(jobType)) {
             return new PageResponse<>(Math.max(1, page), boundedSize(size), 0, List.of());
         }
-        PageResponse<BankDataSyncTaskResponse> tasks = listTasks(userId, page, size, status, null);
+        PageResponse<BankDataSyncTaskResponse> tasks = listTasks(userId, page, size, status, null,
+                connectionCode, requestId);
         List<BankSyncJobResponse> records = tasks.records().stream()
                 .map(task -> toJobResponse(task, "STATEMENT_PULL", "MANUAL"))
                 .toList();
@@ -142,33 +150,49 @@ public class BankDataSyncService {
         return new BankSyncJobDetailResponse(job, timeline);
     }
 
-    public PageResponse<BankDataProjectionResponse> queryProjection(Long userId, String resource,
-                                                                      int page, int size, String status,
-                                                                      Long bankAccountId, String keyword,
-                                                                      LocalDateTime from, LocalDateTime to) {
+    public BankDataProjectionPageResponse queryProjection(Long userId, String resource,
+                                                          int page, int size, String status,
+                                                          Long bankAccountId, String keyword,
+                                                          LocalDateTime from, LocalDateTime to,
+                                                          String sourceSystem, String syncJobNo,
+                                                          String requestId) {
         String normalized = resource == null ? "" : resource.trim().toLowerCase(Locale.ROOT);
         if (!List.of("balances", "statements", "receipts", "reconciliations", "payments", "payroll")
                 .contains(normalized)) {
             throw new BusinessException(404, "Bank data projection not found");
         }
+        long companyId = companyScope.companyIdForUser(userId);
+        String normalizedSource = sourceSystem == null || sourceSystem.isBlank()
+                ? null : sourceSystem.trim().toUpperCase(Locale.ROOT);
+        if (normalizedSource != null && !List.of("BANKDATA", "MOCK", "SIMULATED").contains(normalizedSource)) {
+            return emptyProjectionPage(page, size, "No projection matches the requested source");
+        }
+        List<Long> taskIds = scopedTaskIds(companyId, syncJobNo, requestId);
+        if ((syncJobNo != null && !syncJobNo.isBlank() || requestId != null && !requestId.isBlank())
+                && taskIds.isEmpty()) {
+            return emptyProjectionPage(page, size, "No projection matches the requested task or request");
+        }
         if ("balances".equals(normalized)) {
             PageResponse<BankDataBalanceResponse> balances = listBalances(userId, page, size, bankAccountId,
-                    status, from, to);
+                    status, from, to, taskIds.isEmpty() ? null : taskIds);
             List<BankDataProjectionResponse> records = balances.records().stream()
                     .map(balance -> new BankDataProjectionResponse(String.valueOf(balance.id()), "BANKDATA",
                             "BALANCE-" + balance.id(), balance.validationStatus(), balance.asOfTime(),
                             balance.accountMasked(), balance.availableBalance(), balance.currency(), null,
-                            "Available balance snapshot"))
+                            "Available balance snapshot", taskNo(balance.taskId(), companyId),
+                            requestIdForTask(balance.taskId(), companyId), balance.createdAt(), true))
                     .toList();
-            return new PageResponse<>(balances.page(), balances.size(), balances.total(), records);
+            return projectionPage(balances.page(), balances.size(), balances.total(), records,
+                    companyId, "BANKDATA", balances.records().stream().map(BankDataBalanceResponse::createdAt)
+                            .max(LocalDateTime::compareTo).orElse(null));
         }
         if (!"statements".equals(normalized)) {
-            return new PageResponse<>(Math.max(1, page), boundedSize(size), 0, List.of());
+            return emptyProjectionPage(page, size, "This projection is not populated in the current MOCK release");
         }
-        long companyId = companyScope.companyIdForUser(userId);
         LambdaQueryWrapper<BankDataStatement> query = new LambdaQueryWrapper<BankDataStatement>()
                 .eq(BankDataStatement::getCompanyId, companyId)
                 .eq(bankAccountId != null, BankDataStatement::getBankAccountId, bankAccountId)
+                .in(!taskIds.isEmpty(), BankDataStatement::getTaskId, taskIds)
                 .eq(status != null && !status.isBlank(), BankDataStatement::getValidationStatus,
                         status == null ? null : status.trim().toUpperCase(Locale.ROOT))
                 .ge(from != null, BankDataStatement::getTransactionTime, from)
@@ -184,23 +208,29 @@ public class BankDataSyncService {
                 .map(statement -> new BankDataProjectionResponse(
                         String.valueOf(statement.getId()), "BANKDATA", statement.getStatementNo(),
                         statement.getValidationStatus(), statement.getTransactionTime(), null, statement.getAmount(),
-                        statement.getCurrency(), statement.getDirection(), statement.getSummary()))
+                        statement.getCurrency(), statement.getDirection(), statement.getSummary(),
+                        taskNo(statement.getTaskId(), companyId), requestIdForTask(statement.getTaskId(), companyId),
+                        statement.getCreatedAt(), true))
                 .toList();
-        return new PageResponse<>(result.getCurrent(), result.getSize(), result.getTotal(), records);
+        return projectionPage(result.getCurrent(), result.getSize(), result.getTotal(), records,
+                companyId, "BANKDATA", result.getRecords().stream().map(BankDataStatement::getCreatedAt)
+                        .filter(java.util.Objects::nonNull).max(LocalDateTime::compareTo).orElse(null));
     }
 
     public PageResponse<BankDataBalanceResponse> listBalances(Long userId, int page, int size,
                                                                Long bankAccountId, LocalDateTime from, LocalDateTime to) {
-        return listBalances(userId, page, size, bankAccountId, null, from, to);
+        return listBalances(userId, page, size, bankAccountId, null, from, to, null);
     }
 
     private PageResponse<BankDataBalanceResponse> listBalances(Long userId, int page, int size,
                                                                 Long bankAccountId, String validationStatus,
-                                                                LocalDateTime from, LocalDateTime to) {
+                                                                LocalDateTime from, LocalDateTime to,
+                                                                List<Long> taskIds) {
         long companyId = companyScope.companyIdForUser(userId);
         LambdaQueryWrapper<BankDataBalance> query = new LambdaQueryWrapper<BankDataBalance>()
                 .eq(BankDataBalance::getCompanyId, companyId)
                 .eq(bankAccountId != null, BankDataBalance::getBankAccountId, bankAccountId)
+                .in(taskIds != null && !taskIds.isEmpty(), BankDataBalance::getTaskId, taskIds)
                 .eq(validationStatus != null && !validationStatus.isBlank(), BankDataBalance::getValidationStatus,
                         validationStatus == null ? null : validationStatus.trim().toUpperCase(Locale.ROOT))
                 .ge(from != null, BankDataBalance::getAsOfTime, from)
@@ -210,6 +240,47 @@ public class BankDataSyncService {
         Page<BankDataBalance> result = balanceMapper.selectPage(new Page<>(Math.max(1, page), boundedSize(size)), query);
         return new PageResponse<>(result.getCurrent(), result.getSize(), result.getTotal(),
                 result.getRecords().stream().map(balance -> toBalanceResponse(balance, companyId)).toList());
+    }
+
+    private List<Long> scopedTaskIds(long companyId, String syncJobNo, String requestId) {
+        if ((syncJobNo == null || syncJobNo.isBlank()) && (requestId == null || requestId.isBlank())) {
+            return List.of();
+        }
+        return taskMapper.selectList(new LambdaQueryWrapper<BankDataSyncTask>()
+                        .eq(BankDataSyncTask::getCompanyId, companyId)
+                        .eq(syncJobNo != null && !syncJobNo.isBlank(), BankDataSyncTask::getTaskNo, syncJobNo == null ? null : syncJobNo.trim())
+                        .eq(requestId != null && !requestId.isBlank(), BankDataSyncTask::getRequestId, requestId == null ? null : requestId.trim())
+                        .select(BankDataSyncTask::getId))
+                .stream().map(BankDataSyncTask::getId).toList();
+    }
+
+    private String taskNo(Long taskId, long companyId) {
+        BankDataSyncTask task = taskMapper.selectOne(new LambdaQueryWrapper<BankDataSyncTask>()
+                .eq(BankDataSyncTask::getId, taskId)
+                .eq(BankDataSyncTask::getCompanyId, companyId)
+                .select(BankDataSyncTask::getTaskNo));
+        return task == null ? null : task.getTaskNo();
+    }
+
+    private String requestIdForTask(Long taskId, long companyId) {
+        BankDataSyncTask task = taskMapper.selectOne(new LambdaQueryWrapper<BankDataSyncTask>()
+                .eq(BankDataSyncTask::getId, taskId)
+                .eq(BankDataSyncTask::getCompanyId, companyId)
+                .select(BankDataSyncTask::getRequestId));
+        return task == null ? null : task.getRequestId();
+    }
+
+    private BankDataProjectionPageResponse projectionPage(long page, long size, long total,
+                                                           List<BankDataProjectionResponse> records,
+                                                           long companyId, String sourceSystem,
+                                                           LocalDateTime lastSyncedAt) {
+        return new BankDataProjectionPageResponse(page, size, total, records, false, "SIMULATED",
+                "真实银行直联未启用；当前仅返回服务端模拟业务投影", null, sourceSystem, lastSyncedAt, true);
+    }
+
+    private BankDataProjectionPageResponse emptyProjectionPage(int page, int size, String message) {
+        return new BankDataProjectionPageResponse(Math.max(1, page), boundedSize(size), 0, List.of(),
+                false, "NOT_ENABLED", message, null, "BANKDATA", null, true);
     }
 
     public List<BankDataConnectionResponse> listConnections(Long userId) {
@@ -227,6 +298,12 @@ public class BankDataSyncService {
 
     public BankDataSyncTaskDetailResponse triggerForCompany(long companyId, Long requestedBy,
                                                             BankDataSyncRequest request, String requestId) {
+        return triggerForCompany(companyId, requestedBy, request, requestId, "MANUAL");
+    }
+
+    public BankDataSyncTaskDetailResponse triggerForCompany(long companyId, Long requestedBy,
+                                                            BankDataSyncRequest request, String requestId,
+                                                            String triggerType) {
         String adapterCode = normalize(request.adapterCode(), "MOCK");
         if (!adapters.containsKey(adapterCode)) {
             throw new BusinessException(400, "Bank data adapter is not available");
@@ -245,9 +322,12 @@ public class BankDataSyncService {
             if (profile == null) throw new BusinessException(404, "Connection not found in the current company");
             connectionId = profile.getId();
         }
-        String safeRequestId = requestId == null || requestId.isBlank()
+        String requestedRequestId = requestId == null || requestId.isBlank()
                 ? UUID.randomUUID().toString() : requestId.trim();
-        if (safeRequestId.length() > 64) safeRequestId = safeRequestId.substring(0, 64);
+        String safeRequestId = requestedRequestId.length() > 64 ? requestedRequestId.substring(0, 64) : requestedRequestId;
+        SyncWindow window = parseWindow(request.windowStart(), request.windowEnd());
+        String safeTriggerType = normalize(triggerType, "MANUAL");
+        String syncKey = syncKey(account.getId(), connectionId, adapterCode, window);
 
         BankDataSyncTask existing = taskMapper.selectOne(new LambdaQueryWrapper<BankDataSyncTask>()
                 .eq(BankDataSyncTask::getCompanyId, companyId)
@@ -261,6 +341,17 @@ public class BankDataSyncService {
             return getTaskDetail(existing.getId(), companyId);
         }
 
+        BankDataSyncTask running = taskMapper.selectOne(new LambdaQueryWrapper<BankDataSyncTask>()
+                .eq(BankDataSyncTask::getCompanyId, companyId)
+                .eq(BankDataSyncTask::getSyncKey, syncKey)
+                .last("LIMIT 1"));
+        if (running != null) {
+            if ("RUNNING".equals(running.getStatus())) {
+                throw new BusinessException(409, "A bank data sync task is already running for the same account and window");
+            }
+            return getTaskDetail(running.getId(), companyId);
+        }
+
         BankDataSyncTask task = new BankDataSyncTask();
         task.setCompanyId(companyId);
         task.setTaskNo("BDST-" + UUID.randomUUID().toString().replace("-", "").substring(0, 20).toUpperCase(Locale.ROOT));
@@ -269,6 +360,10 @@ public class BankDataSyncService {
         task.setBankAccountId(account.getId());
         task.setRequestedBy(requestedBy);
         task.setRequestId(safeRequestId);
+        task.setSyncKey(syncKey);
+        task.setTriggerType(safeTriggerType);
+        task.setWindowStart(window.start());
+        task.setWindowEnd(window.end());
         task.setStatus("RUNNING");
         task.setRawCount(0);
         task.setNormalizedCount(0);
@@ -280,7 +375,9 @@ public class BankDataSyncService {
         } catch (DuplicateKeyException duplicateKeyException) {
             BankDataSyncTask concurrent = taskMapper.selectOne(new LambdaQueryWrapper<BankDataSyncTask>()
                     .eq(BankDataSyncTask::getCompanyId, companyId)
-                    .eq(BankDataSyncTask::getRequestId, safeRequestId));
+                    .and(wrapper -> wrapper.eq(BankDataSyncTask::getRequestId, safeRequestId)
+                            .or().eq(BankDataSyncTask::getSyncKey, syncKey))
+                    .last("LIMIT 1"));
             if (concurrent == null) throw duplicateKeyException;
             if (!concurrent.getBankAccountId().equals(account.getId())
                     || !concurrent.getAdapterCode().equals(adapterCode)
@@ -304,9 +401,21 @@ public class BankDataSyncService {
 
     public PageResponse<BankDataSyncTaskResponse> listTasks(Long userId, int page, int size,
                                                               String status, String adapterCode) {
+        return listTasks(userId, page, size, status, adapterCode, null, null);
+    }
+
+    private PageResponse<BankDataSyncTaskResponse> listTasks(Long userId, int page, int size,
+                                                              String status, String adapterCode,
+                                                              String connectionCode, String requestId) {
         long companyId = companyScope.companyIdForUser(userId);
+        Long connectionId = connectionId(companyId, connectionCode);
         LambdaQueryWrapper<BankDataSyncTask> query = new LambdaQueryWrapper<BankDataSyncTask>()
                 .eq(BankDataSyncTask::getCompanyId, companyId)
+                .eq(connectionId != null, BankDataSyncTask::getConnectionId, connectionId)
+                .eq(connectionCode != null && !connectionCode.isBlank() && connectionId == null,
+                        BankDataSyncTask::getConnectionId, -1L)
+                .eq(requestId != null && !requestId.isBlank(), BankDataSyncTask::getRequestId,
+                        requestId == null ? null : requestId.trim())
                 .eq(status != null && !status.isBlank(), BankDataSyncTask::getStatus, normalize(status, null))
                 .eq(adapterCode != null && !adapterCode.isBlank(), BankDataSyncTask::getAdapterCode, normalize(adapterCode, null))
                 .orderByDesc(BankDataSyncTask::getCreatedAt)
@@ -314,6 +423,14 @@ public class BankDataSyncService {
         Page<BankDataSyncTask> result = taskMapper.selectPage(new Page<>(Math.max(1, page), boundedSize(size)), query);
         return new PageResponse<>(result.getCurrent(), result.getSize(), result.getTotal(),
                 result.getRecords().stream().map(task -> toTaskResponse(task, connectionCode(companyId, task.getConnectionId()))).toList());
+    }
+
+    private Long connectionId(long companyId, String connectionCode) {
+        if (connectionCode == null || connectionCode.isBlank()) return null;
+        ConnectionProfile profile = connectionProfileMapper.selectOne(new LambdaQueryWrapper<ConnectionProfile>()
+                .eq(ConnectionProfile::getCompanyId, companyId)
+                .eq(ConnectionProfile::getConnectionCode, connectionCode.trim()));
+        return profile == null ? null : profile.getId();
     }
 
     public BankDataSyncTaskDetailResponse getTaskDetail(Long userId, Long taskId) {
@@ -387,6 +504,7 @@ public class BankDataSyncService {
     }
 
     public void triggerScheduledSyncs() {
+        SyncWindow window = defaultScheduledWindow();
         List<ConnectionProfile> profiles = connectionProfileMapper.selectList(new LambdaQueryWrapper<ConnectionProfile>()
                 .eq(ConnectionProfile::getEnabled, true)
                 .in(ConnectionProfile::getStatus, List.of("SIMULATED", "ACTIVE")));
@@ -399,9 +517,13 @@ public class BankDataSyncService {
                     .last("LIMIT 1"));
             if (account == null) continue;
             try {
+                String adapterCode = "MOCK";
+                String requestId = "scheduled-" + shaRequestId(profile.getCompanyId(), account.getId(),
+                        profile.getId(), adapterCode, window);
                 triggerForCompany(profile.getCompanyId(), null,
-                        new BankDataSyncRequest(profile.getConnectionCode(), account.getId(), "MOCK"),
-                        "scheduled-" + UUID.randomUUID());
+                        new BankDataSyncRequest(profile.getConnectionCode(), account.getId(), adapterCode,
+                                window.start(), window.end()),
+                        requestId, "SCHEDULED");
             } catch (RuntimeException ignored) {
                 // Scheduled execution is best effort; a persisted task records failures.
             }
@@ -490,6 +612,42 @@ public class BankDataSyncService {
 
     private String normalize(String value, String defaultValue) {
         return value == null || value.isBlank() ? defaultValue : value.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private SyncWindow parseWindow(LocalDateTime requestedStart, LocalDateTime requestedEnd) {
+        LocalDateTime start = requestedStart == null ? LocalDateTime.of(2026, 8, 27, 0, 0) : requestedStart;
+        LocalDateTime end = requestedEnd == null ? start.plusDays(1) : requestedEnd;
+        if (!end.isAfter(start)) {
+            throw new BusinessException(400, "Bank data sync window end must be after start");
+        }
+        return new SyncWindow(start, end);
+    }
+
+    private SyncWindow parseWindow(String requestedStart, String requestedEnd) {
+        try {
+            LocalDateTime start = requestedStart == null || requestedStart.isBlank() ? null : LocalDateTime.parse(requestedStart.trim());
+            LocalDateTime end = requestedEnd == null || requestedEnd.isBlank() ? null : LocalDateTime.parse(requestedEnd.trim());
+            return parseWindow(start, end);
+        } catch (DateTimeParseException exception) {
+            throw new BusinessException(400, "Bank sync window must use ISO date-time format");
+        }
+    }
+
+    private SyncWindow defaultScheduledWindow() {
+        LocalDate yesterday = LocalDate.now().minusDays(1);
+        return new SyncWindow(LocalDateTime.of(yesterday, LocalTime.MIDNIGHT),
+                LocalDateTime.of(yesterday.plusDays(1), LocalTime.MIDNIGHT));
+    }
+
+    private String syncKey(Long bankAccountId, Long connectionId, String adapterCode, SyncWindow window) {
+        return bankAccountId + ":" + (connectionId == null ? 0 : connectionId) + ":" + adapterCode + ":"
+                + window.start() + ":" + window.end();
+    }
+
+    private String shaRequestId(Long companyId, Long bankAccountId, Long connectionId, String adapterCode,
+                                SyncWindow window) {
+        return UUID.nameUUIDFromBytes((companyId + ":" + syncKey(bankAccountId, connectionId, adapterCode, window))
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
     }
 
     private long boundedSize(int size) {

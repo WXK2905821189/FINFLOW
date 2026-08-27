@@ -27,11 +27,12 @@ jobs:
           compgen -G "$migration_dir/V3__*.sql" > /dev/null
           test -f "$migration_dir/V4__bank_data_access_foundation.sql"
           test -f "$migration_dir/V5__bank_data_balance_and_adapter_port.sql"
-          test -f "$migration_dir/V6__tenant_statement_payment_and_session_safety.sql"
-          test -f "$migration_dir/V8__payment_request_audit_and_unknown_resolution.sql"
-          test -f backend/src/main/resources/db/vendor-migration/h2/V7__drop_legacy_statement_number_uniqueness.sql
-          test -f backend/src/main/resources/db/vendor-migration/mysql/V7__drop_legacy_statement_number_uniqueness.sql
-          expected_versions=(V1 V2 V3 V4 V5 V6 V8)
+           test -f "$migration_dir/V6__tenant_statement_payment_and_session_safety.sql"
+           test -f "$migration_dir/V8__payment_request_audit_and_unknown_resolution.sql"
+           test -f "$migration_dir/V9__bankdata_phase2_windows_retention.sql"
+           test -f backend/src/main/resources/db/vendor-migration/h2/V7__drop_legacy_statement_number_uniqueness.sql
+           test -f backend/src/main/resources/db/vendor-migration/mysql/V7__drop_legacy_statement_number_uniqueness.sql
+           expected_versions=(V1 V2 V3 V4 V5 V6 V8 V9)
           actual_versions=()
           while IFS= read -r migration; do
             version="${migration##*/}"
@@ -55,6 +56,14 @@ jobs:
           grep -q 'requestId' backend/src/main/java/com/finance/system/bankdata/BankDataController.java
           grep -q 'resolveUnknown' backend/src/main/java/com/finance/system/bank/PaymentTransferService.java
           grep -q 'request_id' backend/src/main/resources/db/migration/V8__payment_request_audit_and_unknown_resolution.sql
+          grep -q 'CONSTRAINT uk_bank_statement_business UNIQUE (company_id, bank_account_id, statement_no, transaction_time, amount)' "$migration_dir/V4__bank_data_access_foundation.sql"
+          grep -q 'CREATE UNIQUE INDEX uk_bank_sync_task_request ON bank_data_sync_task(company_id, request_id)' "$migration_dir/V4__bank_data_access_foundation.sql"
+          grep -q 'CONSTRAINT uk_payment_company_idempotency UNIQUE (company_id, idempotency_key)' "$migration_dir/V6__tenant_statement_payment_and_session_safety.sql"
+           grep -q 'ALTER TABLE payment_transfer ADD COLUMN request_id' backend/src/main/resources/db/migration/V8__payment_request_audit_and_unknown_resolution.sql
+           grep -q 'ALTER TABLE bank_data_sync_task ADD COLUMN sync_key' "$migration_dir/V9__bankdata_phase2_windows_retention.sql"
+           grep -q 'CREATE INDEX idx_bank_raw_retention_purge' "$migration_dir/V9__bankdata_phase2_windows_retention.sql"
+          grep -q 'DROP CONSTRAINT IF EXISTS' backend/src/main/resources/db/vendor-migration/h2/V7__drop_legacy_statement_number_uniqueness.sql
+          grep -q 'PREPARE drop_legacy_statement_index' backend/src/main/resources/db/vendor-migration/mysql/V7__drop_legacy_statement_number_uniqueness.sql
           grep -q 'classpath:db/vendor-migration/{vendor}' backend/src/main/resources/application.yml
           if git grep -n -I -E '(HttpClient|RestTemplate|WebClient|java\.net\.http|https?://)' -- backend/src/main/java/com/finance/system/bankdata; then
             echo "v0.2 must not call a real bank SDK or API before a separately approved adapter release."
@@ -65,13 +74,188 @@ jobs:
             exit 1
           fi
           test -f docs/v0.2/bank-data-runbook.md
+          test -f docs/v0.2/devops-phase2-release-validation.md
           grep -q 'Java 17 与 Java 8 SDK 兼容性验证' docs/v0.2/bank-data-runbook.md
           grep -q '网络白名单、IP 与 MAC 变更' docs/v0.2/bank-data-runbook.md
           grep -q '证书目录、日志目录与敏感配置注入' docs/v0.2/bank-data-runbook.md
+          grep -q '30 天原始数据清理' docs/v0.2/devops-phase2-release-validation.md
+          grep -q 'MySQL 空库、增量、重复启动' docs/v0.2/devops-phase2-release-validation.md
+          grep -q '真实银行调用次数.*0' docs/v0.2/devops-phase2-release-validation.md
           if find . -type f \( -iname '*.p12' -o -iname '*.pfx' -o -iname '*.jks' -o -iname '*.keystore' -o -iname '*.pem' -o -iname '*.key' -o -iname '*citic*.jar' \) -not -path './frontend/node_modules/*' -print -quit | grep -q .; then
             echo "Bank SDK binaries, certificates, keystores, or private keys must not be committed."
             exit 1
           fi
+
+  h2-migration:
+    name: H2 migration (empty and repeat startup)
+    needs: release-contract
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+
+      - name: Package backend
+        run: mvn --batch-mode --no-transfer-progress clean package -DskipTests
+
+      - name: Migrate H2 and verify repeat startup
+        shell: bash
+        run: |
+          set -euo pipefail
+          jar_file="$(find target -maxdepth 1 -type f -name '*.jar' ! -name '*.original' -print -quit)"
+          test -n "$jar_file"
+          db_url="jdbc:h2:file:${RUNNER_TEMP}/finflow-h2;MODE=MySQL"
+          first_log="${RUNNER_TEMP}/finflow-h2-first.log"
+          repeat_log="${RUNNER_TEMP}/finflow-h2-repeat.log"
+
+          wait_for_health() {
+            for attempt in $(seq 1 60); do
+              if curl --fail --silent http://127.0.0.1:18080/v3/api-docs > /dev/null; then
+                return 0
+              fi
+              sleep 2
+            done
+            cat "$1"
+            return 1
+          }
+
+          java -jar "$jar_file" \
+            --server.port=18080 \
+            --spring.datasource.url="$db_url" \
+            --spring.h2.console.enabled=false \
+            > "$first_log" 2>&1 &
+          app_pid=$!
+          trap 'kill "$app_pid" 2>/dev/null || true; wait "$app_pid" 2>/dev/null || true' EXIT
+          wait_for_health "$first_log"
+           grep -q 'Successfully applied 9 migrations' "$first_log"
+          kill "$app_pid"
+          wait "$app_pid" || true
+          app_pid=""
+
+          java -jar "$jar_file" \
+            --server.port=18080 \
+            --spring.datasource.url="$db_url" \
+            --spring.h2.console.enabled=false \
+            > "$repeat_log" 2>&1 &
+          app_pid=$!
+          wait_for_health "$repeat_log"
+           grep -q 'Successfully validated 9 migrations' "$repeat_log"
+          ! grep -q 'Migrating schema' "$repeat_log"
+          kill "$app_pid"
+          wait "$app_pid" || true
+          app_pid=""
+
+  mysql-migration:
+    name: MySQL migration (CI service container)
+    needs: release-contract
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: ci-root-password
+          MYSQL_DATABASE: finflow_ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pci-root-password"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=20
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+
+      - name: Package backend
+        run: mvn --batch-mode --no-transfer-progress clean package -DskipTests
+
+      - name: Migrate MySQL empty, incremental and repeat startup
+        shell: bash
+        env:
+          DB_URL: jdbc:mysql://127.0.0.1:3306/finflow_ci?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+          DB_USERNAME: root
+          DB_PASSWORD: ci-root-password
+          JWT_SECRET: ci-only-test-value
+          CITIC_MOCK_MODE: "true"
+          KINGDEE_MOCK_MODE: "true"
+        run: |
+          set -euo pipefail
+          jar_file="$(find target -maxdepth 1 -type f -name '*.jar' ! -name '*.original' -print -quit)"
+          test -n "$jar_file"
+          first_log="${RUNNER_TEMP}/finflow-mysql-v1-v5.log"
+          incremental_log="${RUNNER_TEMP}/finflow-mysql-v6-v9.log"
+          repeat_log="${RUNNER_TEMP}/finflow-mysql-repeat.log"
+
+          wait_for_health() {
+            for attempt in $(seq 1 60); do
+              if curl --fail --silent http://127.0.0.1:18080/v3/api-docs > /dev/null; then
+                return 0
+              fi
+              sleep 2
+            done
+            cat "$1"
+            return 1
+          }
+
+          java -jar "$jar_file" \
+            --server.port=18080 \
+            --spring.profiles.active=prod \
+            --spring.flyway.target=5 \
+            > "$first_log" 2>&1 &
+          app_pid=$!
+          trap 'kill "$app_pid" 2>/dev/null || true; wait "$app_pid" 2>/dev/null || true' EXIT
+          wait_for_health "$first_log"
+          grep -q 'Successfully applied 5 migrations' "$first_log"
+          kill "$app_pid"
+          wait "$app_pid" || true
+          app_pid=""
+
+          java -jar "$jar_file" \
+            --server.port=18080 \
+            --spring.profiles.active=prod \
+            > "$incremental_log" 2>&1 &
+          app_pid=$!
+          wait_for_health "$incremental_log"
+          grep -q 'Migrating schema.*version "6' "$incremental_log"
+          grep -q 'Migrating schema.*version "7' "$incremental_log"
+          grep -q 'Migrating schema.*version "8' "$incremental_log"
+          grep -q 'Migrating schema.*version "9' "$incremental_log"
+          grep -q 'Successfully applied 4 migrations' "$incremental_log"
+          kill "$app_pid"
+          wait "$app_pid" || true
+          app_pid=""
+
+          java -jar "$jar_file" \
+            --server.port=18080 \
+            --spring.profiles.active=prod \
+            > "$repeat_log" 2>&1 &
+          app_pid=$!
+          wait_for_health "$repeat_log"
+          grep -q 'Successfully validated 9 migrations' "$repeat_log"
+          ! grep -q 'Migrating schema' "$repeat_log"
+          kill "$app_pid"
+          wait "$app_pid" || true
 
   backend:
     name: Backend (Java 17 / Maven)

@@ -1,16 +1,18 @@
-import { useCallback, useEffect, useMemo, useState, type DependencyList } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type DependencyList } from 'react';
 import {
   Alert,
   Avatar,
   Button,
   Card,
   Col,
+  DatePicker,
   Descriptions,
   Drawer,
   Dropdown,
   Empty,
   Form,
   Input,
+  InputNumber,
   Layout,
   Menu,
   Modal,
@@ -33,13 +35,10 @@ import {
   ApartmentOutlined,
   AuditOutlined,
   BankOutlined,
-  CheckCircleOutlined,
-  ClockCircleOutlined,
   DashboardOutlined,
   DatabaseOutlined,
   FileAddOutlined,
   FileSearchOutlined,
-  FileTextOutlined,
   LogoutOutlined,
   PlayCircleOutlined,
   RadarChartOutlined,
@@ -52,6 +51,7 @@ import {
   TransactionOutlined,
   UserOutlined,
 } from '@ant-design/icons';
+import dayjs from 'dayjs';
 import { BrowserRouter, Link, Navigate, Outlet, Route, Routes, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { statementApi, authApi, bankPipelineApi, operationsApi } from './services/api';
 import { ApiRequestError } from './services/http';
@@ -65,9 +65,7 @@ import type {
   BankSyncJob,
   BankSyncJobDetail,
   BankSyncJobTrigger,
-  DataQueryCapability,
   OperationLog,
-  OperationTask,
   StatementAuditEvent,
   StatementDetail,
   StatementDashboard,
@@ -79,6 +77,7 @@ import type {
 import './styles.css';
 
 const { Header, Sider, Content } = Layout;
+const CONNECTIONS_MENU_KEY = 'finflow.connections-menu-open';
 
 const pageTitles: Record<string, string> = {
   '/dashboard': '财务工作台',
@@ -111,6 +110,24 @@ const money = (value?: number | string) => {
 
 const dateTime = (value?: string) => (value ? value.replace('T', ' ').replace(/\.\d+$/, '') : '--');
 
+const displayValue = (value?: string | number | null) => (value === undefined || value === null || value === '' ? '--' : String(value));
+
+const hasAnyStatus = (status: string | undefined, patterns: RegExp[]) => Boolean(status && patterns.some((pattern) => pattern.test(status)));
+
+const isUnavailableStatus = (status?: string) => hasAnyStatus(status, [/DISABLED/i, /UNAVAILABLE/i, /NOT_ENABLED/i, /NOT_CONFIGURED/i, /未启用/, /不可用/]);
+
+const isSimulatedStatus = (status?: string) => hasAnyStatus(status, [/SIMULATED/i, /MOCK/i, /SANDBOX/i, /模拟/]);
+
+const isFailedStatus = (status?: string) => hasAnyStatus(status, [/FAILED/i, /ERROR/i, /REJECTED/i, /INVALID/i, /失败/, /异常/]);
+
+const cleanText = (value?: string | number | null) => displayValue(value);
+
+const maskAccountDisplay = (value?: string | number | null) => {
+  const text = displayValue(value);
+  if (text === '--' || /\*/.test(text)) return text;
+  return text.replace(/\d{8,}/g, (match) => `${match.slice(0, 4)}****${match.slice(-4)}`);
+};
+
 const statusColor = (status?: string) => {
   if (!status) return 'default';
   if (/(APPROVED|PUSHED|COMPLETED|VALID|SUCCESS)/.test(status)) return 'green';
@@ -124,8 +141,9 @@ function StatusTag({ status }: { status?: string }) {
 }
 
 function ResourceFailure({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+  const isForbidden = error instanceof ApiRequestError && error.status === 403;
   const description = error instanceof Error ? error.message : '请求未能完成，请稍后重试';
-  return <Alert className="resource-alert" type="error" showIcon message="数据暂不可用" description={description} action={<Button size="small" icon={<ReloadOutlined />} onClick={onRetry}>重试</Button>} />;
+  return <Alert className="resource-alert" type="error" showIcon message={isForbidden ? '暂无访问权限' : '数据暂不可用'} description={description} action={<Button size="small" icon={<ReloadOutlined />} onClick={onRetry}>重试</Button>} />;
 }
 
 function useRemote<T>(loader: () => Promise<T>, dependencies: DependencyList) {
@@ -169,6 +187,14 @@ function Shell() {
   const navigate = useNavigate();
   const { user, logout, hasPermission } = useAuthStore();
   const canViewConnection = hasPermission('connection:view') || hasPermission('connection:manage');
+  const canViewTasks = hasPermission('operation:monitor') || hasPermission('bankdata:view');
+  const [openKeys, setOpenKeys] = useState<string[]>(() => {
+    try {
+      return window.localStorage.getItem(CONNECTIONS_MENU_KEY) === 'false' ? [] : ['connections-and-operations'];
+    } catch {
+      return [];
+    }
+  });
   const items: MenuProps['items'] = [
     ...(hasPermission('dashboard:view') ? [{ key: '/dashboard', icon: <DashboardOutlined />, label: <Link to="/dashboard">仪表盘</Link> }] : []),
     {
@@ -190,17 +216,17 @@ function Shell() {
         ...(hasPermission('reconciliation:view') ? [{ key: '/statements/reconciliation', icon: <AuditOutlined />, label: <Link to="/statements/reconciliation">对账与追溯</Link> }] : []),
       ],
     },
-    ...(hasPermission('user:manage') ? [{ type: 'group' as const, label: '系统管理', children: [{ key: '/users', icon: <TeamOutlined />, label: <Link to="/users">用户管理</Link> }] }] : []),
     {
       key: 'connections-and-operations',
       icon: <ApartmentOutlined />,
       label: '连接与运营',
       children: [
         ...(canViewConnection ? [{ key: 'connection-management', icon: <SettingOutlined />, label: '直联管理', children: [{ key: '/connections/apps', label: <Link to="/connections/apps">应用管理</Link> }, { key: '/connections/agreements', label: <Link to="/connections/agreements">签约管理</Link> }, { key: '/connections/preferences', label: <Link to="/connections/preferences">个性化设置</Link> }] }] : []),
-        ...((hasPermission('operation:monitor') || hasPermission('operation:log:view')) ? [{ key: 'monitoring-and-logs', icon: <RadarChartOutlined />, label: '监控与日志', children: [...(hasPermission('operation:monitor') ? [{ key: '/operations/connectivity', label: <Link to="/operations/connectivity">直联状态监控</Link> }, { key: '/operations/tasks', label: <Link to="/operations/tasks">任务执行</Link> }] : []), ...(hasPermission('operation:log:view') ? [{ key: '/operations/logs', label: <Link to="/operations/logs">日志查询</Link> }] : [])] }] : []),
+        ...((hasPermission('operation:monitor') || hasPermission('operation:log:view') || canViewTasks) ? [{ key: 'monitoring-and-logs', icon: <RadarChartOutlined />, label: '监控与日志', children: [...(hasPermission('operation:monitor') ? [{ key: '/operations/connectivity', label: <Link to="/operations/connectivity">直联状态监控</Link> }] : []), ...(canViewTasks ? [{ key: '/operations/tasks', label: <Link to="/operations/tasks">任务执行</Link> }] : []), ...(hasPermission('operation:log:view') ? [{ key: '/operations/logs', label: <Link to="/operations/logs">日志查询</Link> }] : [])] }] : []),
         ...((['bankdata:balance:view', 'bankdata:statement:view', 'bankdata:receipt:view', 'bankdata:reconciliation:view', 'bankdata:payment:view', 'bankdata:payroll:view'] as const).some(hasPermission) ? [{ key: 'data-query', icon: <SearchOutlined />, label: '数据查询', children: [...(hasPermission('bankdata:balance:view') ? [{ key: '/bank-data/balances', label: <Link to="/bank-data/balances">余额</Link> }] : []), ...(hasPermission('bankdata:statement:view') ? [{ key: '/bank-data/statements', label: <Link to="/bank-data/statements">流水</Link> }] : []), ...(hasPermission('bankdata:receipt:view') ? [{ key: '/bank-data/receipts', label: <Link to="/bank-data/receipts">回单</Link> }] : []), ...(hasPermission('bankdata:reconciliation:view') ? [{ key: '/bank-data/reconciliations', label: <Link to="/bank-data/reconciliations">对账单</Link> }] : []), ...(hasPermission('bankdata:payment:view') ? [{ key: '/bank-data/payments', label: <Link to="/bank-data/payments">支付记录</Link> }] : []), ...(hasPermission('bankdata:payroll:view') ? [{ key: '/bank-data/payroll', label: <Link to="/bank-data/payroll">代发</Link> }] : [])] }] : []),
       ],
     },
+    ...(hasPermission('user:manage') ? [{ type: 'group' as const, label: '系统管理', children: [{ key: '/users', icon: <TeamOutlined />, label: <Link to="/users">用户管理</Link> }] }] : []),
   ];
   const menuItems = items.filter((item) => {
     if (!item) return false;
@@ -211,7 +237,16 @@ function Shell() {
     logout();
     navigate('/login');
   };
-  return <Layout className="app-shell"><Sider breakpoint="lg" collapsedWidth="64" collapsible><div className="brand"><div className="brand-mark">F</div><span>FINFLOW</span></div><div className="workspace-label">企业财务工作台</div><Menu theme="dark" mode="inline" selectedKeys={[location.pathname]} defaultOpenKeys={['connections-and-operations']} items={menuItems} /></Sider><Layout><Header className="topbar"><div><div className="eyebrow">FINFLOW / 企业财务工作台</div><h1>{pageTitles[location.pathname] || '财务工作台'}</h1></div><Dropdown menu={{ items: [{ key: 'profile', label: user?.email || '个人资料', icon: <UserOutlined /> }, { type: 'divider' }, { key: 'logout', label: '退出登录', icon: <LogoutOutlined />, onClick: logoutAndRedirect }] }}><Button type="text" className="profile-button"><Avatar size={32} icon={<UserOutlined />} /><span>{user?.username}</span></Button></Dropdown></Header><Content className="page-content"><Outlet /></Content></Layout></Layout>;
+  const handleMenuOpenChange = (nextKeys: string[]) => {
+    const isConnectionsOpen = nextKeys.includes('connections-and-operations');
+    setOpenKeys(nextKeys);
+    try {
+      window.localStorage.setItem(CONNECTIONS_MENU_KEY, String(isConnectionsOpen));
+    } catch {
+      // Menu state is a convenience preference; storage failure must not block navigation.
+    }
+  };
+  return <Layout className="app-shell"><Sider breakpoint="lg" collapsedWidth="64" collapsible><div className="brand"><div className="brand-mark">F</div><span>FINFLOW</span></div><div className="workspace-label">企业财务工作台</div><Menu theme="dark" mode="inline" selectedKeys={[location.pathname]} openKeys={openKeys} onOpenChange={handleMenuOpenChange} items={menuItems} /></Sider><Layout><Header className="topbar"><div><div className="eyebrow">FINFLOW / 企业财务工作台</div><h1>{pageTitles[location.pathname] || '财务工作台'}</h1></div><Dropdown menu={{ items: [{ key: 'profile', label: user?.email || '个人资料', icon: <UserOutlined /> }, { type: 'divider' }, { key: 'logout', label: '退出登录', icon: <LogoutOutlined />, onClick: logoutAndRedirect }] }}><Button type="text" className="profile-button"><Avatar size={32} icon={<UserOutlined />} /><span>{user?.username}</span></Button></Dropdown></Header><Content className="page-content"><Outlet /></Content></Layout></Layout>;
 }
 
 function Login() {
@@ -411,48 +446,66 @@ function SyncJobDrawer({ job, onClose }: { job?: BankSyncJob; onClose: () => voi
   const loader = useCallback(() => job ? bankPipelineApi.getJob(job.id) : Promise.resolve<BankSyncJobDetail | undefined>(undefined), [job]);
   const { data, loading, error, reload } = useRemote<BankSyncJobDetail | undefined>(loader, [loader]);
   const detail = data?.job;
-  return <Drawer title={job ? `同步任务 · ${job.jobNo}` : '同步任务'} width={540} open={Boolean(job)} onClose={onClose}>{loading ? <Skeleton active paragraph={{ rows: 7 }} /> : error ? <ResourceFailure error={error} onRetry={reload} /> : detail ? <><PhaseOneNotice status={detail.status} /><Descriptions column={1} size="small" bordered><Descriptions.Item label="任务类型">{detail.jobType}</Descriptions.Item><Descriptions.Item label="触发方式">{detail.triggerType}</Descriptions.Item><Descriptions.Item label="连接标识">{detail.connectionCode || '--'}</Descriptions.Item><Descriptions.Item label="请求编号"><span className="mono">{detail.requestId || '--'}</span></Descriptions.Item><Descriptions.Item label="创建时间">{dateTime(detail.createdAt)}</Descriptions.Item><Descriptions.Item label="开始 / 完成">{dateTime(detail.startedAt)} / {dateTime(detail.completedAt)}</Descriptions.Item><Descriptions.Item label="服务端摘要">{detail.summary || '--'}</Descriptions.Item></Descriptions>{detail.requestId && <Link className="trace-link" to={`/operations/logs?requestId=${encodeURIComponent(detail.requestId)}`}>查看该请求的脱敏日志与审计追溯</Link>}<h3 className="drawer-section-title">状态时间线</h3>{data.timeline?.length ? <Timeline items={data.timeline.map((event) => ({ color: statusColor(event.status), children: <div><StatusTag status={event.status} /><strong>{event.stage}</strong>{event.message && <div className="timeline-detail">{event.message}</div>}<div className="table-sub">{dateTime(event.occurredAt)} · <span className="mono">{event.requestId || detail.requestId || '--'}</span></div></div> }))} /> : <Empty description="服务端未返回状态时间线" />}</> : <Empty description="未找到同步任务详情" />}</Drawer>;
+  return <Drawer title={job ? `同步任务 · ${job.jobNo}` : '同步任务'} width={560} open={Boolean(job)} onClose={onClose}>{loading ? <Skeleton active paragraph={{ rows: 7 }} /> : error ? <ResourceFailure error={error} onRetry={reload} /> : detail ? <><PhaseOneNotice status={detail.status} /><Descriptions column={1} size="small" bordered><Descriptions.Item label="任务编号"><span className="mono">{detail.jobNo}</span></Descriptions.Item><Descriptions.Item label="任务类型">{detail.jobType}</Descriptions.Item><Descriptions.Item label="触发方式">{detail.triggerType}</Descriptions.Item><Descriptions.Item label="连接标识">{displayValue(detail.connectionCode)}</Descriptions.Item><Descriptions.Item label="请求编号"><span className="mono">{displayValue(detail.requestId)}</span></Descriptions.Item><Descriptions.Item label="状态"><StatusTag status={detail.status} /></Descriptions.Item><Descriptions.Item label="创建时间">{dateTime(detail.createdAt)}</Descriptions.Item><Descriptions.Item label="开始 / 完成">{dateTime(detail.startedAt)} / {dateTime(detail.completedAt)}</Descriptions.Item><Descriptions.Item label="服务端摘要">{cleanText(detail.summary)}</Descriptions.Item></Descriptions>{detail.requestId && <Link className="trace-link" to={`/operations/logs?requestId=${encodeURIComponent(detail.requestId)}`}>查看该请求的脱敏日志与审计追溯</Link>}<h3 className="drawer-section-title">状态时间线</h3>{data.timeline?.length ? <Timeline items={data.timeline.map((event) => ({ color: statusColor(event.status), children: <div><StatusTag status={event.status} /><strong>{event.stage}</strong>{event.message && <div className="timeline-detail">{event.message}</div>}<div className="table-sub">{dateTime(event.occurredAt)} · 请求 <span className="mono">{event.requestId || detail.requestId || '--'}</span></div></div> }))} /> : <Empty description="服务端未返回状态时间线" />}</> : <Empty description="未找到同步任务详情" />}</Drawer>;
 }
 
 function OperationTasks() {
   const hasPermission = useAuthStore((state) => state.hasPermission);
+  const canTriggerSync = hasPermission('bankdata:sync:trigger') || hasPermission('bankdata:sync') || hasPermission('bank-sync:trigger');
   const [page, setPage] = useState(1);
-  const [status, setStatus] = useState<string>();
+  const [taskFilters, setTaskFilters] = useState({ status: '', jobType: '', connectionCode: '', requestId: '' });
   const [selected, setSelected] = useState<BankSyncJob>();
   const [triggerOpen, setTriggerOpen] = useState(false);
   const [triggering, setTriggering] = useState(false);
   const [form] = Form.useForm<BankSyncJobTrigger>();
-  const loader = useCallback(() => bankPipelineApi.listJobs({ page, size: 20, status }), [page, status]);
+  const loader = useCallback(() => bankPipelineApi.listJobs({ page, size: 20, status: taskFilters.status || undefined, jobType: taskFilters.jobType || undefined, connectionCode: taskFilters.connectionCode || undefined, requestId: taskFilters.requestId || undefined }), [page, taskFilters]);
   const { data, loading, error, reload } = useRemote<PageResponse<BankSyncJob>>(loader, [loader]);
   const trigger = async () => {
     if (triggering) return;
     const values = await form.validateFields();
     setTriggering(true);
-    try {
-      const job = await bankPipelineApi.triggerJob(values);
-      message.success(`服务端已创建同步任务 ${job.jobNo}`);
-      setTriggerOpen(false);
-      form.resetFields();
-      await reload();
-      setSelected(job);
-    } catch (reason) {
-      message.error(reason instanceof Error ? reason.message : '未能创建同步任务');
-    } finally {
-      setTriggering(false);
-    }
+    Modal.confirm({
+      title: '确认创建同步任务',
+      content: '浏览器只会向 FINFLOW 服务端提交任务请求，不会直接连接银行；未启用、模拟或失败状态以服务端返回为准。',
+      okText: '确认创建',
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          const job = await bankPipelineApi.triggerJob(values);
+          message.success(`服务端已创建同步任务 ${job.jobNo}`);
+          setTriggerOpen(false);
+          form.resetFields();
+          await reload();
+          setSelected(job);
+        } catch (reason) {
+          message.error(reason instanceof Error ? reason.message : '未能创建同步任务');
+        } finally {
+          setTriggering(false);
+        }
+      },
+      onCancel: () => setTriggering(false),
+    });
   };
-  const columns: TableColumnsType<BankSyncJob> = [{ title: '任务编号', dataIndex: 'jobNo', render: (value) => <span className="mono">{value}</span> }, { title: '任务类型', dataIndex: 'jobType' }, { title: '触发方式', dataIndex: 'triggerType' }, { title: '连接标识', dataIndex: 'connectionCode', render: (value) => value || '--' }, { title: '状态', dataIndex: 'status', render: (value) => <StatusTag status={value} /> }, { title: '请求编号', dataIndex: 'requestId', render: (value) => value ? <span className="mono">{value}</span> : '--' }, { title: '创建时间', dataIndex: 'createdAt', render: (value) => dateTime(value) }, { title: '操作', fixed: 'right', render: (_, row) => <Button type="link" onClick={() => setSelected(row)}>详情</Button> }];
-  return <><div className="page-heading"><div><span className="section-kicker">连接与运营 / 监控与日志</span><h2>任务执行</h2><p className="muted">任务由服务端持久化、幂等与审计；浏览器只提交受控触发请求并查看安全摘要。</p></div>{hasPermission('bank-sync:trigger') && <Button type="primary" icon={<PlayCircleOutlined />} onClick={() => setTriggerOpen(true)}>手动触发同步</Button>}</div><Card className="filter-card"><Space wrap><label>状态</label><Input value={status} allowClear placeholder="输入服务端状态" onChange={(event) => { setPage(1); setStatus(event.target.value || undefined); }} /></Space></Card><Card>{error ? <ResourceFailure error={error} onRetry={reload} /> : <><PhaseOneNotice /><Table rowKey="taskNo" loading={loading} columns={columns} dataSource={data?.records || []} pagination={false} locale={{ emptyText: <Empty description="当前没有服务端同步任务" /> }} scroll={{ x: 980 }} />{data && data.total > data.size && <Pagination className="table-pagination" current={data.page} pageSize={data.size} total={data.total} showSizeChanger={false} onChange={setPage} />}</>}</Card><Modal title="手动触发同步" open={triggerOpen} onCancel={() => { setTriggerOpen(false); form.resetFields(); }} onOk={() => void trigger()} okText="创建同步任务" confirmLoading={triggering} destroyOnClose><Alert type="warning" showIcon message="不会直接调用银行" description="提交后由服务端创建可追溯任务；未启用或模拟适配器将由服务端返回对应状态。" /><Form form={form} layout="vertical" initialValues={{ jobType: 'STATEMENT_PULL' }} className="sync-job-form"><Form.Item label="任务类型" name="jobType" rules={[{ required: true }]}><Input placeholder="例如：STATEMENT_PULL" /></Form.Item><Form.Item label="连接标识" name="connectionCode"><Input placeholder="可选，由服务端校验授权范围" /></Form.Item><Form.Item label="开始时间" name="windowStart"><Input placeholder="可选 ISO-8601 时间" /></Form.Item><Form.Item label="结束时间" name="windowEnd"><Input placeholder="可选 ISO-8601 时间" /></Form.Item></Form></Modal><SyncJobDrawer job={selected} onClose={() => setSelected(undefined)} /></>;
+  const updateTaskFilter = (key: keyof typeof taskFilters, value: string) => {
+    setPage(1);
+    setTaskFilters((current) => ({ ...current, [key]: value }));
+  };
+  const columns: TableColumnsType<BankSyncJob> = [{ title: '任务编号', dataIndex: 'jobNo', render: (value) => <span className="mono">{value}</span> }, { title: '任务类型', dataIndex: 'jobType' }, { title: '触发方式', dataIndex: 'triggerType' }, { title: '连接标识', dataIndex: 'connectionCode', render: (value) => displayValue(value) }, { title: '状态', dataIndex: 'status', render: (value) => <StatusTag status={value} /> }, { title: '请求编号', dataIndex: 'requestId', render: (value) => value ? <span className="mono">{value}</span> : '--' }, { title: '创建时间', dataIndex: 'createdAt', render: (value) => dateTime(value) }, { title: '计划动作', render: () => <span className="muted-inline">只读</span> }, { title: '操作', fixed: 'right', render: (_, row) => <Button type="link" onClick={() => setSelected(row)}>详情</Button> }];
+  return <><div className="page-heading"><div><span className="section-kicker">连接与运营 / 监控与日志</span><h2>任务执行</h2><p className="muted">任务由服务端持久化、幂等与审计；浏览器只提交受控触发请求并查看安全摘要。</p></div>{canTriggerSync && <Button type="primary" icon={<PlayCircleOutlined />} onClick={() => setTriggerOpen(true)}>手动触发同步</Button>}</div>{!canTriggerSync && <Alert className="resource-alert" type="info" showIcon message="手动同步入口未显示" description="当前角色没有 bankdata:sync:trigger、bankdata:sync 或 bank-sync:trigger 权限；任务列表仍按 operation:monitor 权限只读展示。" />}<Card className="filter-card"><Space wrap><Input value={taskFilters.jobType} allowClear placeholder="任务类型" onChange={(event) => updateTaskFilter('jobType', event.target.value)} /><Input value={taskFilters.connectionCode} allowClear placeholder="连接标识" onChange={(event) => updateTaskFilter('connectionCode', event.target.value)} /><Input value={taskFilters.status} allowClear placeholder="服务端状态" onChange={(event) => updateTaskFilter('status', event.target.value)} /><Input value={taskFilters.requestId} allowClear placeholder="请求编号" onChange={(event) => updateTaskFilter('requestId', event.target.value)} /></Space></Card><Card>{error ? <ResourceFailure error={error} onRetry={reload} /> : <><PhaseOneNotice /><Table rowKey={(row) => row.jobNo || String(row.id)} loading={loading} columns={columns} dataSource={data?.records || []} pagination={false} locale={{ emptyText: <Empty description="当前没有服务端同步任务" /> }} scroll={{ x: 1180 }} />{data && data.total > data.size && <Pagination className="table-pagination" current={data.page} pageSize={data.size} total={data.total} showSizeChanger={false} onChange={setPage} />}</>}</Card><Modal title="手动触发同步" open={triggerOpen} onCancel={() => { setTriggerOpen(false); form.resetFields(); }} onOk={() => void trigger()} okText="创建同步任务" confirmLoading={triggering} destroyOnClose><Alert type="warning" showIcon message="不会直接调用银行" description="提交后由服务端创建可追溯任务；未启用或模拟适配器将由服务端返回对应状态。" /><Form form={form} layout="vertical" initialValues={{ jobType: 'STATEMENT_PULL' }} className="sync-job-form"><Form.Item label="任务类型" name="jobType" rules={[{ required: true }]}><Input placeholder="例如：STATEMENT_PULL" /></Form.Item><Form.Item label="账户标识" name="bankAccountId" rules={[{ required: true, message: '请选择企业内授权账户' }]}><InputNumber min={1} precision={0} className="full-width-control" placeholder="请输入账户 ID" /></Form.Item><Form.Item label="连接标识" name="connectionCode"><Input placeholder="可选，由服务端校验授权范围" /></Form.Item><Form.Item label="开始时间" name="windowStart"><Input placeholder="可选 ISO-8601 时间" /></Form.Item><Form.Item label="结束时间" name="windowEnd"><Input placeholder="可选 ISO-8601 时间" /></Form.Item></Form></Modal><SyncJobDrawer job={selected} onClose={() => setSelected(undefined)} /></>;
 }
 
 function OperationLogs() {
   const [searchParams] = useSearchParams();
   const [page, setPage] = useState(1);
-  const [requestId, setRequestId] = useState<string>(() => searchParams.get('requestId') || '');
-  const loader = useCallback(() => operationsApi.logs({ page, size: 20, requestId }), [page, requestId]);
+  const [filters, setFilters] = useState({ requestId: searchParams.get('requestId') || '', connectionCode: '', status: '' });
+  const loader = useCallback(() => operationsApi.logs({ page, size: 20, requestId: filters.requestId || undefined, connectionCode: filters.connectionCode || undefined, status: filters.status || undefined }), [page, filters]);
   const { data, loading, error, reload } = useRemote<PageResponse<OperationLog>>(loader, [loader]);
+  const updateFilter = (key: keyof typeof filters, value: string) => {
+    setPage(1);
+    setFilters((current) => ({ ...current, [key]: value }));
+  };
   const columns: TableColumnsType<OperationLog> = [{ title: '时间', dataIndex: 'occurredAt', render: (value) => dateTime(value) }, { title: '级别', dataIndex: 'level', render: (value) => <StatusTag status={value} /> }, { title: '事件', dataIndex: 'eventType' }, { title: '结果', dataIndex: 'result', render: (value) => <StatusTag status={value} /> }, { title: '请求编号', dataIndex: 'requestId', render: (value) => value ? <span className="mono">{value}</span> : '--' }, { title: '安全摘要', dataIndex: 'message', ellipsis: true, render: (value) => value || '--' }];
-  return <><div className="page-heading"><div><span className="section-kicker">连接与运营 / 监控与日志</span><h2>日志查询</h2><p className="muted">仅显示服务端脱敏的日志摘要；密钥、令牌、私钥和完整账号不会在浏览器中回显。</p></div></div><Card className="filter-card"><Space wrap><label>请求编号</label><Input value={requestId} allowClear placeholder="输入请求编号" onChange={(event) => { setPage(1); setRequestId(event.target.value); }} /></Space></Card><Card>{error ? <ResourceFailure error={error} onRetry={reload} /> : <><PhaseOneNotice /><Table rowKey={(row) => `${row.taskId || '--'}-${row.occurredAt}-${row.eventType}`} loading={loading} columns={columns} dataSource={data?.records || []} pagination={false} locale={{ emptyText: <Empty description="当前筛选没有日志" /> }} scroll={{ x: 920 }} />{data && data.total > data.size && <Pagination className="table-pagination" current={data.page} pageSize={data.size} total={data.total} showSizeChanger={false} onChange={setPage} />}</>}</Card></>;
+  return <><div className="page-heading"><div><span className="section-kicker">连接与运营 / 监控与日志</span><h2>日志查询</h2><p className="muted">仅显示服务端脱敏的日志摘要；密钥、令牌、私钥和完整账号不会在浏览器中回显。</p></div></div><Card className="filter-card"><Space wrap><Input value={filters.requestId} allowClear placeholder="请求编号" onChange={(event) => updateFilter('requestId', event.target.value)} /><Input value={filters.connectionCode} allowClear placeholder="连接标识" onChange={(event) => updateFilter('connectionCode', event.target.value)} /><Input value={filters.status} allowClear placeholder="状态/结果" onChange={(event) => updateFilter('status', event.target.value)} /></Space></Card><Card>{error ? <ResourceFailure error={error} onRetry={reload} /> : <><PhaseOneNotice /><Table rowKey={(row) => `${row.taskId || '--'}-${row.occurredAt}-${row.eventType}-${row.requestId || '--'}`} loading={loading} columns={columns} dataSource={data?.records || []} pagination={false} locale={{ emptyText: <Empty description="当前筛选没有日志" /> }} scroll={{ x: 920 }} />{data && data.total > data.size && <Pagination className="table-pagination" current={data.page} pageSize={data.size} total={data.total} showSizeChanger={false} onChange={setPage} />}</>}</Card></>;
 }
 
 const bankDataResources = {
@@ -464,19 +517,87 @@ const bankDataResources = {
   payroll: { title: '代发查询', permission: 'bankdata:payroll:view' },
 } as const;
 
+type BankQueryFilters = {
+  keyword: string;
+  accountId: string;
+  status: string;
+  sourceSystem: string;
+  syncJobNo: string;
+  requestId: string;
+  from: string;
+  to: string;
+};
+
+const emptyBankQueryFilters: BankQueryFilters = { keyword: '', accountId: '', status: '', sourceSystem: '', syncJobNo: '', requestId: '', from: '', to: '' };
+
+function BankProjectionState({ data }: { data?: BankDataProjectionPage }) {
+  if (!data) return null;
+  const status = data.status;
+  const type = data.enabled === false || isUnavailableStatus(status) ? 'warning' : isFailedStatus(status) ? 'error' : isSimulatedStatus(status) || data.simulated ? 'info' : 'success';
+  const message = data.enabled === false || isUnavailableStatus(status) ? '真实银行直联未启用或该资源未获取' : isSimulatedStatus(status) || data.simulated ? '当前为服务端模拟/沙箱业务投影' : isFailedStatus(status) ? '服务端返回失败状态' : '服务端业务投影已返回';
+  const description = data.message || '页面仅展示 FINFLOW 服务端返回的安全字段；未返回的同步信息会显示为未获取。';
+  return <Alert className="phase-one-notice" type={type} showIcon message={message} description={<span>{description}{status && <> 服务端状态：<StatusTag status={status} /></>}</span>} />;
+}
+
 function BankDataQueryPage({ resource }: { resource: keyof typeof bankDataResources }) {
+  const hasPermission = useAuthStore((state) => state.hasPermission);
+  const canTriggerSync = hasPermission('bankdata:sync:trigger') || hasPermission('bankdata:sync') || hasPermission('bank-sync:trigger');
   const [page, setPage] = useState(1);
+  const [size, setSize] = useState(20);
   const [submitted, setSubmitted] = useState(false);
-  const [filters, setFilters] = useState({ keyword: '', accountId: '', status: '' });
-  const [draft, setDraft] = useState(filters);
+  const [syncTriggering, setSyncTriggering] = useState(false);
+  const [filters, setFilters] = useState<BankQueryFilters>(emptyBankQueryFilters);
+  const [draft, setDraft] = useState<BankQueryFilters>(emptyBankQueryFilters);
   const [selected, setSelected] = useState<BankDataProjection>();
-  const loader = useCallback(() => submitted ? bankPipelineApi.queryProjection(resource, { page, size: 20, keyword: filters.keyword || undefined, accountId: filters.accountId || undefined, status: filters.status || undefined }) : Promise.resolve<BankDataProjectionPage>({ page, size: 20, total: 0, records: [] }), [resource, page, filters, submitted]);
+  const focusRef = useRef<HTMLElement | null>(null);
+  const loader = useCallback(() => submitted ? bankPipelineApi.queryProjection(resource, { page, size, keyword: filters.keyword || undefined, accountId: filters.accountId || undefined, status: filters.status || undefined, from: filters.from || undefined, to: filters.to || undefined, sourceSystem: filters.sourceSystem || undefined, syncJobNo: filters.syncJobNo || undefined, requestId: filters.requestId || undefined }) : Promise.resolve<BankDataProjectionPage>({ page, size, total: 0, records: [] }), [resource, page, size, filters, submitted]);
   const { data, loading, error, reload } = useRemote<BankDataProjectionPage>(loader, [loader]);
   const query = () => { setPage(1); setFilters(draft); setSubmitted(true); };
-  const columns: TableColumnsType<BankDataProjection> = [{ title: '来源记录', dataIndex: 'sourceRecordId', render: (value) => value ? <span className="mono">{value}</span> : '--' }, { title: '来源系统', dataIndex: 'sourceSystem', render: (value) => value || '--' }, { title: '账户', dataIndex: 'accountMasked', render: (value) => value || '--' }, { title: '发生时间', dataIndex: 'occurredAt', render: (value) => dateTime(value) }, { title: '方向', dataIndex: 'direction', render: (value) => value || '--' }, { title: '金额', dataIndex: 'amount', align: 'right', render: (value, row) => value === undefined ? '--' : `${money(value)}${row.currency ? ` ${row.currency}` : ''}` }, { title: '状态', dataIndex: 'status', render: (value) => <StatusTag status={value} /> }, { title: '摘要', dataIndex: 'summary', ellipsis: true, render: (value) => value || '--' }, { title: '追溯', fixed: 'right', render: (_, row) => <Button type="link" onClick={() => setSelected(row)}>查看</Button> }];
+  const reset = () => { setPage(1); setDraft(emptyBankQueryFilters); setFilters(emptyBankQueryFilters); setSubmitted(false); };
+  const setDateFilter = (key: 'from' | 'to', value?: string) => setDraft((current) => ({ ...current, [key]: value || '' }));
+  const openDetail = (row: BankDataProjection) => {
+    focusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setSelected(row);
+  };
+  const closeDetail = () => {
+    setSelected(undefined);
+    window.setTimeout(() => focusRef.current?.focus(), 0);
+  };
+  const triggerSyncFromFilters = () => {
+    const accountId = Number(draft.accountId || filters.accountId);
+    if (!Number.isSafeInteger(accountId) || accountId <= 0) {
+      message.warning('请先填写企业内授权账户 ID，再创建同步任务');
+      return;
+    }
+    Modal.confirm({
+      title: '确认创建同步任务',
+      content: '将按当前账户与时间范围向 FINFLOW 服务端创建同步任务；浏览器不会直接连接银行，任务结果以服务端幂等状态为准。',
+      okText: '确认创建',
+      cancelText: '取消',
+      onOk: async () => {
+        setSyncTriggering(true);
+        try {
+          const job = await bankPipelineApi.triggerJob({
+            jobType: 'STATEMENT_PULL',
+            bankAccountId: accountId,
+            connectionCode: draft.sourceSystem || filters.sourceSystem || undefined,
+            windowStart: draft.from || filters.from || undefined,
+            windowEnd: draft.to || filters.to || undefined,
+          });
+          message.success(`同步任务已创建：${job.jobNo}`);
+        } catch (reason) {
+          message.error(reason instanceof Error ? reason.message : '未能创建同步任务');
+        } finally {
+          setSyncTriggering(false);
+        }
+      },
+    });
+  };
+  const columns: TableColumnsType<BankDataProjection> = [{ title: '来源记录', dataIndex: 'sourceRecordId', render: (value) => value ? <span className="mono">{value}</span> : '--' }, { title: '来源/通道', render: (_, row) => <><span>{displayValue(row.sourceSystem || row.sourceMode || row.channelMode)}</span>{(row.simulated || isSimulatedStatus(row.sourceSystem) || isSimulatedStatus(row.channelMode)) && <span className="table-sub">模拟</span>}</> }, { title: '账户', render: (_, row) => <><span>{maskAccountDisplay(row.accountMasked)}</span>{row.accountName && <span className="table-sub">{row.accountName}</span>}</> }, { title: '发生时间', dataIndex: 'occurredAt', render: (value) => dateTime(value) }, { title: '末次同步', render: (_, row) => dateTime(row.lastSyncedAt || row.updatedAt) }, { title: '任务/请求', render: (_, row) => <><span className="mono">{displayValue(row.syncJobNo || row.jobNo)}</span><span className="table-sub mono">{displayValue(row.requestId || data?.requestId)}</span></> }, { title: '方向', dataIndex: 'direction', render: (value) => displayValue(value) }, { title: '金额', dataIndex: 'amount', align: 'right', render: (value, row) => value === undefined ? '--' : `${money(value)}${row.currency ? ` ${row.currency}` : ''}` }, { title: '状态', dataIndex: 'status', render: (value) => <StatusTag status={value} /> }, { title: '摘要', dataIndex: 'summary', ellipsis: true, render: (value) => cleanText(value) }, { title: '详情', fixed: 'right', render: (_, row) => <Button type="link" onClick={(event) => { focusRef.current = event.currentTarget; openDetail(row); }}>查看</Button> }];
   const definition = bankDataResources[resource];
-  const emptyDescription = data?.enabled === false ? '真实直联未启用或该资源尚未获取。' : data?.status === 'SIMULATED' ? '当前筛选没有模拟业务投影。' : '服务端未返回符合条件的业务投影。';
-  return <><div className="page-heading"><div><span className="section-kicker">连接与运营 / 银行数据投影</span><h2>{definition.title}</h2><p className="muted">仅消费服务端企业与账户授权后的业务投影；不读取原始报文、同步日志、密钥或令牌。</p></div></div><Card className="filter-card"><Space wrap><Input value={draft.keyword} placeholder="记录编号或摘要" onChange={(event) => setDraft((current) => ({ ...current, keyword: event.target.value }))} /><Input value={draft.accountId} placeholder="账户标识" onChange={(event) => setDraft((current) => ({ ...current, accountId: event.target.value }))} /><Input value={draft.status} placeholder="服务端状态" onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value }))} /><Button type="primary" icon={<SearchOutlined />} onClick={query}>查询</Button></Space></Card><Card title="查询结果">{error ? <ResourceFailure error={error} onRetry={reload} /> : !submitted && !loading ? <Empty description="设置筛选条件后点击查询；没有默认或浏览器生成的数据。" /> : <><PhaseOneNotice status={data?.status} message={data?.message} />{data?.requestId && <div className="query-request-id">请求编号：<span className="mono">{data.requestId}</span><Link to={`/operations/logs?requestId=${encodeURIComponent(data.requestId)}`}>查看脱敏审计追溯</Link></div>}<Table rowKey="id" loading={loading} columns={columns} dataSource={data?.records || []} pagination={false} locale={{ emptyText: <Empty description={emptyDescription} /> }} scroll={{ x: 1080 }} />{data && data.total > data.size && <Pagination className="table-pagination" current={data.page} pageSize={data.size} total={data.total} showSizeChanger={false} onChange={(next) => { setPage(next); setSubmitted(true); }} />}</>}</Card><Drawer title={selected ? `业务投影追溯 · ${selected.sourceRecordId || selected.id}` : '业务投影追溯'} width={500} open={Boolean(selected)} onClose={() => setSelected(undefined)}>{selected && <><Alert type="info" showIcon message="仅显示业务投影安全字段" description="原始报文、同步日志、凭据和完整账号不会暴露在此页面。" /><Descriptions className="projection-detail" column={1} size="small" bordered><Descriptions.Item label="来源记录">{selected.sourceRecordId || '--'}</Descriptions.Item><Descriptions.Item label="来源系统">{selected.sourceSystem || '--'}</Descriptions.Item><Descriptions.Item label="账户">{selected.accountMasked || '--'}</Descriptions.Item><Descriptions.Item label="发生时间">{dateTime(selected.occurredAt)}</Descriptions.Item><Descriptions.Item label="方向 / 金额">{selected.direction || '--'} / {selected.amount === undefined ? '--' : money(selected.amount)}</Descriptions.Item><Descriptions.Item label="状态"><StatusTag status={selected.status} /></Descriptions.Item><Descriptions.Item label="请求编号"><span className="mono">{selected.requestId || data?.requestId || '--'}</span></Descriptions.Item><Descriptions.Item label="摘要">{selected.summary || '--'}</Descriptions.Item></Descriptions>{(selected.requestId || data?.requestId) && <Link className="trace-link" to={`/operations/logs?requestId=${encodeURIComponent(selected.requestId || data?.requestId || '')}`}>查看该请求的脱敏日志与审计追溯</Link>}</>}</Drawer></>;
+  const emptyDescription = data?.enabled === false || isUnavailableStatus(data?.status) ? '真实直联未启用或该资源尚未获取。' : isSimulatedStatus(data?.status) || data?.simulated ? '当前筛选没有服务端模拟业务投影。' : '服务端未返回符合条件的业务投影。';
+  const detailRequestId = selected?.requestId || data?.requestId;
+  return <><div className="page-heading"><div><span className="section-kicker">连接与运营 / 银行数据投影</span><h2>{definition.title}</h2><p className="muted">仅消费服务端企业与账户授权后的业务投影；不读取原始报文、同步日志、密钥或令牌。</p></div>{canTriggerSync && <Button icon={<PlayCircleOutlined />} loading={syncTriggering} onClick={triggerSyncFromFilters}>按筛选创建同步任务</Button>}</div><Card className="filter-card"><div className="bank-query-grid"><Input value={draft.keyword} placeholder="关键字/摘要/记录号" onChange={(event) => setDraft((current) => ({ ...current, keyword: event.target.value }))} /><Input value={draft.accountId} placeholder="账户标识" onChange={(event) => setDraft((current) => ({ ...current, accountId: event.target.value }))} /><Input value={draft.status} placeholder="状态" onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value }))} /><Input value={draft.sourceSystem} placeholder="来源/模拟通道" onChange={(event) => setDraft((current) => ({ ...current, sourceSystem: event.target.value }))} /><Input value={draft.syncJobNo} placeholder="任务号" onChange={(event) => setDraft((current) => ({ ...current, syncJobNo: event.target.value }))} /><Input value={draft.requestId} placeholder="请求编号" onChange={(event) => setDraft((current) => ({ ...current, requestId: event.target.value }))} /><DatePicker showTime placeholder="开始时间" value={draft.from ? dayjs(draft.from) : undefined} onChange={(value) => setDateFilter('from', value?.toISOString())} /><DatePicker showTime placeholder="结束时间" value={draft.to ? dayjs(draft.to) : undefined} onChange={(value) => setDateFilter('to', value?.toISOString())} /><Space className="bank-query-actions"><Button type="primary" icon={<SearchOutlined />} onClick={query}>查询</Button><Button onClick={reset}>重置</Button></Space></div></Card><Card title="查询结果">{error ? <ResourceFailure error={error} onRetry={reload} /> : !submitted && !loading ? <Empty description="设置筛选条件后点击查询；没有默认或浏览器生成的数据。" /> : <><BankProjectionState data={data} />{data?.requestId && <div className="query-request-id">请求编号：<span className="mono">{data.requestId}</span><Link to={`/operations/logs?requestId=${encodeURIComponent(data.requestId)}`}>查看脱敏审计追溯</Link></div>}<Table rowKey="id" loading={loading} columns={columns} dataSource={data?.records || []} pagination={false} locale={{ emptyText: <Empty description={emptyDescription} /> }} scroll={{ x: 1380 }} />{data && <Pagination className="table-pagination" current={data.page} pageSize={data.size || size} total={data.total} showSizeChanger pageSizeOptions={[10, 20, 50]} onChange={(next, nextSize) => { setPage(next); setSize(nextSize); setSubmitted(true); }} />}</>}</Card><Drawer title={selected ? `业务投影追溯 · ${selected.sourceRecordId || selected.id}` : '业务投影追溯'} width={540} open={Boolean(selected)} onClose={closeDetail}>{selected && <><Alert type="info" showIcon message="仅显示业务投影安全字段" description="原始报文、同步日志、凭据和完整账号不会暴露在此页面；账号按脱敏值展示。" /><Descriptions className="projection-detail" column={1} size="small" bordered><Descriptions.Item label="来源记录">{displayValue(selected.sourceRecordId)}</Descriptions.Item><Descriptions.Item label="来源/通道">{displayValue(selected.sourceSystem || selected.sourceMode || selected.channelMode)}</Descriptions.Item><Descriptions.Item label="账户">{maskAccountDisplay(selected.accountMasked)}</Descriptions.Item><Descriptions.Item label="账户名称">{displayValue(selected.accountName)}</Descriptions.Item><Descriptions.Item label="发生时间">{dateTime(selected.occurredAt)}</Descriptions.Item><Descriptions.Item label="末次同步">{dateTime(selected.lastSyncedAt || selected.updatedAt)}</Descriptions.Item><Descriptions.Item label="任务号"><span className="mono">{displayValue(selected.syncJobNo || selected.jobNo)}</span></Descriptions.Item><Descriptions.Item label="请求编号"><span className="mono">{displayValue(detailRequestId)}</span></Descriptions.Item><Descriptions.Item label="方向 / 金额">{displayValue(selected.direction)} / {selected.amount === undefined ? '--' : money(selected.amount)}</Descriptions.Item><Descriptions.Item label="状态"><StatusTag status={selected.status} /></Descriptions.Item><Descriptions.Item label="摘要">{cleanText(selected.summary)}</Descriptions.Item></Descriptions>{detailRequestId && <Link className="trace-link" to={`/operations/logs?requestId=${encodeURIComponent(detailRequestId)}`}>查看该请求的脱敏日志与审计追溯</Link>}</>}</Drawer></>;
 }
 
 function Forbidden() {
@@ -488,7 +609,7 @@ function Forbidden() {
 function AppRoutes() {
   const hydrate = useAuthStore((state) => state.hydrate);
   useEffect(() => { void hydrate(); }, [hydrate]);
-  return <Routes><Route path="/login" element={<Login />} /><Route path="/register" element={<Register />} /><Route element={<AuthGuard />}><Route element={<Shell />}><Route element={<PermissionGuard permissions={['dashboard:view']} />}><Route path="/dashboard" element={<Dashboard />} /></Route><Route element={<PermissionGuard permissions={['transfer:create']} />}><Route path="/transfer" element={<PreservedFinancePage title="发起转账" description="高风险资金操作保持独立，不由连接与运营模块触发或改写。" />} /></Route><Route element={<PermissionGuard permissions={['transaction:view']} />}><Route path="/transactions" element={<PreservedFinancePage title="交易记录" description="交易流水入口已保留，连接与运营查询不会替代交易记录。" />} /></Route><Route element={<PermissionGuard permissions={['user:manage']} />}><Route path="/users" element={<PreservedFinancePage title="用户管理" description="用户管理入口已保留，连接与运营权限不提升用户管理权限。" />} /></Route><Route element={<PermissionGuard permissions={['statement:import']} />}><Route path="/statements/import" element={<ImportStatements />} /></Route><Route element={<PermissionGuard permissions={['statement:view']} />}><Route path="/statements/batches" element={<BatchList />} /></Route><Route element={<PermissionGuard permissions={['statement:review']} />}><Route path="/statements/review" element={<ReviewStatements />} /></Route><Route element={<PermissionGuard permissions={['voucher:push']} />}><Route path="/statements/vouchers" element={<VoucherStatements />} /></Route><Route element={<PermissionGuard permissions={['reconciliation:view']} />}><Route path="/statements/reconciliation" element={<Reconciliation />} /></Route><Route element={<PermissionGuard permissions={['connection:view', 'connection:manage']} />}><Route path="/connections/apps" element={<ConnectionConfigurationPage section="applications" title="应用管理" description="管理未来直联应用的受控元数据；一期不建立真实银行连接。" />} /><Route path="/connections/agreements" element={<ConnectionConfigurationPage section="contracts" title="签约管理" description="展示签约准备度和模拟标记，不代表银行签约已生效。" />} /><Route path="/connections/preferences" element={<ConnectionConfigurationPage section="preferences" title="个性化设置" description="展示服务端配置摘要；浏览器不读取或保存密钥、证书或令牌。" />} /></Route><Route element={<PermissionGuard permissions={['operation:monitor']} />}><Route path="/operations/connectivity" element={<ConnectionMonitoring />} /><Route path="/operations/tasks" element={<OperationTasks />} /></Route><Route element={<PermissionGuard permissions={['operation:log:view']} />}><Route path="/operations/logs" element={<OperationLogs />} /></Route><Route element={<PermissionGuard permissions={['bankdata:balance:view']} />}><Route path="/bank-data/balances" element={<BankDataQueryPage resource="balances" />} /></Route><Route element={<PermissionGuard permissions={['bankdata:statement:view']} />}><Route path="/bank-data/statements" element={<BankDataQueryPage resource="statements" />} /></Route><Route element={<PermissionGuard permissions={['bankdata:receipt:view']} />}><Route path="/bank-data/receipts" element={<BankDataQueryPage resource="receipts" />} /></Route><Route element={<PermissionGuard permissions={['bankdata:reconciliation:view']} />}><Route path="/bank-data/reconciliations" element={<BankDataQueryPage resource="reconciliations" />} /></Route><Route element={<PermissionGuard permissions={['bankdata:payment:view']} />}><Route path="/bank-data/payments" element={<BankDataQueryPage resource="payments" />} /></Route><Route element={<PermissionGuard permissions={['bankdata:payroll:view']} />}><Route path="/bank-data/payroll" element={<BankDataQueryPage resource="payroll" />} /></Route><Route path="/403" element={<Forbidden />} /></Route></Route><Route path="*" element={<Navigate to="/dashboard" replace />} /></Routes>;
+  return <Routes><Route path="/login" element={<Login />} /><Route path="/register" element={<Register />} /><Route element={<AuthGuard />}><Route element={<Shell />}><Route element={<PermissionGuard permissions={['dashboard:view']} />}><Route path="/dashboard" element={<Dashboard />} /></Route><Route element={<PermissionGuard permissions={['transfer:create']} />}><Route path="/transfer" element={<PreservedFinancePage title="发起转账" description="高风险资金操作保持独立，不由连接与运营模块触发或改写。" />} /></Route><Route element={<PermissionGuard permissions={['transaction:view']} />}><Route path="/transactions" element={<PreservedFinancePage title="交易记录" description="交易流水入口已保留，连接与运营查询不会替代交易记录。" />} /></Route><Route element={<PermissionGuard permissions={['user:manage']} />}><Route path="/users" element={<PreservedFinancePage title="用户管理" description="用户管理入口已保留，连接与运营权限不提升用户管理权限。" />} /></Route><Route element={<PermissionGuard permissions={['statement:import']} />}><Route path="/statements/import" element={<ImportStatements />} /></Route><Route element={<PermissionGuard permissions={['statement:view']} />}><Route path="/statements/batches" element={<BatchList />} /></Route><Route element={<PermissionGuard permissions={['statement:review']} />}><Route path="/statements/review" element={<ReviewStatements />} /></Route><Route element={<PermissionGuard permissions={['voucher:push']} />}><Route path="/statements/vouchers" element={<VoucherStatements />} /></Route><Route element={<PermissionGuard permissions={['reconciliation:view']} />}><Route path="/statements/reconciliation" element={<Reconciliation />} /></Route><Route element={<PermissionGuard permissions={['connection:view', 'connection:manage']} />}><Route path="/connections/apps" element={<ConnectionConfigurationPage section="applications" title="应用管理" description="管理未来直联应用的受控元数据；一期不建立真实银行连接。" />} /><Route path="/connections/agreements" element={<ConnectionConfigurationPage section="contracts" title="签约管理" description="展示签约准备度和模拟标记，不代表银行签约已生效。" />} /><Route path="/connections/preferences" element={<ConnectionConfigurationPage section="preferences" title="个性化设置" description="展示服务端配置摘要；浏览器不读取或保存密钥、证书或令牌。" />} /></Route><Route element={<PermissionGuard permissions={['operation:monitor']} />}><Route path="/operations/connectivity" element={<ConnectionMonitoring />} /></Route><Route element={<PermissionGuard permissions={['operation:monitor', 'bankdata:view']} />}><Route path="/operations/tasks" element={<OperationTasks />} /></Route><Route element={<PermissionGuard permissions={['operation:log:view']} />}><Route path="/operations/logs" element={<OperationLogs />} /></Route><Route element={<PermissionGuard permissions={['bankdata:balance:view']} />}><Route path="/bank-data/balances" element={<BankDataQueryPage resource="balances" />} /></Route><Route element={<PermissionGuard permissions={['bankdata:statement:view']} />}><Route path="/bank-data/statements" element={<BankDataQueryPage resource="statements" />} /></Route><Route element={<PermissionGuard permissions={['bankdata:receipt:view']} />}><Route path="/bank-data/receipts" element={<BankDataQueryPage resource="receipts" />} /></Route><Route element={<PermissionGuard permissions={['bankdata:reconciliation:view']} />}><Route path="/bank-data/reconciliations" element={<BankDataQueryPage resource="reconciliations" />} /></Route><Route element={<PermissionGuard permissions={['bankdata:payment:view']} />}><Route path="/bank-data/payments" element={<BankDataQueryPage resource="payments" />} /></Route><Route element={<PermissionGuard permissions={['bankdata:payroll:view']} />}><Route path="/bank-data/payroll" element={<BankDataQueryPage resource="payroll" />} /></Route><Route path="/403" element={<Forbidden />} /></Route></Route><Route path="*" element={<Navigate to="/dashboard" replace />} /></Routes>;
 }
 
 export default function App() {

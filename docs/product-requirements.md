@@ -461,9 +461,9 @@ RBAC 必须在服务端执行，前端菜单隐藏不构成权限控制。无权
 | 页面 | 路由 | 权限 | 默认可见角色 |
 | --- | --- | --- | --- |
 | 应用管理 | `/connections/apps` | `connection:view`；管理动作需 `connection:manage` | 系统管理员 |
-| 签约管理 | `/connections/contracts` | `connection:view`；管理动作需 `connection:manage` | 系统管理员 |
+| 签约管理 | `/connections/agreements` | `connection:view`；管理动作需 `connection:manage` | 系统管理员 |
 | 个性化设置 | `/connections/preferences` | `connection:view`；保存需 `connection:manage` | 系统管理员 |
-| 直联状态监控 | `/operations/connections` | `operation:monitor` | 系统管理员或后续运维角色 |
+| 直联状态监控 | `/operations/connectivity` | `operation:monitor` | 系统管理员或后续运维角色 |
 | 任务执行 | `/operations/tasks` | `operation:monitor` | 系统管理员或后续运维角色 |
 | 日志查询 | `/operations/logs` | `operation:log:view` | 系统管理员或后续运维角色 |
 | 余额/流水/回单/对账单/支付记录/代发查询 | `/data/{resource}` | `data:query` | 四类企业角色按账户授权只读 |

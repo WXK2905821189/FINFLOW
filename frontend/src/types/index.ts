@@ -202,6 +202,7 @@ export type DataQueryCapability = {
 
 export type BankSyncJobTrigger = {
   jobType: string;
+  bankAccountId: number;
   connectionCode?: string;
   windowStart?: string;
   windowEnd?: string;
@@ -241,11 +242,19 @@ export type BankDataProjection = {
   status?: string;
   occurredAt?: string;
   accountMasked?: string;
+  accountName?: string;
   amount?: number | string;
   currency?: string;
   direction?: string;
   summary?: string;
   requestId?: string;
+  jobNo?: string;
+  syncJobNo?: string;
+  lastSyncedAt?: string;
+  updatedAt?: string;
+  sourceMode?: string;
+  channelMode?: string;
+  simulated?: boolean;
 };
 
 export type BankDataProjectionPage = PageResponse<BankDataProjection> & {
@@ -253,4 +262,7 @@ export type BankDataProjectionPage = PageResponse<BankDataProjection> & {
   status?: string;
   message?: string;
   requestId?: string;
+  sourceSystem?: string;
+  lastSyncedAt?: string;
+  simulated?: boolean;
 };

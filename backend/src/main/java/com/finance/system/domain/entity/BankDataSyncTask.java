@@ -18,6 +18,10 @@ public class BankDataSyncTask {
     private Long bankAccountId;
     private Long requestedBy;
     private String requestId;
+    private String syncKey;
+    private String triggerType;
+    private LocalDateTime windowStart;
+    private LocalDateTime windowEnd;
     private String bankRequestNo;
     private String status;
     private Integer rawCount;
@@ -45,6 +49,14 @@ public class BankDataSyncTask {
     public void setRequestedBy(Long requestedBy) { this.requestedBy = requestedBy; }
     public String getRequestId() { return requestId; }
     public void setRequestId(String requestId) { this.requestId = requestId; }
+    public String getSyncKey() { return syncKey; }
+    public void setSyncKey(String syncKey) { this.syncKey = syncKey; }
+    public String getTriggerType() { return triggerType; }
+    public void setTriggerType(String triggerType) { this.triggerType = triggerType; }
+    public LocalDateTime getWindowStart() { return windowStart; }
+    public void setWindowStart(LocalDateTime windowStart) { this.windowStart = windowStart; }
+    public LocalDateTime getWindowEnd() { return windowEnd; }
+    public void setWindowEnd(LocalDateTime windowEnd) { this.windowEnd = windowEnd; }
     public String getBankRequestNo() { return bankRequestNo; }
     public void setBankRequestNo(String bankRequestNo) { this.bankRequestNo = bankRequestNo; }
     public String getStatus() { return status; }
