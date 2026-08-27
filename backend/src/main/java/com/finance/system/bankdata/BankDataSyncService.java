@@ -255,7 +255,7 @@ public class BankDataSyncService {
                     || !java.util.Objects.equals(existing.getConnectionId(), connectionId)) {
                 throw new BusinessException(409, "Request id was already used for a different synchronization");
             }
-            return getTaskDetail(userId, existing.getId(), companyId);
+            return getTaskDetail(existing.getId(), companyId);
         }
 
         BankDataSyncTask task = new BankDataSyncTask();
@@ -284,7 +284,7 @@ public class BankDataSyncService {
                     || !java.util.Objects.equals(concurrent.getConnectionId(), connectionId)) {
                 throw new BusinessException(409, "Request id was already used for a different synchronization");
             }
-            return getTaskDetail(userId, concurrent.getId(), companyId);
+            return getTaskDetail(concurrent.getId(), companyId);
         }
 
         try {
@@ -296,7 +296,7 @@ public class BankDataSyncService {
             taskMapper.updateById(task);
             insertLog(task, "ERROR", "SYNC_FAILED", "FAILED", null, task.getErrorMessage());
         }
-        return getTaskDetail(userId, task.getId(), companyId);
+        return getTaskDetail(task.getId(), companyId);
     }
 
     public PageResponse<BankDataSyncTaskResponse> listTasks(Long userId, int page, int size,
@@ -314,10 +314,10 @@ public class BankDataSyncService {
     }
 
     public BankDataSyncTaskDetailResponse getTaskDetail(Long userId, Long taskId) {
-        return getTaskDetail(userId, taskId, companyScope.companyIdForUser(userId));
+        return getTaskDetail(taskId, companyScope.companyIdForUser(userId));
     }
 
-    private BankDataSyncTaskDetailResponse getTaskDetail(Long userId, Long taskId, long companyId) {
+    private BankDataSyncTaskDetailResponse getTaskDetail(Long taskId, long companyId) {
         BankDataSyncTask task = taskMapper.selectOne(new LambdaQueryWrapper<BankDataSyncTask>()
                 .eq(BankDataSyncTask::getId, taskId)
                 .eq(BankDataSyncTask::getCompanyId, companyId));
