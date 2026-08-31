@@ -7,7 +7,7 @@ import com.finance.system.bank.dto.BankAccountResponse;
 import com.finance.system.common.exception.BusinessException;
 import com.finance.system.domain.entity.BankAccount;
 import com.finance.system.domain.mapper.BankAccountMapper;
-import com.finance.system.bankdata.scope.CompanyScopeService;
+import com.finance.system.common.tenant.CompanyScopeService;
 import org.springframework.stereotype.Service;
 
 import java.util.List;

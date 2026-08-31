@@ -17,7 +17,7 @@ import com.finance.system.domain.mapper.BankAccountMapper;
 import com.finance.system.domain.mapper.StatementAuditEventMapper;
 import com.finance.system.domain.mapper.StatementImportBatchMapper;
 import com.finance.system.domain.mapper.StatementRecordMapper;
-import com.finance.system.bankdata.scope.CompanyScopeService;
+import com.finance.system.common.tenant.CompanyScopeService;
 import com.finance.system.statement.collector.StatementCollection;
 import com.finance.system.statement.collector.StatementCollector;
 import com.finance.system.statement.dto.StatementAuditEventResponse;

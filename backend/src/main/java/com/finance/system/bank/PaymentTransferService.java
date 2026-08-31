@@ -6,7 +6,7 @@ import com.finance.system.bank.dto.BankTransferRequest;
 import com.finance.system.bank.dto.BankTransferResponse;
 import com.finance.system.bank.dto.PaymentResolutionRequest;
 import com.finance.system.bank.dto.PaymentTransferAuditResponse;
-import com.finance.system.bankdata.scope.CompanyScopeService;
+import com.finance.system.common.tenant.CompanyScopeService;
 import com.finance.system.common.exception.BusinessException;
 import com.finance.system.domain.entity.BankAccount;
 import com.finance.system.domain.entity.PaymentTransfer;

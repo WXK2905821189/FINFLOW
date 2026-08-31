@@ -173,6 +173,16 @@ a {
   text-decoration: none;
 }
 
+.topbar-title {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.mobile-navigation-button {
+  display: none;
+}
+
 .eyebrow,
 .section-kicker {
   color: #668187;
@@ -899,8 +909,37 @@ a {
 }
 
 @media (max-width: 767px) {
+  .app-shell > .ant-layout-sider {
+    display: none;
+  }
+
   .topbar {
     padding: 9px 16px;
+  }
+
+  .mobile-navigation-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    margin-right: 6px;
+  }
+
+  .mobile-navigation .ant-drawer-body {
+    padding: 0;
+    background: #17272d;
+  }
+
+  .mobile-navigation .ant-menu {
+    min-height: 100%;
+  }
+
+  .mobile-navigation .ant-menu-item,
+  .mobile-navigation .ant-menu-submenu-title {
+    min-height: 44px;
+    line-height: 44px;
   }
 
   .topbar h1 {
@@ -926,6 +965,7 @@ a {
 
   .page-heading > .ant-btn {
     width: 100%;
+    min-height: 44px;
   }
 
   .page-heading h2 {
@@ -981,6 +1021,10 @@ a {
 
   .form-actions .ant-btn {
     width: 100%;
+  }
+
+  .bank-query-actions .ant-btn {
+    min-height: 44px;
   }
 
   .confirm-grid {

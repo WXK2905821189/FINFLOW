@@ -8,9 +8,9 @@ import org.springframework.stereotype.Component;
 @ConditionalOnProperty(prefix = "bankdata.sync", name = "schedule-enabled", havingValue = "true")
 public class BankDataSyncScheduler {
 
-    private final BankDataSyncService service;
+    private final BankDataScheduledSyncService service;
 
-    public BankDataSyncScheduler(BankDataSyncService service) {
+    public BankDataSyncScheduler(BankDataScheduledSyncService service) {
         this.service = service;
     }
 

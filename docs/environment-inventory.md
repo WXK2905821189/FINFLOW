@@ -76,10 +76,10 @@ pnpm run build
 
 - 后端 Maven 项目版本：`0.0.1-SNAPSHOT`。
 - 前端包版本：`0.1.0`。
-- 当前发布标签：`v0.2.0-rc.2`。
+- 当前发布标签：`v0.2.0-rc.4`（候选版本，尚未生产放行）。
 - 当前分支：`codex/auto-accounting-release`。
 - 数据库迁移目录：`backend/src/main/resources/db/migration`。
-- 当前迁移文件范围：`V1` 至 `V5`，其中 `V4` 为银行数据接入基础，`V5` 为余额与适配器端口扩展。
+- 当前迁移文件范围：公共 `V1` 至 `V6`、`V8`、`V9`，以及按数据库厂商选择的 `V7`；其中 `V9` 为银行数据窗口、幂等与原始报文保留扩展。
 - 生产迁移由 Flyway 按版本顺序执行；不要手工修改 `flyway_schema_history`，不要改动已发布迁移内容。
 
 ## 环境边界

@@ -18,18 +18,16 @@ import com.finance.system.bankdata.dto.BankSyncJobDetailResponse;
 import com.finance.system.bankdata.dto.BankSyncJobEventResponse;
 import com.finance.system.bankdata.dto.BankSyncJobResponse;
 import com.finance.system.bankdata.dto.BankSyncJobTriggerRequest;
-import com.finance.system.bankdata.scope.CompanyScopeService;
+import com.finance.system.common.tenant.CompanyScopeService;
 import com.finance.system.common.api.PageResponse;
 import com.finance.system.common.exception.BusinessException;
 import com.finance.system.domain.entity.BankAccount;
-import com.finance.system.domain.entity.BankDataRawMessage;
 import com.finance.system.domain.entity.BankDataBalance;
 import com.finance.system.domain.entity.BankDataStatement;
 import com.finance.system.domain.entity.BankDataSyncLog;
 import com.finance.system.domain.entity.BankDataSyncTask;
 import com.finance.system.domain.entity.ConnectionProfile;
 import com.finance.system.domain.mapper.BankAccountMapper;
-import com.finance.system.domain.mapper.BankDataRawMessageMapper;
 import com.finance.system.domain.mapper.BankDataBalanceMapper;
 import com.finance.system.domain.mapper.BankDataStatementMapper;
 import com.finance.system.domain.mapper.BankDataSyncLogMapper;
@@ -37,6 +35,7 @@ import com.finance.system.domain.mapper.BankDataSyncTaskMapper;
 import com.finance.system.domain.mapper.ConnectionProfileMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.context.annotation.Lazy;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -56,12 +55,13 @@ public class BankDataSyncService {
     private final BankDataSyncTaskMapper taskMapper;
     private final BankDataStatementMapper statementMapper;
     private final BankDataBalanceMapper balanceMapper;
-    private final BankDataRawMessageMapper rawMessageMapper;
     private final BankDataSyncLogMapper logMapper;
     private final BankAccountMapper bankAccountMapper;
     private final ConnectionProfileMapper connectionProfileMapper;
     private final BankDataSyncExecutor executor;
     private final BankDataSyncEvidenceService evidenceService;
+    private final BankDataSyncResponseAssembler responseAssembler;
+    private final BankDataScheduledSyncService scheduledSyncService;
     private final Map<String, BankDataAdapter> adapters;
 
     private record SyncWindow(LocalDateTime start, LocalDateTime end) {}
@@ -70,23 +70,25 @@ public class BankDataSyncService {
                                BankDataSyncTaskMapper taskMapper,
                                BankDataStatementMapper statementMapper,
                                BankDataBalanceMapper balanceMapper,
-                               BankDataRawMessageMapper rawMessageMapper,
                                BankDataSyncLogMapper logMapper,
                                BankAccountMapper bankAccountMapper,
                                ConnectionProfileMapper connectionProfileMapper,
                                BankDataSyncExecutor executor,
                                BankDataSyncEvidenceService evidenceService,
+                               BankDataSyncResponseAssembler responseAssembler,
+                               @Lazy BankDataScheduledSyncService scheduledSyncService,
                                List<BankDataAdapter> adapterList) {
         this.companyScope = companyScope;
         this.taskMapper = taskMapper;
         this.statementMapper = statementMapper;
         this.balanceMapper = balanceMapper;
-        this.rawMessageMapper = rawMessageMapper;
         this.logMapper = logMapper;
         this.bankAccountMapper = bankAccountMapper;
         this.connectionProfileMapper = connectionProfileMapper;
         this.executor = executor;
         this.evidenceService = evidenceService;
+        this.responseAssembler = responseAssembler;
+        this.scheduledSyncService = scheduledSyncService;
         this.adapters = adapterList.stream().collect(Collectors.toUnmodifiableMap(
                 adapter -> adapter.adapterCode().toUpperCase(Locale.ROOT), adapter -> adapter));
     }
@@ -134,7 +136,7 @@ public class BankDataSyncService {
         PageResponse<BankDataSyncTaskResponse> tasks = listTasks(userId, page, size, status, null,
                 connectionCode, requestId);
         List<BankSyncJobResponse> records = tasks.records().stream()
-                .map(task -> toJobResponse(task, "STATEMENT_PULL", "MANUAL"))
+                .map(task -> responseAssembler.job(task, "STATEMENT_PULL", "MANUAL"))
                 .toList();
         return new PageResponse<>(tasks.page(), tasks.size(), tasks.total(), records);
     }
@@ -142,7 +144,7 @@ public class BankDataSyncService {
     public BankSyncJobDetailResponse getJob(Long userId, Long taskId) {
         BankDataSyncTaskDetailResponse detail = getTaskDetail(userId, taskId);
         BankDataSyncTaskResponse task = detail.task();
-        BankSyncJobResponse job = toJobResponse(task, "STATEMENT_PULL", "MANUAL");
+        BankSyncJobResponse job = responseAssembler.job(task, "STATEMENT_PULL", "MANUAL");
         List<BankSyncJobEventResponse> timeline = detail.logs().stream()
                 .map(log -> new BankSyncJobEventResponse(log.result(), log.eventType(), log.message(),
                         log.requestId(), log.createdAt()))
@@ -239,7 +241,7 @@ public class BankDataSyncService {
                 .orderByDesc(BankDataBalance::getId);
         Page<BankDataBalance> result = balanceMapper.selectPage(new Page<>(Math.max(1, page), boundedSize(size)), query);
         return new PageResponse<>(result.getCurrent(), result.getSize(), result.getTotal(),
-                result.getRecords().stream().map(balance -> toBalanceResponse(balance, companyId)).toList());
+                result.getRecords().stream().map(balance -> responseAssembler.balance(balance, companyId)).toList());
     }
 
     private List<Long> scopedTaskIds(long companyId, String syncJobNo, String requestId) {
@@ -299,6 +301,12 @@ public class BankDataSyncService {
     public BankDataSyncTaskDetailResponse triggerForCompany(long companyId, Long requestedBy,
                                                             BankDataSyncRequest request, String requestId) {
         return triggerForCompany(companyId, requestedBy, request, requestId, "MANUAL");
+    }
+
+    /** @deprecated Scheduled scans are coordinated by BankDataScheduledSyncService. */
+    @Deprecated(since = "0.2", forRemoval = false)
+    public void triggerScheduledSyncs() {
+        scheduledSyncService.triggerScheduledSyncs();
     }
 
     public BankDataSyncTaskDetailResponse triggerForCompany(long companyId, Long requestedBy,
@@ -422,7 +430,8 @@ public class BankDataSyncService {
                 .orderByDesc(BankDataSyncTask::getId);
         Page<BankDataSyncTask> result = taskMapper.selectPage(new Page<>(Math.max(1, page), boundedSize(size)), query);
         return new PageResponse<>(result.getCurrent(), result.getSize(), result.getTotal(),
-                result.getRecords().stream().map(task -> toTaskResponse(task, connectionCode(companyId, task.getConnectionId()))).toList());
+                result.getRecords().stream().map(task -> responseAssembler.task(task,
+                        responseAssembler.connectionCode(companyId, task.getConnectionId()))).toList());
     }
 
     private Long connectionId(long companyId, String connectionCode) {
@@ -447,8 +456,9 @@ public class BankDataSyncService {
                         .eq(BankDataSyncLog::getTaskId, taskId)
                         .orderByAsc(BankDataSyncLog::getCreatedAt)
                         .orderByAsc(BankDataSyncLog::getId))
-                .stream().map(this::toLogResponse).toList();
-        return new BankDataSyncTaskDetailResponse(toTaskResponse(task, connectionCode(companyId, task.getConnectionId())), logs);
+                .stream().map(responseAssembler::log).toList();
+        return new BankDataSyncTaskDetailResponse(responseAssembler.task(task,
+                responseAssembler.connectionCode(companyId, task.getConnectionId())), logs);
     }
 
     public PageResponse<BankDataStatementResponse> listStatements(Long userId, int page, int size,
@@ -465,7 +475,7 @@ public class BankDataSyncService {
                 .orderByDesc(BankDataStatement::getId);
         Page<BankDataStatement> result = statementMapper.selectPage(new Page<>(Math.max(1, page), boundedSize(size)), query);
         return new PageResponse<>(result.getCurrent(), result.getSize(), result.getTotal(),
-                result.getRecords().stream().map(statement -> toStatementResponse(statement, companyId)).toList());
+                result.getRecords().stream().map(statement -> responseAssembler.statement(statement, companyId)).toList());
     }
 
     public BankDataStatementDetailResponse getStatement(Long userId, Long statementId) {
@@ -482,9 +492,9 @@ public class BankDataSyncService {
                         .eq(BankDataSyncLog::getTaskId, statement.getTaskId())
                         .orderByAsc(BankDataSyncLog::getCreatedAt)
                         .orderByAsc(BankDataSyncLog::getId))
-                .stream().map(this::toLogResponse).toList();
-        return new BankDataStatementDetailResponse(toStatementResponse(statement, companyId),
-                toTaskResponse(task, task == null ? null : connectionCode(companyId, task.getConnectionId())), logs);
+                .stream().map(responseAssembler::log).toList();
+        return new BankDataStatementDetailResponse(responseAssembler.statement(statement, companyId),
+                responseAssembler.task(task, task == null ? null : responseAssembler.connectionCode(companyId, task.getConnectionId())), logs);
     }
 
     public BankDataReconciliationResponse reconciliation(Long userId) {
@@ -503,33 +513,6 @@ public class BankDataSyncService {
                 tasks.stream().filter(task -> "FAILED".equals(task.getStatus())).count());
     }
 
-    public void triggerScheduledSyncs() {
-        SyncWindow window = defaultScheduledWindow();
-        List<ConnectionProfile> profiles = connectionProfileMapper.selectList(new LambdaQueryWrapper<ConnectionProfile>()
-                .eq(ConnectionProfile::getEnabled, true)
-                .in(ConnectionProfile::getStatus, List.of("SIMULATED", "ACTIVE")));
-        for (ConnectionProfile profile : profiles) {
-            if (profile.getCompanyId() == null) continue;
-            BankAccount account = bankAccountMapper.selectOne(new LambdaQueryWrapper<BankAccount>()
-                    .eq(BankAccount::getCompanyId, profile.getCompanyId())
-                    .eq(BankAccount::getStatus, "ACTIVE")
-                    .orderByAsc(BankAccount::getId)
-                    .last("LIMIT 1"));
-            if (account == null) continue;
-            try {
-                String adapterCode = "MOCK";
-                String requestId = "scheduled-" + shaRequestId(profile.getCompanyId(), account.getId(),
-                        profile.getId(), adapterCode, window);
-                triggerForCompany(profile.getCompanyId(), null,
-                        new BankDataSyncRequest(profile.getConnectionCode(), account.getId(), adapterCode,
-                                window.start(), window.end()),
-                        requestId, "SCHEDULED");
-            } catch (RuntimeException ignored) {
-                // Scheduled execution is best effort; a persisted task records failures.
-            }
-        }
-    }
-
     private void insertLog(BankDataSyncTask task, String level, String eventType, String result,
                            String bankRequestNo, String message) {
         BankDataSyncLog log = new BankDataSyncLog();
@@ -542,72 +525,6 @@ public class BankDataSyncService {
         log.setBankRequestNo(bankRequestNo);
         log.setMessage(message);
         logMapper.insert(log);
-    }
-
-    private String connectionCode(long companyId, Long connectionId) {
-        if (connectionId == null) return null;
-        ConnectionProfile profile = connectionProfileMapper.selectOne(new LambdaQueryWrapper<ConnectionProfile>()
-                .eq(ConnectionProfile::getId, connectionId)
-                .eq(ConnectionProfile::getCompanyId, companyId));
-        return profile == null ? null : profile.getConnectionCode();
-    }
-
-    private BankDataSyncTaskResponse toTaskResponse(BankDataSyncTask task, String connectionCode) {
-        if (task == null) return null;
-        return new BankDataSyncTaskResponse(task.getId(), task.getTaskNo(), task.getAdapterCode(), connectionCode,
-                task.getBankAccountId(), task.getRequestId(), task.getBankRequestNo(), task.getStatus(), task.getRawCount(),
-                task.getNormalizedCount(), task.getDuplicateCount(), task.getInvalidCount(), task.getErrorMessage(),
-                task.getStartedAt(), task.getCompletedAt(), task.getCreatedAt());
-    }
-
-    private BankSyncJobResponse toJobResponse(BankDataSyncTaskResponse task, String jobType, String triggerType) {
-        return new BankSyncJobResponse(task.id(), task.taskNo(), jobType, triggerType, task.connectionCode(),
-                task.status(), task.requestId(), "raw=" + task.rawCount() + ", normalized=" + task.normalizedCount()
-                + ", duplicates=" + task.duplicateCount() + ", invalid=" + task.invalidCount(),
-                task.startedAt(), task.completedAt(), task.createdAt());
-    }
-
-    private BankDataStatementResponse toStatementResponse(BankDataStatement statement, long companyId) {
-        BankDataRawMessage raw = rawMessageMapper.selectOne(new LambdaQueryWrapper<BankDataRawMessage>()
-                .eq(BankDataRawMessage::getId, statement.getRawMessageId())
-                .eq(BankDataRawMessage::getCompanyId, companyId));
-        return new BankDataStatementResponse(statement.getId(), statement.getTaskId(), statement.getRawMessageId(),
-                raw == null ? null : raw.getContentSha256(), raw == null ? null : raw.getRetentionUntil(),
-                statement.getBankAccountId(), statement.getBankRequestNo(), statement.getStatementNo(), statement.getTransactionTime(),
-                statement.getDirection(), statement.getAmount(), statement.getCurrency(), statement.getCounterpartyName(),
-                statement.getCounterpartyAccountMasked(), statement.getSummary(), statement.getValidationStatus(),
-                statement.getValidationMessage(), statement.getCreatedAt());
-    }
-
-    private BankDataBalanceResponse toBalanceResponse(BankDataBalance balance, long companyId) {
-        BankDataRawMessage raw = rawMessageMapper.selectOne(new LambdaQueryWrapper<BankDataRawMessage>()
-                .eq(BankDataRawMessage::getId, balance.getRawMessageId())
-                .eq(BankDataRawMessage::getCompanyId, companyId));
-        BankAccount account = bankAccountMapper.selectOne(new LambdaQueryWrapper<BankAccount>()
-                .eq(BankAccount::getId, balance.getBankAccountId())
-                .eq(BankAccount::getCompanyId, companyId));
-        return new BankDataBalanceResponse(balance.getId(), balance.getTaskId(), balance.getRawMessageId(),
-                raw == null ? null : raw.getContentSha256(), raw == null ? null : raw.getRetentionUntil(),
-                balance.getBankAccountId(), account == null ? null : maskAccount(account.getAccountNumber()),
-                balance.getBankRequestNo(), balance.getAvailableBalance(), balance.getCurrency(), balance.getAsOfTime(),
-                balance.getValidationStatus(), balance.getValidationMessage(), balance.getCreatedAt());
-    }
-
-    private BankDataSyncLogResponse toLogResponse(BankDataSyncLog log) {
-        return new BankDataSyncLogResponse(log.getId(), log.getLevel(), log.getEventType(), log.getResult(),
-                log.getRequestId(), log.getBankRequestNo(), sanitize(log.getMessage()), log.getCreatedAt());
-    }
-
-    private String sanitize(String value) {
-        if (value == null) return null;
-        return value.replaceAll("(?i)(password|secret|token|authorization|private[_ -]?key)\\s*[:=]\\s*[^,;\\s]+", "$1=[REDACTED]")
-                .replaceAll("(?<!\\d)\\d{8,}(?!\\d)", "****");
-    }
-
-    private String maskAccount(String value) {
-        if (value == null || value.isBlank()) return null;
-        String account = value.trim();
-        return account.length() <= 4 ? "****" : "****" + account.substring(account.length() - 4);
     }
 
     private String normalize(String value, String defaultValue) {
@@ -633,21 +550,9 @@ public class BankDataSyncService {
         }
     }
 
-    private SyncWindow defaultScheduledWindow() {
-        LocalDate yesterday = LocalDate.now().minusDays(1);
-        return new SyncWindow(LocalDateTime.of(yesterday, LocalTime.MIDNIGHT),
-                LocalDateTime.of(yesterday.plusDays(1), LocalTime.MIDNIGHT));
-    }
-
     private String syncKey(Long bankAccountId, Long connectionId, String adapterCode, SyncWindow window) {
         return bankAccountId + ":" + (connectionId == null ? 0 : connectionId) + ":" + adapterCode + ":"
                 + window.start() + ":" + window.end();
-    }
-
-    private String shaRequestId(Long companyId, Long bankAccountId, Long connectionId, String adapterCode,
-                                SyncWindow window) {
-        return UUID.nameUUIDFromBytes((companyId + ":" + syncKey(bankAccountId, connectionId, adapterCode, window))
-                .getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString();
     }
 
     private long boundedSize(int size) {
@@ -658,7 +563,7 @@ public class BankDataSyncService {
         if (!(exception instanceof BusinessException)) {
             return "Bank data synchronization failed during internal processing";
         }
-        String message = sanitize(exception.getMessage());
+        String message = responseAssembler.sanitize(exception.getMessage());
         return message == null || message.isBlank()
                 ? "Bank data synchronization failed"
                 : message.substring(0, Math.min(500, message.length()));

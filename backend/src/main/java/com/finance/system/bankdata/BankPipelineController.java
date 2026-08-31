@@ -10,6 +10,7 @@ import com.finance.system.common.api.PageResponse;
 import com.finance.system.security.UserPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -30,6 +31,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api")
 @SecurityRequirement(name = "bearerAuth")
+@Tag(name = "Bank data pipeline", description = "Canonical simulated bank-data synchronization and projection API")
 public class BankPipelineController {
 
     private final BankDataSyncService service;

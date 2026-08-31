@@ -37,8 +37,7 @@ public class RbacService {
     }
 
     public List<SysRole> rolesForUser(Long userId) {
-        List<Long> roleIds = userRoleMapper.selectList(new LambdaQueryWrapper<SysUserRole>()
-                        .eq(SysUserRole::getUserId, userId))
+        List<Long> roleIds = userRoleMapper.findByUserId(userId)
                 .stream().map(SysUserRole::getRoleId).toList();
         return roleIds.isEmpty() ? List.of() : roleMapper.selectByIds(roleIds);
     }
@@ -52,8 +51,7 @@ public class RbacService {
         if (roleIds.isEmpty()) {
             return List.of();
         }
-        List<Long> permissionIds = rolePermissionMapper.selectList(new LambdaQueryWrapper<SysRolePermission>()
-                        .in(SysRolePermission::getRoleId, roleIds))
+        List<Long> permissionIds = rolePermissionMapper.findByRoleIds(roleIds)
                 .stream().map(SysRolePermission::getPermissionId).distinct().toList();
         return permissionIds.isEmpty() ? List.of() : permissionMapper.selectByIds(permissionIds);
     }
@@ -100,7 +98,7 @@ public class RbacService {
     @Transactional
     public void replaceUserRoles(Long userId, Collection<Long> roleIds) {
         validateRoleIds(roleIds);
-        userRoleMapper.delete(new LambdaQueryWrapper<SysUserRole>().eq(SysUserRole::getUserId, userId));
+        userRoleMapper.deleteByUserId(userId);
         roleIds.stream().distinct().forEach(roleId -> userRoleMapper.insert(new SysUserRole(userId, roleId)));
     }
 

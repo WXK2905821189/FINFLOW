@@ -9,7 +9,6 @@ ALTER TABLE statement_record ADD COLUMN company_id BIGINT;
 UPDATE statement_record SET company_id = 1 WHERE company_id IS NULL;
 ALTER TABLE statement_record MODIFY company_id BIGINT NOT NULL;
 ALTER TABLE statement_record ADD CONSTRAINT fk_statement_record_company FOREIGN KEY (company_id) REFERENCES company(id);
-ALTER TABLE statement_record DROP INDEX IF EXISTS statement_no;
 ALTER TABLE statement_record ADD CONSTRAINT uk_statement_record_company_no UNIQUE (company_id, statement_no);
 CREATE INDEX idx_statement_record_company_time ON statement_record(company_id, transaction_time, id);
 

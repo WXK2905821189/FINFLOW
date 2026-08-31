@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.finance.system.common.api.PageResponse;
 import com.finance.system.common.exception.BusinessException;
-import com.finance.system.bankdata.scope.CompanyScopeService;
+import com.finance.system.common.tenant.CompanyScopeService;
 import com.finance.system.domain.entity.ConnectionOperationLog;
 import com.finance.system.domain.entity.ConnectionOperationTask;
 import com.finance.system.domain.entity.ConnectionProfile;

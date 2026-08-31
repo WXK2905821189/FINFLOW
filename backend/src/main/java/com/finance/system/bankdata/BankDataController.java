@@ -12,6 +12,7 @@ import com.finance.system.common.api.ApiResponse;
 import com.finance.system.common.api.PageResponse;
 import com.finance.system.security.UserPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -32,6 +33,8 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/bank-data")
 @SecurityRequirement(name = "bearerAuth")
+@Tag(name = "Bank data compatibility API", description = "Legacy bank-data paths retained for existing clients")
+@Deprecated(since = "0.2", forRemoval = false)
 public class BankDataController {
 
     private final BankDataSyncService service;
@@ -42,7 +45,8 @@ public class BankDataController {
 
     @PostMapping("/sync-tasks")
     @PreAuthorize("hasAnyAuthority('bankdata:sync', 'bankdata:sync:trigger')")
-    @Operation(summary = "Trigger a simulated bank data synchronization")
+    @Operation(summary = "Trigger a simulated bank data synchronization",
+            description = "Compatibility endpoint; new clients should use /api/bank-sync-jobs")
     public ApiResponse<BankDataSyncTaskDetailResponse> trigger(
             @Valid @RequestBody BankDataSyncRequest request,
             @RequestHeader(value = "X-Request-Id", required = false) String requestId,
@@ -77,9 +81,9 @@ public class BankDataController {
         return ApiResponse.success(service.getTaskDetail(principal.getId(), id));
     }
 
-    @GetMapping("/statements")
+    @GetMapping("/statement-records")
     @PreAuthorize("hasAuthority('bankdata:view')")
-    @Operation(summary = "Query normalized bank data statements")
+    @Operation(summary = "Query detailed normalized bank statement records")
     public ApiResponse<PageResponse<BankDataStatementResponse>> statements(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -91,17 +95,17 @@ public class BankDataController {
         return ApiResponse.success(service.listStatements(principal.getId(), page, size, bankAccountId, direction, from, to));
     }
 
-    @GetMapping("/statements/{id}")
+    @GetMapping("/statement-records/{id}")
     @PreAuthorize("hasAuthority('bankdata:view')")
-    @Operation(summary = "Get a normalized bank statement with provenance")
+    @Operation(summary = "Get a detailed normalized bank statement record with provenance")
     public ApiResponse<BankDataStatementDetailResponse> statement(@PathVariable Long id,
                                                                    @AuthenticationPrincipal UserPrincipal principal) {
         return ApiResponse.success(service.getStatement(principal.getId(), id));
     }
 
-    @GetMapping("/balances")
+    @GetMapping("/balance-snapshots")
     @PreAuthorize("hasAnyAuthority('bankdata:view', 'bankdata:balance:view')")
-    @Operation(summary = "Query normalized bank balance snapshots")
+    @Operation(summary = "Query detailed normalized bank balance snapshots")
     public ApiResponse<PageResponse<BankDataBalanceResponse>> balances(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size,

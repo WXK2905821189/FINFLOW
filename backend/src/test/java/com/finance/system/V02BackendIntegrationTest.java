@@ -20,6 +20,8 @@ import com.finance.system.domain.entity.Company;
 import com.finance.system.domain.entity.ConnectionProfile;
 import com.finance.system.domain.entity.SysUser;
 import com.finance.system.domain.entity.SysUserRole;
+import com.finance.system.domain.entity.SysRole;
+import com.finance.system.domain.entity.SysRolePermission;
 import com.finance.system.domain.mapper.BankAccountMapper;
 import com.finance.system.domain.mapper.BankDataBalanceMapper;
 import com.finance.system.domain.mapper.BankDataRawMessageMapper;
@@ -30,6 +32,8 @@ import com.finance.system.domain.mapper.CompanyMapper;
 import com.finance.system.domain.mapper.ConnectionProfileMapper;
 import com.finance.system.domain.mapper.SysUserMapper;
 import com.finance.system.domain.mapper.SysUserRoleMapper;
+import com.finance.system.domain.mapper.SysRoleMapper;
+import com.finance.system.domain.mapper.SysRolePermissionMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
@@ -60,6 +64,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -83,6 +88,10 @@ class V02BackendIntegrationTest {
     private SysUserMapper userMapper;
     @Autowired
     private SysUserRoleMapper userRoleMapper;
+    @Autowired
+    private SysRoleMapper roleMapper;
+    @Autowired
+    private SysRolePermissionMapper rolePermissionMapper;
     @Autowired
     private BankAccountMapper bankAccountMapper;
     @Autowired
@@ -203,11 +212,11 @@ class V02BackendIntegrationTest {
         String statementAKey = "MOCK-STATEMENT-1-1-20260827-P1";
         String statementBKey = "MOCK-STATEMENT-" + companyB.getId() + "-" + accountB.getId() + "-20260827-P1";
 
-        mockMvc.perform(get("/api/bank-data/statements").header("Authorization", bearer(adminToken)))
+        mockMvc.perform(get("/api/bank-data/statement-records").header("Authorization", bearer(adminToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.records[*].statementNo").value(org.hamcrest.Matchers.hasItem(statementAKey)))
                 .andExpect(jsonPath("$.data.records[*].statementNo").value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem(statementBKey))));
-        mockMvc.perform(get("/api/bank-data/statements").header("Authorization", bearer(companyBToken)))
+        mockMvc.perform(get("/api/bank-data/statement-records").header("Authorization", bearer(companyBToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.records[*].statementNo").value(org.hamcrest.Matchers.hasItem(statementBKey)))
                 .andExpect(jsonPath("$.data.records[*].statementNo").value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem(statementAKey))));
@@ -395,6 +404,79 @@ class V02BackendIntegrationTest {
                 .andExpect(jsonPath("$.data[2].requestId").value(unknownExecuteRequestId))
                 .andExpect(jsonPath("$.data[3].action").value("RESOLVE_UNKNOWN"))
                 .andExpect(jsonPath("$.data[3].requestId").value(unknownResolveRequestId));
+    }
+
+    @Test
+    void bankDataProjectionRoutesEnforceTenantScopePermissionsAndSafeMockBoundary() throws Exception {
+        String adminToken = login("admin", "Admin@123");
+        userRoleMapper.insert(new SysUserRole(userB.getId(), 3L));
+        String companyBToken = login(userB.getUsername(), PASSWORD);
+        SysUser unprivileged = new SysUser();
+        String unprivilegedUsername = "qa_no_access_" + UUID.randomUUID();
+        unprivileged.setCompanyId(companyB.getId());
+        unprivileged.setUsername(unprivilegedUsername);
+        unprivileged.setEmail(unprivilegedUsername + "@finflow.test");
+        unprivileged.setPasswordHash(passwordEncoder.encode(PASSWORD));
+        unprivileged.setStatus("ACTIVE");
+        userMapper.insert(unprivileged);
+        String unprivilegedToken = login(unprivilegedUsername, PASSWORD);
+
+        String adminRequestId = "QA-PROJECTION-A-" + UUID.randomUUID();
+        String companyBRequestId = "QA-PROJECTION-B-" + UUID.randomUUID();
+        triggerBankData(adminToken, 1L, adminRequestId);
+        triggerBankData(companyBToken, accountB.getId(), companyBRequestId);
+
+        for (String resource : java.util.List.of("balances", "statements", "receipts", "reconciliations", "payments", "payroll")) {
+            mockMvc.perform(get("/api/bank-data/" + resource)
+                            .header("Authorization", bearer(companyBToken))
+                            .param("page", "1")
+                            .param("size", "10")
+                            .param("requestId", companyBRequestId))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.simulated").value(true))
+                    .andExpect(jsonPath("$.data.enabled").value(false))
+                    .andExpect(content().string(org.hamcrest.Matchers.not(
+                            org.hamcrest.Matchers.containsString("normalization-failure"))));
+
+            mockMvc.perform(get("/api/bank-data/" + resource)
+                            .header("Authorization", bearer(companyBToken))
+                            .param("requestId", adminRequestId))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.total").value(0))
+                    .andExpect(jsonPath("$.data.message").value(
+                            "No projection matches the requested task or request"));
+        }
+
+        mockMvc.perform(get("/api/bank-data/balances").header("Authorization", bearer(unprivilegedToken)))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/bank-data/not-a-resource").header("Authorization", bearer(companyBToken)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void bankDataProjectionRequiresTheSpecificResourcePermission() throws Exception {
+        SysRole balanceOnlyRole = new SysRole();
+        balanceOnlyRole.setCode("QA_BALANCE_ONLY_" + UUID.randomUUID());
+        balanceOnlyRole.setName("QA balance only");
+        balanceOnlyRole.setDescription("Resource permission regression role");
+        roleMapper.insert(balanceOnlyRole);
+        rolePermissionMapper.insert(new SysRolePermission(balanceOnlyRole.getId(), 24L));
+
+        SysUser balanceOnlyUser = new SysUser();
+        String username = "qa_balance_only_" + UUID.randomUUID();
+        balanceOnlyUser.setCompanyId(companyB.getId());
+        balanceOnlyUser.setUsername(username);
+        balanceOnlyUser.setEmail(username + "@finflow.test");
+        balanceOnlyUser.setPasswordHash(passwordEncoder.encode(PASSWORD));
+        balanceOnlyUser.setStatus("ACTIVE");
+        userMapper.insert(balanceOnlyUser);
+        userRoleMapper.insert(new SysUserRole(balanceOnlyUser.getId(), balanceOnlyRole.getId()));
+        String token = login(username, PASSWORD);
+
+        mockMvc.perform(get("/api/bank-data/balances").header("Authorization", bearer(token)))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/bank-data/payments").header("Authorization", bearer(token)))
+                .andExpect(status().isForbidden());
     }
 
     @Test
