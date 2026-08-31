@@ -67,6 +67,24 @@ public class BankDataTraceService {
                 .eq(safeRequestId != null, BankDataSyncTask::getRequestId,
                         safeRequestId == null ? null : safeRequestId.trim())
                 .last("LIMIT 1"));
+        if (task == null && safeTaskNo == null && safeRequestId != null) {
+            // Idempotent reuse (D7-A): a caller-supplied request id on a syncKey hit lives
+            // in a TASK_REUSED log row pointing at the reused task, so the chain stays
+            // reachable from either id. The log lookup stays company-scoped, so missing
+            // and cross-company lookups still collapse into the same 404.
+            BankDataSyncLog reuseLog = logMapper.selectOne(new LambdaQueryWrapper<BankDataSyncLog>()
+                    .eq(BankDataSyncLog::getCompanyId, companyId)
+                    .eq(BankDataSyncLog::getEventType, "TASK_REUSED")
+                    .eq(BankDataSyncLog::getRequestId, safeRequestId.trim())
+                    .orderByDesc(BankDataSyncLog::getId)
+                    .last("LIMIT 1"));
+            if (reuseLog != null) {
+                task = taskMapper.selectOne(new LambdaQueryWrapper<BankDataSyncTask>()
+                        .eq(BankDataSyncTask::getCompanyId, companyId)
+                        .eq(BankDataSyncTask::getId, reuseLog.getTaskId())
+                        .last("LIMIT 1"));
+            }
+        }
         if (task == null) {
             // Same response for missing and cross-company lookups so existence is never leaked.
             throw new BusinessException(404, NOT_FOUND);

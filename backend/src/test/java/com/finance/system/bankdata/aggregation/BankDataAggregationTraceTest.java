@@ -291,6 +291,39 @@ class BankDataAggregationTraceTest {
                 .andExpect(jsonPath("$.data.projectionAvailable").value(false));
     }
 
+    @Test
+    void syncKeyReuseKeepsTheCallerRequestIdInTheAuditTrail() throws Exception {
+        String adminToken = login("admin", "Admin@123");
+
+        String originalRequestId = "AGG-REUSE-ORIG-" + UUID.randomUUID();
+        long taskId = triggerSync(adminToken, 1L, originalRequestId, "MOCK",
+                "2026-09-09T00:00:00", "2026-09-10T00:00:00");
+
+        // Same account + adapter + window, different request id: idempotent reuse
+        // returns the original task, but the new request id must be recorded (D7-A).
+        String reusedRequestId = "AGG-REUSE-NEW-" + UUID.randomUUID();
+        long reusedTaskId = triggerSync(adminToken, 1L, reusedRequestId, "MOCK",
+                "2026-09-09T00:00:00", "2026-09-10T00:00:00");
+        assertEquals(taskId, reusedTaskId, "syncKey hit must reuse the original task");
+
+        // Both request ids now resolve the same trace chain.
+        mockMvc.perform(get("/api/bank-data-trace")
+                        .param("requestId", reusedRequestId)
+                        .header("Authorization", bearer(adminToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.task.id").value((int) taskId))
+                .andExpect(jsonPath("$.data.task.requestId").value(originalRequestId));
+
+        // The audit trail records the reuse with the caller's request id.
+        mockMvc.perform(get("/api/bank-data/sync-tasks/" + taskId)
+                        .header("Authorization", bearer(adminToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.logs[*].eventType")
+                        .value(org.hamcrest.Matchers.hasItem("TASK_REUSED")))
+                .andExpect(jsonPath("$.data.logs[?(@.eventType=='TASK_REUSED')].requestId")
+                        .value(org.hamcrest.Matchers.hasItem(reusedRequestId)));
+    }
+
     /**
      * Each caller passes a distinct window: a repeated account+adapter+window reuses the
      * existing task and ignores the supplied request id, which would break trace lookups.

@@ -373,6 +373,7 @@ public class BankDataSyncService {
             if ("RUNNING".equals(running.getStatus())) {
                 throw new BusinessException(409, "A bank data sync task is already running for the same account and window");
             }
+            recordTaskReused(running, safeRequestId);
             return getTaskDetail(running.getId(), companyId);
         }
 
@@ -409,6 +410,7 @@ public class BankDataSyncService {
                     || !java.util.Objects.equals(concurrent.getConnectionId(), connectionId)) {
                 throw new BusinessException(409, "Request id was already used for a different synchronization");
             }
+            recordTaskReused(concurrent, safeRequestId);
             return getTaskDetail(concurrent.getId(), companyId);
         }
 
@@ -553,6 +555,29 @@ public class BankDataSyncService {
         log.setRequestId(task.getRequestId());
         log.setBankRequestNo(bankRequestNo);
         log.setMessage(message);
+        logMapper.insert(log);
+    }
+
+    /**
+     * Idempotent reuse is still a success from the caller's perspective, but a new
+     * request id arriving on a syncKey hit must not disappear from the audit trail
+     * (decision D7 option A). The log row keeps the caller's request id and points
+     * at the reused task so trace lookups by either id stay consistent.
+     */
+    private void recordTaskReused(BankDataSyncTask reusedTask, String requestedRequestId) {
+        if (requestedRequestId == null || requestedRequestId.equals(reusedTask.getRequestId())) {
+            return;
+        }
+        BankDataSyncLog log = new BankDataSyncLog();
+        log.setCompanyId(reusedTask.getCompanyId());
+        log.setTaskId(reusedTask.getId());
+        log.setLevel("INFO");
+        log.setEventType("TASK_REUSED");
+        log.setResult("REUSED");
+        log.setRequestId(requestedRequestId);
+        log.setMessage("Idempotent reuse: request id " + requestedRequestId
+                + " resolved to existing task " + reusedTask.getTaskNo()
+                + " (original request id " + reusedTask.getRequestId() + ")");
         logMapper.insert(log);
     }
 
