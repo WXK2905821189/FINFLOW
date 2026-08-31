@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.util.List;
 
@@ -33,6 +34,9 @@ public class BankController {
     private final BankServiceFactory bankServiceFactory;
     private final BankAccountService bankAccountService;
     private final PaymentTransferService paymentTransferService;
+
+    @Value("${app.product.active-payment-enabled:false}")
+    private boolean activePaymentEnabled;
 
     public BankController(BankServiceFactory bankServiceFactory, BankAccountService bankAccountService,
                           PaymentTransferService paymentTransferService) {
@@ -78,6 +82,7 @@ public class BankController {
                                                       @RequestHeader("Idempotency-Key") String idempotencyKey,
                                                       @RequestHeader(value = "X-Request-Id", required = false) String requestId,
                                                       @AuthenticationPrincipal UserPrincipal principal) {
+        ensureActivePaymentModuleEnabled();
         return ApiResponse.success("Transfer application created",
                 paymentTransferService.create(principal.getId(), request, idempotencyKey, requestId));
     }
@@ -88,6 +93,7 @@ public class BankController {
     public ApiResponse<BankTransferResponse> approveTransfer(@PathVariable Long id,
                                                               @RequestHeader(value = "X-Request-Id", required = false) String requestId,
                                                               @AuthenticationPrincipal UserPrincipal principal) {
+        ensureActivePaymentModuleEnabled();
         return ApiResponse.success("Transfer approved",
                 paymentTransferService.approve(principal.getId(), id, requestId));
     }
@@ -98,6 +104,7 @@ public class BankController {
     public ApiResponse<BankTransferResponse> executeTransfer(@PathVariable Long id,
                                                               @RequestHeader(value = "X-Request-Id", required = false) String requestId,
                                                               @AuthenticationPrincipal UserPrincipal principal) {
+        ensureActivePaymentModuleEnabled();
         return ApiResponse.success("Transfer execution completed",
                 paymentTransferService.execute(principal.getId(), id, requestId));
     }
@@ -107,6 +114,7 @@ public class BankController {
     @Operation(summary = "List transfer applications in the current company")
     public ApiResponse<List<BankTransferResponse>> transfers(@RequestParam(required = false) String status,
                                                               @AuthenticationPrincipal UserPrincipal principal) {
+        ensureActivePaymentModuleEnabled();
         return ApiResponse.success(paymentTransferService.list(principal.getId(), status));
     }
 
@@ -115,6 +123,7 @@ public class BankController {
     @Operation(summary = "Get a transfer application in the current company")
     public ApiResponse<BankTransferResponse> transfer(@PathVariable Long id,
                                                        @AuthenticationPrincipal UserPrincipal principal) {
+        ensureActivePaymentModuleEnabled();
         return ApiResponse.success(paymentTransferService.get(principal.getId(), id));
     }
 
@@ -123,6 +132,7 @@ public class BankController {
     @Operation(summary = "Get the request-correlated transfer audit trail")
     public ApiResponse<List<PaymentTransferAuditResponse>> transferAudit(@PathVariable Long id,
                                                                           @AuthenticationPrincipal UserPrincipal principal) {
+        ensureActivePaymentModuleEnabled();
         return ApiResponse.success(paymentTransferService.auditTrail(principal.getId(), id));
     }
 
@@ -134,7 +144,15 @@ public class BankController {
             @Valid @RequestBody PaymentResolutionRequest request,
             @RequestHeader(value = "X-Request-Id", required = false) String requestId,
             @AuthenticationPrincipal UserPrincipal principal) {
+        ensureActivePaymentModuleEnabled();
         return ApiResponse.success("Unknown transfer resolved",
                 paymentTransferService.resolveUnknown(principal.getId(), id, request, requestId));
+    }
+
+    private void ensureActivePaymentModuleEnabled() {
+        if (!activePaymentEnabled) {
+            throw new com.finance.system.common.exception.BusinessException(404,
+                    "主动转账/支付不属于当前产品范围");
+        }
     }
 }

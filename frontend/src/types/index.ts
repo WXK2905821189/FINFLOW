@@ -39,23 +39,6 @@ export type BankAccount = {
   status: string;
 };
 
-export type BankTransferRequest = {
-  bankCode: string;
-  payerAccountId: number;
-  payeeName: string;
-  payeeAccount: string;
-  payeeBank: string;
-  amount: number | string;
-  remark: string;
-};
-
-export type BankTransferResponse = {
-  bankCode: string;
-  bankReference: string;
-  status: string;
-  message: string;
-};
-
 export type StatementRecordInput = {
   statementNo: string;
   bankAccountId?: number;

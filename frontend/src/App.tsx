@@ -34,7 +34,6 @@ import {
 import {
   ApartmentOutlined,
   AuditOutlined,
-  BankOutlined,
   DashboardOutlined,
   DatabaseOutlined,
   FileAddOutlined,
@@ -49,7 +48,6 @@ import {
   SendOutlined,
   SettingOutlined,
   TeamOutlined,
-  TransactionOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -87,8 +85,6 @@ const pageTitles: Record<string, string> = {
   '/statements/review': '人工复核',
   '/statements/vouchers': '金蝶制证',
   '/statements/reconciliation': '对账与追溯',
-  '/transfer': '发起转账',
-  '/transactions': '交易记录',
   '/users': '用户管理',
   '/connections/apps': '应用管理',
   '/connections/agreements': '签约管理',
@@ -202,10 +198,7 @@ function Shell() {
     {
       type: 'group',
       label: '资金管理',
-      children: [
-        ...(hasPermission('transfer:create') ? [{ key: '/transfer', icon: <BankOutlined />, label: <Link to="/transfer">发起转账</Link> }] : []),
-        ...(hasPermission('transaction:view') ? [{ key: '/transactions', icon: <TransactionOutlined />, label: <Link to="/transactions">交易记录</Link> }] : []),
-      ],
+      children: [],
     },
     {
       type: 'group',
@@ -614,7 +607,7 @@ function Forbidden() {
 function AppRoutes() {
   const hydrate = useAuthStore((state) => state.hydrate);
   useEffect(() => { void hydrate(); }, [hydrate]);
-  return <Routes><Route path="/login" element={<Login />} /><Route path="/register" element={<Register />} /><Route element={<AuthGuard />}><Route element={<Shell />}><Route element={<PermissionGuard permissions={['dashboard:view']} />}><Route path="/dashboard" element={<Dashboard />} /></Route><Route element={<PermissionGuard permissions={['transfer:create']} />}><Route path="/transfer" element={<PreservedFinancePage title="发起转账" description="高风险资金操作保持独立，不由连接与运营模块触发或改写。" />} /></Route><Route element={<PermissionGuard permissions={['transaction:view']} />}><Route path="/transactions" element={<PreservedFinancePage title="交易记录" description="交易流水入口已保留，连接与运营查询不会替代交易记录。" />} /></Route><Route element={<PermissionGuard permissions={['user:manage']} />}><Route path="/users" element={<PreservedFinancePage title="用户管理" description="用户管理入口已保留，连接与运营权限不提升用户管理权限。" />} /></Route><Route element={<PermissionGuard permissions={['statement:import']} />}><Route path="/statements/import" element={<ImportStatements />} /></Route><Route element={<PermissionGuard permissions={['statement:view']} />}><Route path="/statements/batches" element={<BatchList />} /></Route><Route element={<PermissionGuard permissions={['statement:review']} />}><Route path="/statements/review" element={<ReviewStatements />} /></Route><Route element={<PermissionGuard permissions={['voucher:push']} />}><Route path="/statements/vouchers" element={<VoucherStatements />} /></Route><Route element={<PermissionGuard permissions={['reconciliation:view']} />}><Route path="/statements/reconciliation" element={<Reconciliation />} /></Route><Route element={<PermissionGuard permissions={['connection:view', 'connection:manage']} />}><Route path="/connections/apps" element={<ConnectionConfigurationPage section="applications" title="应用管理" description="管理未来直联应用的受控元数据；一期不建立真实银行连接。" />} /><Route path="/connections/agreements" element={<ConnectionConfigurationPage section="contracts" title="签约管理" description="展示签约准备度和模拟标记，不代表银行签约已生效。" />} /><Route path="/connections/preferences" element={<ConnectionConfigurationPage section="preferences" title="个性化设置" description="展示服务端配置摘要；浏览器不读取或保存密钥、证书或令牌。" />} /></Route><Route element={<PermissionGuard permissions={['operation:monitor']} />}><Route path="/operations/connectivity" element={<ConnectionMonitoring />} /></Route><Route element={<PermissionGuard permissions={['operation:monitor', 'bankdata:view']} />}><Route path="/operations/tasks" element={<OperationTasks />} /></Route><Route element={<PermissionGuard permissions={['operation:log:view']} />}><Route path="/operations/logs" element={<OperationLogs />} /></Route><Route element={<PermissionGuard permissions={['bankdata:balance:view']} />}><Route path="/bank-data/balances" element={<BankDataQueryPage resource="balances" />} /></Route><Route element={<PermissionGuard permissions={['bankdata:statement:view']} />}><Route path="/bank-data/statements" element={<BankDataQueryPage resource="statements" />} /></Route><Route element={<PermissionGuard permissions={['bankdata:receipt:view']} />}><Route path="/bank-data/receipts" element={<BankDataQueryPage resource="receipts" />} /></Route><Route element={<PermissionGuard permissions={['bankdata:reconciliation:view']} />}><Route path="/bank-data/reconciliations" element={<BankDataQueryPage resource="reconciliations" />} /></Route><Route element={<PermissionGuard permissions={['bankdata:payment:view']} />}><Route path="/bank-data/payments" element={<BankDataQueryPage resource="payments" />} /></Route><Route element={<PermissionGuard permissions={['bankdata:payroll:view']} />}><Route path="/bank-data/payroll" element={<BankDataQueryPage resource="payroll" />} /></Route><Route path="/403" element={<Forbidden />} /></Route></Route><Route path="*" element={<Navigate to="/dashboard" replace />} /></Routes>;
+  return <Routes><Route path="/login" element={<Login />} /><Route path="/register" element={<Register />} /><Route element={<AuthGuard />}><Route element={<Shell />}><Route element={<PermissionGuard permissions={['dashboard:view']} />}><Route path="/dashboard" element={<Dashboard />} /></Route><Route element={<PermissionGuard permissions={['user:manage']} />}><Route path="/users" element={<PreservedFinancePage title="用户管理" description="用户管理入口已保留，连接与运营权限不提升用户管理权限。" />} /></Route><Route element={<PermissionGuard permissions={['statement:import']} />}><Route path="/statements/import" element={<ImportStatements />} /></Route><Route element={<PermissionGuard permissions={['statement:view']} />}><Route path="/statements/batches" element={<BatchList />} /></Route><Route element={<PermissionGuard permissions={['statement:review']} />}><Route path="/statements/review" element={<ReviewStatements />} /></Route><Route element={<PermissionGuard permissions={['voucher:push']} />}><Route path="/statements/vouchers" element={<VoucherStatements />} /></Route><Route element={<PermissionGuard permissions={['reconciliation:view']} />}><Route path="/statements/reconciliation" element={<Reconciliation />} /></Route><Route element={<PermissionGuard permissions={['connection:view', 'connection:manage']} />}><Route path="/connections/apps" element={<ConnectionConfigurationPage section="applications" title="应用管理" description="管理未来直联应用的受控元数据；一期不建立真实银行连接。" />} /><Route path="/connections/agreements" element={<ConnectionConfigurationPage section="contracts" title="签约管理" description="展示签约准备度和模拟标记，不代表银行签约已生效。" />} /><Route path="/connections/preferences" element={<ConnectionConfigurationPage section="preferences" title="个性化设置" description="展示服务端配置摘要；浏览器不读取或保存密钥、证书或令牌。" />} /></Route><Route element={<PermissionGuard permissions={['operation:monitor']} />}><Route path="/operations/connectivity" element={<ConnectionMonitoring />} /></Route><Route element={<PermissionGuard permissions={['operation:monitor', 'bankdata:view']} />}><Route path="/operations/tasks" element={<OperationTasks />} /></Route><Route element={<PermissionGuard permissions={['operation:log:view']} />}><Route path="/operations/logs" element={<OperationLogs />} /></Route><Route element={<PermissionGuard permissions={['bankdata:balance:view']} />}><Route path="/bank-data/balances" element={<BankDataQueryPage resource="balances" />} /></Route><Route element={<PermissionGuard permissions={['bankdata:statement:view']} />}><Route path="/bank-data/statements" element={<BankDataQueryPage resource="statements" />} /></Route><Route element={<PermissionGuard permissions={['bankdata:receipt:view']} />}><Route path="/bank-data/receipts" element={<BankDataQueryPage resource="receipts" />} /></Route><Route element={<PermissionGuard permissions={['bankdata:reconciliation:view']} />}><Route path="/bank-data/reconciliations" element={<BankDataQueryPage resource="reconciliations" />} /></Route><Route element={<PermissionGuard permissions={['bankdata:payment:view']} />}><Route path="/bank-data/payments" element={<BankDataQueryPage resource="payments" />} /></Route><Route element={<PermissionGuard permissions={['bankdata:payroll:view']} />}><Route path="/bank-data/payroll" element={<BankDataQueryPage resource="payroll" />} /></Route><Route path="/403" element={<Forbidden />} /></Route></Route><Route path="*" element={<Navigate to="/dashboard" replace />} /></Routes>;
 }
 
 export default function App() {

@@ -71,6 +71,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("dev")
+@org.springframework.test.context.TestPropertySource(properties = "app.product.active-payment-enabled=true")
 @Import(V02BackendIntegrationTest.FaultInjectingAdapterConfiguration.class)
 class V02BackendIntegrationTest {
 

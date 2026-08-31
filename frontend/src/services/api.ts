@@ -12,8 +12,6 @@ import type {
   BankSyncJob,
   BankSyncJobDetail,
   BankSyncJobTrigger,
-  BankTransferRequest,
-  BankTransferResponse,
   PageResponse,
   StatementAuditEvent,
   StatementDashboard,
@@ -36,7 +34,6 @@ export const authApi = {
 
 export const bankApi = {
   accounts: () => http.get<never, BankAccount[]>('/bank-accounts'),
-  transfer: (data: BankTransferRequest) => http.post<never, BankTransferResponse>('/transfers', data),
 };
 
 export const userApi = {
