@@ -19,6 +19,10 @@ import com.finance.system.domain.mapper.ConnectionProfileMapper;
 import org.springframework.stereotype.Component;
 
 import java.util.Locale;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Converts bank-data persistence objects to response objects without exposing
@@ -55,6 +59,18 @@ public class BankDataSyncResponseAssembler {
                 task.getStartedAt(), task.getCompletedAt(), task.getCreatedAt());
     }
 
+    public List<BankDataSyncTaskResponse> tasks(List<BankDataSyncTask> tasks, long companyId) {
+        if (tasks == null || tasks.isEmpty()) return List.of();
+        List<Long> connectionIds = tasks.stream().map(BankDataSyncTask::getConnectionId)
+                .filter(java.util.Objects::nonNull).distinct().toList();
+        Map<Long, String> connectionCodes = connectionIds.isEmpty() ? Map.of() : connectionProfileMapper.selectList(
+                new LambdaQueryWrapper<ConnectionProfile>()
+                        .eq(ConnectionProfile::getCompanyId, companyId)
+                        .in(ConnectionProfile::getId, connectionIds))
+                .stream().collect(Collectors.toMap(ConnectionProfile::getId, ConnectionProfile::getConnectionCode));
+        return tasks.stream().map(item -> task(item, connectionCodes.get(item.getConnectionId()))).toList();
+    }
+
     public BankSyncJobResponse job(BankDataSyncTaskResponse task, String jobType, String triggerType) {
         return new BankSyncJobResponse(task.id(), task.taskNo(), jobType, triggerType, task.connectionCode(),
                 task.status(), task.requestId(), "raw=" + task.rawCount() + ", normalized=" + task.normalizedCount()
@@ -64,6 +80,22 @@ public class BankDataSyncResponseAssembler {
 
     public BankDataStatementResponse statement(BankDataStatement statement, long companyId) {
         BankDataRawMessage raw = rawMessage(statement.getRawMessageId(), companyId);
+        return statement(statement, raw);
+    }
+
+    public List<BankDataStatementResponse> statements(List<BankDataStatement> statements, long companyId) {
+        if (statements == null || statements.isEmpty()) return List.of();
+        List<Long> rawIds = statements.stream().map(BankDataStatement::getRawMessageId)
+                .filter(java.util.Objects::nonNull).distinct().toList();
+        Map<Long, BankDataRawMessage> rawMessages = rawIds.isEmpty() ? Map.of() : rawMessageMapper.selectList(
+                new LambdaQueryWrapper<BankDataRawMessage>()
+                        .eq(BankDataRawMessage::getCompanyId, companyId)
+                        .in(BankDataRawMessage::getId, rawIds))
+                .stream().collect(Collectors.toMap(BankDataRawMessage::getId, Function.identity()));
+        return statements.stream().map(item -> statement(item, rawMessages.get(item.getRawMessageId()))).toList();
+    }
+
+    private BankDataStatementResponse statement(BankDataStatement statement, BankDataRawMessage raw) {
         return new BankDataStatementResponse(statement.getId(), statement.getTaskId(), statement.getRawMessageId(),
                 raw == null ? null : raw.getContentSha256(), raw == null ? null : raw.getRetentionUntil(),
                 statement.getBankAccountId(), statement.getBankRequestNo(), statement.getStatementNo(),
@@ -77,6 +109,30 @@ public class BankDataSyncResponseAssembler {
         BankAccount account = bankAccountMapper.selectOne(new LambdaQueryWrapper<BankAccount>()
                 .eq(BankAccount::getId, balance.getBankAccountId())
                 .eq(BankAccount::getCompanyId, companyId));
+        return balance(balance, raw, account);
+    }
+
+    public List<BankDataBalanceResponse> balances(List<BankDataBalance> balances, long companyId) {
+        if (balances == null || balances.isEmpty()) return List.of();
+        List<Long> rawIds = balances.stream().map(BankDataBalance::getRawMessageId)
+                .filter(java.util.Objects::nonNull).distinct().toList();
+        List<Long> accountIds = balances.stream().map(BankDataBalance::getBankAccountId)
+                .filter(java.util.Objects::nonNull).distinct().toList();
+        Map<Long, BankDataRawMessage> rawMessages = rawIds.isEmpty() ? Map.of() : rawMessageMapper.selectList(
+                new LambdaQueryWrapper<BankDataRawMessage>()
+                        .eq(BankDataRawMessage::getCompanyId, companyId)
+                        .in(BankDataRawMessage::getId, rawIds))
+                .stream().collect(Collectors.toMap(BankDataRawMessage::getId, Function.identity()));
+        Map<Long, BankAccount> accounts = accountIds.isEmpty() ? Map.of() : bankAccountMapper.selectList(
+                new LambdaQueryWrapper<BankAccount>()
+                        .eq(BankAccount::getCompanyId, companyId)
+                        .in(BankAccount::getId, accountIds))
+                .stream().collect(Collectors.toMap(BankAccount::getId, Function.identity()));
+        return balances.stream().map(item -> balance(item, rawMessages.get(item.getRawMessageId()),
+                accounts.get(item.getBankAccountId()))).toList();
+    }
+
+    private BankDataBalanceResponse balance(BankDataBalance balance, BankDataRawMessage raw, BankAccount account) {
         return new BankDataBalanceResponse(balance.getId(), balance.getTaskId(), balance.getRawMessageId(),
                 raw == null ? null : raw.getContentSha256(), raw == null ? null : raw.getRetentionUntil(),
                 balance.getBankAccountId(), maskAccount(account == null ? null : account.getAccountNumber()),

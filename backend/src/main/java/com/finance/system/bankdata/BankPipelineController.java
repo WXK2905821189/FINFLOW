@@ -75,7 +75,7 @@ public class BankPipelineController {
     }
 
     @GetMapping("/bank-data/{resource}")
-    @PreAuthorize("hasAnyAuthority('bankdata:view', 'bankdata:balance:view', 'bankdata:statement:view', 'bankdata:receipt:view', 'bankdata:reconciliation:view', 'bankdata:payment:view', 'bankdata:payroll:view')")
+    @PreAuthorize("hasAnyAuthority('bankdata:view', 'bankdata:balance:view', 'bankdata:statement:view', 'bankdata:receipt:view', 'bankdata:reconciliation:view', 'bankdata:payroll:view')")
     @Operation(summary = "Query a controlled bank data projection")
     public ApiResponse<BankDataProjectionPageResponse> projection(
             @PathVariable String resource,
@@ -104,7 +104,6 @@ public class BankPipelineController {
                 "statements", "bankdata:statement:view",
                 "receipts", "bankdata:receipt:view",
                 "reconciliations", "bankdata:reconciliation:view",
-                "payments", "bankdata:payment:view",
                 "payroll", "bankdata:payroll:view"
         ).getOrDefault(resource == null ? "" : resource.trim().toLowerCase(Locale.ROOT), "bankdata:invalid");
     }

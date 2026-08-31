@@ -159,7 +159,7 @@ public class BankDataSyncService {
                                                           String sourceSystem, String syncJobNo,
                                                           String requestId) {
         String normalized = resource == null ? "" : resource.trim().toLowerCase(Locale.ROOT);
-        if (!List.of("balances", "statements", "receipts", "reconciliations", "payments", "payroll")
+        if (!List.of("balances", "statements", "receipts", "reconciliations", "payroll")
                 .contains(normalized)) {
             throw new BusinessException(404, "Bank data projection not found");
         }
@@ -177,12 +177,14 @@ public class BankDataSyncService {
         if ("balances".equals(normalized)) {
             PageResponse<BankDataBalanceResponse> balances = listBalances(userId, page, size, bankAccountId,
                     status, from, to, taskIds.isEmpty() ? null : taskIds);
+            Map<Long, BankDataSyncTask> tasksById = tasksById(companyId,
+                    balances.records().stream().map(BankDataBalanceResponse::taskId).toList());
             List<BankDataProjectionResponse> records = balances.records().stream()
                     .map(balance -> new BankDataProjectionResponse(String.valueOf(balance.id()), "BANKDATA",
                             "BALANCE-" + balance.id(), balance.validationStatus(), balance.asOfTime(),
                             balance.accountMasked(), balance.availableBalance(), balance.currency(), null,
-                            "Available balance snapshot", taskNo(balance.taskId(), companyId),
-                            requestIdForTask(balance.taskId(), companyId), balance.createdAt(), true))
+                            "Available balance snapshot", taskNo(tasksById.get(balance.taskId())),
+                            requestId(tasksById.get(balance.taskId())), balance.createdAt(), true))
                     .toList();
             return projectionPage(balances.page(), balances.size(), balances.total(), records,
                     companyId, "BANKDATA", balances.records().stream().map(BankDataBalanceResponse::createdAt)
@@ -206,12 +208,14 @@ public class BankDataSyncService {
                 .orderByDesc(BankDataStatement::getId);
         Page<BankDataStatement> result = statementMapper.selectPage(
                 new Page<>(Math.max(1, page), boundedSize(size)), query);
+        Map<Long, BankDataSyncTask> tasksById = tasksById(companyId,
+                result.getRecords().stream().map(BankDataStatement::getTaskId).toList());
         List<BankDataProjectionResponse> records = result.getRecords().stream()
                 .map(statement -> new BankDataProjectionResponse(
                         String.valueOf(statement.getId()), "BANKDATA", statement.getStatementNo(),
                         statement.getValidationStatus(), statement.getTransactionTime(), null, statement.getAmount(),
                         statement.getCurrency(), statement.getDirection(), statement.getSummary(),
-                        taskNo(statement.getTaskId(), companyId), requestIdForTask(statement.getTaskId(), companyId),
+                        taskNo(tasksById.get(statement.getTaskId())), requestId(tasksById.get(statement.getTaskId())),
                         statement.getCreatedAt(), true))
                 .toList();
         return projectionPage(result.getCurrent(), result.getSize(), result.getTotal(), records,
@@ -241,7 +245,7 @@ public class BankDataSyncService {
                 .orderByDesc(BankDataBalance::getId);
         Page<BankDataBalance> result = balanceMapper.selectPage(new Page<>(Math.max(1, page), boundedSize(size)), query);
         return new PageResponse<>(result.getCurrent(), result.getSize(), result.getTotal(),
-                result.getRecords().stream().map(balance -> responseAssembler.balance(balance, companyId)).toList());
+                responseAssembler.balances(result.getRecords(), companyId));
     }
 
     private List<Long> scopedTaskIds(long companyId, String syncJobNo, String requestId) {
@@ -256,19 +260,21 @@ public class BankDataSyncService {
                 .stream().map(BankDataSyncTask::getId).toList();
     }
 
-    private String taskNo(Long taskId, long companyId) {
-        BankDataSyncTask task = taskMapper.selectOne(new LambdaQueryWrapper<BankDataSyncTask>()
-                .eq(BankDataSyncTask::getId, taskId)
-                .eq(BankDataSyncTask::getCompanyId, companyId)
-                .select(BankDataSyncTask::getTaskNo));
+    private Map<Long, BankDataSyncTask> tasksById(long companyId, List<Long> taskIds) {
+        List<Long> ids = taskIds.stream().filter(java.util.Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) return Map.of();
+        return taskMapper.selectList(new LambdaQueryWrapper<BankDataSyncTask>()
+                        .eq(BankDataSyncTask::getCompanyId, companyId)
+                        .in(BankDataSyncTask::getId, ids)
+                        .select(BankDataSyncTask::getId, BankDataSyncTask::getTaskNo, BankDataSyncTask::getRequestId))
+                .stream().collect(Collectors.toMap(BankDataSyncTask::getId, java.util.function.Function.identity()));
+    }
+
+    private String taskNo(BankDataSyncTask task) {
         return task == null ? null : task.getTaskNo();
     }
 
-    private String requestIdForTask(Long taskId, long companyId) {
-        BankDataSyncTask task = taskMapper.selectOne(new LambdaQueryWrapper<BankDataSyncTask>()
-                .eq(BankDataSyncTask::getId, taskId)
-                .eq(BankDataSyncTask::getCompanyId, companyId)
-                .select(BankDataSyncTask::getRequestId));
+    private String requestId(BankDataSyncTask task) {
         return task == null ? null : task.getRequestId();
     }
 
@@ -430,8 +436,7 @@ public class BankDataSyncService {
                 .orderByDesc(BankDataSyncTask::getId);
         Page<BankDataSyncTask> result = taskMapper.selectPage(new Page<>(Math.max(1, page), boundedSize(size)), query);
         return new PageResponse<>(result.getCurrent(), result.getSize(), result.getTotal(),
-                result.getRecords().stream().map(task -> responseAssembler.task(task,
-                        responseAssembler.connectionCode(companyId, task.getConnectionId()))).toList());
+                responseAssembler.tasks(result.getRecords(), companyId));
     }
 
     private Long connectionId(long companyId, String connectionCode) {
@@ -475,7 +480,7 @@ public class BankDataSyncService {
                 .orderByDesc(BankDataStatement::getId);
         Page<BankDataStatement> result = statementMapper.selectPage(new Page<>(Math.max(1, page), boundedSize(size)), query);
         return new PageResponse<>(result.getCurrent(), result.getSize(), result.getTotal(),
-                result.getRecords().stream().map(statement -> responseAssembler.statement(statement, companyId)).toList());
+                responseAssembler.statements(result.getRecords(), companyId));
     }
 
     public BankDataStatementDetailResponse getStatement(Long userId, Long statementId) {

@@ -460,7 +460,7 @@ class V02BackendIntegrationTest {
         triggerBankData(adminToken, 1L, adminRequestId);
         triggerBankData(companyBToken, accountB.getId(), companyBRequestId);
 
-        for (String resource : java.util.List.of("balances", "statements", "receipts", "reconciliations", "payments", "payroll")) {
+        for (String resource : java.util.List.of("balances", "statements", "receipts", "reconciliations", "payroll")) {
             mockMvc.perform(get("/api/bank-data/" + resource)
                             .header("Authorization", bearer(companyBToken))
                             .param("page", "1")
@@ -480,6 +480,9 @@ class V02BackendIntegrationTest {
                     .andExpect(jsonPath("$.data.message").value(
                             "No projection matches the requested task or request"));
         }
+
+        mockMvc.perform(get("/api/bank-data/payments").header("Authorization", bearer(companyBToken)))
+                .andExpect(status().isNotFound());
 
         mockMvc.perform(get("/api/bank-data/balances").header("Authorization", bearer(unprivilegedToken)))
                 .andExpect(status().isForbidden());

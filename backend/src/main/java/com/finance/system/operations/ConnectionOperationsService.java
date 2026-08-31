@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
 public class ConnectionOperationsService {
 
     private static final List<String> DATA_RESOURCES = List.of(
-            "balances", "statements", "receipts", "reconciliation-statements", "payments", "payroll");
+            "balances", "statements", "receipts", "reconciliation-statements", "payroll");
     private static final List<String> SUPPORTED_PROVIDER_TYPES = List.of("SIMULATED");
 
     private final ConnectionProfileMapper profileMapper;
