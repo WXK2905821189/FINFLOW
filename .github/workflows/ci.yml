@@ -30,9 +30,11 @@ jobs:
            test -f "$migration_dir/V6__tenant_statement_payment_and_session_safety.sql"
            test -f "$migration_dir/V8__payment_request_audit_and_unknown_resolution.sql"
            test -f "$migration_dir/V9__bankdata_phase2_windows_retention.sql"
+           test -f "$migration_dir/V10__feishu_mock_collaboration.sql"
+           test -f "$migration_dir/V11__rules_closing_and_audit_center.sql"
            test -f backend/src/main/resources/db/vendor-migration/h2/V7__drop_legacy_statement_number_uniqueness.sql
            test -f backend/src/main/resources/db/vendor-migration/mysql/V7__drop_legacy_statement_number_uniqueness.sql
-           expected_versions=(V1 V2 V3 V4 V5 V6 V8 V9)
+           expected_versions=(V1 V2 V3 V4 V5 V6 V8 V9 V10 V11)
           actual_versions=()
           while IFS= read -r migration; do
             version="${migration##*/}"
@@ -62,6 +64,9 @@ jobs:
            grep -q 'ALTER TABLE payment_transfer ADD COLUMN request_id' backend/src/main/resources/db/migration/V8__payment_request_audit_and_unknown_resolution.sql
            grep -q 'ALTER TABLE bank_data_sync_task ADD COLUMN sync_key' "$migration_dir/V9__bankdata_phase2_windows_retention.sql"
            grep -q 'CREATE INDEX idx_bank_raw_retention_purge' "$migration_dir/V9__bankdata_phase2_windows_retention.sql"
+           grep -q 'CREATE TABLE validation_rule' "$migration_dir/V11__rules_closing_and_audit_center.sql"
+           grep -q 'CREATE TABLE closing_period' "$migration_dir/V11__rules_closing_and_audit_center.sql"
+           grep -q 'CREATE TABLE system_audit_event' "$migration_dir/V11__rules_closing_and_audit_center.sql"
           grep -q 'DROP CONSTRAINT IF EXISTS' backend/src/main/resources/db/vendor-migration/h2/V7__drop_legacy_statement_number_uniqueness.sql
           grep -q 'PREPARE drop_legacy_statement_index' backend/src/main/resources/db/vendor-migration/mysql/V7__drop_legacy_statement_number_uniqueness.sql
           grep -q 'classpath:db/vendor-migration/{vendor}' backend/src/main/resources/application.yml
@@ -137,7 +142,7 @@ jobs:
           app_pid=$!
           trap 'kill "$app_pid" 2>/dev/null || true; wait "$app_pid" 2>/dev/null || true' EXIT
           wait_for_health "$first_log"
-           grep -q 'Successfully applied 9 migrations' "$first_log"
+           grep -q 'Successfully applied 11 migrations' "$first_log"
           kill "$app_pid"
           wait "$app_pid" || true
           app_pid=""
@@ -149,7 +154,7 @@ jobs:
             > "$repeat_log" 2>&1 &
           app_pid=$!
           wait_for_health "$repeat_log"
-           grep -q 'Successfully validated 9 migrations' "$repeat_log"
+           grep -q 'Successfully validated 11 migrations' "$repeat_log"
           ! grep -q 'Migrating schema' "$repeat_log"
           kill "$app_pid"
           wait "$app_pid" || true
@@ -252,7 +257,7 @@ jobs:
             > "$repeat_log" 2>&1 &
           app_pid=$!
           wait_for_health "$repeat_log"
-          grep -q 'Successfully validated 9 migrations' "$repeat_log"
+          grep -q 'Successfully validated 11 migrations' "$repeat_log"
           ! grep -q 'Migrating schema' "$repeat_log"
           kill "$app_pid"
           wait "$app_pid" || true

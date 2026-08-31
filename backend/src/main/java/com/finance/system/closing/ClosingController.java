@@ -1,0 +1,8 @@
+package com.finance.system.closing;
+import com.finance.system.closing.dto.ClosingPeriodResponse; import com.finance.system.common.api.ApiResponse; import com.finance.system.common.api.PageResponse; import com.finance.system.security.UserPrincipal; import org.springframework.security.access.prepost.PreAuthorize; import org.springframework.security.core.annotation.AuthenticationPrincipal; import org.springframework.web.bind.annotation.*;
+@RestController @RequestMapping("/api/closing") public class ClosingController {
+ private final ClosingService service; public ClosingController(ClosingService service){this.service=service;}
+ @GetMapping("/periods") @PreAuthorize("hasAnyAuthority('closing:view','closing:manage')") public ApiResponse<PageResponse<ClosingPeriodResponse>> list(@RequestParam(defaultValue="1")int page,@RequestParam(defaultValue="20")int size,@RequestParam(required=false)String status,@AuthenticationPrincipal UserPrincipal p){return ApiResponse.success(service.list(p.getId(),page,size,status));}
+ @PostMapping("/periods/{period}/check") @PreAuthorize("hasAnyAuthority('closing:view','closing:manage')") public ApiResponse<ClosingPeriodResponse> check(@PathVariable String period,@RequestHeader(value="X-Request-Id",required=false)String requestId,@AuthenticationPrincipal UserPrincipal p){return ApiResponse.success("账期检查完成",service.check(p.getId(),period,requestId));}
+ @PostMapping("/periods/{period}/close") @PreAuthorize("hasAuthority('closing:manage')") public ApiResponse<ClosingPeriodResponse> close(@PathVariable String period,@RequestHeader(value="X-Request-Id",required=false)String requestId,@AuthenticationPrincipal UserPrincipal p){return ApiResponse.success("账期已结账",service.close(p.getId(),period,requestId));}
+}

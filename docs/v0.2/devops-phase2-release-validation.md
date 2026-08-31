@@ -6,13 +6,13 @@
 
 **待 CI 与隔离 MySQL 复验，暂不生产放行。**
 
-本阶段已把 H2 空库/重复启动、MySQL 空库/增量/重复启动、V7 厂商脚本、V8/V9 边界和幂等约束纳入 `.github/workflows/ci.yml`。新增 MySQL 作业必须在 GitHub Actions 服务容器中执行；本机没有 MySQL、客户端或 Docker，不能声称本地 MySQL 已验证。
+本阶段已把 H2 空库/重复启动、MySQL 空库/增量/重复启动、V7 厂商脚本、V8-V11 边界和幂等约束纳入 `.github/workflows/ci.yml`。新增 MySQL 作业必须在 GitHub Actions 服务容器中执行；本机没有 MySQL、客户端或 Docker，不能声称本地 MySQL 已验证。
 
 ## CI 门禁改动
 
 ### Release contract
 
-- 检查公共迁移为 V1、V2、V3、V4、V5、V6、V8、V9，厂商迁移为 H2/MySQL 两份 V7。
+- 检查公共迁移为 V1、V2、V3、V4、V5、V6、V8、V9、V10、V11，厂商迁移为 H2/MySQL 两份 V7。
 - 检查银行流水组合唯一约束、企业范围同步任务 `request_id` 唯一索引、支付 `(company_id, idempotency_key)` 唯一约束和 V8 支付审计 `request_id`。
 - 检查 H2/MySQL vendor migration 路径和数据库差异处理；检查 30 天截止时间、原始层独立事务、手动入口、定时入口和请求号边界。
 - 检查银行数据模块无 HTTP 客户端/真实银行调用痕迹，仓库无证书、密钥库、私钥、SDK 二进制或明确生产凭据。
@@ -21,8 +21,8 @@
 
 使用现有后端 JAR 和 Flyway 配置：
 
-1. 空 H2 文件库启动，等待 `/v3/api-docs` HTTP 200，确认 Flyway 应用 9 个迁移。
-2. 正常停止应用，再使用同一库启动，确认 `Successfully validated 9 migrations` 且没有 `Migrating schema`。
+1. 空 H2 文件库启动，等待 `/v3/api-docs` HTTP 200，确认 Flyway 应用 11 个迁移。
+2. 正常停止应用，再使用同一库启动，确认 `Successfully validated 11 migrations` 且没有 `Migrating schema`。
 3. 任一启动失败、迁移数量不符、健康检查失败或第二次重复迁移均阻断作业。
 
 ### MySQL migration
@@ -30,8 +30,8 @@
 GitHub Actions 服务容器使用 MySQL 8.4 和仅用于 CI 的临时账号：
 
 1. 以 Flyway target V5 启动空库，确认 V1-V5 完成。
-2. 以完整目标启动同一库，确认 V6、MySQL vendor V7、V8、V9 依次完成，健康端点返回 200。
-3. 再次启动同一库，确认只校验 9 个迁移，不新增历史记录。
+2. 以完整目标启动同一库，确认 V6、MySQL vendor V7、V8、V9、V10、V11 依次完成，健康端点返回 200。
+3. 再次启动同一库，确认只校验 11 个迁移，不新增历史记录。
 4. 核对 `flyway_schema_history`、关键表、企业范围索引、幂等唯一约束、V7 遗留唯一索引处理结果和 V9 窗口/保留字段。
 
 该作业为 CI 待执行项；本机没有等价 MySQL 环境。备份恢复也必须在隔离 MySQL 实例完成，不能由 H2 结果替代。
@@ -55,7 +55,7 @@ GitHub Actions 服务容器使用 MySQL 8.4 和仅用于 CI 的临时账号：
 
 ## 备份恢复与回滚
 
-MySQL 测试服务器必须先证明备份可恢复到独立实例，再执行 V1-V5 基线、V6/V7/V8/V9 增量和重复启动。发布回滚先停止调度和流量放量，保留任务/请求/审计证据，切回上一已验证应用制品，确认健康检查和关键只读 API，再决定保留兼容数据库版本或按备份恢复/前向修复迁移处理。禁止手工修改 `flyway_schema_history` 或对已发布迁移执行逆向删除。
+MySQL 测试服务器必须先证明备份可恢复到独立实例，再执行 V1-V5 基线、V6/V7/V8/V9/V10/V11 增量和重复启动。发布回滚先停止调度和流量放量，保留任务/请求/审计证据，切回上一已验证应用制品，确认健康检查和关键只读 API，再决定保留兼容数据库版本或按备份恢复/前向修复迁移处理。禁止手工修改 `flyway_schema_history` 或对已发布迁移执行逆向删除。
 
 ## 当前验证与未执行项
 

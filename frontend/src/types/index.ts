@@ -154,6 +154,55 @@ export type ConnectionOverview = {
   connections: ConnectionSummary[];
 };
 
+export type FeishuConnectionItem = {
+  id: number;
+  connectionCode: string;
+  displayName: string;
+  tenantAlias?: string;
+  mode: string;
+  status: string;
+};
+
+export type FeishuDestinationItem = {
+  id: number;
+  connectionId: number;
+  destinationType: string;
+  destinationKey: string;
+  displayName: string;
+  enabled: boolean;
+};
+
+export type FeishuPolicyItem = {
+  id: number;
+  eventType: string;
+  destinationId: number;
+  enabled: boolean;
+  templateVersion: string;
+};
+
+export type FeishuOverview = {
+  enabled: boolean;
+  status: string;
+  message: string;
+  connections: FeishuConnectionItem[];
+  destinations: FeishuDestinationItem[];
+  policies: FeishuPolicyItem[];
+};
+
+export type NotificationDelivery = {
+  eventId: string;
+  eventType: string;
+  referenceNo?: string;
+  severity: string;
+  status: string;
+  attemptCount: number;
+  providerMessageId?: string;
+  requestId: string;
+  createdAt: string;
+  sentAt?: string;
+  lastError?: string;
+};
+
 export type OperationTask = {
   taskNo: string;
   taskType: string;
@@ -248,4 +297,58 @@ export type BankDataProjectionPage = PageResponse<BankDataProjection> & {
   sourceSystem?: string;
   lastSyncedAt?: string;
   simulated?: boolean;
+};
+
+export type ValidationRule = {
+  id: number;
+  ruleCode: string;
+  name: string;
+  ruleType: string;
+  expression: string;
+  versionNo: number;
+  status: string;
+  priority: number;
+  createdBy?: number;
+  updatedAt: string;
+};
+
+export type AccountingMapping = {
+  id: number;
+  mappingCode: string;
+  name: string;
+  direction: string;
+  counterpartyKeyword?: string;
+  debitSubject: string;
+  creditSubject: string;
+  voucherTemplate: string;
+  versionNo: number;
+  status: string;
+  updatedAt: string;
+};
+
+export type ClosingPeriod = {
+  id: number;
+  period: string;
+  status: string;
+  totalCount: number;
+  pendingCount: number;
+  exceptionCount: number;
+  unpostedCount: number;
+  confirmedBy?: number;
+  confirmedAt?: string;
+  requestId?: string;
+  note?: string;
+  updatedAt: string;
+};
+
+export type SystemAuditEvent = {
+  id: number;
+  actorId?: number;
+  action: string;
+  objectType: string;
+  objectId?: string;
+  requestId: string;
+  result: string;
+  detail?: string;
+  createdAt: string;
 };

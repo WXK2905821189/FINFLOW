@@ -63,8 +63,10 @@ FINFLOW 是“银行数据采集、财务数据治理、自动入账和协同运
 | `sync:trigger` / `sync:retry` / `sync:view` | 同步任务触发、重试和查看 |
 | `statement:view` / `statement:review` | 流水查看和人工复核 |
 | `validation:manage` | 校验规则和映射版本管理 |
+| `validation:view` | 查看校验规则和入账映射 |
 | `posting:confirm` / `posting:retry` | 金蝶入账确认和失败重试 |
 | `reconciliation:manage` / `reconciliation:view` | 对账处理和结果查看 |
+| `closing:manage` / `closing:view` | 账期检查、结账确认和只读查看 |
 | `report:view` / `report:manage` | 查询投影和个性化报表 |
 | `feishu:manage` / `feishu:view` | 飞书应用、群组和通知策略管理 |
 | `audit:view` | 脱敏审计查询 |

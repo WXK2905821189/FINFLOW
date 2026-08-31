@@ -156,6 +156,39 @@ class V02BackendIntegrationTest {
     }
 
     @Test
+    void feishuMockNotificationIsTenantScopedAndIdempotent() throws Exception {
+        String adminToken = login("admin", "Admin@123");
+        String connection = mockMvc.perform(post("/api/feishu/connections")
+                        .header("Authorization", bearer(adminToken)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"displayName\":\"QA 飞书模拟连接\"}"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        long connectionId = objectMapper.readTree(connection).get("data").get("id").asLong();
+        String destination = mockMvc.perform(post("/api/feishu/destinations")
+                        .header("Authorization", bearer(adminToken)).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"connectionId\":" + connectionId + ",\"destinationType\":\"CHAT\",\"destinationKey\":\"qa-chat\",\"displayName\":\"QA 群\"}"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        long destinationId = objectMapper.readTree(destination).get("data").get("id").asLong();
+        mockMvc.perform(post("/api/feishu/policies").header("Authorization", bearer(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"eventType\":\"SYNC_FAILED\",\"destinationId\":" + destinationId + ",\"enabled\":true}"))
+                .andExpect(status().isOk());
+        String payload = "{\"eventId\":\"qa-event-1\",\"eventType\":\"SYNC_FAILED\",\"referenceNo\":\"TASK-1\",\"severity\":\"WARN\",\"summary\":\"同步失败，请查看 FINFLOW\",\"destinationId\":" + destinationId + "}";
+        mockMvc.perform(post("/api/feishu/notifications").header("Authorization", bearer(adminToken)).header("X-Request-Id", "qa-feishu-request")
+                        .contentType(MediaType.APPLICATION_JSON).content(payload))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("SENT"))
+                .andExpect(jsonPath("$.data.providerMessageId").value(org.hamcrest.Matchers.startsWith("MOCK-FEISHU-qa-event-1")));
+        mockMvc.perform(post("/api/feishu/notifications").header("Authorization", bearer(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON).content(payload))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.eventId").value("qa-event-1"));
+        String companyBToken = login(userB.getUsername(), PASSWORD);
+        mockMvc.perform(get("/api/feishu/overview").header("Authorization", bearer(companyBToken)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.connections").isEmpty())
+                .andExpect(jsonPath("$.data.destinations").isEmpty());
+        mockMvc.perform(get("/api/feishu/deliveries").header("Authorization", bearer(adminToken)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.total").value(1));
+    }
+
+    @Test
     void loginMeAndLogoutRevokesTheIssuedSession() throws Exception {
         String token = login("admin", "Admin@123");
 
@@ -570,6 +603,36 @@ class V02BackendIntegrationTest {
                 .eq(BankDataSyncLog::getTaskId, taskId)
                 .eq(BankDataSyncLog::getEventType, "RAW_PAYLOAD_PURGED")) > 0);
         retentionProperties.setCleanupEnabled(false);
+    }
+
+    @Test
+    void validationClosingAndAuditModulesAreTenantScopedAndPermissionSeparated() throws Exception {
+        String adminToken = login("admin", "Admin@123");
+        String companyBToken = login(userB.getUsername(), PASSWORD);
+
+        mockMvc.perform(get("/api/validation/rules").header("Authorization", bearer(companyBToken)))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/validation/rules").header("Authorization", bearer(companyBToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"ruleCode\":\"QA-RULE\",\"name\":\"金额校验\",\"ruleType\":\"FIELD\",\"expression\":\"amount > 0\"}"))
+                .andExpect(status().isForbidden());
+
+        String rule = mockMvc.perform(post("/api/validation/rules").header("Authorization", bearer(adminToken))
+                        .header("X-Request-Id", "QA-RULE-CREATE")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"ruleCode\":\"QA-RULE\",\"name\":\"金额校验\",\"ruleType\":\"FIELD\",\"expression\":\"amount > 0\"}"))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        long ruleId = objectMapper.readTree(rule).get("data").get("id").asLong();
+        mockMvc.perform(post("/api/validation/rules/" + ruleId + "/activate").header("Authorization", bearer(adminToken)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("ACTIVE"));
+
+        mockMvc.perform(post("/api/closing/periods/2026-08/check").header("Authorization", bearer(companyBToken)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("READY"));
+        mockMvc.perform(post("/api/closing/periods/2026-08/close").header("Authorization", bearer(companyBToken)))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/audit/events").header("Authorization", bearer(adminToken))
+                        .param("objectType", "VALIDATION_RULE"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.total").value(org.hamcrest.Matchers.greaterThanOrEqualTo(2)));
     }
 
     @Test

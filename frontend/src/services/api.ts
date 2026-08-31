@@ -3,6 +3,11 @@ import type {
   AuthTokenResponse,
   ConnectionConfiguration,
   ConnectionOverview,
+  FeishuOverview,
+  FeishuConnectionItem,
+  FeishuDestinationItem,
+  FeishuPolicyItem,
+  NotificationDelivery,
   DataQueryCapability,
   OperationLog,
   OperationTask,
@@ -20,6 +25,10 @@ import type {
   StatementImportRequest,
   StatementRecord,
   StatementReviewRequest,
+  ValidationRule,
+  AccountingMapping,
+  ClosingPeriod,
+  SystemAuditEvent,
   User,
 } from '../types';
 
@@ -73,6 +82,35 @@ export const operationsApi = {
   tasks: (params: OperationListParams) => http.get<never, PageResponse<OperationTask>>('/operations/tasks', { params }),
   logs: (params: OperationListParams) => http.get<never, PageResponse<OperationLog>>('/operations/logs', { params }),
   dataCapability: (resource: string) => http.get<never, DataQueryCapability>(`/data/${resource}`),
+};
+
+export const feishuApi = {
+  overview: () => http.get<never, FeishuOverview>('/feishu/overview'),
+  createConnection: (data: { displayName: string; tenantAlias?: string }) => http.post<never, FeishuConnectionItem>('/feishu/connections', data),
+  createDestination: (data: { connectionId: number; destinationType: string; destinationKey: string; displayName: string }) => http.post<never, FeishuDestinationItem>('/feishu/destinations', data),
+  savePolicy: (data: { eventType: string; destinationId: number; enabled: boolean }) => http.post<never, FeishuPolicyItem>('/feishu/policies', data),
+  notify: (data: { eventId?: string; eventType: string; referenceNo?: string; severity: string; summary: string; destinationId?: number }) => http.post<never, NotificationDelivery>('/feishu/notifications', data),
+  deliveries: (params: { page?: number; size?: number; status?: string }) => http.get<never, PageResponse<NotificationDelivery>>('/feishu/deliveries', { params }),
+  retry: (eventId: string) => http.post<never, NotificationDelivery>(`/feishu/notifications/${encodeURIComponent(eventId)}/retry`),
+};
+
+export const validationApi = {
+  rules: (params: { page?: number; size?: number; status?: string }) => http.get<never, PageResponse<ValidationRule>>('/validation/rules', { params }),
+  createRule: (data: { ruleCode: string; name: string; ruleType: string; expression: string; priority?: number }) => http.post<never, ValidationRule>('/validation/rules', data),
+  activateRule: (id: number) => http.post<never, ValidationRule>(`/validation/rules/${id}/activate`),
+  mappings: (params: { page?: number; size?: number; status?: string }) => http.get<never, PageResponse<AccountingMapping>>('/validation/mappings', { params }),
+  createMapping: (data: { mappingCode: string; name: string; direction: string; counterpartyKeyword?: string; debitSubject: string; creditSubject: string; voucherTemplate: string }) => http.post<never, AccountingMapping>('/validation/mappings', data),
+  activateMapping: (id: number) => http.post<never, AccountingMapping>(`/validation/mappings/${id}/activate`),
+};
+
+export const closingApi = {
+  periods: (params: { page?: number; size?: number; status?: string }) => http.get<never, PageResponse<ClosingPeriod>>('/closing/periods', { params }),
+  check: (period: string) => http.post<never, ClosingPeriod>(`/closing/periods/${period}/check`),
+  close: (period: string) => http.post<never, ClosingPeriod>(`/closing/periods/${period}/close`),
+};
+
+export const auditApi = {
+  events: (params: { page?: number; size?: number; action?: string; objectType?: string; requestId?: string }) => http.get<never, PageResponse<SystemAuditEvent>>('/audit/events', { params }),
 };
 
 type BankJobListParams = { page?: number; size?: number; status?: string; jobType?: string; connectionCode?: string; requestId?: string };
