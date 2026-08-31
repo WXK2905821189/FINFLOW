@@ -2,6 +2,7 @@ package com.finance.system.bankdata;
 
 import com.finance.system.bankdata.dto.BankDataProjectionResponse;
 import com.finance.system.bankdata.dto.BankDataProjectionPageResponse;
+import com.finance.system.bankdata.dto.BankDataTraceResponse;
 import com.finance.system.bankdata.dto.BankSyncJobDetailResponse;
 import com.finance.system.bankdata.dto.BankSyncJobResponse;
 import com.finance.system.bankdata.dto.BankSyncJobTriggerRequest;
@@ -35,9 +36,11 @@ import java.util.Map;
 public class BankPipelineController {
 
     private final BankDataSyncService service;
+    private final BankDataTraceService traceService;
 
-    public BankPipelineController(BankDataSyncService service) {
+    public BankPipelineController(BankDataSyncService service, BankDataTraceService traceService) {
         this.service = service;
+        this.traceService = traceService;
     }
 
     @PostMapping("/bank-sync-jobs")
@@ -96,6 +99,19 @@ public class BankPipelineController {
         }
         return ApiResponse.success(service.queryProjection(principal.getId(), resource, page, size, status,
                 accountId, keyword, from, to, sourceSystem, syncJobNo, requestId));
+    }
+
+    @GetMapping("/bank-data-trace")
+    @PreAuthorize("hasAuthority('bankdata:view')")
+    @Operation(summary = "Trace one bank synchronization end to end",
+            description = "Chains task number, request id, bank request number, raw summaries, normalized records "
+                    + "and projection availability inside the caller company; raw payloads are never returned")
+    public ApiResponse<BankDataTraceResponse> trace(
+            @RequestParam(required = false) String taskNo,
+            @RequestParam(required = false) String requestId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success("Bank data trace resolved",
+                traceService.trace(principal.getId(), taskNo, requestId));
     }
 
     private String permissionFor(String resource) {

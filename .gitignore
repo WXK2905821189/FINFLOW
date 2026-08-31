@@ -18,6 +18,12 @@ backend/.idea/
 frontend/.idea/
 *.log
 
+# Machine-local Maven settings (absolute local repository path)
+backend/.m2-settings.xml
+
+# WorkBuddy agent session data
+.workbuddy/
+
 # IDE / OS
 .idea/
 .vscode/

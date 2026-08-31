@@ -14,6 +14,7 @@ public class BankDataSyncTask {
     private Long companyId;
     private String taskNo;
     private String adapterCode;
+    private String mappingVersion;
     private Long connectionId;
     private Long bankAccountId;
     private Long requestedBy;
@@ -41,6 +42,8 @@ public class BankDataSyncTask {
     public void setTaskNo(String taskNo) { this.taskNo = taskNo; }
     public String getAdapterCode() { return adapterCode; }
     public void setAdapterCode(String adapterCode) { this.adapterCode = adapterCode; }
+    public String getMappingVersion() { return mappingVersion; }
+    public void setMappingVersion(String mappingVersion) { this.mappingVersion = mappingVersion; }
     public Long getConnectionId() { return connectionId; }
     public void setConnectionId(Long connectionId) { this.connectionId = connectionId; }
     public Long getBankAccountId() { return bankAccountId; }

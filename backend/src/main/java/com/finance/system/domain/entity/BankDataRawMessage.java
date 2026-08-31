@@ -14,6 +14,7 @@ public class BankDataRawMessage {
     private Long companyId;
     private Long taskId;
     private String adapterCode;
+    private String mappingVersion;
     private String bankRequestNo;
     private String contentSha256;
     private String payload;
@@ -29,6 +30,8 @@ public class BankDataRawMessage {
     public void setTaskId(Long taskId) { this.taskId = taskId; }
     public String getAdapterCode() { return adapterCode; }
     public void setAdapterCode(String adapterCode) { this.adapterCode = adapterCode; }
+    public String getMappingVersion() { return mappingVersion; }
+    public void setMappingVersion(String mappingVersion) { this.mappingVersion = mappingVersion; }
     public String getBankRequestNo() { return bankRequestNo; }
     public void setBankRequestNo(String bankRequestNo) { this.bankRequestNo = bankRequestNo; }
     public String getContentSha256() { return contentSha256; }

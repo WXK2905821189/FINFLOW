@@ -53,7 +53,7 @@ public class BankDataSyncResponseAssembler {
 
     public BankDataSyncTaskResponse task(BankDataSyncTask task, String connectionCode) {
         if (task == null) return null;
-        return new BankDataSyncTaskResponse(task.getId(), task.getTaskNo(), task.getAdapterCode(), connectionCode,
+        return new BankDataSyncTaskResponse(task.getId(), task.getTaskNo(), task.getAdapterCode(), task.getMappingVersion(), connectionCode,
                 task.getBankAccountId(), task.getRequestId(), task.getBankRequestNo(), task.getStatus(), task.getRawCount(),
                 task.getNormalizedCount(), task.getDuplicateCount(), task.getInvalidCount(), task.getErrorMessage(),
                 task.getStartedAt(), task.getCompletedAt(), task.getCreatedAt());

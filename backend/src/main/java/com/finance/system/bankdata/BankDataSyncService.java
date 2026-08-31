@@ -2,7 +2,7 @@ package com.finance.system.bankdata;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.finance.system.bankdata.adapter.BankDataAdapter;
+import com.finance.system.bankdata.aggregation.BankDataAggregationService;
 import com.finance.system.bankdata.dto.BankDataReconciliationResponse;
 import com.finance.system.bankdata.dto.BankDataStatementDetailResponse;
 import com.finance.system.bankdata.dto.BankDataStatementResponse;
@@ -62,7 +62,7 @@ public class BankDataSyncService {
     private final BankDataSyncEvidenceService evidenceService;
     private final BankDataSyncResponseAssembler responseAssembler;
     private final BankDataScheduledSyncService scheduledSyncService;
-    private final Map<String, BankDataAdapter> adapters;
+    private final BankDataAggregationService aggregationService;
 
     private record SyncWindow(LocalDateTime start, LocalDateTime end) {}
 
@@ -77,7 +77,7 @@ public class BankDataSyncService {
                                BankDataSyncEvidenceService evidenceService,
                                BankDataSyncResponseAssembler responseAssembler,
                                @Lazy BankDataScheduledSyncService scheduledSyncService,
-                               List<BankDataAdapter> adapterList) {
+                               BankDataAggregationService aggregationService) {
         this.companyScope = companyScope;
         this.taskMapper = taskMapper;
         this.statementMapper = statementMapper;
@@ -89,8 +89,7 @@ public class BankDataSyncService {
         this.evidenceService = evidenceService;
         this.responseAssembler = responseAssembler;
         this.scheduledSyncService = scheduledSyncService;
-        this.adapters = adapterList.stream().collect(Collectors.toUnmodifiableMap(
-                adapter -> adapter.adapterCode().toUpperCase(Locale.ROOT), adapter -> adapter));
+        this.aggregationService = aggregationService;
     }
 
     public BankDataSyncTaskDetailResponse trigger(Long userId, BankDataSyncRequest request, String requestId) {
@@ -225,7 +224,19 @@ public class BankDataSyncService {
 
     public PageResponse<BankDataBalanceResponse> listBalances(Long userId, int page, int size,
                                                                Long bankAccountId, LocalDateTime from, LocalDateTime to) {
-        return listBalances(userId, page, size, bankAccountId, null, from, to, null);
+        return listBalances(userId, page, size, bankAccountId, from, to, null, null);
+    }
+
+    public PageResponse<BankDataBalanceResponse> listBalances(Long userId, int page, int size,
+                                                               Long bankAccountId, LocalDateTime from, LocalDateTime to,
+                                                               String taskNo, String requestId) {
+        long companyId = companyScope.companyIdForUser(userId);
+        List<Long> taskIds = scopedTaskIds(companyId, taskNo, requestId);
+        if ((taskNo != null && !taskNo.isBlank() || requestId != null && !requestId.isBlank())
+                && taskIds.isEmpty()) {
+            return new PageResponse<>(Math.max(1, page), boundedSize(size), 0, List.of());
+        }
+        return listBalances(userId, page, size, bankAccountId, null, from, to, taskIds);
     }
 
     private PageResponse<BankDataBalanceResponse> listBalances(Long userId, int page, int size,
@@ -318,10 +329,6 @@ public class BankDataSyncService {
     public BankDataSyncTaskDetailResponse triggerForCompany(long companyId, Long requestedBy,
                                                             BankDataSyncRequest request, String requestId,
                                                             String triggerType) {
-        String adapterCode = normalize(request.adapterCode(), "MOCK");
-        if (!adapters.containsKey(adapterCode)) {
-            throw new BusinessException(400, "Bank data adapter is not available");
-        }
         BankAccount account = bankAccountMapper.selectOne(new LambdaQueryWrapper<BankAccount>()
                 .eq(BankAccount::getId, request.bankAccountId())
                 .eq(BankAccount::getCompanyId, companyId));
@@ -329,13 +336,16 @@ public class BankDataSyncService {
             throw new BusinessException(404, "Bank account not found in the current company");
         }
         Long connectionId = null;
+        ConnectionProfile connection = null;
         if (request.connectionCode() != null && !request.connectionCode().isBlank()) {
-            ConnectionProfile profile = connectionProfileMapper.selectOne(new LambdaQueryWrapper<ConnectionProfile>()
+            connection = connectionProfileMapper.selectOne(new LambdaQueryWrapper<ConnectionProfile>()
                     .eq(ConnectionProfile::getCompanyId, companyId)
                     .eq(ConnectionProfile::getConnectionCode, request.connectionCode().trim()));
-            if (profile == null) throw new BusinessException(404, "Connection not found in the current company");
-            connectionId = profile.getId();
+            if (connection == null) throw new BusinessException(404, "Connection not found in the current company");
+            connectionId = connection.getId();
         }
+        String adapterCode = aggregationService.resolveAdapterCode(request.adapterCode(),
+                connection == null ? null : connection.getProviderType());
         String requestedRequestId = requestId == null || requestId.isBlank()
                 ? UUID.randomUUID().toString() : requestId.trim();
         String safeRequestId = requestedRequestId.length() > 64 ? requestedRequestId.substring(0, 64) : requestedRequestId;
@@ -370,6 +380,7 @@ public class BankDataSyncService {
         task.setCompanyId(companyId);
         task.setTaskNo("BDST-" + UUID.randomUUID().toString().replace("-", "").substring(0, 20).toUpperCase(Locale.ROOT));
         task.setAdapterCode(adapterCode);
+        task.setMappingVersion(aggregationService.mappingVersion(adapterCode));
         task.setConnectionId(connectionId);
         task.setBankAccountId(account.getId());
         task.setRequestedBy(requestedBy);
@@ -469,10 +480,23 @@ public class BankDataSyncService {
     public PageResponse<BankDataStatementResponse> listStatements(Long userId, int page, int size,
                                                                     Long bankAccountId, String direction,
                                                                     LocalDateTime from, LocalDateTime to) {
+        return listStatements(userId, page, size, bankAccountId, direction, from, to, null, null);
+    }
+
+    public PageResponse<BankDataStatementResponse> listStatements(Long userId, int page, int size,
+                                                                    Long bankAccountId, String direction,
+                                                                    LocalDateTime from, LocalDateTime to,
+                                                                    String taskNo, String requestId) {
         long companyId = companyScope.companyIdForUser(userId);
+        List<Long> taskIds = scopedTaskIds(companyId, taskNo, requestId);
+        if ((taskNo != null && !taskNo.isBlank() || requestId != null && !requestId.isBlank())
+                && taskIds.isEmpty()) {
+            return new PageResponse<>(Math.max(1, page), boundedSize(size), 0, List.of());
+        }
         LambdaQueryWrapper<BankDataStatement> query = new LambdaQueryWrapper<BankDataStatement>()
                 .eq(BankDataStatement::getCompanyId, companyId)
                 .eq(bankAccountId != null, BankDataStatement::getBankAccountId, bankAccountId)
+                .in(!taskIds.isEmpty(), BankDataStatement::getTaskId, taskIds)
                 .eq(direction != null && !direction.isBlank(), BankDataStatement::getDirection, normalize(direction, null))
                 .ge(from != null, BankDataStatement::getTransactionTime, from)
                 .le(to != null, BankDataStatement::getTransactionTime, to)

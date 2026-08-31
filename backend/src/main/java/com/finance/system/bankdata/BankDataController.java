@@ -91,8 +91,11 @@ public class BankDataController {
             @RequestParam(required = false) String direction,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
+            @RequestParam(required = false) String taskNo,
+            @RequestParam(required = false) String requestId,
             @AuthenticationPrincipal UserPrincipal principal) {
-        return ApiResponse.success(service.listStatements(principal.getId(), page, size, bankAccountId, direction, from, to));
+        return ApiResponse.success(service.listStatements(principal.getId(), page, size, bankAccountId, direction,
+                from, to, taskNo, requestId));
     }
 
     @GetMapping("/statement-records/{id}")
@@ -112,8 +115,11 @@ public class BankDataController {
             @RequestParam(required = false) Long bankAccountId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
+            @RequestParam(required = false) String taskNo,
+            @RequestParam(required = false) String requestId,
             @AuthenticationPrincipal UserPrincipal principal) {
-        return ApiResponse.success(service.listBalances(principal.getId(), page, size, bankAccountId, from, to));
+        return ApiResponse.success(service.listBalances(principal.getId(), page, size, bankAccountId, from, to,
+                taskNo, requestId));
     }
 
     @GetMapping("/reconciliation/summary")

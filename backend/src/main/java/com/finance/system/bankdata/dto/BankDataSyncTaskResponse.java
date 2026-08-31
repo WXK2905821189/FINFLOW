@@ -6,6 +6,7 @@ public record BankDataSyncTaskResponse(
         Long id,
         String taskNo,
         String adapterCode,
+        String mappingVersion,
         String connectionCode,
         Long bankAccountId,
         String requestId,

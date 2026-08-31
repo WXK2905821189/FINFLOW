@@ -3,7 +3,8 @@ package com.finance.system.bankdata;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.finance.system.bankdata.adapter.BankDataAdapter;
+import com.finance.system.bankdata.aggregation.BankDataAggregationResult;
+import com.finance.system.bankdata.aggregation.BankDataAggregationService;
 import com.finance.system.bankdata.adapter.BankDataBalanceEntry;
 import com.finance.system.bankdata.adapter.BankDataCollection;
 import com.finance.system.bankdata.adapter.BankDataEntry;
@@ -36,10 +37,8 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @Service
 public class BankDataSyncExecutor {
@@ -56,7 +55,7 @@ public class BankDataSyncExecutor {
     private final BankDataSyncLogMapper logMapper;
     private final BankAccountMapper bankAccountMapper;
     private final ObjectMapper objectMapper;
-    private final Map<String, BankDataAdapter> adapters;
+    private final BankDataAggregationService aggregationService;
 
     public BankDataSyncExecutor(BankDataSyncTaskMapper taskMapper,
                                 BankDataBalanceMapper balanceMapper,
@@ -65,7 +64,7 @@ public class BankDataSyncExecutor {
                                 BankDataSyncLogMapper logMapper,
                                 BankAccountMapper bankAccountMapper,
                                 ObjectMapper objectMapper,
-                                List<BankDataAdapter> adapterList) {
+                                BankDataAggregationService aggregationService) {
         this.taskMapper = taskMapper;
         this.balanceMapper = balanceMapper;
         this.evidenceService = evidenceService;
@@ -73,8 +72,7 @@ public class BankDataSyncExecutor {
         this.logMapper = logMapper;
         this.bankAccountMapper = bankAccountMapper;
         this.objectMapper = objectMapper;
-        this.adapters = adapterList.stream().collect(Collectors.toUnmodifiableMap(
-                adapter -> adapter.adapterCode().toUpperCase(Locale.ROOT), adapter -> adapter));
+        this.aggregationService = aggregationService;
     }
 
     @Transactional
@@ -85,16 +83,12 @@ public class BankDataSyncExecutor {
         if (task == null) {
             throw new BusinessException(404, "Bank data sync task not found");
         }
-        BankDataAdapter adapter = adapters.get(task.getAdapterCode().toUpperCase(Locale.ROOT));
-        if (adapter == null) {
-            throw new BusinessException(400, "Bank data adapter is not available");
-        }
-
         List<WindowRange> windows = splitWindows(task.getWindowStart(), task.getWindowEnd());
         List<CollectedStatement> collectedStatements = new ArrayList<>();
         List<CollectedBalance> collectedBalances = new ArrayList<>();
         int rawCount = 0;
         String lastBankRequestNo = null;
+        boolean partialResult = false;
         for (WindowRange window : windows) {
             String cursor = null;
             int page = 1;
@@ -102,15 +96,21 @@ public class BankDataSyncExecutor {
                 BankDataSyncContext context = new BankDataSyncContext(companyId, task.getConnectionId(),
                         task.getBankAccountId(), task.getTaskNo(), task.getRequestId(), window.start(), window.end(),
                         page, cursor, PAGE_SIZE, "STATEMENT");
-                BankDataCollection collection = Objects.requireNonNull(adapter.collect(context), "Adapter returned no collection");
-                String status = normalizeStatus(collection.status() == null ? collection.bankStatusCode() : collection.status());
+                BankDataAggregationResult aggregation = aggregationService.collect(context, task.getAdapterCode());
+                BankDataCollection collection = Objects.requireNonNull(aggregation.collection(), "Aggregation returned no collection");
+                String status = aggregation.status().name();
                 String rawPayload = serialize(collection);
                 BankDataRawMessage raw = evidenceService.persistRaw(task, collection.bankRequestNo(), rawPayload,
-                        sha256(rawPayload), LocalDateTime.now());
+                        sha256(rawPayload), LocalDateTime.now(), aggregation.mappingVersion());
                 lastBankRequestNo = collection.bankRequestNo();
                 log(task, "INFO", "BANK_PAGE_COLLECTED", status, collection.bankRequestNo(),
                         "Collected window " + window.start() + " to " + window.end() + ", page " + page);
-                if (!"SUCCESS".equals(status)) {
+                if ("EMPTY".equals(status)) {
+                    break;
+                }
+                if ("PARTIAL".equals(status)) {
+                    partialResult = true;
+                } else if (!"SUCCESS".equals(status)) {
                     task.setBankRequestNo(lastBankRequestNo);
                     task.setStatus(status);
                     task.setRawCount(rawCount);
@@ -235,7 +235,7 @@ public class BankDataSyncExecutor {
         }
 
         task.setBankRequestNo(lastBankRequestNo);
-        task.setStatus(invalid == 0 ? "SUCCEEDED" : "PARTIAL");
+        task.setStatus(invalid == 0 && !partialResult ? "SUCCEEDED" : "PARTIAL");
         task.setRawCount(rawCount);
         task.setNormalizedCount(normalized);
         task.setDuplicateCount(duplicates);
@@ -377,16 +377,6 @@ public class BankDataSyncExecutor {
         if (value == null || value.isBlank()) return null;
         String account = value.trim();
         return account.length() <= 4 ? "****" : "****" + account.substring(account.length() - 4);
-    }
-
-    private String normalizeStatus(String value) {
-        if (value == null || value.isBlank()) return "UNKNOWN";
-        return switch (value.trim().toUpperCase(Locale.ROOT)) {
-            case "SUCCESS", "AAAAAAA" -> "SUCCESS";
-            case "PENDING", "PROCESSING", "AAAAAAE" -> "PENDING";
-            case "FAILED", "EEEEEEE" -> "FAILED";
-            default -> "UNKNOWN";
-        };
     }
 
     private String statementKey(BankDataStatement statement) {

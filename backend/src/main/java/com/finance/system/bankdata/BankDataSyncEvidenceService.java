@@ -26,10 +26,18 @@ public class BankDataSyncEvidenceService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public BankDataRawMessage persistRaw(BankDataSyncTask task, String bankRequestNo, String payload,
                                          String contentSha256, LocalDateTime receivedAt) {
+        return persistRaw(task, bankRequestNo, payload, contentSha256, receivedAt,
+                task.getMappingVersion() == null ? "LEGACY_V1" : task.getMappingVersion());
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public BankDataRawMessage persistRaw(BankDataSyncTask task, String bankRequestNo, String payload,
+                                         String contentSha256, LocalDateTime receivedAt, String mappingVersion) {
         BankDataRawMessage raw = new BankDataRawMessage();
         raw.setCompanyId(task.getCompanyId());
         raw.setTaskId(task.getId());
         raw.setAdapterCode(task.getAdapterCode());
+        raw.setMappingVersion(mappingVersion);
         raw.setBankRequestNo(bankRequestNo);
         raw.setContentSha256(contentSha256);
         raw.setPayload(payload);
