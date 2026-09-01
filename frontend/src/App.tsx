@@ -1,24 +1,33 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import './styles.css';
 import { useAuthStore } from './store/auth';
 import { AuthGuard, Forbidden, Login, PermissionGuard, Register } from './modules/auth/pages';
 import { Shell } from './modules/shell/Shell';
-import { Dashboard } from './modules/dashboard/pages';
-import { BatchList, ImportStatements, Reconciliation, ReviewStatements, VoucherStatements } from './modules/statements/pages';
-import { ValidationPage } from './modules/statements/ValidationPage';
-import { BankAccountPage, ConnectionConfigurationPage, ConnectionMonitoring } from './modules/bank-access/pages';
-import { OperationLogs, OperationTasks } from './modules/bank-access/operations';
-import { BankDataQueryPage } from './modules/bank-access/BankDataQueryPage';
-import { FeishuCollaboration } from './modules/feishu/pages';
-import { ClosingPage } from './modules/closing/pages';
-import { AuditCenterPage } from './modules/audit/pages';
-import { PreservedFinancePage } from './modules/shared/components';
+import { PageLoading, PreservedFinancePage } from './modules/shared/components';
+
+const Dashboard = lazy(() => import('./modules/dashboard/pages').then((module) => ({ default: module.Dashboard })));
+const BatchList = lazy(() => import('./modules/statements/pages').then((module) => ({ default: module.BatchList })));
+const ImportStatements = lazy(() => import('./modules/statements/pages').then((module) => ({ default: module.ImportStatements })));
+const Reconciliation = lazy(() => import('./modules/statements/pages').then((module) => ({ default: module.Reconciliation })));
+const ReviewStatements = lazy(() => import('./modules/statements/pages').then((module) => ({ default: module.ReviewStatements })));
+const VoucherStatements = lazy(() => import('./modules/statements/pages').then((module) => ({ default: module.VoucherStatements })));
+const ValidationPage = lazy(() => import('./modules/statements/ValidationPage').then((module) => ({ default: module.ValidationPage })));
+const BankAccountPage = lazy(() => import('./modules/bank-access/pages').then((module) => ({ default: module.BankAccountPage })));
+const ConnectionConfigurationPage = lazy(() => import('./modules/bank-access/pages').then((module) => ({ default: module.ConnectionConfigurationPage })));
+const ConnectionMonitoring = lazy(() => import('./modules/bank-access/pages').then((module) => ({ default: module.ConnectionMonitoring })));
+const OperationLogs = lazy(() => import('./modules/bank-access/operations').then((module) => ({ default: module.OperationLogs })));
+const OperationTasks = lazy(() => import('./modules/bank-access/operations').then((module) => ({ default: module.OperationTasks })));
+const BankDataQueryPage = lazy(() => import('./modules/bank-access/BankDataQueryPage').then((module) => ({ default: module.BankDataQueryPage })));
+const FeishuCollaboration = lazy(() => import('./modules/feishu/pages').then((module) => ({ default: module.FeishuCollaboration })));
+const ClosingPage = lazy(() => import('./modules/closing/pages').then((module) => ({ default: module.ClosingPage })));
+const AuditCenterPage = lazy(() => import('./modules/audit/pages').then((module) => ({ default: module.AuditCenterPage })));
 
 function AppRoutes() {
   const hydrate = useAuthStore((state) => state.hydrate);
   useEffect(() => { void hydrate(); }, [hydrate]);
   return (
+    <Suspense fallback={<PageLoading />}>
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
@@ -105,6 +114,7 @@ function AppRoutes() {
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
+    </Suspense>
   );
 }
 

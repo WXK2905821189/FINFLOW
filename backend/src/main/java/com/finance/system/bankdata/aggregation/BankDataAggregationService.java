@@ -5,7 +5,9 @@ import com.finance.system.bankdata.adapter.BankDataBalanceEntry;
 import com.finance.system.bankdata.adapter.BankDataCollection;
 import com.finance.system.bankdata.adapter.BankDataEntry;
 import com.finance.system.bankdata.adapter.BankDataSyncContext;
+import com.finance.system.bankdata.adapter.BankAdapterExecutionMode;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
 import java.util.Locale;
@@ -18,9 +20,17 @@ import java.util.Locale;
 public class BankDataAggregationService {
 
     private final BankDataAdapterRegistry registry;
+    private final BankAdapterCallExecutor callExecutor;
 
+    /** Compatibility constructor for focused unit tests and existing internal callers. */
     public BankDataAggregationService(BankDataAdapterRegistry registry) {
+        this(registry, null);
+    }
+
+    @Autowired
+    public BankDataAggregationService(BankDataAdapterRegistry registry, BankAdapterCallExecutor callExecutor) {
         this.registry = registry;
+        this.callExecutor = callExecutor;
     }
 
     public String resolveAdapterCode(String requestedCode, String providerType) {
@@ -33,7 +43,24 @@ public class BankDataAggregationService {
 
     public BankDataAggregationResult collect(BankDataSyncContext context, String adapterCode) {
         BankDataAdapter adapter = registry.require(adapterCode);
-        BankDataCollection vendorResult = adapter.collect(context);
+        BankAdapterCallOutcome outcome;
+        if (callExecutor == null) {
+            if (adapter.executionMode() != BankAdapterExecutionMode.SIMULATED) {
+                return new BankDataAggregationResult(adapter.adapterCode(), mappingVersion(adapter.adapterCode()),
+                        BankDataStatus.UNKNOWN, new BankDataCollection(null, List.of(), List.of()),
+                        "Real bank adapter requires the managed call executor");
+            }
+            outcome = BankAdapterCallOutcome.response(adapter.collect(context));
+        } else {
+            outcome = callExecutor.invoke(adapter, context);
+        }
+        if (outcome.terminalStatus() != null) {
+            BankDataCollection terminal = new BankDataCollection(null, List.of(), List.of(), false, null,
+                    outcome.terminalStatus().name(), outcome.terminalStatus().name());
+            return new BankDataAggregationResult(adapter.adapterCode(), mappingVersion(adapter.adapterCode()),
+                    outcome.terminalStatus(), terminal, outcome.safeSummary());
+        }
+        BankDataCollection vendorResult = outcome.collection();
         if (vendorResult == null) {
             return new BankDataAggregationResult(adapter.adapterCode(), mappingVersion(adapter.adapterCode()),
                     BankDataStatus.UNKNOWN, new BankDataCollection(null, List.of(), List.of()),

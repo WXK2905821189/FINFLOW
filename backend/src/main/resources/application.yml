@@ -51,6 +51,12 @@ kingdee:
 bankdata:
   adapter:
     mode: ${BANKDATA_ADAPTER_MODE:mock}
+    call:
+      real-adapters-enabled: ${BANKDATA_REAL_ADAPTERS_ENABLED:false}
+      max-attempts: ${BANKDATA_ADAPTER_MAX_ATTEMPTS:3}
+      timeout-millis: ${BANKDATA_ADAPTER_TIMEOUT_MILLIS:5000}
+      base-backoff-millis: ${BANKDATA_ADAPTER_BASE_BACKOFF_MILLIS:200}
+      max-requests-per-minute: ${BANKDATA_ADAPTER_MAX_REQUESTS_PER_MINUTE:60}
   sync:
     schedule-enabled: false
     fixed-delay-ms: 600000

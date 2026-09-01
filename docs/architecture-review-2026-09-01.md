@@ -47,11 +47,11 @@
 ### P2-B 前端 types/index.ts 平铺
 354 行所有域的类型混排。拆 App.tsx 时按域同步拆分即可，不单独立项。
 
-### P3-A CI 基线落后
-ci.yml 最后更新于 a7528f5（v0.2 期间）。`mvn test` 类 job 会自动带上 V12 和新测试，但 **release-contract / mysql-migration 两个 job 是否覆盖 V12 的 `mapping_version` 列与双目录 V7，需人工核对一次**（本机无 MySQL，无法替 CI 验证）。
+### P3-A CI 远端环境仍需验证
+本机无法替代 GitHub Actions 的 MySQL 服务容器、迁移空库/增量/重复启动和备份恢复演练；这些仍需由 CI 或隔离环境提供运行证据。
 
-### P3-B ESLint 缺失
-`pnpm lint` 必然失败（无任何 eslint 配置）。建议加最小 flat config（TS 推荐规则 + react-hooks），不追严格度。
+### P3-B 前端依赖缓存卫生
+源码已具备 ESLint flat config、路由懒加载和构建分包；本机 `node_modules` 曾出现包元数据/链接损坏，构建验证应使用锁文件重建的依赖目录，不能将依赖目录异常误记为源码缺陷。
 
 ## 五、扩展性专项：接入第一家真实银行的路径评估
 
@@ -60,10 +60,10 @@ ci.yml 最后更新于 a7528f5（v0.2 期间）。`mvn test` 类 job 会自动�
 | 实现 `BankDataAdapter`（拉流水/余额、方向词/币种归一） | 新增 1 个包 | ✅ 路径已验证 |
 | 注册到 `BankDataAdapterRegistry` + `mappingVersion` | 1 行注册 | ✅ 零侵入 |
 | 错误码 → 统一八态映射 | Adapter 内部 | ✅ 有 PENDING/UNKNOWN/EMPTY 先例 |
-| **限流/重试/超时策略** | **无抽象层** | ⚠️ MOCK 不覆盖，接真实银行前需先补（当前不做是正确的 YAGNI） |
+| **限流/重试/超时策略** | `BankAdapterCallExecutor` | ✅ 已补统一边界；真实 Adapter 默认关闭，沙箱阶段仍需按银行契约复核参数 |
 | 证书/签名 | 不做（v0.4 边界） | ✅ 边界已写进 PRD |
 
-结论：扩展主轴健康。唯一真实缺口是真实银行的异常行为层（限流/重试），建议在接第一家真实银行时作为前置任务。
+结论：扩展主轴健康。真实 Adapter 的异常行为层已在聚合边界补齐；真实银行沙箱阶段仍需按银行契约复核限流、重试、超时和最终状态参数。
 
 ## 六、建议行动（按 ROI 排序，待拍板）
 
