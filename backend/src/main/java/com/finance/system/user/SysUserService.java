@@ -1,4 +1,6 @@
-package com.finance.system.domain.service;
+package com.finance.system.user;
+
+import com.finance.system.rbac.RbacService;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;

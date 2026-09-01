@@ -1,4 +1,6 @@
-package com.finance.system.domain.service;
+package com.finance.system.config;
+
+import com.finance.system.rbac.RbacService;
 
 import com.finance.system.domain.entity.SysRole;
 import com.finance.system.domain.entity.SysUser;

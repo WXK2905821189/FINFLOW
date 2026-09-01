@@ -30,12 +30,6 @@ backend/.m2-settings.xml
 *.iml
 .DS_Store
 Thumbs.db
-# Temporary dir from a failed node_modules repair (safe to delete manually)
-frontend/node_modules.broken/
 # Vite dev-server temp files
 frontend/vite.config.ts.timestamp-*.mjs
 frontend/_tmp_*
-# Vite dev-server temp files
-frontend/vite.config.ts.timestamp-*.mjs
-frontend/_tmp_*
-frontend/node_modules.corrupt2/

@@ -1,4 +1,4 @@
-package com.finance.system.domain.service;
+package com.finance.system.rbac;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.finance.system.domain.entity.SysPermission;

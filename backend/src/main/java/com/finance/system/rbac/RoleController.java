@@ -3,7 +3,6 @@ package com.finance.system.rbac;
 import com.finance.system.common.api.ApiResponse;
 import com.finance.system.domain.entity.SysPermission;
 import com.finance.system.domain.entity.SysRole;
-import com.finance.system.domain.service.RbacService;
 import com.finance.system.rbac.dto.RoleRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;

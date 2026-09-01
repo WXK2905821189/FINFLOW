@@ -6,7 +6,6 @@ import com.finance.system.auth.dto.CurrentUserResponse;
 import com.finance.system.common.api.ApiResponse;
 import com.finance.system.common.api.PageResponse;
 import com.finance.system.common.exception.BusinessException;
-import com.finance.system.domain.service.SysUserService;
 import com.finance.system.user.dto.UserUpsertRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
