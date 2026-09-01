@@ -33,7 +33,7 @@ export const pageTitles: Record<string, string> = {
   '/statements/review': '人工复核',
   '/validation': '科目与往来规则',
   '/statements/vouchers': '金蝶制证',
-  '/statements/reconciliation': '三方对账',
+  '/reconciliation/dashboard': '三方对账',
   '/closing': '结账管理',
   '/users': '用户管理',
   '/audit': '审计中心',
@@ -57,8 +57,7 @@ export function buildProductNavigation(hasPermission: HasPermission): MenuProps[
       key: 'bank-access', icon: <ApartmentOutlined />, label: '银行接入', children: [
         ...(canViewConnection ? [{ key: 'bank-access-configuration', icon: <SettingOutlined />, label: '连接配置', children: [
           { key: '/bank-access/connections', label: <Link to="/bank-access/connections">银行连接</Link> },
-          { key: '/bank-access/agreements', label: <Link to="/bank-access/agreements">签约准备</Link> },
-          { key: '/bank-access/preferences', label: <Link to="/bank-access/preferences">采集设置</Link> },
+          { key: '/bank-access/agreements', label: <Link to="/bank-access/agreements">签约准备与采集设置</Link> },
         ] }] : []),
         ...(hasPermission('bank:view') ? [{ key: '/bank-access/accounts', icon: <DatabaseOutlined />, label: <Link to="/bank-access/accounts">银行账户</Link> }] : []),
         ...((hasPermission('operation:monitor') || hasPermission('operation:log:view') || canViewTasks) ? [{ key: 'bank-access-operations', icon: <RadarChartOutlined />, label: '采集运营', children: [
@@ -90,7 +89,7 @@ export function buildProductNavigation(hasPermission: HasPermission): MenuProps[
     }] : []),
     ...((hasPermission('reconciliation:view') || hasPermission('closing:view') || hasPermission('closing:manage')) ? [{
       key: 'reconciliation-and-closing', icon: <AuditOutlined />, label: '对账结账', children: [
-        ...(hasPermission('reconciliation:view') ? [{ key: '/statements/reconciliation', label: <Link to="/statements/reconciliation">三方对账</Link> }] : []),
+        ...(hasPermission('reconciliation:view') ? [{ key: '/reconciliation/dashboard', label: <Link to="/reconciliation/dashboard">三方对账</Link> }] : []),
         ...((hasPermission('closing:view') || hasPermission('closing:manage')) ? [{ key: '/closing', label: <Link to="/closing">账期结账</Link> }] : []),
       ],
     }] : []),

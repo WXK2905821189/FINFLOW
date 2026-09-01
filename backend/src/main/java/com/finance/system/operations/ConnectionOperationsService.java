@@ -16,7 +16,6 @@ import com.finance.system.operations.dto.ConnectionOverviewResponse;
 import com.finance.system.operations.dto.ConnectionSummaryResponse;
 import com.finance.system.operations.dto.DataQueryCapabilityResponse;
 import com.finance.system.operations.dto.OperationLogResponse;
-import com.finance.system.operations.dto.OperationTaskResponse;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -69,29 +68,6 @@ public class ConnectionOperationsService {
                 ? "当前没有已配置的连接，未执行任何外部调用。"
                 : "仅展示服务端连接元数据，未执行真实银行或金蝶调用。";
         return new ConnectionOverviewResponse(enabled, status, message, connections);
-    }
-
-    public PageResponse<OperationTaskResponse> tasks(Long userId, int page, int size, String connectionCode,
-                                                       String status, String requestId) {
-        long companyId = companyScope.companyIdForUser(userId);
-        Long connectionId = findConnectionId(companyId, connectionCode);
-        LambdaQueryWrapper<ConnectionOperationTask> query = new LambdaQueryWrapper<ConnectionOperationTask>()
-                .eq(ConnectionOperationTask::getCompanyId, companyId)
-                .eq(connectionId != null, ConnectionOperationTask::getConnectionId, connectionId)
-                .eq(status != null && !status.isBlank(), ConnectionOperationTask::getStatus, normalize(status))
-                .eq(requestId != null && !requestId.isBlank(), ConnectionOperationTask::getRequestId, requestId.trim())
-                .orderByDesc(ConnectionOperationTask::getCreatedAt)
-                .orderByDesc(ConnectionOperationTask::getId);
-        if (connectionCode != null && !connectionCode.isBlank() && connectionId == null) {
-            return new PageResponse<>(Math.max(1, page), boundedSize(size), 0, List.of());
-        }
-        Page<ConnectionOperationTask> result = taskMapper.selectPage(new Page<>(Math.max(1, page), boundedSize(size)), query);
-        Map<Long, ConnectionProfile> profiles = profileMap(companyId, result.getRecords().stream()
-                .map(ConnectionOperationTask::getConnectionId).toList());
-        List<OperationTaskResponse> records = result.getRecords().stream()
-                .map(task -> toTaskResponse(task, profiles.get(task.getConnectionId())))
-                .toList();
-        return new PageResponse<>(result.getCurrent(), result.getSize(), result.getTotal(), records);
     }
 
     public PageResponse<OperationLogResponse> logs(Long userId, int page, int size, String connectionCode,
@@ -163,12 +139,6 @@ public class ConnectionOperationsService {
         return new ConnectionSummaryResponse(profile.getConnectionCode(), profile.getDisplayName(),
                 profile.getProviderType(), Boolean.TRUE.equals(profile.getEnabled()), profile.getStatus(),
                 profile.getLastCheckedAt());
-    }
-
-    private OperationTaskResponse toTaskResponse(ConnectionOperationTask task, ConnectionProfile profile) {
-        return new OperationTaskResponse(task.getTaskNo(), task.getTaskType(),
-                profile == null ? null : profile.getConnectionCode(), task.getStatus(), task.getRequestId(),
-                task.getSummary(), task.getStartedAt(), task.getCompletedAt(), task.getCreatedAt());
     }
 
     private OperationLogResponse toLogResponse(ConnectionOperationLog log) {

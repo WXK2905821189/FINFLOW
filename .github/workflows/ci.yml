@@ -34,9 +34,10 @@ jobs:
            test -f "$migration_dir/V11__rules_closing_and_audit_center.sql"
            test -f "$migration_dir/V12__bankdata_unified_aggregation_trace.sql"
            test -f "$migration_dir/V13__permission_code_convergence.sql"
+           test -f "$migration_dir/V14__retire_dead_transfer_permissions.sql"
            test -f backend/src/main/resources/db/vendor-migration/h2/V7__drop_legacy_statement_number_uniqueness.sql
            test -f backend/src/main/resources/db/vendor-migration/mysql/V7__drop_legacy_statement_number_uniqueness.sql
-           expected_versions=(V1 V2 V3 V4 V5 V6 V8 V9 V10 V11 V12 V13)
+           expected_versions=(V1 V2 V3 V4 V5 V6 V8 V9 V10 V11 V12 V13 V14)
           actual_versions=()
           while IFS= read -r migration; do
             version="${migration##*/}"
@@ -49,16 +50,16 @@ jobs:
           grep -q 'raw.setRetentionUntil(receivedAt.plusDays(30))' backend/src/main/java/com/finance/system/bankdata/BankDataSyncEvidenceService.java
           grep -q 'Propagation.REQUIRES_NEW' backend/src/main/java/com/finance/system/bankdata/BankDataSyncEvidenceService.java
           grep -q '@Scheduled' backend/src/main/java/com/finance/system/bankdata/BankDataSyncScheduler.java
-          grep -q '@PostMapping("/sync-tasks")' backend/src/main/java/com/finance/system/bankdata/BankDataController.java
+          grep -q '@PostMapping("/bank-sync-jobs")' backend/src/main/java/com/finance/system/bankdata/BankPipelineController.java
           grep -q 'class MockBankDataAdapter' backend/src/main/java/com/finance/system/bankdata/adapter/MockBankDataAdapter.java
-          grep -q 'String requestId' backend/src/main/java/com/finance/system/bankdata/BankDataController.java
+          grep -q 'String requestId' backend/src/main/java/com/finance/system/bankdata/BankPipelineController.java
           grep -q 'url: \${DB_URL}' backend/src/main/resources/application-prod.yml
           grep -q 'username: \${DB_USERNAME}' backend/src/main/resources/application-prod.yml
           grep -q 'password: \${DB_PASSWORD}' backend/src/main/resources/application-prod.yml
           ! grep -q 'DB_USERNAME:finance' backend/src/main/resources/application-prod.yml
           ! grep -q 'useSSL=false' backend/src/main/resources/application-prod.yml
-          grep -q 'requestId' backend/src/main/java/com/finance/system/bankdata/BankDataController.java
-          grep -q 'resolveUnknown' backend/src/main/java/com/finance/system/bank/PaymentTransferService.java
+          grep -q 'requestId' backend/src/main/java/com/finance/system/bankdata/BankPipelineController.java
+          grep -q 'case UNKNOWN ->' backend/src/main/java/com/finance/system/bankdata/aggregation/BankDataAggregationService.java
           grep -q 'request_id' backend/src/main/resources/db/migration/V8__payment_request_audit_and_unknown_resolution.sql
           grep -q 'CONSTRAINT uk_bank_statement_business UNIQUE (company_id, bank_account_id, statement_no, transaction_time, amount)' "$migration_dir/V4__bank_data_access_foundation.sql"
           grep -q 'CREATE UNIQUE INDEX uk_bank_sync_task_request ON bank_data_sync_task(company_id, request_id)' "$migration_dir/V4__bank_data_access_foundation.sql"
@@ -146,7 +147,7 @@ jobs:
           app_pid=$!
           trap 'kill "$app_pid" 2>/dev/null || true; wait "$app_pid" 2>/dev/null || true' EXIT
           wait_for_health "$first_log"
-          grep -q 'Successfully applied 13 migrations' "$first_log"
+          grep -q 'Successfully applied 14 migrations' "$first_log"
           kill "$app_pid"
           wait "$app_pid" || true
           app_pid=""
@@ -158,7 +159,7 @@ jobs:
             > "$repeat_log" 2>&1 &
           app_pid=$!
           wait_for_health "$repeat_log"
-          grep -q 'Successfully validated 13 migrations' "$repeat_log"
+          grep -q 'Successfully validated 14 migrations' "$repeat_log"
           ! grep -q 'Migrating schema' "$repeat_log"
           kill "$app_pid"
           wait "$app_pid" || true
@@ -254,7 +255,8 @@ jobs:
           grep -q 'Migrating schema.*version "11' "$incremental_log"
           grep -q 'Migrating schema.*version "12' "$incremental_log"
           grep -q 'Migrating schema.*version "13' "$incremental_log"
-          grep -q 'Successfully applied 8 migrations' "$incremental_log"
+          grep -q 'Migrating schema.*version "14' "$incremental_log"
+          grep -q 'Successfully applied 9 migrations' "$incremental_log"
           kill "$app_pid"
           wait "$app_pid" || true
           app_pid=""
@@ -265,7 +267,7 @@ jobs:
             > "$repeat_log" 2>&1 &
           app_pid=$!
           wait_for_health "$repeat_log"
-          grep -q 'Successfully validated 13 migrations' "$repeat_log"
+          grep -q 'Successfully validated 14 migrations' "$repeat_log"
           ! grep -q 'Migrating schema' "$repeat_log"
           kill "$app_pid"
           wait "$app_pid" || true

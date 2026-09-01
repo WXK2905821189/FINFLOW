@@ -6,7 +6,6 @@ import com.finance.system.operations.dto.ConnectionConfigurationResponse;
 import com.finance.system.operations.dto.ConnectionOverviewResponse;
 import com.finance.system.operations.dto.DataQueryCapabilityResponse;
 import com.finance.system.operations.dto.OperationLogResponse;
-import com.finance.system.operations.dto.OperationTaskResponse;
 import com.finance.system.security.UserPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -43,19 +42,6 @@ public class ConnectionOperationsController {
     @Operation(summary = "Read connection status overview")
     public ApiResponse<ConnectionOverviewResponse> connections(@AuthenticationPrincipal UserPrincipal principal) {
         return ApiResponse.success(service.overview(principal.getId()));
-    }
-
-    @GetMapping("/operations/tasks")
-    @PreAuthorize("hasAuthority('operation:monitor')")
-    @Operation(summary = "List connection operation tasks")
-    public ApiResponse<PageResponse<OperationTaskResponse>> tasks(
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int size,
-            @RequestParam(required = false) String connectionCode,
-            @RequestParam(required = false) String status,
-            @RequestParam(required = false) String requestId,
-            @AuthenticationPrincipal UserPrincipal principal) {
-        return ApiResponse.success(service.tasks(principal.getId(), page, size, connectionCode, status, requestId));
     }
 
     @GetMapping("/operations/logs")

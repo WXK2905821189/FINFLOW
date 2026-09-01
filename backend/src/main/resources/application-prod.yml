@@ -15,9 +15,6 @@ app:
   jwt:
     secret: ${JWT_SECRET}
     expiration: ${JWT_EXPIRATION:2h}
-  product:
-    active-payment-enabled: ${PAYMENT_ENABLED:false}
-
 bank:
   citic:
     mock-mode: ${CITIC_MOCK_MODE:true}

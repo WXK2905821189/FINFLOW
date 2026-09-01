@@ -10,7 +10,6 @@ import type {
   NotificationDelivery,
   DataQueryCapability,
   OperationLog,
-  OperationTask,
   BankAccount,
   BankDataProjectionPage,
   BankSyncJob,
@@ -77,7 +76,6 @@ type OperationListParams = { page?: number; size?: number; connectionCode?: stri
 export const operationsApi = {
   configuration: (section: 'applications' | 'contracts' | 'preferences') => http.get<never, ConnectionConfiguration>('/connections/configuration', { params: { section } }),
   connectionOverview: () => http.get<never, ConnectionOverview>('/operations/connections'),
-  tasks: (params: OperationListParams) => http.get<never, PageResponse<OperationTask>>('/operations/tasks', { params }),
   logs: (params: OperationListParams) => http.get<never, PageResponse<OperationLog>>('/operations/logs', { params }),
   dataCapability: (resource: string) => http.get<never, DataQueryCapability>(`/data/${resource}`),
 };

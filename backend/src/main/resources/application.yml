@@ -26,9 +26,6 @@ app:
   jwt:
     secret: dev-only-secret-change-me-before-production-2026
     expiration: 2h
-  product:
-    active-payment-enabled: ${PAYMENT_ENABLED:false}
-
 springdoc:
   api-docs:
     path: /v3/api-docs

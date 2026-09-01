@@ -8,7 +8,6 @@ export type {
   ConnectionSummary,
   ConnectionConfiguration,
   ConnectionOverview,
-  OperationTask,
   OperationLog,
   DataQueryCapability,
   BankSyncJobTrigger,

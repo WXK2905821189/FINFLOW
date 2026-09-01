@@ -34,18 +34,6 @@ export type ConnectionOverview = {
   connections: ConnectionSummary[];
 };
 
-export type OperationTask = {
-  taskNo: string;
-  taskType: string;
-  connectionCode?: string;
-  status: string;
-  requestId?: string;
-  summary?: string;
-  startedAt?: string;
-  completedAt?: string;
-  createdAt: string;
-};
-
 export type OperationLog = {
   taskId?: number;
   level: string;

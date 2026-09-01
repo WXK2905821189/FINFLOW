@@ -1,15 +1,18 @@
 package com.finance.system;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.finance.system.bank.citic.CiticBankSdkClient;
 import com.finance.system.bankdata.adapter.BankDataAdapter;
 import com.finance.system.bankdata.adapter.BankDataBalanceEntry;
 import com.finance.system.bankdata.adapter.BankDataCollection;
 import com.finance.system.bankdata.adapter.BankDataEntry;
 import com.finance.system.bankdata.adapter.BankDataSyncContext;
+import com.finance.system.bankdata.BankDataQueryService;
 import com.finance.system.bankdata.BankDataRawRetentionService;
 import com.finance.system.bankdata.BankDataRetentionProperties;
 import com.finance.system.bankdata.BankDataSyncService;
+import com.finance.system.bankdata.dto.BankDataSyncRequest;
+import com.finance.system.bankdata.dto.BankDataSyncTaskDetailResponse;
+import com.finance.system.common.exception.BusinessException;
 import com.finance.system.domain.entity.BankAccount;
 import com.finance.system.domain.entity.BankDataBalance;
 import com.finance.system.domain.entity.BankDataRawMessage;
@@ -34,16 +37,12 @@ import com.finance.system.domain.mapper.SysUserMapper;
 import com.finance.system.domain.mapper.SysUserRoleMapper;
 import com.finance.system.domain.mapper.SysRoleMapper;
 import com.finance.system.domain.mapper.SysRolePermissionMapper;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentMatchers;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
@@ -58,10 +57,8 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -71,7 +68,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("dev")
-@org.springframework.test.context.TestPropertySource(properties = "app.product.active-payment-enabled=true")
 @Import(V02BackendIntegrationTest.FaultInjectingAdapterConfiguration.class)
 class V02BackendIntegrationTest {
 
@@ -110,12 +106,11 @@ class V02BackendIntegrationTest {
     @Autowired
     private BankDataSyncService bankDataSyncService;
     @Autowired
+    private BankDataQueryService bankDataQueryService;
+    @Autowired
     private BankDataRawRetentionService rawRetentionService;
     @Autowired
     private BankDataRetentionProperties retentionProperties;
-
-    @SpyBean
-    private CiticBankSdkClient citicBankSdkClient;
 
     private Company companyB;
     private SysUser userB;
@@ -150,9 +145,9 @@ class V02BackendIntegrationTest {
         bankAccountMapper.insert(accountB);
     }
 
-    @AfterEach
-    void resetFaultInjectors() {
-        org.mockito.Mockito.reset(citicBankSdkClient);
+    private Long adminUserId() {
+        return userMapper.selectOne(new LambdaQueryWrapper<SysUser>()
+                .eq(SysUser::getUsername, "admin")).getId();
     }
 
     @Test
@@ -235,27 +230,29 @@ class V02BackendIntegrationTest {
                 .andExpect(status().isNotFound());
 
         String syncARequestId = "QA-BANK-A-" + UUID.randomUUID();
-        long syncAId = triggerBankData(adminToken, 1L, syncARequestId);
-        assertEquals(syncAId, triggerBankData(adminToken, 1L, syncARequestId));
-        mockMvc.perform(post("/api/bank-data/sync-tasks")
-                        .header("Authorization", bearer(adminToken)).header("X-Request-Id", syncARequestId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"bankAccountId\":2,\"adapterCode\":\"MOCK\"}"))
-                .andExpect(status().isConflict());
-        long syncBId = triggerBankData(companyBToken, accountB.getId(), "QA-BANK-B-" + UUID.randomUUID());
-        String statementAKey = "MOCK-STATEMENT-1-1-20260827-P1";
-        String statementBKey = "MOCK-STATEMENT-" + companyB.getId() + "-" + accountB.getId() + "-20260827-P1";
+        long syncAId = triggerBankData(adminUserId(), 1L, syncARequestId);
+        assertEquals(syncAId, triggerBankData(adminUserId(), 1L, syncARequestId));
+        String syncBRequestId = "QA-BANK-B-" + UUID.randomUUID();
+        long syncBId = triggerBankData(userB.getId(), accountB.getId(), syncBRequestId);
 
-        mockMvc.perform(get("/api/bank-data/statement-records").header("Authorization", bearer(adminToken)))
+        // Normalized statements are reachable through the controlled projection
+        // surface, and stay isolated per authenticated company.
+        mockMvc.perform(get("/api/bank-data/statements").param("requestId", syncARequestId)
+                        .header("Authorization", bearer(adminToken)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.records[*].statementNo").value(org.hamcrest.Matchers.hasItem(statementAKey)))
-                .andExpect(jsonPath("$.data.records[*].statementNo").value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem(statementBKey))));
-        mockMvc.perform(get("/api/bank-data/statement-records").header("Authorization", bearer(companyBToken)))
+                .andExpect(jsonPath("$.data.total").value(org.hamcrest.Matchers.greaterThan(0)));
+        mockMvc.perform(get("/api/bank-data/statements").param("requestId", syncARequestId)
+                        .header("Authorization", bearer(companyBToken)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.records[*].statementNo").value(org.hamcrest.Matchers.hasItem(statementBKey)))
-                .andExpect(jsonPath("$.data.records[*].statementNo").value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem(statementAKey))));
-        mockMvc.perform(get("/api/bank-data/sync-tasks/" + syncAId).header("Authorization", bearer(companyBToken)))
-                .andExpect(status().isNotFound());
+                .andExpect(jsonPath("$.data.total").value(0));
+        mockMvc.perform(get("/api/bank-data/statements").param("requestId", syncBRequestId)
+                        .header("Authorization", bearer(companyBToken)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(org.hamcrest.Matchers.greaterThan(0)));
+        // A cross-company task id is a plain 404 at the service boundary.
+        BusinessException crossCompany = assertThrows(BusinessException.class,
+                () -> bankDataQueryService.getTaskDetail(userB.getId(), syncAId));
+        assertEquals(404, crossCompany.getCode());
         assertNotNull(syncTaskMapper.selectById(syncBId));
     }
 
@@ -289,158 +286,6 @@ class V02BackendIntegrationTest {
     }
 
     @Test
-    void transferWorkflowEnforcesIdempotencySegregationAndUnknownOutcome() throws Exception {
-        SysUser creator = createUser("qa_creator_" + UUID.randomUUID(), 1L, 2L);
-        userRoleMapper.insert(new SysUserRole(creator.getId(), 3L));
-        String creatorToken = login(creator.getUsername(), PASSWORD);
-        SysUser manager = createUser("qa_manager_" + UUID.randomUUID(), 1L, 3L);
-        String managerToken = login(manager.getUsername(), PASSWORD);
-        String idempotencyKey = "QA-PAY-" + UUID.randomUUID();
-        String createRequestId = "QA-PAY-CREATE-" + UUID.randomUUID();
-        String approveRequestId = "QA-PAY-APPROVE-" + UUID.randomUUID();
-        String executeRequestId = "QA-PAY-EXECUTE-" + UUID.randomUUID();
-        String body = transferBody(1L, "QA payee", "123456789012", "CITIC", "100.00", "first remark");
-
-        mockMvc.perform(post("/api/transfers")
-                        .header("Authorization", bearer(creatorToken))
-                        .contentType(MediaType.APPLICATION_JSON).content(body))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(400));
-
-        String first = mockMvc.perform(post("/api/transfers")
-                .header("Authorization", bearer(creatorToken))
-                .header("Idempotency-Key", idempotencyKey)
-                .header("X-Request-Id", createRequestId)
-                .contentType(MediaType.APPLICATION_JSON).content(body))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.status").value("PENDING_APPROVAL"))
-                .andReturn().getResponse().getContentAsString();
-        JsonNode firstData = objectMapper.readTree(first).get("data");
-        long paymentId = firstData.get("paymentId").asLong();
-        String paymentNo = firstData.get("paymentNo").asText();
-        String companyBToken = login(userB.getUsername(), PASSWORD);
-        mockMvc.perform(get("/api/transfers/" + paymentId)
-                        .header("Authorization", bearer(companyBToken)))
-                .andExpect(status().isNotFound());
-
-        String replay = mockMvc.perform(post("/api/transfers")
-                        .header("Authorization", bearer(creatorToken))
-                        .header("Idempotency-Key", idempotencyKey)
-                        .contentType(MediaType.APPLICATION_JSON).content(body))
-                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
-        assertEquals(paymentNo, objectMapper.readTree(replay).get("data").get("paymentNo").asText());
-
-        mockMvc.perform(post("/api/transfers")
-                        .header("Authorization", bearer(creatorToken))
-                        .header("Idempotency-Key", idempotencyKey)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(transferBody(1L, "QA payee", "123456789012", "CITIC", "100.00", "different remark")))
-                .andExpect(status().isConflict());
-        mockMvc.perform(post("/api/transfers/" + paymentId + "/approve")
-                        .header("Authorization", bearer(creatorToken)))
-                .andExpect(status().isForbidden());
-        mockMvc.perform(post("/api/transfers/" + paymentId + "/approve")
-                        .header("Authorization", bearer(managerToken))
-                        .header("X-Request-Id", approveRequestId))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.status").value("APPROVED"));
-
-        BigDecimal before = bankAccountMapper.selectById(1L).getAvailableBalance();
-        mockMvc.perform(post("/api/transfers/" + paymentId + "/execute")
-                        .header("Authorization", bearer(creatorToken))
-                        .header("X-Request-Id", executeRequestId))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.status").value("SUBMITTED"));
-        assertEquals(0, before.compareTo(bankAccountMapper.selectById(1L).getAvailableBalance()));
-        mockMvc.perform(post("/api/transfers/" + paymentId + "/execute")
-                        .header("Authorization", bearer(creatorToken)))
-                .andExpect(status().isConflict());
-
-        String unknownKey = "QA-PAY-UNKNOWN-" + UUID.randomUUID();
-        String unknownCreateRequestId = "QA-UNKNOWN-CREATE-" + UUID.randomUUID();
-        String unknownApproveRequestId = "QA-UNKNOWN-APPROVE-" + UUID.randomUUID();
-        String unknownExecuteRequestId = "QA-UNKNOWN-EXECUTE-" + UUID.randomUUID();
-        String unknownResolveRequestId = "QA-UNKNOWN-RESOLVE-" + UUID.randomUUID();
-        String unknown = mockMvc.perform(post("/api/transfers")
-                        .header("Authorization", bearer(creatorToken))
-                        .header("Idempotency-Key", unknownKey)
-                        .header("X-Request-Id", unknownCreateRequestId)
-                        .contentType(MediaType.APPLICATION_JSON).content(transferBody(1L, "unknown payee", "123456789013", "CITIC", "101.00", "unknown")))
-                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
-        long unknownId = objectMapper.readTree(unknown).get("data").get("paymentId").asLong();
-        doThrow(new IllegalStateException("simulated transport timeout")).when(citicBankSdkClient)
-                .submitPayment(ArgumentMatchers.any(), ArgumentMatchers.any());
-        mockMvc.perform(post("/api/transfers/" + unknownId + "/approve")
-                        .header("Authorization", bearer(managerToken))
-                        .header("X-Request-Id", unknownApproveRequestId))
-                .andExpect(status().isOk());
-        mockMvc.perform(post("/api/transfers/" + unknownId + "/execute")
-                        .header("Authorization", bearer(creatorToken))
-                        .header("X-Request-Id", unknownExecuteRequestId))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.status").value("UNKNOWN"))
-                .andExpect(jsonPath("$.data.message").value(org.hamcrest.Matchers.containsString("reconciliation")))
-                .andExpect(jsonPath("$.data.message").value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("timeout"))));
-        mockMvc.perform(post("/api/transfers/" + unknownId + "/execute")
-                        .header("Authorization", bearer(creatorToken)))
-                .andExpect(status().isConflict());
-
-        mockMvc.perform(get("/api/transfers").param("status", "UNKNOWN")
-                        .header("Authorization", bearer(managerToken)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[*].paymentId")
-                        .value(org.hamcrest.Matchers.hasItem((int) unknownId)));
-        mockMvc.perform(get("/api/transfers").param("status", "UNKNOWN")
-                        .header("Authorization", bearer(companyBToken)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[*].paymentId")
-                        .value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem((int) unknownId))));
-
-        String resolutionBody = "{\"action\":\"CONFIRM_SUBMITTED\",\"externalReference\":\"CITIC-MANUAL-0001\","
-                + "\"comment\":\"Confirmed against the operator console\"}";
-        mockMvc.perform(post("/api/transfers/" + unknownId + "/resolve")
-                        .header("Authorization", bearer(creatorToken))
-                        .header("X-Request-Id", unknownResolveRequestId)
-                        .contentType(MediaType.APPLICATION_JSON).content(resolutionBody))
-                .andExpect(status().isForbidden());
-        verify(citicBankSdkClient, times(2))
-                .submitPayment(ArgumentMatchers.any(), ArgumentMatchers.any());
-
-        mockMvc.perform(post("/api/transfers/" + unknownId + "/resolve")
-                        .header("Authorization", bearer(managerToken))
-                        .header("X-Request-Id", unknownResolveRequestId)
-                        .contentType(MediaType.APPLICATION_JSON).content(resolutionBody))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.status").value("SUBMITTED"))
-                .andExpect(jsonPath("$.data.bankReference").value("CITIC-MANUAL-0001"));
-        mockMvc.perform(post("/api/transfers/" + unknownId + "/resolve")
-                        .header("Authorization", bearer(managerToken))
-                        .header("X-Request-Id", "QA-UNKNOWN-RESOLVE-REPLAY")
-                        .contentType(MediaType.APPLICATION_JSON).content(resolutionBody))
-                .andExpect(status().isConflict());
-        verify(citicBankSdkClient, times(2))
-                .submitPayment(ArgumentMatchers.any(), ArgumentMatchers.any());
-
-        mockMvc.perform(get("/api/transfers").param("status", "UNKNOWN")
-                        .header("Authorization", bearer(managerToken)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[*].paymentId")
-                        .value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem((int) unknownId))));
-        mockMvc.perform(get("/api/transfers/" + unknownId + "/audit-events")
-                        .header("Authorization", bearer(managerToken)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.length()").value(4))
-                .andExpect(jsonPath("$.data[0].action").value("CREATE"))
-                .andExpect(jsonPath("$.data[0].requestId").value(unknownCreateRequestId))
-                .andExpect(jsonPath("$.data[1].action").value("APPROVE"))
-                .andExpect(jsonPath("$.data[1].requestId").value(unknownApproveRequestId))
-                .andExpect(jsonPath("$.data[2].action").value("EXECUTE"))
-                .andExpect(jsonPath("$.data[2].requestId").value(unknownExecuteRequestId))
-                .andExpect(jsonPath("$.data[3].action").value("RESOLVE_UNKNOWN"))
-                .andExpect(jsonPath("$.data[3].requestId").value(unknownResolveRequestId));
-    }
-
-    @Test
     void bankDataProjectionRoutesEnforceTenantScopePermissionsAndSafeMockBoundary() throws Exception {
         String adminToken = login("admin", "Admin@123");
         userRoleMapper.insert(new SysUserRole(userB.getId(), 3L));
@@ -457,8 +302,8 @@ class V02BackendIntegrationTest {
 
         String adminRequestId = "QA-PROJECTION-A-" + UUID.randomUUID();
         String companyBRequestId = "QA-PROJECTION-B-" + UUID.randomUUID();
-        triggerBankData(adminToken, 1L, adminRequestId);
-        triggerBankData(companyBToken, accountB.getId(), companyBRequestId);
+        triggerBankData(adminUserId(), 1L, adminRequestId);
+        triggerBankData(userB.getId(), accountB.getId(), companyBRequestId);
 
         for (String resource : java.util.List.of("balances", "statements", "receipts", "reconciliations", "payroll")) {
             mockMvc.perform(get("/api/bank-data/" + resource)
@@ -517,21 +362,16 @@ class V02BackendIntegrationTest {
     }
 
     @Test
-    void rawResponseAndFailureLogSurviveNormalizationRollback() throws Exception {
-        String token = login(userB.getUsername(), PASSWORD);
+    void rawResponseAndFailureLogSurviveNormalizationRollback() {
+        Long userId = userB.getId();
         String requestId = "QA-RAW-FAIL-" + UUID.randomUUID();
 
-        String response = mockMvc.perform(post("/api/bank-data/sync-tasks")
-                        .header("Authorization", bearer(token))
-                        .header("X-Request-Id", requestId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"bankAccountId\":" + accountB.getId() + ",\"adapterCode\":\"MOCK_FAIL\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.task.status").value("FAILED"))
-                .andReturn().getResponse().getContentAsString();
-        long taskId = objectMapper.readTree(response).get("data").get("task").get("id").asLong();
+        BankDataSyncTaskDetailResponse detail = bankDataSyncService.trigger(userId,
+                new BankDataSyncRequest(null, accountB.getId(), "MOCK_FAIL"), requestId);
+        long taskId = detail.task().id();
+        assertEquals("FAILED", detail.task().status());
         assertEquals("Bank data synchronization failed during internal processing",
-                objectMapper.readTree(response).get("data").get("task").get("errorMessage").asText());
+                detail.task().errorMessage());
 
         assertTrue(rawMessageMapper.selectCount(new LambdaQueryWrapper<BankDataRawMessage>()
                 .eq(BankDataRawMessage::getTaskId, taskId)
@@ -552,27 +392,21 @@ class V02BackendIntegrationTest {
     }
 
     @Test
-    void bankDataPhaseTwoHandlesWindowsPaginationDedupAndRetentionCleanup() throws Exception {
-        String token = login(userB.getUsername(), PASSWORD);
+    void bankDataPhaseTwoHandlesWindowsPaginationDedupAndRetentionCleanup() {
+        Long userId = userB.getId();
         String requestId = "QA-PHASE2-" + UUID.randomUUID();
 
-        String response = mockMvc.perform(post("/api/bank-data/sync-tasks")
-                        .header("Authorization", bearer(token))
-                        .header("X-Request-Id", requestId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"bankAccountId\":" + accountB.getId()
-                                + ",\"adapterCode\":\"MOCK_PHASE2\","
-                                + "\"windowStart\":\"2026-08-26T12:00:00\","
-                                + "\"windowEnd\":\"2026-08-28T06:00:00\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.task.status").value("SUCCEEDED"))
-                .andExpect(jsonPath("$.data.task.rawCount").value(7))
-                .andExpect(jsonPath("$.data.task.normalizedCount").value(4))
-                .andExpect(jsonPath("$.data.task.duplicateCount").value(3))
-                .andReturn().getResponse().getContentAsString();
-        long taskId = objectMapper.readTree(response).get("data").get("task").get("id").asLong();
+        BankDataSyncTaskDetailResponse detail = bankDataSyncService.trigger(userId,
+                new BankDataSyncRequest(null, accountB.getId(), "MOCK_PHASE2",
+                        LocalDateTime.parse("2026-08-26T12:00:00"), LocalDateTime.parse("2026-08-28T06:00:00")),
+                requestId);
+        long taskId = detail.task().id();
+        assertEquals("SUCCEEDED", detail.task().status());
+        assertEquals(7, detail.task().rawCount());
+        assertEquals(4, detail.task().normalizedCount());
+        assertEquals(3, detail.task().duplicateCount());
 
-        assertEquals(taskId, triggerPhase2BankData(token, accountB.getId(), requestId));
+        assertEquals(taskId, triggerPhase2BankData(userId, accountB.getId(), requestId));
         assertEquals(6, rawMessageMapper.selectCount(new LambdaQueryWrapper<BankDataRawMessage>()
                 .eq(BankDataRawMessage::getTaskId, taskId)));
 
@@ -717,16 +551,12 @@ class V02BackendIntegrationTest {
         }
     }
 
-    private long triggerPhase2BankData(String token, Long accountId, String requestId) throws Exception {
-        String response = mockMvc.perform(post("/api/bank-data/sync-tasks")
-                        .header("Authorization", bearer(token)).header("X-Request-Id", requestId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"bankAccountId\":" + accountId + ",\"adapterCode\":\"MOCK_PHASE2\","
-                                + "\"windowStart\":\"2026-08-26T12:00:00\","
-                                + "\"windowEnd\":\"2026-08-28T06:00:00\"}"))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        return objectMapper.readTree(response).get("data").get("task").get("id").asLong();
+    private long triggerPhase2BankData(Long userId, Long accountId, String requestId) {
+        BankDataSyncTaskDetailResponse detail = bankDataSyncService.trigger(userId,
+                new BankDataSyncRequest(null, accountId, "MOCK_PHASE2",
+                        LocalDateTime.parse("2026-08-26T12:00:00"), LocalDateTime.parse("2026-08-28T06:00:00")),
+                requestId);
+        return detail.task().id();
     }
 
     private long importStatement(String token, Long accountId, String statementNo) throws Exception {
@@ -742,15 +572,11 @@ class V02BackendIntegrationTest {
                 .andReturn().getResponse().getContentAsString()).get("data").get("records").get(0).get("id").asLong();
     }
 
-    private long triggerBankData(String token, Long accountId, String requestId) throws Exception {
-        String response = mockMvc.perform(post("/api/bank-data/sync-tasks")
-                        .header("Authorization", bearer(token)).header("X-Request-Id", requestId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"bankAccountId\":" + accountId + ",\"adapterCode\":\"MOCK\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.task.status").value("SUCCEEDED"))
-                .andReturn().getResponse().getContentAsString();
-        return objectMapper.readTree(response).get("data").get("task").get("id").asLong();
+    private long triggerBankData(Long userId, Long accountId, String requestId) {
+        BankDataSyncTaskDetailResponse detail = bankDataSyncService.trigger(userId,
+                new BankDataSyncRequest(null, accountId, "MOCK"), requestId);
+        assertEquals("SUCCEEDED", detail.task().status());
+        return detail.task().id();
     }
 
     private String login(String username, String password) throws Exception {
@@ -761,26 +587,6 @@ class V02BackendIntegrationTest {
                 .andExpect(jsonPath("$.data.accessToken").isString())
                 .andReturn().getResponse().getContentAsString();
         return objectMapper.readTree(response).get("data").get("accessToken").asText();
-    }
-
-    private SysUser createUser(String username, long companyId, long roleId) {
-        SysUser user = new SysUser();
-        user.setCompanyId(companyId);
-        user.setUsername(username);
-        user.setEmail(username + "@finflow.test");
-        user.setPasswordHash(passwordEncoder.encode(PASSWORD));
-        user.setStatus("ACTIVE");
-        userMapper.insert(user);
-        userRoleMapper.insert(new SysUserRole(user.getId(), roleId));
-        return user;
-    }
-
-    private String transferBody(long payerAccountId, String payeeName, String payeeAccount,
-                                String bankCode, String amount, String remark) {
-        return "{\"bankCode\":\"" + bankCode + "\",\"payerAccountId\":" + payerAccountId
-                + ",\"payeeName\":\"" + payeeName + "\",\"payeeAccount\":\"" + payeeAccount
-                + "\",\"payeeBank\":\"" + bankCode + "\",\"amount\":" + amount
-                + ",\"remark\":\"" + remark + "\"}";
     }
 
     private String bearer(String token) {

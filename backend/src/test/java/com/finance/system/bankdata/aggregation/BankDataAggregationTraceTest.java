@@ -6,6 +6,10 @@ import com.finance.system.bankdata.adapter.BankDataAdapter;
 import com.finance.system.bankdata.adapter.BankDataCollection;
 import com.finance.system.bankdata.adapter.BankDataEntry;
 import com.finance.system.bankdata.adapter.BankDataSyncContext;
+import com.finance.system.bankdata.BankDataQueryService;
+import com.finance.system.bankdata.BankDataSyncService;
+import com.finance.system.bankdata.dto.BankDataSyncRequest;
+import com.finance.system.bankdata.dto.BankDataSyncTaskDetailResponse;
 import com.finance.system.common.exception.BusinessException;
 import com.finance.system.domain.entity.BankAccount;
 import com.finance.system.domain.entity.Company;
@@ -69,6 +73,10 @@ class BankDataAggregationTraceTest {
     private BankAccountMapper bankAccountMapper;
     @Autowired
     private BankDataAggregationService aggregationService;
+    @Autowired
+    private BankDataSyncService bankDataSyncService;
+    @Autowired
+    private BankDataQueryService bankDataQueryService;
 
     private Company companyB;
     private SysUser userB;
@@ -101,6 +109,11 @@ class BankDataAggregationTraceTest {
         accountB.setAvailableBalance(new BigDecimal("400000.00"));
         accountB.setStatus("ACTIVE");
         bankAccountMapper.insert(accountB);
+    }
+
+    private Long adminUserId() {
+        return userMapper.selectOne(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<SysUser>()
+                .eq(SysUser::getUsername, "admin")).getId();
     }
 
     @Test
@@ -139,7 +152,7 @@ class BankDataAggregationTraceTest {
     void traceChainsTaskRawSummaryNormalizedRecordsAndProjection() throws Exception {
         String adminToken = login("admin", "Admin@123");
         String requestId = "AGG-TRACE-" + UUID.randomUUID();
-        long taskId = triggerSync(adminToken, 1L, requestId, "MOCK",
+        long taskId = triggerSync(adminUserId(), 1L, requestId, "MOCK",
                 "2026-09-07T00:00:00", "2026-09-08T00:00:00");
 
         String body = mockMvc.perform(get("/api/bank-data-trace")
@@ -175,27 +188,20 @@ class BankDataAggregationTraceTest {
                 .andExpect(jsonPath("$.data.task.requestId").value(requestId));
 
         // Normalized records and projections are reachable through the same request id.
-        mockMvc.perform(get("/api/bank-data/statement-records")
-                        .param("requestId", requestId)
-                        .header("Authorization", bearer(adminToken)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.total").value((int) statementCount));
         mockMvc.perform(get("/api/bank-data/statements")
                         .param("requestId", requestId)
                         .header("Authorization", bearer(adminToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value((int) statementCount));
-        mockMvc.perform(get("/api/bank-data/balance-snapshots")
+        mockMvc.perform(get("/api/bank-data/balances")
                         .param("requestId", requestId)
                         .header("Authorization", bearer(adminToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(org.hamcrest.Matchers.greaterThan(0)));
         // Sync logs carry the bank request number that ties the chain together.
-        mockMvc.perform(get("/api/bank-data/sync-tasks/" + taskId)
-                        .header("Authorization", bearer(adminToken)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.logs[*].bankRequestNo")
-                        .value(org.hamcrest.Matchers.hasItem(bankRequestNo)));
+        BankDataSyncTaskDetailResponse detail = bankDataQueryService.getTaskDetail(adminUserId(), taskId);
+        assertTrue(detail.logs().stream().anyMatch(log -> bankRequestNo.equals(log.bankRequestNo())),
+                "sync logs must carry the bank request number");
     }
 
     @Test
@@ -205,7 +211,7 @@ class BankDataAggregationTraceTest {
         String companyBToken = login(userB.getUsername(), PASSWORD);
 
         String requestId = "AGG-ISOLATED-" + UUID.randomUUID();
-        triggerSync(adminToken, 1L, requestId, "MOCK", "2026-09-01T00:00:00", "2026-09-02T00:00:00");
+        triggerSync(adminUserId(), 1L, requestId, "MOCK", "2026-09-01T00:00:00", "2026-09-02T00:00:00");
 
         // Company B must see a plain 404, not a distinguishable "exists but forbidden" response.
         mockMvc.perform(get("/api/bank-data-trace")
@@ -216,7 +222,7 @@ class BankDataAggregationTraceTest {
 
         // Company B can still resolve its own chain.
         String ownRequestId = "AGG-OWN-" + UUID.randomUUID();
-        triggerSync(companyBToken, accountB.getId(), ownRequestId, "MOCK",
+        triggerSync(userB.getId(), accountB.getId(), ownRequestId, "MOCK",
                 "2026-09-03T00:00:00", "2026-09-04T00:00:00");
         mockMvc.perform(get("/api/bank-data-trace")
                         .param("requestId", ownRequestId)
@@ -239,7 +245,7 @@ class BankDataAggregationTraceTest {
     void traceResponseNeverExposesRawPayloadOrBankSpecificFields() throws Exception {
         String adminToken = login("admin", "Admin@123");
         String requestId = "AGG-SAFE-" + UUID.randomUUID();
-        triggerSync(adminToken, 1L, requestId, "MOCK", "2026-09-05T00:00:00", "2026-09-06T00:00:00");
+        triggerSync(adminUserId(), 1L, requestId, "MOCK", "2026-09-05T00:00:00", "2026-09-06T00:00:00");
 
         String body = mockMvc.perform(get("/api/bank-data-trace")
                         .param("requestId", requestId)
@@ -261,25 +267,17 @@ class BankDataAggregationTraceTest {
         String adminToken = login("admin", "Admin@123");
 
         String pendingRequestId = "AGG-PENDING-" + UUID.randomUUID();
-        mockMvc.perform(post("/api/bank-data/sync-tasks")
-                        .header("Authorization", bearer(adminToken))
-                        .header("X-Request-Id", pendingRequestId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"bankAccountId\":1,\"adapterCode\":\"MOCK_PENDING\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.task.status").value("PENDING"))
-                .andExpect(jsonPath("$.data.task.normalizedCount").value(0))
-                .andExpect(jsonPath("$.data.task.mappingVersion").value("FINFLOW-BANKDATA-V1"));
+        BankDataSyncTaskDetailResponse pending = bankDataSyncService.trigger(adminUserId(),
+                new BankDataSyncRequest(null, 1L, "MOCK_PENDING"), pendingRequestId);
+        assertEquals("PENDING", pending.task().status());
+        assertEquals(0, pending.task().normalizedCount());
+        assertEquals("FINFLOW-BANKDATA-V1", pending.task().mappingVersion());
 
         String unknownRequestId = "AGG-UNKNOWN-" + UUID.randomUUID();
-        mockMvc.perform(post("/api/bank-data/sync-tasks")
-                        .header("Authorization", bearer(adminToken))
-                        .header("X-Request-Id", unknownRequestId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"bankAccountId\":2,\"adapterCode\":\"MOCK_UNKNOWN\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.task.status").value("UNKNOWN"))
-                .andExpect(jsonPath("$.data.task.normalizedCount").value(0));
+        BankDataSyncTaskDetailResponse unknown = bankDataSyncService.trigger(adminUserId(),
+                new BankDataSyncRequest(null, 2L, "MOCK_UNKNOWN"), unknownRequestId);
+        assertEquals("UNKNOWN", unknown.task().status());
+        assertEquals(0, unknown.task().normalizedCount());
 
         // A deferred result still leaves raw evidence traceable, so reconciliation can continue.
         mockMvc.perform(get("/api/bank-data-trace")
@@ -296,13 +294,13 @@ class BankDataAggregationTraceTest {
         String adminToken = login("admin", "Admin@123");
 
         String originalRequestId = "AGG-REUSE-ORIG-" + UUID.randomUUID();
-        long taskId = triggerSync(adminToken, 1L, originalRequestId, "MOCK",
+        long taskId = triggerSync(adminUserId(), 1L, originalRequestId, "MOCK",
                 "2026-09-09T00:00:00", "2026-09-10T00:00:00");
 
         // Same account + adapter + window, different request id: idempotent reuse
         // returns the original task, but the new request id must be recorded (D7-A).
         String reusedRequestId = "AGG-REUSE-NEW-" + UUID.randomUUID();
-        long reusedTaskId = triggerSync(adminToken, 1L, reusedRequestId, "MOCK",
+        long reusedTaskId = triggerSync(adminUserId(), 1L, reusedRequestId, "MOCK",
                 "2026-09-09T00:00:00", "2026-09-10T00:00:00");
         assertEquals(taskId, reusedTaskId, "syncKey hit must reuse the original task");
 
@@ -315,30 +313,22 @@ class BankDataAggregationTraceTest {
                 .andExpect(jsonPath("$.data.task.requestId").value(originalRequestId));
 
         // The audit trail records the reuse with the caller's request id.
-        mockMvc.perform(get("/api/bank-data/sync-tasks/" + taskId)
-                        .header("Authorization", bearer(adminToken)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.logs[*].eventType")
-                        .value(org.hamcrest.Matchers.hasItem("TASK_REUSED")))
-                .andExpect(jsonPath("$.data.logs[?(@.eventType=='TASK_REUSED')].requestId")
-                        .value(org.hamcrest.Matchers.hasItem(reusedRequestId)));
+        BankDataSyncTaskDetailResponse detail = bankDataQueryService.getTaskDetail(adminUserId(), taskId);
+        assertTrue(detail.logs().stream().anyMatch(log -> "TASK_REUSED".equals(log.eventType())
+                        && reusedRequestId.equals(log.requestId())),
+                "TASK_REUSED must be recorded with the caller's request id");
     }
 
     /**
      * Each caller passes a distinct window: a repeated account+adapter+window reuses the
      * existing task and ignores the supplied request id, which would break trace lookups.
      */
-    private long triggerSync(String token, Long accountId, String requestId, String adapterCode,
-                             String windowStart, String windowEnd) throws Exception {
-        String body = mockMvc.perform(post("/api/bank-data/sync-tasks")
-                        .header("Authorization", bearer(token))
-                        .header("X-Request-Id", requestId)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"bankAccountId\":" + accountId + ",\"adapterCode\":\"" + adapterCode + "\""
-                                + ",\"windowStart\":\"" + windowStart + "\",\"windowEnd\":\"" + windowEnd + "\"}"))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        return objectMapper.readTree(body).get("data").get("task").get("id").asLong();
+    private long triggerSync(Long userId, Long accountId, String requestId, String adapterCode,
+                             String windowStart, String windowEnd) {
+        BankDataSyncTaskDetailResponse detail = bankDataSyncService.trigger(userId,
+                new BankDataSyncRequest(null, accountId, adapterCode,
+                        LocalDateTime.parse(windowStart), LocalDateTime.parse(windowEnd)), requestId);
+        return detail.task().id();
     }
 
     private BankDataSyncContext context() {

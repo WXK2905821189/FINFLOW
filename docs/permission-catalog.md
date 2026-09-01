@@ -1,26 +1,24 @@
-# 权限编码目录（V13 收敛后基线）
+# 权限编码目录（V14 清理后基线）
 
-> 状态：生效中 · 基线迁移：`V13__permission_code_convergence.sql`
+> 状态：生效中 · 基线迁移：`V13__permission_code_convergence.sql` + `V14__retire_dead_transfer_permissions.sql`
 > 本文是唯一权威权限清单。新增端点/页面时只允许引用本文中的编码；需要新编码时先在本文登记，再落代码。
 
 ## 命名规范
 
 `<domain>:<resource>:<action>`（无子资源时为 `<domain>:<action>`）
 
-- domain：业务域（bankdata / statement / validation / closing / feishu / operation / connection / user / role / audit / dashboard / bank / transfer / data）
+- domain：业务域（bankdata / statement / validation / closing / feishu / operation / connection / user / role / audit / dashboard / bank / data）
 - resource：域内资源（balance / statement / receipt / reconciliation / payroll / sync / log / monitor）
-- action：view / manage / create / review / import / push / trigger / approve / execute / notify / retry / query
+- action：view / manage / create / review / import / push / trigger / notify / retry / query
 
-## 有效权限清单（35 项）
+## 有效权限清单（31 项）
 
 | 编码 | 名称 | 授予角色 | 引用位置 |
 |---|---|---|---|
 | dashboard:view | 查看工作台 | ADMIN, FINANCE_STAFF, FINANCE_MANAGER, VIEWER | 前端路由守卫 |
-| transaction:view | 查看交易 | 全部角色 | 旧 bank 包（保留兼容） |
 | user:manage | 用户管理 | ADMIN | /users 路由守卫 |
-| bank:view | 查看银行账户 | 全部角色 | /bank-access/accounts |
-| bank:manage | 管理银行账户 | ADMIN | 旧 bank 包（保留兼容） |
-| transfer:create / transfer:approve / transfer:execute | 调拨发起/审批/执行 | ADMIN+FINANCE_STAFF / FINANCE_MANAGER / ADMIN+FINANCE_STAFF | 旧 bank 包（保留兼容，v0.4 不做前端） |
+| bank:view | 查看银行账户 | 全部角色 | /api/bank-accounts、/bank-access/accounts |
+| bank:manage | 管理银行账户 | ADMIN | /api/bank-accounts 创建/更新端点 |
 | role:manage | 角色管理 | ADMIN | RoleController |
 | statement:view | 查看流水 | 全部角色 | 流水批次/对账页 |
 | statement:import | 导入流水 | ADMIN, FINANCE_STAFF | 导入页 |
@@ -28,10 +26,10 @@
 | voucher:push | 金蝶制证 | ADMIN, FINANCE_STAFF | 制证页 |
 | reconciliation:view | 查看对账 | 全部角色 | 对账页 |
 | connection:view / connection:manage | 连接查看/管理 | ADMIN+FINANCE_MANAGER / ADMIN | 连接配置页 |
-| operation:monitor | 采集运营监控 | ADMIN, FINANCE_MANAGER | 直联监控/任务页 |
+| operation:monitor | 采集运营监控 | ADMIN, FINANCE_MANAGER | 直联监控页、/api/operations/connections |
 | operation:log:view | 日志查询 | ADMIN, FINANCE_MANAGER | 日志查询页 |
-| data:query | 数据查询 | 全部角色 | 旧 bank 包（保留兼容） |
-| bankdata:view | 银行数据总查看 | 全部角色 | 任务列表、追溯、旧版查询端点 |
+| data:query | 数据查询 | 全部角色 | /api/data/{resource} 能力状态端点 |
+| bankdata:view | 银行数据总查看 | 全部角色 | 任务列表、追溯、投影查询 |
 | bankdata:sync:trigger | **触发银行数据同步（规范编码）** | ADMIN, FINANCE_STAFF | 手动触发同步、按筛选创建同步任务 |
 | bankdata:reconciliation:view | 对账单投影 | 全部角色 | 对账单查询页 |
 | bankdata:balance:view | 余额投影 | 全部角色 | 余额查询页 |
@@ -50,6 +48,8 @@
 | bankdata:sync | 21 | 触发模拟银行数据同步（V4 旧名） | bankdata:sync:trigger | V13 删除，持权角色先回填 29 |
 | bank-sync:trigger | 23 | 触发受控银行同步任务（V4 旧名，域前缀不符规范） | bankdata:sync:trigger | V13 删除，持权角色先回填 29 |
 | bankdata:payment:view | 27 | 查看支付投影 | 无（v0.4 范围外） | V13 删除，无任何端点引用 |
+| transaction:view | 2 | 查看交易记录 | 无 | V14 删除，/api/transfers 端点已移除 |
+| transfer:create / transfer:approve / transfer:execute | 6 / 7 / 8 | 发起/审批/执行转账 | 无 | V14 删除，主动转账不在 v0.4 产品范围 |
 
 ### 收敛原则（历史教训）
 
@@ -61,4 +61,5 @@
 
 ## 变更记录
 
+- 2026-09-01 V14：删除 transaction:view(2)、transfer:create(6)、transfer:approve(7)、transfer:execute(8)；legacy `/api/transfers`(7 端点)、`/api/banks`、`/api/bank-data/*`(8 端点)、`/api/operations/tasks` 一并移除，前端"采集设置"入口并入签约准备页。
 - 2026-09-01 V13：删除 bankdata:sync(21)、bank-sync:trigger(23)、bankdata:payment:view(27)；触发同步统一为 bankdata:sync:trigger(29)；控制器（BankPipelineController / BankDataController）与前端（operations.tsx / BankDataQueryPage.tsx）同步收敛。
