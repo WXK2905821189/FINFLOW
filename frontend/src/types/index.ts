@@ -1,354 +1,41 @@
-export type ApiEnvelope<T> = {
-  code: number;
-  message: string;
-  data: T;
-  timestamp: string;
-};
-
-export type PageResponse<T> = {
-  page: number;
-  size: number;
-  total: number;
-  records: T[];
-};
-
-export type User = {
-  id: number;
-  username: string;
-  email: string;
-  phone?: string;
-  status: string;
-  roles: string[];
-  permissions: string[];
-};
-
-export type AuthTokenResponse = {
-  accessToken: string;
-  tokenType: string;
-  expiresInSeconds: number;
-  user: User;
-};
-
-export type BankAccount = {
-  id: number;
-  bankCode: string;
-  accountName: string;
-  maskedAccountNumber: string;
-  currency: string;
-  availableBalance: number | string;
-  status: string;
-};
-
-export type StatementRecordInput = {
-  statementNo: string;
-  bankAccountId?: number;
-  transactionTime: string;
-  direction: string;
-  amount: number | string;
-  currency?: string;
-  counterpartyName?: string;
-  counterpartyAccount?: string;
-  summary?: string;
-};
-
-export type StatementImportRequest = {
-  sourceName?: string;
-  records: StatementRecordInput[];
-};
-
-export type StatementImportBatch = {
-  id: number;
-  batchNo: string;
-  sourceType: string;
-  sourceName?: string;
-  status: string;
-  totalCount: number;
-  importedCount: number;
-  duplicateCount: number;
-  invalidCount: number;
-  createdBy?: number;
-  createdAt: string;
-  completedAt?: string;
-  errorMessage?: string;
-};
-
-export type StatementRecord = {
-  id: number;
-  batchId: number;
-  statementNo: string;
-  bankAccountId?: number;
-  transactionTime?: string;
-  direction?: string;
-  amount?: number | string;
-  currency?: string;
-  counterpartyName?: string;
-  maskedCounterpartyAccount?: string;
-  summary?: string;
-  validationStatus: string;
-  validationMessage?: string;
-  reviewStatus: string;
-  reviewComment?: string;
-  reviewedBy?: number;
-  reviewedAt?: string;
-  pushStatus: string;
-  voucherNo?: string;
-  pushMessage?: string;
-  pushedAt?: string;
-  createdAt: string;
-};
-
-export type StatementReviewRequest = {
-  action: 'APPROVE' | 'REJECT';
-  comment?: string;
-};
-
-export type StatementDashboard = {
-  totalCount: number;
-  pendingReviewCount: number;
-  approvedCount: number;
-  rejectedCount: number;
-  pushedCount: number;
-  invalidCount: number;
-  totalAmount: number | string;
-  approvedAmount: number | string;
-  pushedAmount: number | string;
-};
-
-export type StatementAuditEvent = {
-  id: number;
-  action: string;
-  result: string;
-  previousStatus?: string;
-  currentStatus?: string;
-  operatorId?: number;
-  detail?: string;
-  createdAt: string;
-};
-
-export type StatementDetail = {
-  statement: StatementRecord;
-  auditTrail: StatementAuditEvent[];
-};
-
-export type ConnectionSummary = {
-  connectionCode: string;
-  displayName: string;
-  providerType: string;
-  enabled: boolean;
-  status: string;
-  lastCheckedAt?: string;
-};
-
-export type ConnectionConfiguration = {
-  enabled: boolean;
-  status: string;
-  message: string;
-  supportedProviderTypes: string[];
-  connections: ConnectionSummary[];
-};
-
-export type ConnectionOverview = {
-  enabled: boolean;
-  status: string;
-  message: string;
-  connections: ConnectionSummary[];
-};
-
-export type FeishuConnectionItem = {
-  id: number;
-  connectionCode: string;
-  displayName: string;
-  tenantAlias?: string;
-  mode: string;
-  status: string;
-};
-
-export type FeishuDestinationItem = {
-  id: number;
-  connectionId: number;
-  destinationType: string;
-  destinationKey: string;
-  displayName: string;
-  enabled: boolean;
-};
-
-export type FeishuPolicyItem = {
-  id: number;
-  eventType: string;
-  destinationId: number;
-  enabled: boolean;
-  templateVersion: string;
-};
-
-export type FeishuOverview = {
-  enabled: boolean;
-  status: string;
-  message: string;
-  connections: FeishuConnectionItem[];
-  destinations: FeishuDestinationItem[];
-  policies: FeishuPolicyItem[];
-};
-
-export type NotificationDelivery = {
-  eventId: string;
-  eventType: string;
-  referenceNo?: string;
-  severity: string;
-  status: string;
-  attemptCount: number;
-  providerMessageId?: string;
-  requestId: string;
-  createdAt: string;
-  sentAt?: string;
-  lastError?: string;
-};
-
-export type OperationTask = {
-  taskNo: string;
-  taskType: string;
-  connectionCode?: string;
-  status: string;
-  requestId?: string;
-  summary?: string;
-  startedAt?: string;
-  completedAt?: string;
-  createdAt: string;
-};
-
-export type OperationLog = {
-  taskId?: number;
-  level: string;
-  eventType: string;
-  result: string;
-  requestId?: string;
-  message?: string;
-  occurredAt: string;
-};
-
-export type DataQueryCapability = {
-  capability: string;
-  enabled: boolean;
-  status: string;
-  message: string;
-};
-
-export type BankSyncJobTrigger = {
-  jobType: string;
-  bankAccountId: number;
-  connectionCode?: string;
-  windowStart?: string;
-  windowEnd?: string;
-};
-
-export type BankSyncJob = {
-  id: number;
-  jobNo: string;
-  jobType: string;
-  triggerType: string;
-  connectionCode?: string;
-  status: string;
-  requestId?: string;
-  summary?: string;
-  startedAt?: string;
-  completedAt?: string;
-  createdAt: string;
-};
-
-export type BankSyncJobEvent = {
-  status: string;
-  stage: string;
-  message?: string;
-  requestId?: string;
-  occurredAt: string;
-};
-
-export type BankSyncJobDetail = {
-  job: BankSyncJob;
-  timeline: BankSyncJobEvent[];
-};
-
-export type BankDataProjection = {
-  id: string | number;
-  sourceSystem?: string;
-  sourceRecordId?: string;
-  status?: string;
-  occurredAt?: string;
-  accountMasked?: string;
-  accountName?: string;
-  amount?: number | string;
-  currency?: string;
-  direction?: string;
-  summary?: string;
-  requestId?: string;
-  jobNo?: string;
-  syncJobNo?: string;
-  lastSyncedAt?: string;
-  updatedAt?: string;
-  sourceMode?: string;
-  channelMode?: string;
-  simulated?: boolean;
-};
-
-export type BankDataProjectionPage = PageResponse<BankDataProjection> & {
-  enabled?: boolean;
-  status?: string;
-  message?: string;
-  requestId?: string;
-  sourceSystem?: string;
-  lastSyncedAt?: string;
-  simulated?: boolean;
-};
-
-export type ValidationRule = {
-  id: number;
-  ruleCode: string;
-  name: string;
-  ruleType: string;
-  expression: string;
-  versionNo: number;
-  status: string;
-  priority: number;
-  createdBy?: number;
-  updatedAt: string;
-};
-
-export type AccountingMapping = {
-  id: number;
-  mappingCode: string;
-  name: string;
-  direction: string;
-  counterpartyKeyword?: string;
-  debitSubject: string;
-  creditSubject: string;
-  voucherTemplate: string;
-  versionNo: number;
-  status: string;
-  updatedAt: string;
-};
-
-export type ClosingPeriod = {
-  id: number;
-  period: string;
-  status: string;
-  totalCount: number;
-  pendingCount: number;
-  exceptionCount: number;
-  unpostedCount: number;
-  confirmedBy?: number;
-  confirmedAt?: string;
-  requestId?: string;
-  note?: string;
-  updatedAt: string;
-};
-
-export type SystemAuditEvent = {
-  id: number;
-  actorId?: number;
-  action: string;
-  objectType: string;
-  objectId?: string;
-  requestId: string;
-  result: string;
-  detail?: string;
-  createdAt: string;
-};
+// Barrel re-export: type definitions now live in modules/<domain>/types.ts.
+// This file keeps existing `from '../types'` imports working; new code should
+// import from the domain module directly.
+export type { ApiEnvelope, PageResponse } from '../modules/shared/api';
+export type { User, AuthTokenResponse } from '../modules/auth/types';
+export type {
+  BankAccount,
+  ConnectionSummary,
+  ConnectionConfiguration,
+  ConnectionOverview,
+  OperationTask,
+  OperationLog,
+  DataQueryCapability,
+  BankSyncJobTrigger,
+  BankSyncJob,
+  BankSyncJobEvent,
+  BankSyncJobDetail,
+  BankDataProjection,
+  BankDataProjectionPage,
+} from '../modules/bank-access/types';
+export type {
+  StatementRecordInput,
+  StatementImportRequest,
+  StatementImportBatch,
+  StatementRecord,
+  StatementReviewRequest,
+  StatementDashboard,
+  StatementAuditEvent,
+  StatementDetail,
+  ValidationRule,
+  AccountingMapping,
+} from '../modules/statements/types';
+export type {
+  FeishuConnectionItem,
+  FeishuDestinationItem,
+  FeishuPolicyItem,
+  FeishuOverview,
+  NotificationDelivery,
+} from '../modules/feishu/types';
+export type { ClosingPeriod } from '../modules/closing/types';
+export type { SystemAuditEvent } from '../modules/audit/types';

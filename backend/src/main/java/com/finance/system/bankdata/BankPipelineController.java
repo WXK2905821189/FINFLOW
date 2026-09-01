@@ -36,15 +36,18 @@ import java.util.Map;
 public class BankPipelineController {
 
     private final BankDataSyncService service;
+    private final BankDataQueryService queryService;
     private final BankDataTraceService traceService;
 
-    public BankPipelineController(BankDataSyncService service, BankDataTraceService traceService) {
+    public BankPipelineController(BankDataSyncService service, BankDataQueryService queryService,
+                                  BankDataTraceService traceService) {
         this.service = service;
+        this.queryService = queryService;
         this.traceService = traceService;
     }
 
     @PostMapping("/bank-sync-jobs")
-    @PreAuthorize("hasAnyAuthority('bankdata:sync', 'bankdata:sync:trigger', 'bank-sync:trigger')")
+    @PreAuthorize("hasAuthority('bankdata:sync:trigger')")
     @Operation(summary = "Create a controlled bank synchronization job")
     public ApiResponse<BankSyncJobResponse> trigger(
             @Valid @RequestBody BankSyncJobTriggerRequest request,
@@ -65,7 +68,7 @@ public class BankPipelineController {
             @RequestParam(required = false) String connectionCode,
             @RequestParam(required = false) String requestId,
             @AuthenticationPrincipal UserPrincipal principal) {
-        return ApiResponse.success(service.listJobs(principal.getId(), page, size, status, jobType,
+        return ApiResponse.success(queryService.listJobs(principal.getId(), page, size, status, jobType,
                 connectionCode, requestId));
     }
 
@@ -74,7 +77,7 @@ public class BankPipelineController {
     @Operation(summary = "Get a controlled bank synchronization job")
     public ApiResponse<BankSyncJobDetailResponse> job(@PathVariable Long id,
                                                        @AuthenticationPrincipal UserPrincipal principal) {
-        return ApiResponse.success(service.getJob(principal.getId(), id));
+        return ApiResponse.success(queryService.getJob(principal.getId(), id));
     }
 
     @GetMapping("/bank-data/{resource}")
@@ -97,7 +100,7 @@ public class BankPipelineController {
                 && !principal.getAuthorities().stream().anyMatch(authority -> authority.getAuthority().equals(permissionFor(resource)))) {
             throw new org.springframework.security.access.AccessDeniedException("Bank data projection permission is required");
         }
-        return ApiResponse.success(service.queryProjection(principal.getId(), resource, page, size, status,
+        return ApiResponse.success(queryService.queryProjection(principal.getId(), resource, page, size, status,
                 accountId, keyword, from, to, sourceSystem, syncJobNo, requestId));
     }
 

@@ -38,13 +38,15 @@ import java.util.List;
 public class BankDataController {
 
     private final BankDataSyncService service;
+    private final BankDataQueryService queryService;
 
-    public BankDataController(BankDataSyncService service) {
+    public BankDataController(BankDataSyncService service, BankDataQueryService queryService) {
         this.service = service;
+        this.queryService = queryService;
     }
 
     @PostMapping("/sync-tasks")
-    @PreAuthorize("hasAnyAuthority('bankdata:sync', 'bankdata:sync:trigger')")
+    @PreAuthorize("hasAuthority('bankdata:sync:trigger')")
     @Operation(summary = "Trigger a simulated bank data synchronization",
             description = "Compatibility endpoint; new clients should use /api/bank-sync-jobs")
     public ApiResponse<BankDataSyncTaskDetailResponse> trigger(
@@ -58,7 +60,7 @@ public class BankDataController {
     @PreAuthorize("hasAuthority('bankdata:view')")
     @Operation(summary = "List safe bank data connection metadata")
     public ApiResponse<List<BankDataConnectionResponse>> connections(@AuthenticationPrincipal UserPrincipal principal) {
-        return ApiResponse.success(service.listConnections(principal.getId()));
+        return ApiResponse.success(queryService.listConnections(principal.getId()));
     }
 
     @GetMapping("/sync-tasks")
@@ -70,7 +72,7 @@ public class BankDataController {
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String adapterCode,
             @AuthenticationPrincipal UserPrincipal principal) {
-        return ApiResponse.success(service.listTasks(principal.getId(), page, size, status, adapterCode));
+        return ApiResponse.success(queryService.listTasks(principal.getId(), page, size, status, adapterCode));
     }
 
     @GetMapping("/sync-tasks/{id}")
@@ -78,7 +80,7 @@ public class BankDataController {
     @Operation(summary = "Get a bank data synchronization task and logs")
     public ApiResponse<BankDataSyncTaskDetailResponse> task(@PathVariable Long id,
                                                              @AuthenticationPrincipal UserPrincipal principal) {
-        return ApiResponse.success(service.getTaskDetail(principal.getId(), id));
+        return ApiResponse.success(queryService.getTaskDetail(principal.getId(), id));
     }
 
     @GetMapping("/statement-records")
@@ -94,7 +96,7 @@ public class BankDataController {
             @RequestParam(required = false) String taskNo,
             @RequestParam(required = false) String requestId,
             @AuthenticationPrincipal UserPrincipal principal) {
-        return ApiResponse.success(service.listStatements(principal.getId(), page, size, bankAccountId, direction,
+        return ApiResponse.success(queryService.listStatements(principal.getId(), page, size, bankAccountId, direction,
                 from, to, taskNo, requestId));
     }
 
@@ -103,7 +105,7 @@ public class BankDataController {
     @Operation(summary = "Get a detailed normalized bank statement record with provenance")
     public ApiResponse<BankDataStatementDetailResponse> statement(@PathVariable Long id,
                                                                    @AuthenticationPrincipal UserPrincipal principal) {
-        return ApiResponse.success(service.getStatement(principal.getId(), id));
+        return ApiResponse.success(queryService.getStatement(principal.getId(), id));
     }
 
     @GetMapping("/balance-snapshots")
@@ -118,7 +120,7 @@ public class BankDataController {
             @RequestParam(required = false) String taskNo,
             @RequestParam(required = false) String requestId,
             @AuthenticationPrincipal UserPrincipal principal) {
-        return ApiResponse.success(service.listBalances(principal.getId(), page, size, bankAccountId, from, to,
+        return ApiResponse.success(queryService.listBalances(principal.getId(), page, size, bankAccountId, from, to,
                 taskNo, requestId));
     }
 
@@ -127,7 +129,7 @@ public class BankDataController {
     @Operation(summary = "Get bank data reconciliation summary")
     public ApiResponse<BankDataReconciliationResponse> reconciliation(
             @AuthenticationPrincipal UserPrincipal principal) {
-        return ApiResponse.success(service.reconciliation(principal.getId()));
+        return ApiResponse.success(queryService.reconciliation(principal.getId()));
     }
 
 }
