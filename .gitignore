@@ -38,3 +38,4 @@ frontend/_tmp_*
 # Vite dev-server temp files
 frontend/vite.config.ts.timestamp-*.mjs
 frontend/_tmp_*
+frontend/node_modules.corrupt2/
