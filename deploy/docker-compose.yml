@@ -1,0 +1,37 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: finflow-app
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+      SPRING_PROFILES_ACTIVE: prod
+      DB_URL: ${DB_URL}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-2h}
+      PAYMENT_ENABLED: ${PAYMENT_ENABLED:-false}
+      CITIC_MOCK_MODE: ${CITIC_MOCK_MODE:-true}
+      KINGDEE_MOCK_MODE: ${KINGDEE_MOCK_MODE:-true}
+      BANKDATA_ADAPTER_MODE: ${BANKDATA_ADAPTER_MODE:-mock}
+      BANKDATA_REAL_ADAPTERS_ENABLED: ${BANKDATA_REAL_ADAPTERS_ENABLED:-false}
+    # 不向宿主机暴露 8080，仅由 nginx 内网转发
+    expose:
+      - "8080"
+    volumes:
+      - ./logs:/app/logs
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: finflow-web
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./web-dist:/usr/share/nginx/html:ro
+    depends_on:
+      app:
+        condition: service_healthy
