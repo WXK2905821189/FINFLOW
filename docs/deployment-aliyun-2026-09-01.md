@@ -1,8 +1,8 @@
 # FINFLOW 上云部署手册（阿里云 ECS + RDS MySQL + Docker Compose）
 
 > 适用版本：`fdba1b4`（架构审阅四行动已落地，prod profile 全环境变量驱动）
-> 编写：WB · 2026-09-01
-> 访问形态：IP 直连 HTTP（域名/HTTPS 章节在 §9，后续启用）
+> 编写：WB · 2026-09-01（同日修订：新增 §9 HTTPS 启用指南）
+> 访问形态：默认 IP + HTTP 起步；HTTPS 按 §9 启用（域名证书推荐，自签过渡可选）
 
 ---
 
@@ -10,12 +10,12 @@
 
 ```
 用户浏览器
-   │ http://<ECS公网IP>/
+   │ http://<ECS公网IP>/          （启用 HTTPS 后：https://，80 强制跳转 443）
    ▼
-[ECS 安全组：放行 80]
+[ECS 安全组：放行 80（+启用 HTTPS 后 443)]
    ▼
 ┌─────────────── ECS（Docker Compose）───────────────┐
-│  finflow-web (nginx:1.27)      80:80               │
+│  finflow-web (nginx:1.27)      80:80 / 443:443     │
 │    ├─ 静态资源：frontend dist (web-dist/)           │
 │    └─ /api/ 反代 ──────────► finflow-app :8080      │
 │                              (仅容器内网，不对外)     │
@@ -103,7 +103,8 @@ RDS 控制台 → 备份恢复：确认自动备份已开启（建议数据备�
 | 方向 | 端口 | 授权对象 | 用途 |
 |---|---|---|---|
 | 入方向 | 22 | **你的常用 IP/32**（不要 0.0.0.0/0） | SSH |
-| 入方向 | 80 | 0.0.0.0/0 | 网站访问 |
+| 入方向 | 80 | 0.0.0.0/0 | 网站访问 / HTTPS 后负责跳转 |
+| 入方向 | 443 | 0.0.0.0/0 | **HTTPS（启用 §9 后需要，可提前放行）** |
 | 入方向 | 8080 | **不配置** | 后端仅容器内网可达 |
 | 出方向 | 全部 | 默认放行 | 拉镜像/连 RDS |
 
@@ -168,8 +169,11 @@ mkdir -p /opt/finflow && cd /opt/finflow
 # /opt/finflow
 # ├── docker-compose.yml     （来自仓库 deploy/）
 # ├── Dockerfile.backend     （来自仓库 deploy/）
-# ├── nginx.conf             （来自仓库 deploy/）
+# ├── nginx.conf             （来自仓库 deploy/，HTTP 版，首启用）
+# ├── nginx-https.conf       （来自仓库 deploy/，HTTPS 版，§9 启用时切换）
+# ├── nginx-app-locations.conf（来自仓库 deploy/，共享业务路由）
 # ├── .env                   （从 .env.example 复制后填写真实值）
+# ├── certs/                 （HTTPS 证书目录，§9 时创建；现在可为空）
 # ├── app.jar                （本地构建后上传）
 # ├── web-dist/              （前端构建产物）
 # └── logs/                  （应用日志，自动生成）
@@ -219,7 +223,8 @@ cd ..
 ```bash
 cd frontend && tar czf ../deploy/web-dist.tgz dist && cd ..
 scp deploy/app.jar deploy/web-dist.tgz deploy/docker-compose.yml \
-    deploy/Dockerfile.backend deploy/nginx.conf deploy/.env.example \
+    deploy/Dockerfile.backend deploy/nginx.conf deploy/nginx-https.conf \
+    deploy/nginx-app-locations.conf deploy/.env.example \
     root@47.98.x.x:/opt/finflow/
 ```
 
@@ -276,6 +281,7 @@ Successfully applied 13 migrations
 | 8 | 8080 未暴露 | 外网 `curl http://47.98.x.x:8080` | 连接被拒（安全组拦截） |
 | 9 | 容器自愈 | `docker restart finflow-app` 后访问 | 服务自动恢复 |
 | 10 | 重启不重复迁移 | `docker compose down && docker compose up -d` | 日志显示 validated 而非再次 Migrating |
+| 11 | HTTPS（启用 §9 后验收） | `https://<IP或域名>/` + `http://` 访问 | 证书有效、挂锁图标；HTTP 自动 301 到 HTTPS |
 
 > 注册口安全提示：`/api/auth/register` 目前是 permitAll。上云后建议限制注册来源（Nginx 层限 IP 或尽快接管理员邀请制），这是上云后第一优先级的加固项。
 
@@ -319,12 +325,97 @@ docker compose logs -f app | grep -iE "migrat|started|error"
 
 ---
 
-## 9. 后续加固路线（按优先级）
+## 9. HTTPS 启用指南
+
+> 部署文件已按"开箱可切换"设计：HTTP 与 HTTPS 共用一份 `nginx-app-locations.conf`（业务路由只维护一处），切换 = 换挂载的 server 配置文件 + 放证书 + 重启 nginx。
+
+### 9.0 两条路线怎么选
+
+| | 方案 A：域名 + 正规证书（**推荐**） | 方案 B：自签证书（无域名过渡） |
+|---|---|---|
+| 浏览器体验 | 正常挂锁，无告警 | 红色"不安全"告警，需手动信任 |
+| 前提条件 | 一个域名；**服务器在中国大陆则域名必须 ICP 备案** | 无 |
+| 证书来源 | 阿里云免费 DV 证书（每年 20 张免费额度）或 Let's Encrypt | openssl 本地生成 |
+| 有效期 | 1 年（阿里云）/ 90 天（LE） | 自定（建议 1 年） |
+| 适用 | 正式生产 | 内测、备案等待期 |
+
+### 9.1 方案 A-1：阿里云免费 DV 证书（最简单，推荐）
+
+1. **域名解析**：域名控制台添加 A 记录指向 ECS 公网 IP。
+2. **ICP 备案**：服务器在大陆机房则必须备案（阿里云控制台 → ICP 备案，走完全程约 1–3 周）；港澳/海外节点可跳过。
+3. **申请证书**：阿里云控制台 → 数字证书管理服务 → 免费证书 → 申请（填域名，DV 校验自动完成，一般几分钟到几小时签发）。
+4. **下载证书**：签发后下载 **Nginx 格式**，得到 `xxx.pem`（证书链）与 `xxx.key`（私钥）。
+5. **放置证书**（服务器）：
+
+   ```bash
+   mkdir -p /opt/finflow/certs
+   # 上传两个文件后改名：
+   mv xxx.pem  /opt/finflow/certs/fullchain.pem
+   mv xxx.key  /opt/finflow/certs/privkey.pem
+   chmod 600 /opt/finflow/certs/privkey.pem
+   ```
+
+6. **切换 nginx 配置**：编辑 `/opt/finflow/docker-compose.yml`，把 nginx 服务里两行挂载互换（注释掉 `nginx.conf` 行、放开 `nginx-https.conf` 行，文件内有现成注释标记），然后：
+
+   ```bash
+   docker compose up -d --force-recreate nginx
+   docker compose exec nginx nginx -t   # 配置自检，必须 ok
+   curl -I https://<域名>/              # 200 且证书有效
+   ```
+
+7. **续期提醒**：阿里云免费证书有效期 1 年，到期前在控制台重新申请并替换 `certs/` 下两个文件，`docker compose exec nginx nginx -s reload` 即可，无需重建容器。
+
+### 9.2 方案 A-2：Let's Encrypt + certbot（免费 90 天，自动续期）
+
+域名已解析且 80 端口可达时可用（备案与否不影响签发，但大陆服务器未备案时 80/443 可能被运营商拦截，故大陆环境优先 A-1）：
+
+```bash
+# 服务器上临时跑 certbot 容器签发（webroot 模式，nginx-https.conf 已内置 .well-known 路径）
+docker run --rm -p 80:80 -v /opt/finflow/certbot-www:/var/www/certbot \
+  -v /opt/finflow/certs:/etc/letsencrypt certbot/certbot certonly \
+  --webroot -w /var/www/certbot -d <你的域名> \
+  --email <你的邮箱> --agree-tos --no-eff-email
+# 签发产物在 /opt/finflow/certs/live/<域名>/ 下，复制 fullchain.pem 与 privkey.pem 到 certs/ 根目录
+# 续期（加 cron，每月 1 号跑）：
+#   0 3 1 * * docker run --rm ... certbot renew --webroot && docker compose -f /opt/finflow/docker-compose.yml exec nginx nginx -s reload
+```
+
+### 9.3 方案 B：自签证书（无域名过渡，浏览器有告警）
+
+```bash
+mkdir -p /opt/finflow/certs && cd /opt/finflow/certs
+openssl req -x509 -nodes -newkey rsa:2048 -days 365 \
+  -keyout privkey.pem -out fullchain.pem \
+  -subj "/CN=finflow" \
+  -addext "subjectAltName=IP:<ECS公网IP>"
+```
+
+然后按 §9.1 第 6 步切换配置。浏览器首次访问点击"高级 → 继续前往"即可；**严格说自签只是加密不验证身份，适合过渡，不建议长期使用**。另外公网 IP 也买不到被广泛信任的证书（个别小 CA 提供但贵且兼容性差），所以无域名场景自签是唯一选项。
+
+### 9.4 HTTPS 验收
+
+| # | 验收项 | 操作 | 预期 |
+|---|---|---|---|
+| 1 | 证书有效 | 浏览器打开 `https://...` | 挂锁图标，无告警（方案 B 除外） |
+| 2 | 强制跳转 | `curl -I http://.../` | `301` + `Location: https://...` |
+| 3 | API 走 HTTPS | 登录后看请求面板 | 所有请求均为 https，无混合内容告警 |
+| 4 | TLS 版本 | `openssl s_client -connect <host>:443` | TLSv1.2/1.3，无 TLSv1.0/1.1 |
+| 5 | 回退可用 | （如需）换回 nginx.conf 重启 | HTTP 模式恢复正常 |
+
+### 9.5 切换后注意
+
+- `JWT_SECRET`、数据库连接串等与 HTTPS 无关，不用动。
+- 若前端有写死 `http://` 的资源引用会触发混合内容告警——本项目前端全部走相对路径 `/api`，无此问题。
+- HTTPS 启用后建议同步开启 HSTS（`nginx-https.conf` 的 443 块加 `add_header Strict-Transport-Security "max-age=31536000" always;`），确认稳定运行一周后再加。
+
+---
+
+## 10. 后续加固路线（按优先级）
 
 | 优先级 | 事项 | 说明 |
 |---|---|---|
 | P0 | 收紧 `/api/auth/register` | Nginx 层先限 IP，后续改管理员邀请制 |
-| P1 | 域名 + HTTPS | 买域名 → 备案 → DNS 解析到 ECS → `certbot --nginx` 一键签证书，nginx.conf 增加 443 server 块并 80 强跳 |
+| P1 | 域名 + HTTPS | **已升级为独立章节 §9**，含三条路线与验收清单 |
 | P1 | SSH 加固 | 改密钥登录禁密码、fail2ban |
 | P2 | 日志轮转 | compose 里给 app 加 logging driver max-size 限制 |
 | P2 | 云监控 | ECS 云监控告警（CPU/磁盘）+ RDS 连接数告警 |
@@ -332,7 +423,7 @@ docker compose logs -f app | grep -iE "migrat|started|error"
 
 ---
 
-## 10. 常见问题（FAQ）
+## 11. 常见问题（FAQ）
 
 | 症状 | 原因 | 处理 |
 |---|---|---|
@@ -342,8 +433,11 @@ docker compose logs -f app | grep -iE "migrat|started|error"
 | 页面能开但接口 502 | app 未启动完或挂了 | `docker compose logs app` 看栈；`docker compose ps` 看健康状态 |
 | 中文/emoji 乱码 | 库字符集不是 utf8mb4 | §2.2 建库时选对；已建错则需重建库 |
 | 时间差 8 小时 | 容器/连接串时区缺失 | 确认 TZ=Asia/Shanghai 与 URL 的 serverTimezone 均在 |
-| 上传文件 413 | nginx body 限制 | nginx.conf 已设 20m，可按需调大 |
-| 磁盘涨满 | docker 日志无限堆积 | §9 P2 配日志轮转 + `docker system prune` |
+| 上传文件 413 | nginx body 限制 | nginx-app-locations.conf 已设 20m，可按需调大 |
+| 磁盘涨满 | docker 日志无限堆积 | §10 P2 配日志轮转 + `docker system prune` |
+| 切 HTTPS 后 nginx 起不来 | `certs/` 下证书文件缺失或文件名不对 | `docker compose logs nginx`；确认 fullchain.pem/privkey.pem 存在；急用可先换回 nginx.conf 回退 HTTP |
+| 证书到期浏览器告警 | 免费证书到期未续 | 按 §9.1 第 7 步换新证书 reload；长期方案是 §9.2 自动续期 |
+| HTTPS 页面有混合内容告警 | 页面里有写死 `http://` 的资源 | 本项目前端走相对路径不该出现；若新增了外链资源改为 https |
 
 ---
 
@@ -351,7 +445,9 @@ docker compose logs -f app | grep -iE "migrat|started|error"
 
 | 文件 | 用途 |
 |---|---|
-| `deploy/docker-compose.yml` | 双容器编排（app + nginx），环境变量驱动 |
+| `deploy/docker-compose.yml` | 双容器编排（app + nginx），环境变量驱动，443 预留 |
 | `deploy/Dockerfile.backend` | 后端运行镜像（temurin 17 JRE + 健康检查） |
-| `deploy/nginx.conf` | 前端托管 + /api 反代 + Swagger 屏蔽 |
+| `deploy/nginx.conf` | HTTP server 块（首启用；证书就位前） |
+| `deploy/nginx-https.conf` | HTTPS server 块（80 强跳 443，启用方式见 §9） |
+| `deploy/nginx-app-locations.conf` | HTTP/HTTPS 共享的业务路由（SPA 回退、/api 反代、Swagger 屏蔽），**改路由只改这一处** |
 | `deploy/.env.example` | 环境变量模板（真实值填在服务器 .env，不进 git） |
