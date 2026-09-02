@@ -51,8 +51,8 @@ CREATE TABLE bank_data_sync_task (
     duplicate_count INT NOT NULL DEFAULT 0,
     invalid_count INT NOT NULL DEFAULT 0,
     error_message VARCHAR(500),
-    started_at TIMESTAMP,
-    completed_at TIMESTAMP,
+    started_at TIMESTAMP NULL DEFAULT NULL,
+    completed_at TIMESTAMP NULL DEFAULT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_bank_sync_company FOREIGN KEY (company_id) REFERENCES company(id),
     CONSTRAINT fk_bank_sync_connection FOREIGN KEY (connection_id) REFERENCES connection_profile(id),
@@ -69,7 +69,7 @@ CREATE TABLE bank_data_raw_message (
     content_sha256 CHAR(64) NOT NULL,
     payload TEXT NOT NULL,
     received_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    retention_until TIMESTAMP NOT NULL,
+    retention_until TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_bank_raw_company FOREIGN KEY (company_id) REFERENCES company(id),
     CONSTRAINT fk_bank_raw_task FOREIGN KEY (task_id) REFERENCES bank_data_sync_task(id)
 );
@@ -82,7 +82,7 @@ CREATE TABLE bank_data_statement (
     bank_account_id BIGINT NOT NULL,
     bank_request_no VARCHAR(128),
     statement_no VARCHAR(128) NOT NULL,
-    transaction_time TIMESTAMP NOT NULL,
+    transaction_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     direction VARCHAR(16) NOT NULL,
     amount DECIMAL(19, 2) NOT NULL,
     currency VARCHAR(3) NOT NULL DEFAULT 'CNY',

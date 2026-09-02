@@ -64,7 +64,7 @@ CREATE TABLE notification_delivery (
     attempt_count INT NOT NULL DEFAULT 0,
     provider_message_id VARCHAR(128),
     last_error VARCHAR(500),
-    sent_at TIMESTAMP,
+    sent_at TIMESTAMP NULL DEFAULT NULL,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_notification_delivery_company FOREIGN KEY (company_id) REFERENCES company(id),
     CONSTRAINT fk_notification_delivery_event FOREIGN KEY (event_id) REFERENCES notification_event(id),

@@ -46,7 +46,7 @@ CREATE TABLE closing_period (
     exception_count INT NOT NULL DEFAULT 0,
     unposted_count INT NOT NULL DEFAULT 0,
     confirmed_by BIGINT,
-    confirmed_at TIMESTAMP,
+    confirmed_at TIMESTAMP NULL DEFAULT NULL,
     request_id VARCHAR(64),
     note VARCHAR(500),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

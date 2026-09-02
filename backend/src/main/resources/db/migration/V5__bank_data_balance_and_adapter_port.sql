@@ -7,7 +7,7 @@ CREATE TABLE bank_data_balance (
     bank_request_no VARCHAR(128),
     available_balance DECIMAL(19, 2) NOT NULL,
     currency VARCHAR(3) NOT NULL DEFAULT 'CNY',
-    as_of_time TIMESTAMP NOT NULL,
+    as_of_time TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     validation_status VARCHAR(16) NOT NULL,
     validation_message VARCHAR(500),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

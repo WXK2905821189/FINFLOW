@@ -5,7 +5,7 @@ CREATE TABLE connection_profile (
     provider_type VARCHAR(32) NOT NULL,
     enabled BOOLEAN NOT NULL DEFAULT FALSE,
     status VARCHAR(24) NOT NULL DEFAULT 'NOT_ENABLED',
-    last_checked_at TIMESTAMP,
+    last_checked_at TIMESTAMP NULL DEFAULT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -18,8 +18,8 @@ CREATE TABLE connection_operation_task (
     status VARCHAR(24) NOT NULL,
     request_id VARCHAR(64),
     summary VARCHAR(500),
-    started_at TIMESTAMP,
-    completed_at TIMESTAMP,
+    started_at TIMESTAMP NULL DEFAULT NULL,
+    completed_at TIMESTAMP NULL DEFAULT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_connection_task_profile FOREIGN KEY (connection_id) REFERENCES connection_profile(id)
 );

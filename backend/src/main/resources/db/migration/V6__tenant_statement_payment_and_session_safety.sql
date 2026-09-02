@@ -35,9 +35,9 @@ CREATE TABLE payment_transfer (
     status VARCHAR(24) NOT NULL,
     created_by BIGINT NOT NULL,
     approved_by BIGINT,
-    approved_at TIMESTAMP,
+    approved_at TIMESTAMP NULL DEFAULT NULL,
     executed_by BIGINT,
-    executed_at TIMESTAMP,
+    executed_at TIMESTAMP NULL DEFAULT NULL,
     external_reference VARCHAR(128),
     external_status VARCHAR(32),
     error_message VARCHAR(500),
@@ -76,8 +76,8 @@ CREATE TABLE auth_session (
     user_id BIGINT NOT NULL,
     token_id VARCHAR(64) NOT NULL UNIQUE,
     token_version INT NOT NULL,
-    expires_at TIMESTAMP NOT NULL,
-    revoked_at TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    revoked_at TIMESTAMP NULL DEFAULT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_auth_session_user FOREIGN KEY (user_id) REFERENCES sys_user(id)
 );
