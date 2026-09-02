@@ -63,7 +63,9 @@ public class SecurityConfig {
                         .accessDeniedHandler(accessDeniedHandler))
                 .authenticationProvider(authenticationProvider)
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/register").permitAll()
+                        // 自注册已关闭（P0 2026-09-02）：公网注册入口移除，仅保留登录；
+                        // 新账号由具备 user:manage 的管理员通过 POST /api/users 或受限的 register 端点开通
+                        .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                         .requestMatchers(
                                 "/doc.html",
                                 "/webjars/**",

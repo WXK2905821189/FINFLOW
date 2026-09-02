@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import './styles.css';
 import { useAuthStore } from './store/auth';
-import { AuthGuard, Forbidden, Login, PermissionGuard, Register } from './modules/auth/pages';
+import { AuthGuard, Forbidden, Login, PermissionGuard } from './modules/auth/pages';
 import { Shell } from './modules/shell/Shell';
 import { PageLoading, PreservedFinancePage } from './modules/shared/components';
 
@@ -30,7 +30,6 @@ function AppRoutes() {
     <Suspense fallback={<PageLoading />}>
     <Routes>
       <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
       <Route element={<AuthGuard />}>
         <Route element={<Shell />}>
           <Route element={<PermissionGuard permissions={['dashboard:view']} />}>
