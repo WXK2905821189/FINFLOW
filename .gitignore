@@ -24,6 +24,9 @@ backend/.m2-settings.xml
 # WorkBuddy agent session data
 .workbuddy/
 
+# Local deploy staging (build artifacts / deployment bundles)
+tmp/
+
 # IDE / OS
 .idea/
 .vscode/
