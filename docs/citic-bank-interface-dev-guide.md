@@ -314,15 +314,15 @@
 
 ## 9. 开发验收清单（P0-1 交付门槛，白名单前可完成的全部项）
 
-> **落地注记（2026-09-03）**：A1–A5/A7 已按新 SPI 链路（`BankDataAdapterRegistry` 路由 + `BankDataAdapter` 接口，位于 `backend/.../bankdata/adapter/`）完成；下述清单按早期 HTTP 网关假设命名（`CiticBankProperties`/`CiticBankSdkClient`/`ExternalCiticBankSdkAdapter`），仅为设计溯源，实际实现类名以注记内为准。A6 未做，见下。
+> **落地注记（2026-09-03）**：A1–A7 已按新 SPI 链路（`BankDataAdapterRegistry` 路由 + `BankDataAdapter` 接口，位于 `backend/.../bankdata/adapter/`）完成，含真实 SDK 传输实现 `SdkCiticDlinkSdk`（`citic-sdk` Maven profile，商用 jar 装本地 ~/.m2 不入库）；下述清单按早期 HTTP 网关假设命名（`CiticBankProperties`/`CiticBankSdkClient`/`ExternalCiticBankSdkAdapter`），仅为设计溯源，实际实现类名以注记内为准。A6 未做，见下。
 
 | 项 | 状态 | 实际落地 |
 |---|---|---|
 | A1 配置层 | ✅ | `citic/CiticAdapterProperties`（prefix `bankdata.adapter.citic`，realEnabled=false、startRecordBase=1、pageSize=20 硬约束、controlFlag=2、SDK 键集占位）；application.yml citic 段环境变量占位 |
-| A2 传输接口 | 🟡 | `citic/dlink/CiticDlinkSdk` 接口（exchange → 内层业务 XML + downloadCertificate）；`UnavailableCiticDlinkSdk`（`@ConditionalOnMissingBean` 默认 501）。真实 `SdkCiticDlinkSdk` 待 A4 通过后引 jar 实现 |
-| A3 业务层 | ✅ | 报文模型（DLBALQRY 余额 / DLTRNALL 流水，92 天窗 + page≤20 校验）+ `CiticRequestXml`（GBK 组装）+ `CiticResponseXml`（禁 DOCTYPE/外部实体、双层 status、大小写精确）+ `CiticEnvelopeCodec`（DLGECOMM 外层，复用 `CiticBankDataCodec` GBK Base64） |
-| A4 兼容性冒烟 | ✅ 2026-09-03 | JDK17.0.20.1 实测（`tmp/a4-smoke/SmokeMain.java`）：5 个 jar 关键类加载 OK、`new DefaultOpenCommunication()` 构造 OK、`getInstance()` OK，**无任何 LinkageError** → A 形态（SDK 直连）成立 |
-| A5 单测 | ✅ | 新增 5 测试类 25 例（RequestXml/ResponseXml/EnvelopeCodec/RealCiticBankDataAdapter/Codec）；全量回归 59/59 绿 |
+| A2 传输接口 | ✅ | `citic/dlink/CiticDlinkSdk` 接口（exchange → 内层业务 XML + downloadCertificate）；`SdkCiticDlinkSdk`（`@ConditionalOnProperty real-enabled=true`，懒初始化，配置经 `OpenCommunication.setCfgPropertiesByte` 一次性注入[已实测生效]，Default/自定义 token 双模式，容器部署用 token 绑定）；`UnavailableCiticDlinkSdk` 改 `@ConditionalOnProperty(real-enabled=false)` 确定性互斥兜底 501（CI 无 jar 时的边界） |
+| A3 业务层 | ✅ | 报文模型（DLBALQRY 余额 / DLTRNALL 流水，92 天窗 + page≤20 校验）+ `CiticRequestXml`（GBK 组装）+ `CiticResponseXml`（禁 DOCTYPE/外部实体、双层 status、大小写精确）+ `CiticEnvelopeCodec`（DLGECOMM 外层，复用 `CiticBankDataCodec` GBK Base64，格式与 vendor demo sendAction 逐字一致） |
+| A4 兼容性冒烟 | ✅ 2026-09-03 | JDK17.0.20.1 实测（`tmp/a4-smoke/SmokeMain.java`）：5 个 jar 关键类加载 OK、`new DefaultOpenCommunication()` 构造 OK、`getInstance()` OK，**无任何 LinkageError** → A 形态（SDK 直连）成立；SDK 依赖已通过 `citic-sdk` profile（activeByDefault）引入本地 ~/.m2，CI 以 `-P '!citic-sdk'` 显式排除（商用 jar 不入库，`.github/workflows/ci.yml` release-contract 强制） |
+| A5 单测 | ✅ | 9 测试类 30 例（RequestXml/ResponseXml/EnvelopeCodec/RealCiticBankDataAdapter/Codec/SdkCiticDlinkSdk×5）；全量回归 64/64 绿 |
 | A6 CI 契约 | ❌ 未做 | prod mock 拒绝启动未实现；现有反向安全网 `bankdata.adapter.call.real-adapters-enabled=false`（聚合执行器双开关）比 dev-guide 原设计更严，R4 风险已覆盖，A6 可降级 |
 | A7 落库映射 | ✅ | `RealCiticBankDataAdapter`（adapterCode=CITIC，`@ConditionalOnProperty real-enabled=true`）；statementNo 映射链 tranNo→sumTranNo→oriNum（幂等键不变，无需新迁移）；D/C→EXPENSE/INCOME；cursor 承载 startRecord；hasMore=returnRecords≥20 |
 
