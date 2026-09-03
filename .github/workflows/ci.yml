@@ -88,13 +88,17 @@ jobs:
             exit 1
           fi
           test -f docs/v0.2/bank-data-runbook.md
-          test -f docs/v0.2/devops-phase2-release-validation.md
           grep -q 'Java 17 与 Java 8 SDK 兼容性验证' docs/v0.2/bank-data-runbook.md
           grep -q '网络白名单、IP 与 MAC 变更' docs/v0.2/bank-data-runbook.md
           grep -q '证书目录、日志目录与敏感配置注入' docs/v0.2/bank-data-runbook.md
-          grep -q '30 天原始数据清理' docs/v0.2/devops-phase2-release-validation.md
-          grep -q 'MySQL 空库、增量、重复启动' docs/v0.2/devops-phase2-release-validation.md
-          grep -q '真实银行调用次数.*0' docs/v0.2/devops-phase2-release-validation.md
+          # authoritative delivery/ops docs that replaced the retired v0.2 validation reports (removed 7b7e06b)
+          test -f docs/citic-bank-interface-dev-guide.md
+          test -f docs/deployment-aliyun-2026-09-02-noconsole.md
+          test -f docs/bank-connect-schedule-2026-09-03.md
+          test -f docs/maintenance-sop.md
+          test -f docs/pending-fixes.md
+          # REAL CITIC stays off by default until bank whitelisting; the dev-guide must record that contract
+          grep -q 'real-enabled' docs/citic-bank-interface-dev-guide.md
           if find . -type f \( -iname '*.p12' -o -iname '*.pfx' -o -iname '*.jks' -o -iname '*.keystore' -o -iname '*.pem' -o -iname '*.key' -o -iname '*citic*.jar' \) -not -path './frontend/node_modules/*' -print -quit | grep -q .; then
             echo "Bank SDK binaries, certificates, keystores, or private keys must not be committed."
             exit 1
