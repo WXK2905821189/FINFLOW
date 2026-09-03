@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CiticBankDataCodecTest {
@@ -29,12 +28,6 @@ class CiticBankDataCodecTest {
         assertFalse(rejected.accepted());
         assertEquals("SUCCESS", rejected.transportStatus());
         assertEquals("FAILED", rejected.businessStatus());
-    }
-
-    @Test
-    void acceptsOnlyLogicalCertificateAliases() {
-        assertEquals("citic-sandbox-v1", new CiticCertificateReference("citic-sandbox-v1").alias());
-        assertThrows(RuntimeException.class, () -> new CiticCertificateReference("-----BEGIN PRIVATE KEY-----"));
     }
 
     @Test

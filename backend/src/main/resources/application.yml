@@ -54,6 +54,23 @@ bankdata:
       timeout-millis: ${BANKDATA_ADAPTER_TIMEOUT_MILLIS:5000}
       base-backoff-millis: ${BANKDATA_ADAPTER_BASE_BACKOFF_MILLIS:200}
       max-requests-per-minute: ${BANKDATA_ADAPTER_MAX_REQUESTS_PER_MINUTE:60}
+    citic:
+      real-enabled: ${BANKDATA_CITIC_REAL_ENABLED:false}
+      start-record-base: 1
+      page-size: 20
+      control-flag: 2
+      query-rate-limit-per-hour: 400
+      sdk:
+        url: ${CITIC_SDK_URL:}
+        org-code: ${CITIC_ORG_CODE:}
+        user-name: ${CITIC_USER_NAME:}
+        cash-flag: 0
+        cert-path: ${CITIC_CERT_PATH:}
+        download-code: ${CITIC_DOWNLOAD_CODE:}
+        host-ip: ${CITIC_HOST_IP:}
+        open-comm-custom: true
+        log-path: ${CITIC_SDK_LOG_PATH:}
+        token: ${CITIC_TOKEN:}
   sync:
     schedule-enabled: false
     fixed-delay-ms: 600000
