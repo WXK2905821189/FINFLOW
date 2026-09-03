@@ -75,7 +75,11 @@ jobs:
           grep -q 'DROP CONSTRAINT IF EXISTS' backend/src/main/resources/db/vendor-migration/h2/V7__drop_legacy_statement_number_uniqueness.sql
           grep -q 'PREPARE drop_legacy_statement_index' backend/src/main/resources/db/vendor-migration/mysql/V7__drop_legacy_statement_number_uniqueness.sql
           grep -q 'classpath:db/vendor-migration/{vendor}' backend/src/main/resources/application.yml
-          if git grep -n -I -E '(HttpClient|RestTemplate|WebClient|java\.net\.http|https?://)' -- backend/src/main/java/com/finance/system/bankdata; then
+          # bankdata must not call a real bank over HTTP yet; the XML security feature
+          # URIs in CiticResponseXml (http://apache.org/xml, http://xml.org/sax) are parser
+          # hardening constants, not network calls, so they are filtered out
+          if git grep -n -I -E '(HttpClient|RestTemplate|WebClient|java\.net\.http|https?://)' -- backend/src/main/java/com/finance/system/bankdata \
+             | grep -vE 'apache\.org/xml/features|xml\.org/sax/features'; then
             echo "v0.2 must not call a real bank SDK or API before a separately approved adapter release."
             exit 1
           fi
