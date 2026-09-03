@@ -48,3 +48,25 @@
 
 ---
 <!-- 后续缺陷继续追加：FIX-002 ... -->
+
+## FIX-002（P2 · 技术债登记，非阻塞）2026-09-03 登记（来源：独立架构审阅 docs/architecture-review-2026-09-03.md）
+
+> 非线上缺陷，为审阅提出的长期质量项，交全栈工程师对话排期处理。当日已同步完成的遗留项：
+> P0 收尾（新增 `CmbRealPathTenantIsolationIntegrationTest`，以 FakeCmbServer 全链路覆盖真实直联路径的租户隔离）
+> 与 P1-1（citic-sdk profile 由 activeByDefault 改为按 SDK jar 文件存在自动激活）不在此列——已完成并入库。
+
+### P2-1 · CI release-contract grep 断言易碎
+- **位置**：`.github/workflows/ci.yml` release-contract job，bankdata 目录 `git grep -E '(HttpClient|RestTemplate|WebClient|java\.net\.http|https?://)'` 守卫 + 机密扫描。
+- **现象**：守卫靠"源码/注释无 scheme URL"等文本断言表达，35 条断言对重构极其敏感——改一行 javadoc 即 CI 红（2026-09-03 已实际踩中：CmbAdapterProperties javadoc 带 URL 导致 36618b5 才修绿）。
+- **方向**：把"禁止硬编码银行网关 URL"转化为真实单测（扫描 class 常量/配置绑定而非源码文本），或建立显式豁免清单，降低误伤率。
+
+### P2-2 · 覆盖率盲区
+- **位置**：jacoco 报告——`operations` 包约 5.6%、`kingdee` 包约 8.8%。
+- **现象**：两包为连接配置/金蝶凭证推送链路，主流程测试几乎为空；当前 CI 不设覆盖率门槛，盲区会随功能叠加持续扩大。
+- **方向**：优先给 `ConnectionOperationsService`（overview/configuration/dataCapability 投影，已在 2026-09-03 语义改造中承担真实状态判定）补契约测试；kingdee 按推送状态机补路径测试。
+
+### P2-3 · 前端主 chunk 偏大
+- **位置**：`vite build` 输出主 chunk 约 795.70 kB（>500 kB 警告线）。
+- **现象**：FIX-001 移除 manualChunks 后运行时稳定性恢复，但代价是主包体积集中；React.lazy 路由级拆分已缓解，首屏仍一次性加载 antd 主体。
+- **方向**：评估 antd 按需引入 / babel-plugin-import、路由级预取策略；改动后必须浏览器实测首屏（沿用 FIX-001 验收标准），避免回归 chunk 互操作问题。
+

@@ -149,16 +149,21 @@
 
           The vendor SDK jars are commercial binaries and MUST NOT be committed to git
           (enforced by .github/workflows/ci.yml release-contract). They are installed into
-          the local ~/.m2 only (mvn install:install-file). This profile is active by default
-          so local builds and deploy artifacts include the real transport; CI explicitly
-          disables it with `-P '!citic-sdk'` because CI cannot resolve com.citicbank:*.
-          Without this profile, SdkCiticDlinkSdk is not compiled and the 501 placeholder
-          (UnavailableCiticDlinkSdk) remains the transport boundary.
+          the local ~/.m2 only (mvn install:install-file). The profile auto-activates when
+          the SDK jar exists locally, so machines with the SDK compile the real transport
+          and machines without it build out of the box with the 501 placeholder
+          (UnavailableCiticDlinkSdk) as the transport boundary. CI (no com.citicbank:*
+          available) keeps an explicit `-P '!citic-sdk'` deactivation as a belt-and-braces
+          guard; review 2026-09-03 P1-1 replaced activeByDefault with file-exists
+          activation because activeByDefault silently deactivates the moment any other
+          profile is activated anywhere.
         -->
         <profile>
             <id>citic-sdk</id>
             <activation>
-                <activeByDefault>true</activeByDefault>
+                <file>
+                    <exists>${user.home}/.m2/repository/com/citicbank/dlink-sdk-lib/4.1.3/dlink-sdk-lib-4.1.3.jar</exists>
+                </file>
             </activation>
             <dependencies>
                 <dependency>
