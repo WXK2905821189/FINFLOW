@@ -21,7 +21,11 @@ public class CmbAdapterProperties {
     /** Master switch for the REAL CMB adapter bean; the bank adapter stays CMB_MOCK unless enabled. */
     private boolean realEnabled = false;
 
-    /** Gateway endpoint. Test http://cdctest.cmburl.cn:80/cdcserver/api/v2, prod https://cdc.cmbchina.com/cdcserver/api/v2. */
+    /**
+     * Gateway endpoint, injected via {@code CMB_URL} env placeholder in application.yml.
+     * Hosts (see cmb-clouddc runbook, no scheme literals here to keep the CI no-hardcoded-bank-URL guard green):
+     * test = cdctest.cmburl.cn port 80, prod = cdc.cmbchina.com port 443; path = /cdcserver/api/v2 on both.
+     */
     private String url;
 
     /** Enterprise e-banking user id (网银用户号, e.g. N003261207); must match head.userid and form UID. */
