@@ -169,29 +169,39 @@ jobs:
     name: MySQL migration (CI service container)
     needs: release-contract
     runs-on: ubuntu-latest
-    services:
-      mysql:
-        # 8.0 与阿里云 RDS 8.0.36 同大版本；显式关闭 explicit_defaults_for_timestamp
-        # 以模拟阿里云 RDS 参数模板（edft=OFF + NO_ZERO_DATE/STRICT 是生产环境的真实组合，
-        # 8.4 默认 ON 会让裸 TIMESTAMP 回归测试漏网，见 deployment-aliyun-2026-09-02-noconsole.md 排障实录）
-        image: mysql:8.0
-        command: ["--explicit_defaults_for_timestamp=OFF", "--sql-mode=ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION"]
-        env:
-          MYSQL_ROOT_PASSWORD: ci-root-password
-          MYSQL_DATABASE: finflow_ci
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pci-root-password"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=20
     defaults:
       run:
         working-directory: backend
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+
+      - name: Start MySQL container (RDS-like flags)
+        # GitHub Actions job services do not support a custom `command`, so mysqld is
+        # started with a plain docker run. mysql:8.0 matches Aliyun RDS 8.0.36's major
+        # version; explicit_defaults_for_timestamp=OFF + the strict sql-mode mirror the
+        # real RDS parameter template (a bare TIMESTAMP regression would otherwise slip
+        # through, see deployment-aliyun-2026-09-02-noconsole.md).
+        run: |
+          docker run -d --name finflow-mysql -p 3306:3306 \
+            -e MYSQL_ROOT_PASSWORD=ci-root-password \
+            -e MYSQL_DATABASE=finflow_ci \
+            mysql:8.0 \
+            --explicit_defaults_for_timestamp=OFF \
+            --sql-mode="ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION"
+
+      - name: Wait for MySQL to accept connections
+        run: |
+          for i in $(seq 1 60); do
+            if docker exec finflow-mysql mysqladmin ping -h127.0.0.1 -uroot -pci-root-password --silent 2>/dev/null; then
+              echo "MySQL ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "MySQL did not become ready"
+          docker logs finflow-mysql 2>&1 | tail -30 || true
+          exit 1
 
       - name: Set up Java
         uses: actions/setup-java@v4
