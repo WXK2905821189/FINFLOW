@@ -187,17 +187,19 @@ class BankDataAggregationTraceTest {
                 .andExpect(jsonPath("$.data.task.id").value((int) taskId))
                 .andExpect(jsonPath("$.data.task.requestId").value(requestId));
 
-        // Normalized records and projections are reachable through the same request id.
-        mockMvc.perform(get("/api/bank-data/statements")
-                        .param("requestId", requestId)
-                        .header("Authorization", bearer(adminToken)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.total").value((int) statementCount));
-        mockMvc.perform(get("/api/bank-data/balances")
-                        .param("requestId", requestId)
-                        .header("Authorization", bearer(adminToken)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.total").value(org.hamcrest.Matchers.greaterThan(0)));
+        // Normalized records stay chain-traceable, but the MOCK adapter's output is no longer
+        // projected: 模拟数据已下线，投影只接受真实银行直联任务（本用例未启用 CMB/CITIC
+        // 真实适配器），因此同一 requestId 的投影返回 NOT_CONFIGURED / total=0。
+        assertTrue(statementCount > 0, "normalized statement records must be traceable");
+        for (String resource : java.util.List.of("statements", "balances")) {
+            mockMvc.perform(get("/api/bank-data/" + resource)
+                            .param("requestId", requestId)
+                            .header("Authorization", bearer(adminToken)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.status").value("NOT_CONFIGURED"))
+                    .andExpect(jsonPath("$.data.total").value(0))
+                    .andExpect(jsonPath("$.data.simulated").value(false));
+        }
         // Sync logs carry the bank request number that ties the chain together.
         BankDataSyncTaskDetailResponse detail = bankDataQueryService.getTaskDetail(adminUserId(), taskId);
         assertTrue(detail.logs().stream().anyMatch(log -> bankRequestNo.equals(log.bankRequestNo())),

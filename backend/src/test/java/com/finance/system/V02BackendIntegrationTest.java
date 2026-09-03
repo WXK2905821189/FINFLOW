@@ -235,20 +235,22 @@ class V02BackendIntegrationTest {
         String syncBRequestId = "QA-BANK-B-" + UUID.randomUUID();
         long syncBId = triggerBankData(userB.getId(), accountB.getId(), syncBRequestId);
 
-        // Normalized statements are reachable through the controlled projection
-        // surface, and stay isolated per authenticated company.
-        mockMvc.perform(get("/api/bank-data/statements").param("requestId", syncARequestId)
-                        .header("Authorization", bearer(adminToken)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.total").value(org.hamcrest.Matchers.greaterThan(0)));
-        mockMvc.perform(get("/api/bank-data/statements").param("requestId", syncARequestId)
-                        .header("Authorization", bearer(companyBToken)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.total").value(0));
-        mockMvc.perform(get("/api/bank-data/statements").param("requestId", syncBRequestId)
-                        .header("Authorization", bearer(companyBToken)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.total").value(org.hamcrest.Matchers.greaterThan(0)));
+        // 模拟/测试数据已下线（2026-09-03 语义改造）：投影只展示真实银行直联数据。
+        // 本用例未启用 CMB/CITIC 真实适配器，因此投影一律 NOT_CONFIGURED / total=0；
+        // 租户隔离改由下方「跨公司任务详情 404」这一服务边界断言覆盖。
+        for (String resource : java.util.List.of("balances", "statements")) {
+            mockMvc.perform(get("/api/bank-data/" + resource).param("requestId", syncARequestId)
+                            .header("Authorization", bearer(adminToken)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.status").value("NOT_CONFIGURED"))
+                    .andExpect(jsonPath("$.data.total").value(0))
+                    .andExpect(jsonPath("$.data.simulated").value(false));
+            mockMvc.perform(get("/api/bank-data/" + resource).param("requestId", syncBRequestId)
+                            .header("Authorization", bearer(companyBToken)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.status").value("NOT_CONFIGURED"))
+                    .andExpect(jsonPath("$.data.total").value(0));
+        }
         // A cross-company task id is a plain 404 at the service boundary.
         BusinessException crossCompany = assertThrows(BusinessException.class,
                 () -> bankDataQueryService.getTaskDetail(userB.getId(), syncAId));
@@ -305,25 +307,40 @@ class V02BackendIntegrationTest {
         triggerBankData(adminUserId(), 1L, adminRequestId);
         triggerBankData(userB.getId(), accountB.getId(), companyBRequestId);
 
-        for (String resource : java.util.List.of("balances", "statements", "receipts", "reconciliations", "payroll")) {
+        // 三模块已下线（回单/对账单/代发）：resource 白名单只剩 balances + statements，
+        // 其余一律 404「银行侧未开通该功能」。
+        for (String resource : java.util.List.of("receipts", "reconciliations", "payroll")) {
+            mockMvc.perform(get("/api/bank-data/" + resource)
+                            .header("Authorization", bearer(companyBToken))
+                            .param("page", "1")
+                            .param("size", "10")
+                            .param("requestId", companyBRequestId))
+                    .andExpect(status().isNotFound());
+        }
+
+        // 模拟/测试数据已下线：未启用真实银行适配器时，投影返回 NOT_CONFIGURED，
+        // simulated 恒 false、enabled 恒 false，且不带 normalization-failure 痕迹。
+        for (String resource : java.util.List.of("balances", "statements")) {
             mockMvc.perform(get("/api/bank-data/" + resource)
                             .header("Authorization", bearer(companyBToken))
                             .param("page", "1")
                             .param("size", "10")
                             .param("requestId", companyBRequestId))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.data.simulated").value(true))
+                    .andExpect(jsonPath("$.data.total").value(0))
+                    .andExpect(jsonPath("$.data.status").value("NOT_CONFIGURED"))
+                    .andExpect(jsonPath("$.data.simulated").value(false))
                     .andExpect(jsonPath("$.data.enabled").value(false))
                     .andExpect(content().string(org.hamcrest.Matchers.not(
                             org.hamcrest.Matchers.containsString("normalization-failure"))));
 
+            // 跨公司 requestId 同样被拦在「未连接」门控之前：拿不到任何其他公司的数据。
             mockMvc.perform(get("/api/bank-data/" + resource)
                             .header("Authorization", bearer(companyBToken))
                             .param("requestId", adminRequestId))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.total").value(0))
-                    .andExpect(jsonPath("$.data.message").value(
-                            "No projection matches the requested task or request"));
+                    .andExpect(jsonPath("$.data.status").value("NOT_CONFIGURED"));
         }
 
         mockMvc.perform(get("/api/bank-data/payments").header("Authorization", bearer(companyBToken)))
