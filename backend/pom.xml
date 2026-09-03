@@ -129,4 +129,86 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!--
+          CITIC DLink SDK integration (bankdata.adapter.citic real mode).
+
+          The vendor SDK jars are commercial binaries and MUST NOT be committed to git
+          (enforced by .github/workflows/ci.yml release-contract). They are installed into
+          the local ~/.m2 only (mvn install:install-file). This profile is active by default
+          so local builds and deploy artifacts include the real transport; CI explicitly
+          disables it with `-P '!citic-sdk'` because CI cannot resolve com.citicbank:*.
+          Without this profile, SdkCiticDlinkSdk is not compiled and the 501 placeholder
+          (UnavailableCiticDlinkSdk) remains the transport boundary.
+        -->
+        <profile>
+            <id>citic-sdk</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>com.citicbank</groupId>
+                    <artifactId>dlink-sdk-lib</artifactId>
+                    <version>4.1.3</version>
+                </dependency>
+                <dependency>
+                    <groupId>com.citicbank</groupId>
+                    <artifactId>dlink-sdk-log</artifactId>
+                    <version>1.1.0</version>
+                </dependency>
+                <dependency>
+                    <groupId>com.citicbank</groupId>
+                    <artifactId>isec-func</artifactId>
+                    <version>2.0.1.9</version>
+                </dependency>
+                <dependency>
+                    <groupId>com.citicbank</groupId>
+                    <artifactId>isec-jce</artifactId>
+                    <version>2.0.1.9</version>
+                </dependency>
+                <dependency>
+                    <groupId>com.citicbank</groupId>
+                    <artifactId>logback-cfca</artifactId>
+                    <version>4.1.1.0</version>
+                </dependency>
+            </dependencies>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>build-helper-maven-plugin</artifactId>
+                        <version>3.6.0</version>
+                        <executions>
+                            <execution>
+                                <id>add-citic-sdk-source</id>
+                                <phase>generate-sources</phase>
+                                <goals>
+                                    <goal>add-source</goal>
+                                </goals>
+                                <configuration>
+                                    <sources>
+                                        <source>src/citic-sdk/java</source>
+                                    </sources>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>add-citic-sdk-test-source</id>
+                                <phase>generate-test-sources</phase>
+                                <goals>
+                                    <goal>add-test-source</goal>
+                                </goals>
+                                <configuration>
+                                    <sources>
+                                        <source>src/citic-sdk/test</source>
+                                    </sources>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

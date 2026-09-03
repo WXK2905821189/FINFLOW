@@ -116,7 +116,7 @@ jobs:
           cache-dependency-path: backend/pom.xml
 
       - name: Package backend
-        run: mvn --batch-mode --no-transfer-progress clean package -DskipTests
+        run: mvn --batch-mode --no-transfer-progress -P '!citic-sdk' clean package -DskipTests
 
       - name: Migrate H2 and verify repeat startup
         shell: bash
@@ -202,7 +202,7 @@ jobs:
           cache-dependency-path: backend/pom.xml
 
       - name: Package backend
-        run: mvn --batch-mode --no-transfer-progress clean package -DskipTests
+        run: mvn --batch-mode --no-transfer-progress -P '!citic-sdk' clean package -DskipTests
 
       - name: Migrate MySQL empty, incremental and repeat startup
         shell: bash
@@ -295,7 +295,7 @@ jobs:
           cache-dependency-path: backend/pom.xml
 
       - name: Build and test
-        run: mvn --batch-mode --no-transfer-progress verify
+        run: mvn --batch-mode --no-transfer-progress -P '!citic-sdk' verify
 
   frontend:
     name: Frontend (Node 20 / pnpm)
