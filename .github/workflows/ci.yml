@@ -228,7 +228,7 @@ jobs:
           DB_URL: jdbc:mysql://127.0.0.1:3306/finflow_ci?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
           DB_USERNAME: root
           DB_PASSWORD: ci-root-password
-          JWT_SECRET: ci-only-test-value
+          JWT_SECRET: ci-only-jwt-secret-0123456789abcdef
           CITIC_MOCK_MODE: "true"
           KINGDEE_MOCK_MODE: "true"
         run: |
