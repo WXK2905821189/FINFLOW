@@ -35,3 +35,13 @@
 ---
 
 *v1.0（分阶段长版）要点已并入本页；执行细节仍可查 v1.0 提交记录。*
+
+---
+
+## 配套文档
+
+- 中信开发：`docs/citic-bank-interface-dev-guide.md`
+- **招行开发要点**（免前置·国密）：`docs/cmb-clouddc/FINFLOW-招行免前置对接开发要点.md`
+- **招行 AI 行动手册**（阶段 0-3 任务清单）：`docs/cmb-clouddc/FINFLOW-招行免前置AI行动手册.md`
+- 招行离线文档库（官方 4 文档集 + 免前置 Demo 代码）：`docs/cmb-clouddc/`
+- 金蝶：`docs/kingdee-openapi/`（14 篇离线）+ `docs/kingdee-openapi-knowledge-base.md`

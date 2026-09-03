@@ -27,6 +27,13 @@ backend/.m2-settings.xml
 # Local deploy staging (build artifacts / deployment bundles)
 tmp/
 
+# 厂商二进制不入库（审阅 2026-09-03 P1-2）：银行官方 demo 工具仅本地留存
+docs/cmb-clouddc/samples/
+docs/cmb-clouddc/linklab/
+*.exe
+*.dll
+*.zip
+
 # IDE / OS
 .idea/
 .vscode/
