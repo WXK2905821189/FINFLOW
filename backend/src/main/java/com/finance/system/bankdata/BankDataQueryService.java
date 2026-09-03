@@ -2,6 +2,8 @@ package com.finance.system.bankdata;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.finance.system.bankdata.adapter.BankAdapterExecutionMode;
+import com.finance.system.bankdata.adapter.BankDataAdapter;
 import com.finance.system.bankdata.dto.BankDataBalanceResponse;
 import com.finance.system.bankdata.dto.BankDataConnectionResponse;
 import com.finance.system.bankdata.dto.BankDataProjectionPageResponse;
@@ -53,6 +55,10 @@ public class BankDataQueryService {
     private final BankDataSyncLogMapper logMapper;
     private final ConnectionProfileMapper connectionProfileMapper;
     private final BankDataSyncResponseAssembler responseAssembler;
+    /** True when at least one REAL (non-simulated) bank adapter bean is active in this deployment. */
+    private final boolean realDirectConnected;
+    /** Adapter codes of the active REAL adapters (e.g. CMB); empty when直联未连接. */
+    private final List<String> realAdapterCodes;
 
     public BankDataQueryService(CompanyScopeService companyScope,
                                 BankDataSyncTaskMapper taskMapper,
@@ -60,7 +66,8 @@ public class BankDataQueryService {
                                 BankDataBalanceMapper balanceMapper,
                                 BankDataSyncLogMapper logMapper,
                                 ConnectionProfileMapper connectionProfileMapper,
-                                BankDataSyncResponseAssembler responseAssembler) {
+                                BankDataSyncResponseAssembler responseAssembler,
+                                List<BankDataAdapter> bankDataAdapters) {
         this.companyScope = companyScope;
         this.taskMapper = taskMapper;
         this.statementMapper = statementMapper;
@@ -68,6 +75,11 @@ public class BankDataQueryService {
         this.logMapper = logMapper;
         this.connectionProfileMapper = connectionProfileMapper;
         this.responseAssembler = responseAssembler;
+        List<BankDataAdapter> realAdapters = bankDataAdapters == null ? List.of() : bankDataAdapters.stream()
+                .filter(adapter -> adapter.executionMode() == BankAdapterExecutionMode.REAL)
+                .toList();
+        this.realAdapterCodes = realAdapters.stream().map(BankDataAdapter::adapterCode).toList();
+        this.realDirectConnected = !realAdapterCodes.isEmpty();
     }
 
     public PageResponse<BankSyncJobResponse> listJobs(Long userId, int page, int size, String status, String jobType,
@@ -101,44 +113,48 @@ public class BankDataQueryService {
                                                           String sourceSystem, String syncJobNo,
                                                           String requestId) {
         String normalized = resource == null ? "" : resource.trim().toLowerCase(Locale.ROOT);
-        if (!List.of("balances", "statements", "receipts", "reconciliations", "payroll")
-                .contains(normalized)) {
-            throw new BusinessException(404, "Bank data projection not found");
+        if (!List.of("balances", "statements").contains(normalized)) {
+            throw new BusinessException(404,
+                    "银行侧未开通该功能；当前仅支持 balances(余额查询) / statements(流水查询)");
         }
         long companyId = companyScope.companyIdForUser(userId);
         String normalizedSource = sourceSystem == null || sourceSystem.isBlank()
                 ? null : sourceSystem.trim().toUpperCase(Locale.ROOT);
-        if (normalizedSource != null && !List.of("BANKDATA", "MOCK", "SIMULATED").contains(normalizedSource)) {
-            return emptyProjectionPage(page, size, "No projection matches the requested source");
+        if (normalizedSource != null && !"BANKDATA".equals(normalizedSource)) {
+            return emptyProjectionPage(page, size, "模拟/测试数据已下线：仅展示真实银行直联数据（来源 BANKDATA）");
         }
         List<Long> taskIds = scopedTaskIds(companyId, syncJobNo, requestId);
-        if ((syncJobNo != null && !syncJobNo.isBlank() || requestId != null && !requestId.isBlank())
-                && taskIds.isEmpty()) {
-            return emptyProjectionPage(page, size, "No projection matches the requested task or request");
+        if (!realDirectConnected) {
+            return notConnectedPage(page, size);
+        }
+        List<Long> realTasks = realTaskIds(companyId);
+        if (realTasks.isEmpty()) {
+            return emptyProjectionPage(page, size, "暂无真实银行数据：请先对银行账户发起一次同步任务");
+        }
+        taskIds = taskIds.isEmpty() ? realTasks : taskIds.stream().filter(realTasks::contains).toList();
+        if (taskIds.isEmpty()) {
+            return emptyProjectionPage(page, size, "指定任务不是真实银行直联的同步任务，或没有匹配记录");
         }
         if ("balances".equals(normalized)) {
             PageResponse<BankDataBalanceResponse> balances = listBalances(userId, page, size, bankAccountId,
-                    status, from, to, taskIds.isEmpty() ? null : taskIds);
+                    status, from, to, taskIds);
             Map<Long, BankDataSyncTask> tasksById = tasksById(companyId,
                     balances.records().stream().map(BankDataBalanceResponse::taskId).toList());
             List<BankDataProjectionResponse> records = balances.records().stream()
                     .map(balance -> new BankDataProjectionResponse(String.valueOf(balance.id()), "BANKDATA",
                             "BALANCE-" + balance.id(), balance.validationStatus(), balance.asOfTime(),
                             balance.accountMasked(), balance.availableBalance(), balance.currency(), null,
-                            "Available balance snapshot", taskNo(tasksById.get(balance.taskId())),
-                            requestId(tasksById.get(balance.taskId())), balance.createdAt(), true))
+                            "账户余额快照", taskNo(tasksById.get(balance.taskId())),
+                            requestId(tasksById.get(balance.taskId())), balance.createdAt(), false))
                     .toList();
             return projectionPage(balances.page(), balances.size(), balances.total(), records,
                     companyId, "BANKDATA", balances.records().stream().map(BankDataBalanceResponse::createdAt)
                             .max(LocalDateTime::compareTo).orElse(null));
         }
-        if (!"statements".equals(normalized)) {
-            return emptyProjectionPage(page, size, "This projection is not populated in the current MOCK release");
-        }
         LambdaQueryWrapper<BankDataStatement> query = new LambdaQueryWrapper<BankDataStatement>()
                 .eq(BankDataStatement::getCompanyId, companyId)
                 .eq(bankAccountId != null, BankDataStatement::getBankAccountId, bankAccountId)
-                .in(!taskIds.isEmpty(), BankDataStatement::getTaskId, taskIds)
+                .in(BankDataStatement::getTaskId, taskIds)
                 .eq(status != null && !status.isBlank(), BankDataStatement::getValidationStatus,
                         status == null ? null : status.trim().toUpperCase(Locale.ROOT))
                 .ge(from != null, BankDataStatement::getTransactionTime, from)
@@ -158,7 +174,7 @@ public class BankDataQueryService {
                         statement.getValidationStatus(), statement.getTransactionTime(), null, statement.getAmount(),
                         statement.getCurrency(), statement.getDirection(), statement.getSummary(),
                         taskNo(tasksById.get(statement.getTaskId())), requestId(tasksById.get(statement.getTaskId())),
-                        statement.getCreatedAt(), true))
+                        statement.getCreatedAt(), false))
                 .toList();
         return projectionPage(result.getCurrent(), result.getSize(), result.getTotal(), records,
                 companyId, "BANKDATA", result.getRecords().stream().map(BankDataStatement::getCreatedAt)
@@ -236,13 +252,37 @@ public class BankDataQueryService {
                                                            List<BankDataProjectionResponse> records,
                                                            long companyId, String sourceSystem,
                                                            LocalDateTime lastSyncedAt) {
-        return new BankDataProjectionPageResponse(page, size, total, records, false, "SIMULATED",
-                "真实银行直联未启用；当前仅返回服务端模拟业务投影", null, sourceSystem, lastSyncedAt, true);
+        String message = records.isEmpty()
+                ? "已连接真实银行直联；当前筛选无数据，请先发起同步或调整条件"
+                : "已连接真实银行直联，以下为银行返回的真实数据";
+        return new BankDataProjectionPageResponse(page, size, total, records, true, "REAL",
+                message, null, sourceSystem, lastSyncedAt, false);
     }
 
+    /** Real bank direct link is connected but nothing matched the criteria (or no sync ran yet). */
     private BankDataProjectionPageResponse emptyProjectionPage(int page, int size, String message) {
         return new BankDataProjectionPageResponse(Math.max(1, page), boundedSize(size), 0, List.of(),
-                false, "NOT_ENABLED", message, null, "BANKDATA", null, true);
+                true, "REAL", message, null, "BANKDATA", null, false);
+    }
+
+    /** No REAL bank adapter is active in this deployment: the UI must show an explicit red "not connected". */
+    private BankDataProjectionPageResponse notConnectedPage(int page, int size) {
+        return new BankDataProjectionPageResponse(Math.max(1, page), boundedSize(size), 0, List.of(),
+                false, "NOT_CONFIGURED",
+                "真实银行直联未连接：服务端未启用真实银行适配器（需配置 CMB 直联并开启 BANKDATA_CMB_REAL_ENABLED）",
+                null, "BANKDATA", null, false);
+    }
+
+    /** Task ids produced by the active REAL adapters only (mock/simulated tasks are never projected). */
+    private List<Long> realTaskIds(long companyId) {
+        if (realAdapterCodes.isEmpty()) {
+            return List.of();
+        }
+        return taskMapper.selectList(new LambdaQueryWrapper<BankDataSyncTask>()
+                        .eq(BankDataSyncTask::getCompanyId, companyId)
+                        .in(BankDataSyncTask::getAdapterCode, realAdapterCodes)
+                        .select(BankDataSyncTask::getId))
+                .stream().map(BankDataSyncTask::getId).toList();
     }
 
     public List<BankDataConnectionResponse> listConnections(Long userId) {

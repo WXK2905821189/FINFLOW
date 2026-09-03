@@ -82,7 +82,7 @@ public class BankDataSyncService {
 
     public BankSyncJobDetailResponse triggerJob(Long userId, BankSyncJobTriggerRequest request, String requestId) {
         if (!"STATEMENT_PULL".equalsIgnoreCase(request.jobType())) {
-            throw new BusinessException(400, "Only STATEMENT_PULL is available for the simulated bank data adapter");
+            throw new BusinessException(400, "Only STATEMENT_PULL is currently supported for bank data sync jobs");
         }
         long companyId = companyScope.companyIdForUser(userId);
         BankAccount account = bankAccountMapper.selectOne(new LambdaQueryWrapper<BankAccount>()
@@ -96,7 +96,8 @@ public class BankDataSyncService {
                 ? UUID.randomUUID().toString() : requestId.trim();
         SyncWindow window = parseWindow(request.windowStart(), request.windowEnd());
         BankDataSyncTaskDetailResponse detail = trigger(userId,
-                new BankDataSyncRequest(request.connectionCode(), account.getId(), "MOCK", window.start(), window.end()), safeRequestId);
+                new BankDataSyncRequest(request.connectionCode(), account.getId(), request.adapterCode(),
+                        window.start(), window.end()), safeRequestId);
         BankDataSyncTaskResponse task = detail.task();
         BankSyncJobResponse job = new BankSyncJobResponse(task.id(), task.taskNo(),
                 normalize(request.jobType(), "STATEMENT_PULL"), "MANUAL", task.connectionCode(), task.status(),

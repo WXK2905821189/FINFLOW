@@ -2,6 +2,7 @@ package com.finance.system.operations;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.finance.system.bankdata.adapter.cmb.CmbAdapterProperties;
 import com.finance.system.common.api.PageResponse;
 import com.finance.system.common.exception.BusinessException;
 import com.finance.system.common.tenant.CompanyScopeService;
@@ -28,33 +29,38 @@ import java.util.stream.Collectors;
 public class ConnectionOperationsService {
 
     private static final List<String> DATA_RESOURCES = List.of(
-            "balances", "statements", "receipts", "reconciliation-statements", "payroll");
-    private static final List<String> SUPPORTED_PROVIDER_TYPES = List.of("SIMULATED");
+            "balances", "statements");
 
     private final ConnectionProfileMapper profileMapper;
     private final ConnectionOperationTaskMapper taskMapper;
     private final ConnectionOperationLogMapper logMapper;
     private final CompanyScopeService companyScope;
+    private final CmbAdapterProperties cmbProperties;
 
     public ConnectionOperationsService(ConnectionProfileMapper profileMapper,
                                        ConnectionOperationTaskMapper taskMapper,
                                        ConnectionOperationLogMapper logMapper,
-                                       CompanyScopeService companyScope) {
+                                       CompanyScopeService companyScope,
+                                       CmbAdapterProperties cmbProperties) {
         this.profileMapper = profileMapper;
         this.taskMapper = taskMapper;
         this.logMapper = logMapper;
         this.companyScope = companyScope;
+        this.cmbProperties = cmbProperties;
     }
 
     public ConnectionConfigurationResponse configuration(Long userId, String section) {
         long companyId = companyScope.companyIdForUser(userId);
         validateSection(section);
+        boolean cmbReal = cmbProperties.isRealEnabled();
         List<ConnectionSummaryResponse> connections = profiles(companyId).stream().map(this::toSummary).toList();
         return new ConnectionConfigurationResponse(
-                false,
-                "NOT_ENABLED",
-                "连接配置仅保留安全元数据；本期未启用外部连接，不读取或保存密钥。",
-                SUPPORTED_PROVIDER_TYPES,
+                cmbReal,
+                cmbReal ? "REAL" : "NOT_CONFIGURED",
+                cmbReal
+                        ? "已连接真实银行直联（招行 CMB）；密钥仅存于服务端环境变量，不落库、不返回。"
+                        : "真实银行直联未连接：服务端未启用真实银行适配器（需配置 CMB 并开启 BANKDATA_CMB_REAL_ENABLED）。",
+                cmbReal ? List.of("CMB") : List.of(),
                 connections);
     }
 
@@ -62,12 +68,12 @@ public class ConnectionOperationsService {
         long companyId = companyScope.companyIdForUser(userId);
         List<ConnectionProfile> profiles = profiles(companyId);
         List<ConnectionSummaryResponse> connections = profiles.stream().map(this::toSummary).toList();
-        boolean enabled = profiles.stream().anyMatch(profile -> Boolean.TRUE.equals(profile.getEnabled()));
-        String status = profiles.isEmpty() ? "NOT_ENABLED" : (enabled ? "SIMULATED" : "DISABLED");
-        String message = profiles.isEmpty()
-                ? "当前没有已配置的连接，未执行任何外部调用。"
-                : "仅展示服务端连接元数据，未执行真实银行或金蝶调用。";
-        return new ConnectionOverviewResponse(enabled, status, message, connections);
+        boolean cmbReal = cmbProperties.isRealEnabled();
+        String status = cmbReal ? "REAL" : (profiles.isEmpty() ? "NOT_ENABLED" : "DISABLED");
+        String message = cmbReal
+                ? "已连接真实银行直联（招行 CMB）：余额/流水查询走真实银行接口。"
+                : "真实银行直联未连接：未启用真实银行适配器，查询页将明确标红提示。";
+        return new ConnectionOverviewResponse(cmbReal, status, message, connections);
     }
 
     public PageResponse<OperationLogResponse> logs(Long userId, int page, int size, String connectionCode,
@@ -101,13 +107,17 @@ public class ConnectionOperationsService {
     public DataQueryCapabilityResponse dataCapability(String resource) {
         String normalized = resource == null ? "" : resource.trim().toLowerCase(Locale.ROOT);
         if (!DATA_RESOURCES.contains(normalized)) {
-            throw new BusinessException(404, "Data query capability not found");
+            throw new BusinessException(404,
+                    "银行侧未开通该功能；当前仅支持 balances(余额查询) / statements(流水查询)");
         }
+        boolean cmbReal = cmbProperties.isRealEnabled();
         return new DataQueryCapabilityResponse(
                 normalized,
-                false,
-                "NOT_ENABLED",
-                "本期仅提供服务端能力状态；未连接外部数据源，不返回虚构的余额、流水或业务记录。"
+                cmbReal,
+                cmbReal ? "REAL" : "NOT_CONFIGURED",
+                cmbReal
+                        ? "已连接真实银行直联（招行 CMB），余额/流水为真实银行数据。"
+                        : "真实银行直联未连接：服务端未启用真实银行适配器。"
         );
     }
 

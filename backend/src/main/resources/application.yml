@@ -71,6 +71,18 @@ bankdata:
         open-comm-custom: true
         log-path: ${CITIC_SDK_LOG_PATH:}
         token: ${CITIC_TOKEN:}
+    cmb:
+      # CMB CloudDC (免前置). Secrets come from environment variables only — never commit keys.
+      # Test endpoint http://cdctest.cmburl.cn:80/cdcserver/api/v2 ; prod https://cdc.cmbchina.com/cdcserver/api/v2
+      real-enabled: ${BANKDATA_CMB_REAL_ENABLED:false}
+      url: ${CMB_URL:}
+      uid: ${CMB_UID:}
+      private-key: ${CMB_PRIVATE_KEY:}
+      public-key: ${CMB_PUBLIC_KEY:}
+      sym-key: ${CMB_SYM_KEY:}
+      branch-code: ${CMB_BRANCH_CODE:}
+      connect-timeout-ms: 15000
+      read-timeout-ms: 60000
   sync:
     schedule-enabled: false
     fixed-delay-ms: 600000

@@ -90,6 +90,19 @@
             <version>${knife4j.version}</version>
         </dependency>
 
+        <!-- CMB CloudDC (免前置) adapter: public OSS crypto/JSON libs. SM2/SM4 come from
+             BouncyCastle; version pinned to 1.61 matching the vendor demo's 说明.txt.
+             gson version is managed by the Spring Boot BOM. -->
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-jdk15on</artifactId>
+            <version>1.61</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>

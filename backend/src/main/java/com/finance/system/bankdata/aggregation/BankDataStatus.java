@@ -16,7 +16,8 @@ public enum BankDataStatus {
     public static BankDataStatus fromVendor(String value) {
         if (value == null || value.isBlank()) return UNKNOWN;
         return switch (value.trim().toUpperCase(Locale.ROOT)) {
-            case "SUCCESS", "OK", "AAAAAAA" -> SUCCESS;
+            // AAAAAAA = CITIC success, SUC0000 = CMB success (AAAAAAE = CITIC processing, EEEEEEE = CITIC failure).
+            case "SUCCESS", "OK", "AAAAAAA", "SUC0000" -> SUCCESS;
             case "PENDING", "PROCESSING", "ACCEPTED", "AAAAAAE" -> PENDING;
             case "TIMEOUT", "TIMED_OUT", "TIME_OUT" -> TIMEOUT;
             case "FAILED", "FAILURE", "ERROR", "EEEEEEE" -> FAILED;
