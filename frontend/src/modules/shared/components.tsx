@@ -39,7 +39,11 @@ export function PageLoading() {
   return <div className="page-loading"><Skeleton active paragraph={{ rows: 5 }} /></div>;
 }
 export function PhaseOneNotice({ status, message }: { status?: string; message?: string }) {
-  return <Alert className="phase-one-notice" type="warning" showIcon message="一期未启用真实银行直联" description={<span>本区域仅展示服务端授权返回的未启用或模拟元数据，不调用银行 SDK/API，也不会生成余额、流水、回单或支付结果。{status && <> 当前服务端状态：<StatusTag status={status} />。</>}{message && <> {message}</>}</span>} />;
+  // 服务端已连接真实直联（如 REAL）时无需警示；未连接/未配置/禁用等一律红色明确提示，不再展示模拟数据。
+  if (status && !/(DISABLED|UNAVAILABLE|NOT_ENABLED|NOT_CONFIGURED|SIMULATED|MOCK|未启用|不可用)/i.test(status)) {
+    return null;
+  }
+  return <Alert className="phase-one-notice" type="error" showIcon message="真实银行直联未连接" description={<span>服务端未启用真实银行适配器，本区域不提供模拟数据。{status && <> 当前服务端状态：<StatusTag status={status} />。</>}{message && <> {message}</>}</span>} />;
 }
 
 export function PreservedFinancePage({ title, description }: { title: string; description: string }) {

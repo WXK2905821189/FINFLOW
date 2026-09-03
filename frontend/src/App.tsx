@@ -66,8 +66,8 @@ function AppRoutes() {
             <Route path="/reconciliation/dashboard" element={<Reconciliation />} />
           </Route>
           <Route element={<PermissionGuard permissions={['connection:view', 'connection:manage']} />}>
-            <Route path="/bank-access/connections" element={<ConnectionConfigurationPage section="applications" title="银行连接" description="管理未来银行直联的受控元数据；一期不建立真实银行连接。" />} />
-            <Route path="/bank-access/agreements" element={<ConnectionConfigurationPage section="contracts" title="签约准备与采集设置" description="展示签约准备度、模拟标记与服务端采集配置摘要；不代表银行签约已生效，浏览器不读取或保存密钥、证书或令牌。" />} />
+            <Route path="/bank-access/connections" element={<ConnectionConfigurationPage section="applications" title="银行连接" description="管理真实银行直联连接的受控元数据；密钥仅存于服务端环境变量，不落库、不返回。" />} />
+            <Route path="/bank-access/agreements" element={<ConnectionConfigurationPage section="contracts" title="签约准备与采集设置" description="展示签约准备度与采集配置；签约生效以银行侧开通为准，浏览器不读取或保存密钥、证书或令牌。" />} />
           </Route>
           <Route element={<PermissionGuard permissions={['bank:view']} />}>
             <Route path="/bank-access/accounts" element={<BankAccountPage />} />
@@ -87,15 +87,6 @@ function AppRoutes() {
           <Route element={<PermissionGuard permissions={['bankdata:statement:view']} />}>
             <Route path="/bank-access/data/statements" element={<BankDataQueryPage resource="statements" />} />
           </Route>
-          <Route element={<PermissionGuard permissions={['bankdata:receipt:view']} />}>
-            <Route path="/bank-access/data/receipts" element={<BankDataQueryPage resource="receipts" />} />
-          </Route>
-          <Route element={<PermissionGuard permissions={['bankdata:reconciliation:view']} />}>
-            <Route path="/bank-access/data/reconciliations" element={<BankDataQueryPage resource="reconciliations" />} />
-          </Route>
-          <Route element={<PermissionGuard permissions={['bankdata:payroll:view']} />}>
-            <Route path="/bank-access/data/payroll" element={<BankDataQueryPage resource="payroll" />} />
-          </Route>
           <Route path="/connections/apps" element={<Navigate to="/bank-access/connections" replace />} />
           <Route path="/connections/agreements" element={<Navigate to="/bank-access/agreements" replace />} />
           <Route path="/connections/preferences" element={<Navigate to="/bank-access/agreements" replace />} />
@@ -104,9 +95,6 @@ function AppRoutes() {
           <Route path="/operations/logs" element={<Navigate to="/bank-access/logs" replace />} />
           <Route path="/bank-data/balances" element={<Navigate to="/bank-access/data/balances" replace />} />
           <Route path="/bank-data/statements" element={<Navigate to="/bank-access/data/statements" replace />} />
-          <Route path="/bank-data/receipts" element={<Navigate to="/bank-access/data/receipts" replace />} />
-          <Route path="/bank-data/reconciliations" element={<Navigate to="/bank-access/data/reconciliations" replace />} />
-          <Route path="/bank-data/payroll" element={<Navigate to="/bank-access/data/payroll" replace />} />
           <Route path="/statements/reconciliation" element={<Navigate to="/reconciliation/dashboard" replace />} />
           <Route path="/bank-access/preferences" element={<Navigate to="/bank-access/agreements" replace />} />
           <Route path="/403" element={<Forbidden />} />

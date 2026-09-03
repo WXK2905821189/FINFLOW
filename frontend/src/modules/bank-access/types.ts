@@ -55,6 +55,8 @@ export type BankSyncJobTrigger = {
   jobType: string;
   bankAccountId: number;
   connectionCode?: string;
+  /** Optional adapter code (e.g. CMB for the real CMB adapter; blank falls back to the server default). */
+  adapterCode?: string;
   windowStart?: string;
   windowEnd?: string;
 };

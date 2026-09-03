@@ -26,8 +26,6 @@ export const pageTitles: Record<string, string> = {
   '/bank-access/logs': '失败日志',
   '/bank-access/data/balances': '余额查询',
   '/bank-access/data/statements': '流水查询',
-  '/bank-access/data/receipts': '回单查询',
-  '/bank-access/data/reconciliations': '对账单查询',
   '/statements/import': '导入流水',
   '/statements/batches': '标准流水',
   '/statements/review': '人工复核',
@@ -47,8 +45,7 @@ export function buildProductNavigation(hasPermission: HasPermission): MenuProps[
   const canViewFeishu = hasPermission('feishu:view') || hasPermission('feishu:manage');
   const canViewTasks = hasPermission('operation:monitor') || hasPermission('bankdata:view');
   const canViewBankData = [
-    'bankdata:balance:view', 'bankdata:statement:view', 'bankdata:receipt:view',
-    'bankdata:reconciliation:view', 'bankdata:payroll:view',
+    'bankdata:balance:view', 'bankdata:statement:view',
   ].some(hasPermission);
 
   return [
@@ -68,9 +65,6 @@ export function buildProductNavigation(hasPermission: HasPermission): MenuProps[
         ...(canViewBankData ? [{ key: 'bank-access-data', icon: <SearchOutlined />, label: '数据查询', children: [
           ...(hasPermission('bankdata:balance:view') ? [{ key: '/bank-access/data/balances', label: <Link to="/bank-access/data/balances">余额查询</Link> }] : []),
           ...(hasPermission('bankdata:statement:view') ? [{ key: '/bank-access/data/statements', label: <Link to="/bank-access/data/statements">流水查询</Link> }] : []),
-          ...(hasPermission('bankdata:receipt:view') ? [{ key: '/bank-access/data/receipts', label: <Link to="/bank-access/data/receipts">回单查询</Link> }] : []),
-          ...(hasPermission('bankdata:reconciliation:view') ? [{ key: '/bank-access/data/reconciliations', label: <Link to="/bank-access/data/reconciliations">对账单查询</Link> }] : []),
-          ...(hasPermission('bankdata:payroll:view') ? [{ key: '/bank-access/data/payroll', label: <Link to="/bank-access/data/payroll">代发查询</Link> }] : []),
         ] }] : []),
       ],
     }] : []),
