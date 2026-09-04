@@ -24,6 +24,9 @@ http.interceptors.request.use((config) => {
 
 http.interceptors.response.use(
   (response) => {
+    // Non-envelope payloads (the CSV export returns a raw file, not ApiResponse JSON)
+    // must pass through untouched: reading .code off a Blob would throw a false error.
+    if (response.config.responseType === 'blob') return response;
     const body = response.data as ApiEnvelope<unknown>;
     if (body?.code !== 0) throw new ApiRequestError(body?.message || '请求未能完成', response.status, body?.code);
     return body.data as never;

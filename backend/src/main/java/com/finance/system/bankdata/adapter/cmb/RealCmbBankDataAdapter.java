@@ -212,7 +212,8 @@ public class RealCmbBankDataAdapter implements BankDataAdapter {
                             trim(row.fatOrSonBankName()), trim(row.fatOrSonBankAddress()),
                             trim(row.infoFlag()), trim(row.businessName()), trim(row.businessText()),
                             trim(row.requestNbr()), trim(row.yurRef()), trim(row.virtualNbr()),
-                            trim(row.mchOrderNbr()), trim(row.transCardNbr()), trim(row.reserve()))));
+                            trim(row.mchOrderNbr()), trim(row.transCardNbr()), trim(row.reserve()),
+                            trim(row.currencyNbr()))));
         }
         return List.copyOf(entries);
     }

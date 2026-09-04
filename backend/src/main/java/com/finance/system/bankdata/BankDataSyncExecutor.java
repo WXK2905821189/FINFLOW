@@ -357,6 +357,7 @@ public class BankDataSyncExecutor {
         statement.setMchOrderNbr(blankToNull(vendor.mchOrderNbr()));
         statement.setTransCardNbr(blankToNull(vendor.transCardNbr()));
         statement.setReserve(blankToNull(vendor.reserve()));
+        statement.setVendorCurrencyCode(blankToNull(vendor.vendorCurrencyCode()));
     }
 
     private BankDataBalance toBalance(BankDataBalanceEntry entry, BankDataSyncTask task, BankDataRawMessage raw,

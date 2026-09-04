@@ -92,6 +92,8 @@ public class BankDataStatement {
     private String transCardNbr;
     /** 保留字 reserve. */
     private String reserve;
+    /** 币种 currencyNbr（银行侧代码，如 10=人民币），V19 补；与规范化后的 currency 分开存。 */
+    private String vendorCurrencyCode;
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -180,4 +182,6 @@ public class BankDataStatement {
     public void setTransCardNbr(String transCardNbr) { this.transCardNbr = transCardNbr; }
     public String getReserve() { return reserve; }
     public void setReserve(String reserve) { this.reserve = reserve; }
+    public String getVendorCurrencyCode() { return vendorCurrencyCode; }
+    public void setVendorCurrencyCode(String vendorCurrencyCode) { this.vendorCurrencyCode = vendorCurrencyCode; }
 }

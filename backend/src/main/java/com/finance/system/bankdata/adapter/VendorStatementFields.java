@@ -76,6 +76,8 @@ public record VendorStatementFields(
         /** 记账卡号 transCardNbr. */
         String transCardNbr,
         /** 保留字 reserve. */
-        String reserve
+        String reserve,
+        /** 币种 currencyNbr - the bank's own currency code (e.g. 10 = 人民币), not an ISO code. */
+        String vendorCurrencyCode
 ) {
 }

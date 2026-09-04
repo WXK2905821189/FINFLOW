@@ -103,6 +103,7 @@ public class BankDataSyncResponseAssembler {
                 statement.getCounterpartyName(), statement.getCounterpartyAccountMasked(), statement.getSummary(),
                 statement.getValidationStatus(), statement.getValidationMessage(), statement.getCreatedAt(),
                 null,
+                null,
                 statement.getBankAccountNo(), statement.getValueDate(), statement.getLoanCode(),
                 statement.getSignedAmount(), statement.getTextCode(), statement.getBillNumber(),
                 statement.getRemarkTextClt(), statement.getReversalFlag(), statement.getAcctOnlineBal(),
@@ -112,6 +113,7 @@ public class BankDataSyncResponseAssembler {
                 statement.getBusinessName(), statement.getBusinessText(), statement.getRequestNbr(),
                 statement.getYurRef(), statement.getVirtualNbr(), statement.getMchOrderNbr(),
                 statement.getTransCardNbr(), statement.getReserve(),
+                statement.getVendorCurrencyCode(),
                 null, null, null);
     }
 

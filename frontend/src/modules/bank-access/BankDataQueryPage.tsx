@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import { Alert, Button, Card, DatePicker, Descriptions, Drawer, Empty, Input, Modal, Pagination, Space, Table, Tag, message, type TableColumnsType } from 'antd';
-import { PlayCircleOutlined, SearchOutlined } from '@ant-design/icons';
+import { DownloadOutlined, PlayCircleOutlined, SearchOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { Link } from 'react-router-dom';
 import { bankPipelineApi } from '../../services/api';
@@ -224,6 +224,23 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
     setSelected(undefined);
     window.setTimeout(() => focusRef.current?.focus(), 0);
   };
+  const [exporting, setExporting] = useState(false);
+  const exportCsv = async () => {
+    setExporting(true);
+    try {
+      await bankPipelineApi.exportCsv(resource, {
+        keyword: filters.keyword || undefined, accountId: filters.accountId || undefined,
+        status: filters.status || undefined, from: filters.from || undefined, to: filters.to || undefined,
+        sourceSystem: filters.sourceSystem || undefined, syncJobNo: filters.syncJobNo || undefined,
+        requestId: filters.requestId || undefined,
+      });
+      message.success('导出已生成');
+    } catch (reason) {
+      message.error(reason instanceof Error ? reason.message : '导出失败，请稍后重试');
+    } finally {
+      setExporting(false);
+    }
+  };
   const triggerSyncFromFilters = () => {
     const accountId = Number(draft.accountId || filters.accountId);
     if (!Number.isSafeInteger(accountId) || accountId <= 0) {
@@ -273,6 +290,7 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
           <h2>{definition.title}</h2>
           <p className="muted">直出银行返回的原始字段（招行 trsQryByBreakPoint / NTQADINF），不做业务投影翻译；本方账号脱敏，完整报文体在「原始报文」模块查看。</p>
         </div>
+        {submitted && <Button icon={<DownloadOutlined />} loading={exporting} onClick={exportCsv}>导出 CSV</Button>}
         {canTriggerSync && <Button icon={<PlayCircleOutlined />} loading={syncTriggering} onClick={triggerSyncFromFilters}>按筛选创建同步任务</Button>}
       </div>
       <Card className="filter-card">

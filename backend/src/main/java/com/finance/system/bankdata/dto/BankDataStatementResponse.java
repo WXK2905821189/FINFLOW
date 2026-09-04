@@ -41,8 +41,10 @@ public record BankDataStatementResponse(
         String validationStatus,
         String validationMessage,
         LocalDateTime createdAt,
-        /** 本方脱敏账号：仅投影查询填充，其它端点为 null。 */
+        /** 本方脱敏账号：仅投影查询与导出填充，其它端点为 null。 */
         String accountMasked,
+        /** 本方账户名称：仅投影查询与导出填充，银行的流水行本身不带户名。 */
+        String accountName,
         String bankAccountNo,
         LocalDate valueDate,
         String loanCode,
@@ -69,6 +71,8 @@ public record BankDataStatementResponse(
         String mchOrderNbr,
         String transCardNbr,
         String reserve,
+        /** 币种 currencyNbr（银行侧代码，如 10=人民币）；与规范化后的 currency 并存。 */
+        String vendorCurrencyCode,
         /** 产出该行的同步任务号；仅投影查询填充。 */
         String taskNo,
         /** 产出该行的同步任务请求编号；仅投影查询填充。 */
@@ -82,14 +86,14 @@ public record BankDataStatementResponse(
      * they tell the reviewer which bank call produced the row and whether that call resolved.
      */
     public BankDataStatementResponse withLineage(String taskNo, String taskRequestId, String taskStatus,
-                                                 String accountMasked) {
+                                                 String accountMasked, String accountName) {
         return new BankDataStatementResponse(id, taskId, rawMessageId, contentSha256, retentionUntil,
                 bankAccountId, bankRequestNo, statementNo, transactionTime, direction, amount, currency,
                 counterpartyName, counterpartyAccountMasked, summary, validationStatus, validationMessage,
-                createdAt, accountMasked, bankAccountNo, valueDate, loanCode, signedAmount, textCode,
+                createdAt, accountMasked, accountName, bankAccountNo, valueDate, loanCode, signedAmount, textCode,
                 billNumber, remarkTextClt, reversalFlag, acctOnlineBal, extendedRemark, ctpAcctNbr,
                 ctpBankName, ctpBankAddress, fatOrSonAccount, fatOrSonCompanyName, fatOrSonBankName,
                 fatOrSonBankAddress, infoFlag, businessName, businessText, requestNbr, yurRef, virtualNbr,
-                mchOrderNbr, transCardNbr, reserve, taskNo, taskRequestId, taskStatus);
+                mchOrderNbr, transCardNbr, reserve, vendorCurrencyCode, taskNo, taskRequestId, taskStatus);
     }
 }

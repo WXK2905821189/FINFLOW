@@ -1,3 +1,4 @@
+import type { AxiosResponse } from 'axios';
 import { http } from './http';
 import type {
   AuthTokenResponse,
@@ -152,4 +153,25 @@ export const bankPipelineApi = {
   queryProjection: <T>(resource: string, params: BankDataQueryParams) => http.get<never, BankDataProjectionPage<T>>(`/bank-data/${resource}`, { params }),
   listRawMessages: (params: BankRawMessageListParams) => http.get<never, PageResponse<BankRawMessage>>('/bank-data-raw-messages', { params }),
   getRawMessage: (id: number) => http.get<never, BankRawMessageDetail>(`/bank-data-raw-messages/${id}`),
+  /**
+   * CSV export in the bank's own column layout. The backend renders the file and
+   * names it (filename* RFC5987 for the Chinese name); the client only carries
+   * the auth header and hands the blob to the user. Export reads the same
+   * authorized data as queryProjection in another shape, so it grants no new access.
+   */
+  exportCsv: async (resource: 'balances' | 'statements', params: Omit<BankDataQueryParams, 'page' | 'size'>): Promise<void> => {
+    const response = await http.get<never, AxiosResponse<Blob>>(`/bank-data/${resource}/export`, { params, responseType: 'blob' });
+    const disposition = String(response.headers?.['content-disposition'] ?? '');
+    const utf8Name = /filename\*=UTF-8''([^;]+)/i.exec(disposition)?.[1];
+    const asciiName = /filename="([^"]+)"/i.exec(disposition)?.[1];
+    const filename = utf8Name ? decodeURIComponent(utf8Name) : asciiName || `${resource === 'balances' ? '银行余额' : '银行流水'}导出.csv`;
+    const url = URL.createObjectURL(response.data);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  },
 };

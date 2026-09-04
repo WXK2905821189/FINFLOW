@@ -124,6 +124,61 @@ class BankDataRealFieldsIntegrationTest {
         assertEquals("SUCCEEDED", row.get("taskStatus").asText());
     }
 
+    @Test
+    void statementExportSplitsTheSignedAmountIntoTheBanksTwoColumns() throws Exception {
+        String adminToken = login("admin", "Admin@123");
+        long accountId = archiveAccount(adminToken);
+        triggerSync(adminToken, accountId);
+
+        var response = mockMvc.perform(get("/api/bank-data/statements/export")
+                        .param("accountId", String.valueOf(accountId))
+                        .header("Authorization", bearer(adminToken)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse();
+
+        assertEquals("text/csv;charset=UTF-8", response.getContentType().replace(" ", ""),
+                "the file opens straight in Excel/WPS");
+        String csv = response.getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue(csv.startsWith("\uFEFF"), "UTF-8 BOM is what makes Excel read Chinese correctly");
+
+        String[] lines = csv.replace("\uFEFF", "").split("\r\n");
+        assertEquals("账号,账号名称,币种,交易日,交易时间,起息日,交易类型,借方金额,贷方金额,余额",
+                lines[0].substring(0, lines[0].indexOf(",摘要")),
+                "column order mirrors the bank's own export, not our storage schema");
+        assertEquals(2, lines.length, "exactly the stub's one transaction");
+        String[] cells = lines[1].split(",", -1);
+        assertEquals("人民币", cells[2], "currencyNbr 10 renders as the bank's own label");
+        assertEquals("FEE", cells[6], "交易类型 stays the bank's code");
+        assertEquals("12.34", cells[7], "the debit lands in 借方金额 as a positive figure");
+        assertEquals("", cells[8], "贷方金额 stays empty - the bank's file is either/or, never both");
+        assertEquals("1233.67", cells[9], "余额 is the per-transaction balance");
+        assertEquals("2026-09-02", cells[5], "起息日 is its own column, not the trade date");
+    }
+
+    @Test
+    void balanceExportCarriesAllFourBalanceFigures() throws Exception {
+        String adminToken = login("admin", "Admin@123");
+        long accountId = archiveAccount(adminToken);
+        triggerSync(adminToken, accountId);
+
+        String csv = mockMvc.perform(get("/api/bank-data/balances/export")
+                        .param("accountId", String.valueOf(accountId))
+                        .header("Authorization", bearer(adminToken)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse()
+                .getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+
+        String[] lines = csv.replace("\uFEFF", "").split("\r\n");
+        assertEquals("快照时间,账号,账号名称,币种,可用余额,联机余额,冻结余额,上日余额",
+                lines[0].substring(0, lines[0].indexOf(",科目")), "all four figures are columns, none collapsed");
+        String[] cells = lines[1].split(",", -1);
+        assertEquals("816065.34", cells[4]);
+        assertEquals("820000.00", cells[5]);
+        assertEquals("3934.66", cells[6]);
+        assertEquals("810000.00", cells[7]);
+        assertEquals("STUB-REAL-BANK-1", cells[11], "银行请求号 travels with the row as evidence");
+    }
+
     private JsonNode query(String token, String resource, long accountId) throws Exception {
         String body = mockMvc.perform(get("/api/bank-data/" + resource)
                         .param("accountId", String.valueOf(accountId))
@@ -205,7 +260,7 @@ class BankDataRealFieldsIntegrationTest {
                                     new BigDecimal("-12.34"), "扩展摘要", "957151020441242810",
                                     "招商银行深圳分行", "深圳市", null, null, null, null,
                                     "1", "批量代付", "网银业务摘要", "RQ00000001", "YUR-REF-001",
-                                    null, null, null, "**"));
+                                    null, null, null, "**", "10"));
                     BankDataBalanceEntry balance = new BankDataBalanceEntry("STUB-REAL-BANK-1",
                             context.bankAccountId(), new BigDecimal("816065.34"), "CNY",
                             context.windowEnd().minusMinutes(1), new BigDecimal("820000.00"),

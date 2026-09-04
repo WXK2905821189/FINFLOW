@@ -176,7 +176,8 @@ public class RealCiticBankDataAdapter implements BankDataAdapter {
                             signedAmount(row.tranAmount(), row.creditDebitFlag()), null,
                             trim(row.oppAccountNo()), trim(row.oppOpenBankName()), null,
                             null, null, null, null, null, null, null,
-                            trim(row.sumTranNo()), trim(row.oriNum()), null, null, null, null)));
+                            trim(row.sumTranNo()), trim(row.oriNum()), null, null, null, null,
+                            null)));
         }
         return List.copyOf(entries);
     }
