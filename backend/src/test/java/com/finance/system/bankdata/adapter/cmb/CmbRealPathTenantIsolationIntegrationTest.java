@@ -106,9 +106,10 @@ class CmbRealPathTenantIsolationIntegrationTest {
      */
     @BeforeEach
     void cleanLandingZone() {
-        syncTaskMapper.delete(null);
+        // children first: bank_data_statement / bank_data_balance hold FKs into bank_data_sync_task
         statementMapper.delete(null);
         balanceMapper.delete(null);
+        syncTaskMapper.delete(null);
     }
 
     @Autowired
