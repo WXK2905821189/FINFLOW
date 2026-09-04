@@ -22,6 +22,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
@@ -106,14 +107,19 @@ class CmbRealPathTenantIsolationIntegrationTest {
      */
     @BeforeEach
     void cleanLandingZone() {
-        // children first: bank_data_statement / bank_data_balance hold FKs into bank_data_sync_task
-        statementMapper.delete(null);
-        balanceMapper.delete(null);
-        syncTaskMapper.delete(null);
+        // Children first: statement/balance/raw_message/sync_log all hold FKs into
+        // bank_data_sync_task (V4/V5). Raw JDBC deletes cover tables without a mapper here.
+        jdbcTemplate.execute("DELETE FROM bank_data_statement");
+        jdbcTemplate.execute("DELETE FROM bank_data_balance");
+        jdbcTemplate.execute("DELETE FROM bank_data_raw_message");
+        jdbcTemplate.execute("DELETE FROM bank_data_sync_log");
+        jdbcTemplate.execute("DELETE FROM bank_data_sync_task");
     }
 
     @Autowired
     private MockMvc mockMvc;
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
     @Autowired
     private ObjectMapper objectMapper;
     @Autowired
