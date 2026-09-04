@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Alert, Button, Card, DatePicker, Descriptions, Drawer, Empty, Input, Modal, Pagination, Space, Table, Tag, message, type TableColumnsType } from 'antd';
 import { DownloadOutlined, PlayCircleOutlined, SearchOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -209,20 +209,23 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
   const [filters, setFilters] = useState<BankQueryFilters>(emptyBankQueryFilters);
   const [draft, setDraft] = useState<BankQueryFilters>(emptyBankQueryFilters);
   const [selected, setSelected] = useState<BankQueryRow>();
-  const focusRef = useRef<HTMLElement | null>(null);
+  // Where to return keyboard focus when the detail drawer closes. Kept in state rather
+  // than a ref: writing a ref from a handler that flows through render-created column
+  // callbacks trips the react-compiler refs rule, and state does the same job here.
+  const [focusReturn, setFocusReturn] = useState<HTMLElement | null>(null);
   const isStatement = resource === 'statements';
   const loader = useCallback(() => submitted ? bankPipelineApi.queryProjection<BankQueryRow>(resource, { page, size, keyword: filters.keyword || undefined, accountId: filters.accountId || undefined, status: filters.status || undefined, from: filters.from || undefined, to: filters.to || undefined, sourceSystem: filters.sourceSystem || undefined, syncJobNo: filters.syncJobNo || undefined, requestId: filters.requestId || undefined }) : Promise.resolve<BankDataProjectionPage<BankQueryRow>>({ page, size, total: 0, records: [] }), [resource, page, size, filters, submitted]);
   const { data, loading, error, reload } = useRemote<BankDataProjectionPage<BankQueryRow>>(loader, [loader]);
   const query = () => { setPage(1); setFilters(draft); setSubmitted(true); };
   const reset = () => { setPage(1); setDraft(emptyBankQueryFilters); setFilters(emptyBankQueryFilters); setSubmitted(false); };
   const setDateFilter = (key: 'from' | 'to', value?: string) => setDraft((current) => ({ ...current, [key]: value || '' }));
-  const openDetail = (row: BankQueryRow) => {
-    focusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  const openDetail = useCallback((row: BankQueryRow) => {
+    setFocusReturn(document.activeElement instanceof HTMLElement ? document.activeElement : null);
     setSelected(row);
-  };
+  }, []);
   const closeDetail = () => {
     setSelected(undefined);
-    window.setTimeout(() => focusRef.current?.focus(), 0);
+    window.setTimeout(() => focusReturn?.focus(), 0);
   };
   const [exporting, setExporting] = useState(false);
   const exportCsv = async () => {
@@ -271,9 +274,9 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
       },
     });
   };
-  const columns: TableColumnsType<BankQueryRow> = isStatement
+  const columns: TableColumnsType<BankQueryRow> = useMemo(() => (isStatement
     ? statementColumns((row) => openDetail(row)) as TableColumnsType<BankQueryRow>
-    : balanceColumns((row) => openDetail(row)) as TableColumnsType<BankQueryRow>;
+    : balanceColumns((row) => openDetail(row)) as TableColumnsType<BankQueryRow>), [isStatement, openDetail]);
   const definition = bankDataResources[resource];
   const emptyDescription = data?.enabled === false || isUnavailableStatus(data?.status) ? '真实银行直联未连接，无法获取数据。' : isFailedStatus(data?.status) ? '银行查询失败，请检查同步任务。' : '当前筛选没有匹配的真实银行数据。';
   const detailRequestId = isStatement
