@@ -1,0 +1,414 @@
+{
+  "categoryId": "229963554177453824",
+  "articleId": "298122933035956480",
+  "category": "快速入门",
+  "title": "如何获取WebApi日志？",
+  "source": "https://vip.kingdee.com/knowledge/specialDetail/229961573895771136?category=229963554177453824&id=298122933035956480&type=Knowledge&productLineId=1&lang=zh-CN",
+  "fetchedAt": "2026-09-03T04:31:45.409Z",
+  "rawResponse": {
+    "badNum": 1,
+    "identityTagIds": null,
+    "knowledgeId": "298122933035956480",
+    "createdAt": 1648886046000,
+    "collections": 40,
+    "viewAuthority": 1,
+    "feedbackNum": 0,
+    "classifies": [
+      {
+        "code": null,
+        "name": "企业版/标准版",
+        "id": 1,
+        "sort": 0,
+        "type": "product",
+        "child": {
+          "code": null,
+          "name": "协同开发",
+          "id": 5709,
+          "sort": 26,
+          "type": "domain",
+          "child": {
+            "code": "api",
+            "name": "OpenAPI",
+            "id": "228544575986699264",
+            "sort": 3,
+            "type": "module",
+            "child": null,
+            "productLineId": null
+          },
+          "productLineId": null
+        },
+        "productLineId": 1
+      }
+    ],
+    "id": "298122933035956480",
+    "contentType": 1,
+    "updatedAt": 1648892701000,
+    "knowledgeUpdater": {
+      "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+      "department": null,
+      "id": "96907288496966400",
+      "name": "Kidd",
+      "nameSpell": "name"
+    },
+    "assessStatus": 0,
+    "knowledgeStatus": 2,
+    "assessHandleStatus": null,
+    "knowledgeCreatedAt": 1648886046000,
+    "version": 2,
+    "labels": [
+      {
+        "code": "changjianwenti",
+        "hide": false,
+        "id": "6",
+        "name": "常见问题",
+        "style": 0,
+        "type": 0
+      },
+      {
+        "code": "XSRM",
+        "hide": false,
+        "id": "40",
+        "name": "快速入门",
+        "style": 0,
+        "type": 1
+      }
+    ],
+    "editedAt": 1648892701000,
+    "identityTags": null,
+    "useful": 25,
+    "errors": [],
+    "isCollected": false,
+    "totalFeedBacks": 1,
+    "attachments": [],
+    "sources": [],
+    "editTitle": "如何获取WebApi日志？",
+    "title": "如何获取WebApi日志？",
+    "content": "<div class=\"import-attachment-loading\" style=\"\"><p class=\"p1\" style=\"text-align: justify;\"><strong>背景</strong></p><p class=\"p1\" style=\"text-align: justify;\">通常，我们在进行WebAPI接口调用时，因为无法发现一些过程中的数据问题，所以我们可以通过借助WebAPI日志来分析问题。</p><p class=\"p1\" style=\"text-align: justify;\"><br/></p><p class=\"p2\" style=\"text-align: justify;\"><strong><span class=\"s2\" style=\"\">如何启用WebAPI日志？</span></strong></p><p class=\"p1\" style=\"text-align: justify;\"><br/></p><p class=\"p1\" style=\"text-align: justify;\"><span class=\"s1\" style=\"\">金蝶云V7.1以上版本已提供为业务数据中心单独创建日志库的功能，将业务数据中心与日志的存储分离。</span></p><p class=\"p1\" style=\"text-align: justify;\">登录管理中心→进入数据中心列表→选择业务数据中心，创建或注册日志库（根据是否创建过日志库选择对应方式）<br/></p><p class=\"p3\" style=\"text-align: justify;\"><img src=\"https://vip.kingdee.com/download/0100a741e544fcc242a782f10970e6abe3df.png\"/></p><p class=\"p3\" style=\"text-align: justify;\">查看已经创建的日志库信息</p><p class=\"p3\" style=\"text-align: justify;\"><br/></p><p class=\"p3\" style=\"text-align: justify;\"><img src=\"https://vip.kingdee.com/download/01000a4ff8d4c15c42f7882ad0af6a7bc1c5.png\"/></p><p class=\"p3\" style=\"text-align: justify;\"><br/></p><p class=\"p3\" style=\"text-align: justify;\"><img src=\"https://vip.kingdee.com/download/0100436393007d8c4ffc8a98bb57ce9ba970.png\"/></p><p class=\"p3\" style=\"text-align: justify;\"><br/></p><p class=\"p1\" style=\"text-align: justify;\"><span class=\"s1\" style=\"\">administrator用户登录业务数据中心，进入【基础管理-公共设置-参数设置】，日志管理节点开启对应日志的记录</span></p><p class=\"p4\" style=\"text-align: justify;\"><br/></p><p class=\"p1\" style=\"text-align: justify;\"><img src=\"https://vip.kingdee.com/download/01007417a92972304020960a9a6cd36d8fc8.png\"/></p><p class=\"p1\" style=\"text-align: justify;\"><br/></p><p class=\"p3\" style=\"text-align: justify;\"><img src=\"https://vip.kingdee.com/download/01009e67bbae1bc54b45a7e6aebb16e4526b.png\"/></p><p class=\"p1\" style=\"text-align: justify;\"><span class=\"s3\" style=\"\"><br/></span></p><p class=\"p1\" style=\"text-align: justify;\"><strong><span class=\"s3\" style=\"\">日志启用</span></strong></p><p class=\"p1\" style=\"text-align: justify;\"><span class=\"s1\" style=\"\">1.【公共设置-参数设置-日志管理】，可以设置日志启用及记录范围。</span></p><p class=\"p1\" style=\"text-align: justify;\"><span class=\"s1\" style=\"\">2.记录类型：错误日志强制记录，业务日志与调试日志允许用户选择。</span></p><p class=\"p1\" style=\"text-align: justify;\"><span class=\"s1\" style=\"\">3.记录范围：默认选择业务对象，由用户在下方列表设置对哪些业务对象进行监控。</span></p><p class=\"p1\" style=\"text-align: justify;\"><span class=\"s1\" style=\"\"><br/></span></p><p class=\"p1\" style=\"text-align: justify;\"><strong><span class=\"s3\" style=\"\">自动清理</span></strong></p><p class=\"p1\" style=\"text-align: justify;\"><span class=\"s1\" style=\"\">1.【公共设置-参数设置-日志管理】，可以设置日志自动清理规则。</span></p><p class=\"p1\" style=\"text-align: justify;\"><span class=\"s1\" style=\"\">2. 通过设置日志保留天数及保留类型，对于保留范围之外的日志进行自动清理。</span></p><p class=\"p4\" style=\"text-align: justify;\"><br/></p><p class=\"p2\" style=\"text-align: justify;\"><strong><span class=\"s2\" style=\"\">如何查看WebAPI日志库记录信息</span></strong></p><p class=\"p5\" style=\"text-align: justify;\"><img src=\"https://vip.kingdee.com/download/0100587931f5a1d0462689dc6cb562e499b5.png\"/></p><p class=\"p5\" style=\"text-align: justify;\"><br/></p><p class=\"p5\" style=\"text-align: justify;\"><img src=\"https://vip.kingdee.com/download/01008e364cde74c54c0593b336aad3328378.png\"/></p><p class=\"p6\" style=\"text-align: justify;\"><br/></p><p class=\"p7\" style=\"text-align: justify;\"><br/></p><p class=\"p7\" style=\"text-align: justify;\"><br/></p><p class=\"p2\" style=\"text-align: justify;\"><span class=\"s2\" style=\"\">也可以通过查询 WebSite/AppData下面记录日志</span></p><p class=\"p5\" style=\"text-align: justify;\">记录在本地log 文件中 kingdee.bos.log</p><p class=\"p5\" style=\"text-align: justify;\"><img src=\"https://vip.kingdee.com/download/0100dd74d25769a74265969f51d3e0a4c94d.png\"/></p></div><p style=\"text-align: justify;\"><br/></p><p><br/></p>",
+    "products": [
+      {
+        "alias": null,
+        "code": "4468a7c0a53d11e8a7f90050568926a7",
+        "id": 1,
+        "isOpen": 1,
+        "name": "企业版/标准版",
+        "productLineId": 1,
+        "series": "S036",
+        "sort": 0
+      }
+    ],
+    "knowledgeSpecial": [
+      {
+        "categoryList": [
+          {
+            "childCategory": [
+              {
+                "childCategory": [
+                  null
+                ],
+                "code": null,
+                "description": null,
+                "entityId": "298122933035956480",
+                "entityType": "Knowledge",
+                "id": "298150846330922752",
+                "isCategory": false,
+                "name": "如何获取WebApi日志？",
+                "parentId": "229963554177453824",
+                "sort": "11",
+                "specialId": "229961573895771136",
+                "status": 1
+              }
+            ],
+            "code": null,
+            "description": null,
+            "entityId": null,
+            "entityType": null,
+            "id": "229963554177453824",
+            "isCategory": true,
+            "name": "快速入门",
+            "parentId": "-1",
+            "sort": "3",
+            "specialId": "229961573895771136",
+            "status": 1
+          }
+        ],
+        "classifies": null,
+        "collections": 159,
+        "createdAt": "2021-09-26T13:45:11.000+08:00",
+        "creator": {
+          "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+          "department": null,
+          "id": "96907288496966400",
+          "name": "Kidd",
+          "nameSpell": "name"
+        },
+        "description": "OpenAPI",
+        "hasCollected": null,
+        "hasHomePage": 1,
+        "id": "229961573895771136",
+        "identityTags": null,
+        "itemNum": 35,
+        "logo": "/download/01007136e2cc1839483f8b3df1781bcb28f0.png",
+        "name": "OpenAPI",
+        "otherProductLineIds": null,
+        "productLineId": "1",
+        "productList": [
+          {
+            "alias": null,
+            "code": "4468a7c0a53d11e8a7f90050568926a7",
+            "id": 1,
+            "isOpen": 1,
+            "name": "企业版/标准版",
+            "productLineId": 1,
+            "series": "S036",
+            "sort": 0
+          }
+        ],
+        "sort": 3,
+        "status": 2,
+        "style": 3,
+        "totalAppraisalScore": 14,
+        "totalAppraisalUsers": 3,
+        "updatedAt": "2025-06-27T16:28:41.000+08:00",
+        "updaterId": "1149",
+        "useCategory": 1,
+        "viewAuthority": 1,
+        "views": 1361378
+      }
+    ],
+    "entityUrl": null,
+    "needTranslate": null,
+    "knowledgeCreator": {
+      "avatar": "/download/01010eae28ef417e4806ba0499acf4aeef12.png",
+      "department": null,
+      "id": "1149",
+      "name": "王文亮",
+      "nameSpell": "Owen"
+    },
+    "totalAppraisalScore": 124,
+    "iflytekId": null,
+    "views": 46835,
+    "productLineId": 1,
+    "comments": 5,
+    "similarityCount": null,
+    "totalAppraisalUsers": 26,
+    "isKnowledge": 1,
+    "knowledgeUpdatedAt": 1648892701000,
+    "appraisalScore": 0,
+    "unuseful": 1,
+    "knowledgeCheckStatus": 2,
+    "otherProductLineIds": [],
+    "auditAt": 1648892701000,
+    "attributes": [
+      {
+        "classifies": [
+          {
+            "child": {
+              "child": {
+                "child": null,
+                "code": "api",
+                "id": "228544575986699264",
+                "name": "OpenAPI",
+                "productLineId": null,
+                "sort": 3,
+                "type": "module"
+              },
+              "code": null,
+              "id": "5709",
+              "name": "协同开发",
+              "productLineId": null,
+              "sort": 26,
+              "type": "domain"
+            },
+            "code": null,
+            "id": "1",
+            "name": "企业版/标准版",
+            "productLineId": 1,
+            "sort": 0,
+            "type": "product"
+          }
+        ],
+        "labels": [
+          {
+            "code": "changjianwenti",
+            "createdAt": 1553686053000,
+            "creator": {
+              "avatar": "/download?fileName=010162cfa9d4437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "1",
+              "name": "administrator",
+              "nameSpell": "administrator"
+            },
+            "description": "常见问题",
+            "hasSpecifyUser": false,
+            "hide": false,
+            "icon": "/download?fileName=0100ef2db45aa7524b70a990e7fd9d40db4a.png",
+            "id": "6",
+            "name": "常见问题",
+            "productLine": {
+              "active": true,
+              "appLogo": "星空",
+              "categoryCode": "C04",
+              "courseLogo": "/download/01009af04319c0514a20a059f889104d4dd7.png",
+              "domain": null,
+              "enablePaymentCourse": false,
+              "hasAtlas": true,
+              "hasIdea": false,
+              "hasKnowledge": true,
+              "hasQZ": false,
+              "id": 1,
+              "isDefault": null,
+              "isOpen": true,
+              "isValidLearning": true,
+              "isVirtual": false,
+              "logo": "/download/01007dc91abec4a8458d8bd9eefa81a0238b.png",
+              "name": "金蝶AI星空企业版/标准版",
+              "rank": 7,
+              "seriesCode": "S036"
+            },
+            "specifyUsers": [],
+            "style": 0,
+            "type": 0,
+            "updatePerson": {
+              "avatar": "/download/010162642d4ab45843119f96b5abd01c554f.png",
+              "department": null,
+              "id": "13627",
+              "name": "Anna_xiao",
+              "nameSpell": "xiaoronglan"
+            },
+            "updatedAt": 1670479317000
+          },
+          {
+            "code": "XSRM",
+            "createdAt": 1568798823000,
+            "creator": {
+              "avatar": "/download?fileName=01014c2c1c8b203f4a8aaa1e18dce7725efa.png",
+              "department": null,
+              "id": "1155",
+              "name": "陈旭",
+              "nameSpell": "lansehuanxiang"
+            },
+            "description": "快速入门",
+            "hasSpecifyUser": false,
+            "hide": false,
+            "icon": "/download?fileName=01007ab64f34c9004072ad021d226f8216fe.png",
+            "id": "40",
+            "name": "快速入门",
+            "productLine": {
+              "active": true,
+              "appLogo": "星空",
+              "categoryCode": "C04",
+              "courseLogo": "/download/01009af04319c0514a20a059f889104d4dd7.png",
+              "domain": null,
+              "enablePaymentCourse": false,
+              "hasAtlas": true,
+              "hasIdea": false,
+              "hasKnowledge": true,
+              "hasQZ": false,
+              "id": 1,
+              "isDefault": null,
+              "isOpen": true,
+              "isValidLearning": true,
+              "isVirtual": false,
+              "logo": "/download/01007dc91abec4a8458d8bd9eefa81a0238b.png",
+              "name": "金蝶AI星空企业版/标准版",
+              "rank": 7,
+              "seriesCode": "S036"
+            },
+            "specifyUsers": [],
+            "style": 0,
+            "type": 1,
+            "updatePerson": {
+              "avatar": "/download/0101f60bc4bb22124014a63b35b1083486e8.png",
+              "department": null,
+              "id": "234310606810391808",
+              "name": "咬咬咬咬人",
+              "nameSpell": "name"
+            },
+            "updatedAt": 1660218233000
+          }
+        ],
+        "productLineId": 1,
+        "specials": [
+          {
+            "categoryList": [
+              {
+                "childCategory": [
+                  {
+                    "childCategory": [
+                      null
+                    ],
+                    "code": null,
+                    "description": null,
+                    "entityId": "298122933035956480",
+                    "entityType": "Knowledge",
+                    "id": "298150846330922752",
+                    "isCategory": false,
+                    "name": "如何获取WebApi日志？",
+                    "parentId": "229963554177453824",
+                    "sort": "11",
+                    "specialId": "229961573895771136",
+                    "status": 1
+                  }
+                ],
+                "code": null,
+                "description": null,
+                "entityId": null,
+                "entityType": null,
+                "id": "229963554177453824",
+                "isCategory": true,
+                "name": "快速入门",
+                "parentId": "-1",
+                "sort": "3",
+                "specialId": "229961573895771136",
+                "status": 1
+              }
+            ],
+            "classifies": null,
+            "collections": 159,
+            "createdAt": "2021-09-26T13:45:11.000+08:00",
+            "creator": {
+              "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "96907288496966400",
+              "name": "Kidd",
+              "nameSpell": "name"
+            },
+            "description": "OpenAPI",
+            "hasCollected": null,
+            "hasHomePage": 1,
+            "id": "229961573895771136",
+            "identityTags": null,
+            "itemNum": 35,
+            "logo": "/download/01007136e2cc1839483f8b3df1781bcb28f0.png",
+            "name": "OpenAPI",
+            "otherProductLineIds": null,
+            "productLineId": "1",
+            "productList": [
+              {
+                "alias": null,
+                "code": "4468a7c0a53d11e8a7f90050568926a7",
+                "id": 1,
+                "isOpen": 1,
+                "name": "企业版/标准版",
+                "productLineId": 1,
+                "series": "S036",
+                "sort": 0
+              }
+            ],
+            "sort": 3,
+            "status": 2,
+            "style": 3,
+            "totalAppraisalScore": 14,
+            "totalAppraisalUsers": 3,
+            "updatedAt": "2025-06-27T16:28:41.000+08:00",
+            "updaterId": "1149",
+            "useCategory": 1,
+            "viewAuthority": 1,
+            "views": 1361378
+          }
+        ]
+      }
+    ],
+    "editContent": "<div class=\"import-attachment-loading\" style=\"\"><p class=\"p1\" style=\"text-align: justify;\"><strong>背景</strong></p><p class=\"p1\" style=\"text-align: justify;\">通常，我们在进行WebAPI接口调用时，因为无法发现一些过程中的数据问题，所以我们可以通过借助WebAPI日志来分析问题。</p><p class=\"p1\" style=\"text-align: justify;\"><br/></p><p class=\"p2\" style=\"text-align: justify;\"><strong><span class=\"s2\" style=\"\">如何启用WebAPI日志？</span></strong></p><p class=\"p1\" style=\"text-align: justify;\"><br/></p><p class=\"p1\" style=\"text-align: justify;\"><span class=\"s1\" style=\"\">金蝶云V7.1以上版本已提供为业务数据中心单独创建日志库的功能，将业务数据中心与日志的存储分离。</span></p><p class=\"p1\" style=\"text-align: justify;\">登录管理中心→进入数据中心列表→选择业务数据中心，创建或注册日志库（根据是否创建过日志库选择对应方式）<br/></p><p class=\"p3\" style=\"text-align: justify;\"><img src=\"https://vip.kingdee.com/download/0100a741e544fcc242a782f10970e6abe3df.png\"/></p><p class=\"p3\" style=\"text-align: justify;\">查看已经创建的日志库信息</p><p class=\"p3\" style=\"text-align: justify;\"><br/></p><p class=\"p3\" style=\"text-align: justify;\"><img src=\"https://vip.kingdee.com/download/01000a4ff8d4c15c42f7882ad0af6a7bc1c5.png\"/></p><p class=\"p3\" style=\"text-align: justify;\"><br/></p><p class=\"p3\" style=\"text-align: justify;\"><img src=\"https://vip.kingdee.com/download/0100436393007d8c4ffc8a98bb57ce9ba970.png\"/></p><p class=\"p3\" style=\"text-align: justify;\"><br/></p><p class=\"p1\" style=\"text-align: justify;\"><span class=\"s1\" style=\"\">administrator用户登录业务数据中心，进入【基础管理-公共设置-参数设置】，日志管理节点开启对应日志的记录</span></p><p class=\"p4\" style=\"text-align: justify;\"><br/></p><p class=\"p1\" style=\"text-align: justify;\"><img src=\"https://vip.kingdee.com/download/01007417a92972304020960a9a6cd36d8fc8.png\"/></p><p class=\"p1\" style=\"text-align: justify;\"><br/></p><p class=\"p3\" style=\"text-align: justify;\"><img src=\"https://vip.kingdee.com/download/01009e67bbae1bc54b45a7e6aebb16e4526b.png\"/></p><p class=\"p1\" style=\"text-align: justify;\"><span class=\"s3\" style=\"\"><br/></span></p><p class=\"p1\" style=\"text-align: justify;\"><strong><span class=\"s3\" style=\"\">日志启用</span></strong></p><p class=\"p1\" style=\"text-align: justify;\"><span class=\"s1\" style=\"\">1.【公共设置-参数设置-日志管理】，可以设置日志启用及记录范围。</span></p><p class=\"p1\" style=\"text-align: justify;\"><span class=\"s1\" style=\"\">2.记录类型：错误日志强制记录，业务日志与调试日志允许用户选择。</span></p><p class=\"p1\" style=\"text-align: justify;\"><span class=\"s1\" style=\"\">3.记录范围：默认选择业务对象，由用户在下方列表设置对哪些业务对象进行监控。</span></p><p class=\"p1\" style=\"text-align: justify;\"><span class=\"s1\" style=\"\"><br/></span></p><p class=\"p1\" style=\"text-align: justify;\"><strong><span class=\"s3\" style=\"\">自动清理</span></strong></p><p class=\"p1\" style=\"text-align: justify;\"><span class=\"s1\" style=\"\">1.【公共设置-参数设置-日志管理】，可以设置日志自动清理规则。</span></p><p class=\"p1\" style=\"text-align: justify;\"><span class=\"s1\" style=\"\">2. 通过设置日志保留天数及保留类型，对于保留范围之外的日志进行自动清理。</span></p><p class=\"p4\" style=\"text-align: justify;\"><br/></p><p class=\"p2\" style=\"text-align: justify;\"><strong><span class=\"s2\" style=\"\">如何查看WebAPI日志库记录信息</span></strong></p><p class=\"p5\" style=\"text-align: justify;\"><img src=\"https://vip.kingdee.com/download/0100587931f5a1d0462689dc6cb562e499b5.png\"/></p><p class=\"p5\" style=\"text-align: justify;\"><br/></p><p class=\"p5\" style=\"text-align: justify;\"><img src=\"https://vip.kingdee.com/download/01008e364cde74c54c0593b336aad3328378.png\"/></p><p class=\"p6\" style=\"text-align: justify;\"><br/></p><p class=\"p7\" style=\"text-align: justify;\"><br/></p><p class=\"p7\" style=\"text-align: justify;\"><br/></p><p class=\"p2\" style=\"text-align: justify;\"><span class=\"s2\" style=\"\">也可以通过查询 WebSite/AppData下面记录日志</span></p><p class=\"p5\" style=\"text-align: justify;\">记录在本地log 文件中 kingdee.bos.log</p><p class=\"p5\" style=\"text-align: justify;\"><img src=\"https://vip.kingdee.com/download/0100dd74d25769a74265969f51d3e0a4c94d.png\"/></p></div><p style=\"text-align: justify;\"><br/></p><p><br/></p>"
+  }
+}

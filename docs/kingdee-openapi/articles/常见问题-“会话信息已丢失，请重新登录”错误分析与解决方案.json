@@ -1,0 +1,414 @@
+{
+  "categoryId": "229964512944566016",
+  "articleId": "373492240795938816",
+  "category": "常见问题",
+  "title": "“会话信息已丢失，请重新登录”错误分析与解决方案",
+  "source": "https://vip.kingdee.com/knowledge/specialDetail/229961573895771136?category=229964512944566016&id=373492240795938816&type=Knowledge&productLineId=1&lang=zh-CN",
+  "fetchedAt": "2026-09-03T04:31:46.777Z",
+  "rawResponse": {
+    "badNum": 2,
+    "identityTagIds": null,
+    "knowledgeId": "373492240795938816",
+    "createdAt": 1666855489000,
+    "collections": 41,
+    "viewAuthority": 1,
+    "feedbackNum": 0,
+    "classifies": [
+      {
+        "code": null,
+        "name": "企业版/标准版",
+        "id": 1,
+        "sort": 0,
+        "type": "product",
+        "child": {
+          "code": null,
+          "name": "协同开发",
+          "id": 5709,
+          "sort": 26,
+          "type": "domain",
+          "child": {
+            "code": "api",
+            "name": "OpenAPI",
+            "id": "228544575986699264",
+            "sort": 3,
+            "type": "module",
+            "child": null,
+            "productLineId": null
+          },
+          "productLineId": null
+        },
+        "productLineId": 1
+      }
+    ],
+    "id": "373492240795938816",
+    "contentType": 1,
+    "updatedAt": 1718947350000,
+    "knowledgeUpdater": {
+      "avatar": "/download/01010753253164e84390b4c1fc11276ceff0.png",
+      "department": null,
+      "id": "250666821609831168",
+      "name": "都付笑谈中",
+      "nameSpell": "name"
+    },
+    "assessStatus": 0,
+    "knowledgeStatus": 2,
+    "assessHandleStatus": null,
+    "knowledgeCreatedAt": 1666855489000,
+    "version": 20,
+    "labels": [
+      {
+        "code": "changjianwenti",
+        "hide": false,
+        "id": "6",
+        "name": "常见问题",
+        "style": 0,
+        "type": 0
+      },
+      {
+        "code": "XSRM",
+        "hide": false,
+        "id": "40",
+        "name": "快速入门",
+        "style": 0,
+        "type": 1
+      }
+    ],
+    "editedAt": 1718947350000,
+    "identityTags": null,
+    "useful": 31,
+    "errors": [],
+    "isCollected": false,
+    "totalFeedBacks": 2,
+    "attachments": [],
+    "sources": [],
+    "editTitle": "“会话信息已丢失，请重新登录”错误分析与解决方案",
+    "title": "“会话信息已丢失，请重新登录”错误分析与解决方案",
+    "content": "<p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">问题描述：</span></span></strong></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">通过</span><span style=\"font-family:微软雅黑\">SDK调用星空API，程序报错提示“会话信息丢失，请重新登录”。</span></span></p><p style=\"text-align: justify;\"><span style=\"color: rgb(26, 26, 26)\"><img src=\"/download/0109ae48f3b1098a4e58b004b2fdaf568403.png\"/>&nbsp;</span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\">&nbsp;</span></strong></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">原因分析：</span></span></strong></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">客户所使用的第三方系统登录授权信息，在星空产品端进行参数校验时，校验没有通过，返回会话信息已丢失，请重新登录的错误信息。</span></span></p><p style=\"text-align: justify\">&nbsp;</p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">解决方案：</span></span></strong></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26);font-weight: bold\">1、</span><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">升级</span>SDK为最新版本</span></strong></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">前往</span>OpenAPI网站的SDK中心下载最新版本的SDK</span><span style=\"color: rgb(26, 26, 26)\">&gt;&gt;&nbsp;</span><a href=\"https://openapi.open.kingdee.com/ApiSdkCenter\" target=\"_blank\"><span style=\"font-family:微软雅黑\">前往下载</span></a></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\">&nbsp;</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26);font-weight: bold\">2、</span><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">检查配置文件</span></span></strong></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\">2.1 对比产品的第三方系统登录授权信息</span></strong></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">确保配置文件的数据和第三方登录授权信息一一对应并且数据正确，如下图所示。</span></span></p><p class=\"kd-image-content\"><img src=\"/download/01008f2fa852b3f64de88792098241a5783c.png\" alt=\"上传图片\"/></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\">&nbsp;</span></p><table><tbody><tr class=\"firstRow\"><td width=\"600\" valign=\"top\" style=\"\"><p><span style=\"color: rgb(0, 0, 0)\"><span style=\"font-family:Consolas\">//</span><span style=\"font-family:宋体\">第三方系统登录授权的账套</span><span style=\"font-family:Consolas\">ID</span></span></p><p>&lt;add key=&quot;X-KDApi-AcctID&quot; value=&quot;<span style=\"color: rgb(0, 0, 0)\">5b3de0*******</span>&quot;/&gt;</p><p><span style=\"color: rgb(0, 0, 0)\">//</span><span style=\"color: rgb(0, 0, 0)\"><span style=\"font-family:宋体\">服务</span><span style=\"font-family:Consolas\">Url</span><span style=\"font-family:宋体\">地址 </span></span><span style=\"color: rgb(192, 0, 0)\"><span style=\"font-family:Consolas\">(</span><span style=\"font-family:宋体\"></span>私有云和公有云都须配置星空产品地址，K3Cloud/结尾<span style=\"font-family:宋体\"></span><span style=\"font-family:Consolas\">)</span></span></p><p>&lt;add key=&quot;X-KDApi-ServerUrl&quot; value=&quot;<span style=\"color: rgb(0, 0, 0)\">http://bj1-api.kingdee.com/galaxyapi/</span>&quot;/&gt;</p><p><span style=\"color: rgb(0, 0, 0)\">//</span><span style=\"color: rgb(0, 0, 0)\"><span style=\"font-family:宋体\">第三方系统登录授权的应用</span><span style=\"font-family:Consolas\">ID</span></span></p><p>&lt;add key=&quot;X-KDApi-AppID&quot; value=&quot;<span style=\"color: rgb(0, 0, 0)\">202655_6f0vR+lH************************</span>&quot;/&gt;</p><p><span style=\"color: rgb(0, 0, 0)\"><span style=\"font-family:Consolas\">//</span><span style=\"font-family:宋体\">第三方系统登录授权的应用密钥</span></span></p><p>&lt;add key=&quot;X-KDApi-AppSec&quot; value=&quot;<span style=\"color: rgb(0, 0, 0)\">b52d7fae9********************</span>&quot;/&gt;</p><p><span style=\"color: rgb(0, 0, 0)\"><span style=\"font-family:Consolas\">//</span><span style=\"font-family:宋体\">第三方系统登录授权的用户</span></span></p><p>&lt;add key=&quot;X-KDApi-UserName&quot; value=&quot;<span style=\"color: rgb(0, 0, 0)\">webapi</span>&quot;/&gt;</p><p><span style=\"color: rgb(0, 0, 0)\"><span style=\"font-family:Consolas\">//</span><span style=\"font-family:宋体\">账套语系，默认</span><span style=\"font-family:Consolas\">2052</span></span></p><p>&nbsp;&nbsp;&nbsp;&nbsp;&lt;add key=&quot;X-KDApi-LCID&quot; value=&quot;2052&quot;/&gt;</p></td></tr></tbody></table><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"></span><br/></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">特别说明：</span></span></strong></p><p><em><span style=\"color: rgb(128, 128, 128)\"><span style=\"font-family:宋体\">补丁版本为</span></span></em><em><span style=\"color: rgb(128, 128, 128)\"><span style=\"font-family:Consolas\">PT-146894 [7.7.0.202111]之前</span></span></em></p><p><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">第三方登录授权的集成用户必填某一用户，并且配置文件的</span>X-KDApi-UserName的值也要为该用户。</span></p><p><em><span style=\"color: rgb(128, 128, 128)\"><span style=\"font-family:宋体\">补丁版本为</span></span></em><em><span style=\"color: rgb(128, 128, 128)\"><span style=\"font-family:Consolas\">PT-146894 [7.7.0.202111]及之后</span></span></em></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">如果勾选允许全部用户登录，则</span>X-KDApi-UserName可以为用户列表的任一用户。</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">如果没有勾选，则</span>X-KDApi-UserName需要在指定用户登录列表中。</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><img src=\"/download/0109e4fa4736bc964a9aa2810d2b635913f5.png\"/>&nbsp;</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\">&nbsp;</span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\">2.2 检查配置文件是否被正确读取</span></strong></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">配置文件是否被正确读取，可以在代码调试时对生成的</span>K3CloudApi对象检查得知。</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">如果发现数据和配置文件中的数据不符，可能是由于：</span></span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">①配置文件的存放位置不正确</span></span></strong></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">以</span>java语言的sdk8.0.3版本为例，其文件位置读取逻辑为：最优先在项目根目录下查找</span><span style=\"color: rgb(44, 62, 80)\">kdwebapi.properties文件，如果找不到，则到资源文件目录下查找kdwebapi.properties文件。</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(44, 62, 80)\"><span style=\"font-family:微软雅黑\">解决配置文件存放位置问题的方法：将配置文件放到项目根目录下。</span></span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(44, 62, 80)\"><span style=\"font-family:微软雅黑\">②配置文件的字符编码不正确</span></span></strong></p><p style=\"text-align: justify\"><span style=\"color: rgb(44, 62, 80)\"><span style=\"font-family:微软雅黑\">如果集成用户名称中含有中文名，则配置文件的字符编码必须是</span>utf-8。</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(44, 62, 80)\"><span style=\"font-family:微软雅黑\">如果</span>Java语言的sdk版本为7.9.2，则需要升级到8.0.3版本或以上才可解决该问题。</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\">&nbsp;</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26);font-weight: bold\">3、</span><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">查看</span>cloud日志错误信息</span></strong></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\">3.1 获取cloud日志</span></strong></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\">3.1.1 私有云客户</span><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">（</span></span><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">自有服务器搭建星空产品）</span></span>&nbsp;<span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">获取</span>cloud日志</span></strong></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">步骤</span></span></strong><strong><span style=\"color: rgb(26, 26, 26)\">1：</span></strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">联系客户公司</span>IT人员确认并登录到部署安装星空产品的服务器。</span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">步骤</span>2：</span></strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">打开</span>IIS查找日志信息</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><img src=\"/download/0109f527572be7ff497e97c8118b37bbb533.png\"/>&nbsp;</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\">&nbsp; &nbsp;</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">鼠标点击</span>K3Cloud节点，右键选中浏览，进入到文件路径中，查看日志信息。</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><img src=\"/download/01093a14fc62a0734851b5472fce01353f83.png\"/>&nbsp;</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\">&nbsp;</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">示例中的文件路径为：</span>D:\\Program Files (x86)\\Kingdee\\K3Cloud\\WebSite\\App_Data\\Log</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">注意：真实路径以客户环境为准。</span></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\">&nbsp;</span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\">3.1.2 公有云客户</span><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">（订阅星空）</span></span><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">获取</span>cloud日志</span></strong></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">运维提单获取云服务近期日志信息</span></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">详细操作指南：</span></span><a href=\"https://vip.kingdee.com/article/153972738560668928\" target=\"_blank\">https://vip.kingdee.com/article/153972738560668928</a></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\">&nbsp;</span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\">3.2 从日志中查找对应错误信息</span></strong></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\">3.2.1 根据日志查询WebApi信息</span></strong></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">打开日志进行搜索关键字</span></span><span style=\"color: rgb(26, 26, 26)\">WebApiModule</span><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">，如果查询到则可以初步判断，用户通过</span>SDK与星空产品之间有数据交换，则进一步分析问题。</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\">&nbsp;<img src=\"/download/0109540f6aeff13b480baa2eed3da58e68ff.png\"/></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">如果查找不到，则有以下可能：</span></span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">①私有云客户没有开启webapi日志，因此不会记录webapi请求的错误信息。</span></span></strong></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\">webapi日志开启方法：https://vip.kingdee.com/knowledge/specialDetail/229961573895771136?category=229963554177453824&amp;id=298122933035956480&amp;productLineId=1</span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">②sdk请求的地址和cloud日志所在的服务器地址不一致。</span></span></strong></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">导致该情况的原因非常多，可能是配置文件的</span>ServerUrl不正确，可能是配置文件存放位置不正确导致没有正确读取，可能是cloud日志的来源服务器不正确等等。</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\">&nbsp;</span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\">3.2.2</span><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">查找</span></span><span style=\"color: rgb(26, 26, 26)\">webapi请求返回的错误信息</span></strong></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">如果查找到含有</span>ERROR - WebApiModule</span><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">并且发生时间和请求报错时间一致的信息，则可以根据具体的错误信息定位问题。</span></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\">&nbsp;</span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\">3.3根据错误信息分析原因和常见的解决办法</span></strong></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\">3.3.1 Fail to VerifyThirtyPassport:The passport is not exists or disabled</span></strong></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">原因分析</span></span></strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">：</span></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">客户的第三方登录授权信息不存在或者被禁用了。</span></span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">解决方案</span></span></strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">：</span></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">登录星空业务站点管理中心，通过</span>Administrator进入第三方登录授权界面，查看调用API的所使用的第三方登录授权信息是否在下图列表中，并且禁用状态为否。</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><img src=\"/download/01092cf4972557bb43c18fc0407cef597db5.png\"/>&nbsp;</span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\">3.3.2 Fail to RestoreSessionByApi:用户：？？？不存在，请采用其他认证方式登录或者联系管理员！</span></strong></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">可能一</span></span></strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">：</span></span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">原因分析</span></span></strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">：</span></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">错误信息中的用户名为？或者乱码时，说明系统读取集成用户错误，如果集成用户名中含有中文字符，则可能是配置文件的字符编码不为</span>utf-8，因此无法正确读取。</span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">解决方案</span></span></strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">：</span></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">①更换集成用户名为纯英文名。</span></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">②</span></span><span style=\"color: rgb(44, 62, 80)\"><span style=\"font-family:微软雅黑\">如果集成用户名称中含有中文名，则配置文件的字符编码必须是</span>utf-8。</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(44, 62, 80)\"><span style=\"font-family:微软雅黑\">如果</span>Java语言的sdk版本为7.9.2，则需要升级到8.0.3版本或以上。</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(44, 62, 80)\"><br/></span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">可能二</span></span></strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">：</span></span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">原因分析</span></span></strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">：</span></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">集成用户在用户列表中不存在。</span></span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">解决方案</span></span></strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">：</span></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">进入用户列表，检查使用的集成用户是否存在，配置文件中的集成用户是否与用户数据中的用户名称一致。</span></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><img src=\"/download/01090ff6358fc7be4ee69e72735f28ba01d9.png\"/>&nbsp;</span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">可能三</span></span></strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">：</span></span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">原因分析</span></span></strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">：</span></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">该</span></span><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">集成用户不具备操作单据的许可</span></span><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">权限</span></span><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">。</span></span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">解决方案</span></span></strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">：</span></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">进入用户列表，检查使用的集成用户是否拥有许可权限，如果没有需要设置对应的许可分组。</span></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><img src=\"/download/01093c0c973295114a0ab5d77f0befe82ef1.png\"/>&nbsp;</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\">&nbsp;</span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\">3.3.3 Fail to RestoreSessionByApi:时间戳验证失败，请求链接已失效，请重试！</span></strong></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">原因分析</span></span></strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">：</span></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">第三方登录授权的链接有效时间不正确。</span></span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">解决方案</span></span></strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">：</span></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">检查第三方登录授权配置中的链接有效时间是否为</span>0，如果是，改为默认值10即可。</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><img src=\"/download/0109395a2144c4a449c8b8c4b84cdf4381b9.png\"/>&nbsp;</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\">&nbsp;</span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\">3.3.4 Fail to VerifyThirtyPassport:Fail to verify X-KD-Signature（from passport）</span></strong></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">原因分析</span></span></strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">：</span></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">应用</span>id或应用密钥无法正确解析。</span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">解决方案</span></span></strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">：</span></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">检查配置文件的应用</span>id和应用密钥等数据。</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\">&nbsp;</span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\">4、</span><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">若前三个步骤无法定位并解决问题，请将日志打包或截图给提单处理人员，进一步分析问题。</span></span></strong></p><p><br/></p>",
+    "products": [
+      {
+        "alias": null,
+        "code": "4468a7c0a53d11e8a7f90050568926a7",
+        "id": 1,
+        "isOpen": 1,
+        "name": "企业版/标准版",
+        "productLineId": 1,
+        "series": "S036",
+        "sort": 0
+      }
+    ],
+    "knowledgeSpecial": [
+      {
+        "categoryList": [
+          {
+            "childCategory": [
+              {
+                "childCategory": [
+                  null
+                ],
+                "code": null,
+                "description": null,
+                "entityId": "373492240795938816",
+                "entityType": "Knowledge",
+                "id": "373834691810078720",
+                "isCategory": false,
+                "name": "“会话信息已丢失，请重新登录”错误分析与解决方案",
+                "parentId": "229964512944566016",
+                "sort": "1",
+                "specialId": "229961573895771136",
+                "status": 1
+              }
+            ],
+            "code": null,
+            "description": null,
+            "entityId": null,
+            "entityType": null,
+            "id": "229964512944566016",
+            "isCategory": true,
+            "name": "常见问题",
+            "parentId": "-1",
+            "sort": "7",
+            "specialId": "229961573895771136",
+            "status": 1
+          }
+        ],
+        "classifies": null,
+        "collections": 159,
+        "createdAt": "2021-09-26T13:45:11.000+08:00",
+        "creator": {
+          "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+          "department": null,
+          "id": "96907288496966400",
+          "name": "Kidd",
+          "nameSpell": "name"
+        },
+        "description": "OpenAPI",
+        "hasCollected": null,
+        "hasHomePage": 1,
+        "id": "229961573895771136",
+        "identityTags": null,
+        "itemNum": 35,
+        "logo": "/download/01007136e2cc1839483f8b3df1781bcb28f0.png",
+        "name": "OpenAPI",
+        "otherProductLineIds": null,
+        "productLineId": "1",
+        "productList": [
+          {
+            "alias": null,
+            "code": "4468a7c0a53d11e8a7f90050568926a7",
+            "id": 1,
+            "isOpen": 1,
+            "name": "企业版/标准版",
+            "productLineId": 1,
+            "series": "S036",
+            "sort": 0
+          }
+        ],
+        "sort": 3,
+        "status": 2,
+        "style": 3,
+        "totalAppraisalScore": 14,
+        "totalAppraisalUsers": 3,
+        "updatedAt": "2025-06-27T16:28:41.000+08:00",
+        "updaterId": "1149",
+        "useCategory": 1,
+        "viewAuthority": 1,
+        "views": 1361378
+      }
+    ],
+    "entityUrl": null,
+    "needTranslate": null,
+    "knowledgeCreator": {
+      "avatar": "/download/01010eae28ef417e4806ba0499acf4aeef12.png",
+      "department": null,
+      "id": "1149",
+      "name": "王文亮",
+      "nameSpell": "Owen"
+    },
+    "totalAppraisalScore": 156,
+    "iflytekId": null,
+    "views": 41467,
+    "productLineId": 1,
+    "comments": 11,
+    "similarityCount": 0,
+    "totalAppraisalUsers": 33,
+    "isKnowledge": 1,
+    "knowledgeUpdatedAt": 1718947350000,
+    "appraisalScore": 0,
+    "unuseful": 2,
+    "knowledgeCheckStatus": 2,
+    "otherProductLineIds": [],
+    "auditAt": 1718947350000,
+    "attributes": [
+      {
+        "classifies": [
+          {
+            "child": {
+              "child": {
+                "child": null,
+                "code": "api",
+                "id": "228544575986699264",
+                "name": "OpenAPI",
+                "productLineId": null,
+                "sort": 3,
+                "type": "module"
+              },
+              "code": null,
+              "id": "5709",
+              "name": "协同开发",
+              "productLineId": null,
+              "sort": 26,
+              "type": "domain"
+            },
+            "code": null,
+            "id": "1",
+            "name": "企业版/标准版",
+            "productLineId": 1,
+            "sort": 0,
+            "type": "product"
+          }
+        ],
+        "labels": [
+          {
+            "code": "changjianwenti",
+            "createdAt": 1553686053000,
+            "creator": {
+              "avatar": "/download?fileName=010162cfa9d4437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "1",
+              "name": "administrator",
+              "nameSpell": "administrator"
+            },
+            "description": "常见问题",
+            "hasSpecifyUser": false,
+            "hide": false,
+            "icon": "/download?fileName=0100ef2db45aa7524b70a990e7fd9d40db4a.png",
+            "id": "6",
+            "name": "常见问题",
+            "productLine": {
+              "active": true,
+              "appLogo": "星空",
+              "categoryCode": "C04",
+              "courseLogo": "/download/01009af04319c0514a20a059f889104d4dd7.png",
+              "domain": null,
+              "enablePaymentCourse": false,
+              "hasAtlas": true,
+              "hasIdea": false,
+              "hasKnowledge": true,
+              "hasQZ": false,
+              "id": 1,
+              "isDefault": null,
+              "isOpen": true,
+              "isValidLearning": true,
+              "isVirtual": false,
+              "logo": "/download/01007dc91abec4a8458d8bd9eefa81a0238b.png",
+              "name": "金蝶AI星空企业版/标准版",
+              "rank": 7,
+              "seriesCode": "S036"
+            },
+            "specifyUsers": [],
+            "style": 0,
+            "type": 0,
+            "updatePerson": {
+              "avatar": "/download/010162642d4ab45843119f96b5abd01c554f.png",
+              "department": null,
+              "id": "13627",
+              "name": "Anna_xiao",
+              "nameSpell": "xiaoronglan"
+            },
+            "updatedAt": 1670479317000
+          },
+          {
+            "code": "XSRM",
+            "createdAt": 1568798823000,
+            "creator": {
+              "avatar": "/download?fileName=01014c2c1c8b203f4a8aaa1e18dce7725efa.png",
+              "department": null,
+              "id": "1155",
+              "name": "陈旭",
+              "nameSpell": "lansehuanxiang"
+            },
+            "description": "快速入门",
+            "hasSpecifyUser": false,
+            "hide": false,
+            "icon": "/download?fileName=01007ab64f34c9004072ad021d226f8216fe.png",
+            "id": "40",
+            "name": "快速入门",
+            "productLine": {
+              "active": true,
+              "appLogo": "星空",
+              "categoryCode": "C04",
+              "courseLogo": "/download/01009af04319c0514a20a059f889104d4dd7.png",
+              "domain": null,
+              "enablePaymentCourse": false,
+              "hasAtlas": true,
+              "hasIdea": false,
+              "hasKnowledge": true,
+              "hasQZ": false,
+              "id": 1,
+              "isDefault": null,
+              "isOpen": true,
+              "isValidLearning": true,
+              "isVirtual": false,
+              "logo": "/download/01007dc91abec4a8458d8bd9eefa81a0238b.png",
+              "name": "金蝶AI星空企业版/标准版",
+              "rank": 7,
+              "seriesCode": "S036"
+            },
+            "specifyUsers": [],
+            "style": 0,
+            "type": 1,
+            "updatePerson": {
+              "avatar": "/download/0101f60bc4bb22124014a63b35b1083486e8.png",
+              "department": null,
+              "id": "234310606810391808",
+              "name": "咬咬咬咬人",
+              "nameSpell": "name"
+            },
+            "updatedAt": 1660218233000
+          }
+        ],
+        "productLineId": 1,
+        "specials": [
+          {
+            "categoryList": [
+              {
+                "childCategory": [
+                  {
+                    "childCategory": [
+                      null
+                    ],
+                    "code": null,
+                    "description": null,
+                    "entityId": "373492240795938816",
+                    "entityType": "Knowledge",
+                    "id": "373834691810078720",
+                    "isCategory": false,
+                    "name": "“会话信息已丢失，请重新登录”错误分析与解决方案",
+                    "parentId": "229964512944566016",
+                    "sort": "1",
+                    "specialId": "229961573895771136",
+                    "status": 1
+                  }
+                ],
+                "code": null,
+                "description": null,
+                "entityId": null,
+                "entityType": null,
+                "id": "229964512944566016",
+                "isCategory": true,
+                "name": "常见问题",
+                "parentId": "-1",
+                "sort": "7",
+                "specialId": "229961573895771136",
+                "status": 1
+              }
+            ],
+            "classifies": null,
+            "collections": 159,
+            "createdAt": "2021-09-26T13:45:11.000+08:00",
+            "creator": {
+              "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "96907288496966400",
+              "name": "Kidd",
+              "nameSpell": "name"
+            },
+            "description": "OpenAPI",
+            "hasCollected": null,
+            "hasHomePage": 1,
+            "id": "229961573895771136",
+            "identityTags": null,
+            "itemNum": 35,
+            "logo": "/download/01007136e2cc1839483f8b3df1781bcb28f0.png",
+            "name": "OpenAPI",
+            "otherProductLineIds": null,
+            "productLineId": "1",
+            "productList": [
+              {
+                "alias": null,
+                "code": "4468a7c0a53d11e8a7f90050568926a7",
+                "id": 1,
+                "isOpen": 1,
+                "name": "企业版/标准版",
+                "productLineId": 1,
+                "series": "S036",
+                "sort": 0
+              }
+            ],
+            "sort": 3,
+            "status": 2,
+            "style": 3,
+            "totalAppraisalScore": 14,
+            "totalAppraisalUsers": 3,
+            "updatedAt": "2025-06-27T16:28:41.000+08:00",
+            "updaterId": "1149",
+            "useCategory": 1,
+            "viewAuthority": 1,
+            "views": 1361378
+          }
+        ]
+      }
+    ],
+    "editContent": "<p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">问题描述：</span></span></strong></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">通过</span><span style=\"font-family:微软雅黑\">SDK调用星空API，程序报错提示“会话信息丢失，请重新登录”。</span></span></p><p style=\"text-align: justify;\"><span style=\"color: rgb(26, 26, 26)\"><img src=\"/download/0109ae48f3b1098a4e58b004b2fdaf568403.png\"/>&nbsp;</span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\">&nbsp;</span></strong></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">原因分析：</span></span></strong></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">客户所使用的第三方系统登录授权信息，在星空产品端进行参数校验时，校验没有通过，返回会话信息已丢失，请重新登录的错误信息。</span></span></p><p style=\"text-align: justify\">&nbsp;</p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">解决方案：</span></span></strong></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26);font-weight: bold\">1、</span><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">升级</span>SDK为最新版本</span></strong></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">前往</span>OpenAPI网站的SDK中心下载最新版本的SDK</span><span style=\"color: rgb(26, 26, 26)\">&gt;&gt;&nbsp;</span><a href=\"https://openapi.open.kingdee.com/ApiSdkCenter\" target=\"_blank\"><span style=\"font-family:微软雅黑\">前往下载</span></a></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\">&nbsp;</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26);font-weight: bold\">2、</span><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">检查配置文件</span></span></strong></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\">2.1 对比产品的第三方系统登录授权信息</span></strong></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">确保配置文件的数据和第三方登录授权信息一一对应并且数据正确，如下图所示。</span></span></p><p class=\"kd-image-content\"><img src=\"/download/01008f2fa852b3f64de88792098241a5783c.png\" alt=\"上传图片\"/></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\">&nbsp;</span></p><table><tbody><tr class=\"firstRow\"><td width=\"600\" valign=\"top\" style=\"\"><p><span style=\"color: rgb(0, 0, 0)\"><span style=\"font-family:Consolas\">//</span><span style=\"font-family:宋体\">第三方系统登录授权的账套</span><span style=\"font-family:Consolas\">ID</span></span></p><p>&lt;add key=&quot;X-KDApi-AcctID&quot; value=&quot;<span style=\"color: rgb(0, 0, 0)\">5b3de0*******</span>&quot;/&gt;</p><p><span style=\"color: rgb(0, 0, 0)\">//</span><span style=\"color: rgb(0, 0, 0)\"><span style=\"font-family:宋体\">服务</span><span style=\"font-family:Consolas\">Url</span><span style=\"font-family:宋体\">地址 </span></span><span style=\"color: rgb(192, 0, 0)\"><span style=\"font-family:Consolas\">(</span><span style=\"font-family:宋体\"></span>私有云和公有云都须配置星空产品地址，K3Cloud/结尾<span style=\"font-family:宋体\"></span><span style=\"font-family:Consolas\">)</span></span></p><p>&lt;add key=&quot;X-KDApi-ServerUrl&quot; value=&quot;<span style=\"color: rgb(0, 0, 0)\">http://bj1-api.kingdee.com/galaxyapi/</span>&quot;/&gt;</p><p><span style=\"color: rgb(0, 0, 0)\">//</span><span style=\"color: rgb(0, 0, 0)\"><span style=\"font-family:宋体\">第三方系统登录授权的应用</span><span style=\"font-family:Consolas\">ID</span></span></p><p>&lt;add key=&quot;X-KDApi-AppID&quot; value=&quot;<span style=\"color: rgb(0, 0, 0)\">202655_6f0vR+lH************************</span>&quot;/&gt;</p><p><span style=\"color: rgb(0, 0, 0)\"><span style=\"font-family:Consolas\">//</span><span style=\"font-family:宋体\">第三方系统登录授权的应用密钥</span></span></p><p>&lt;add key=&quot;X-KDApi-AppSec&quot; value=&quot;<span style=\"color: rgb(0, 0, 0)\">b52d7fae9********************</span>&quot;/&gt;</p><p><span style=\"color: rgb(0, 0, 0)\"><span style=\"font-family:Consolas\">//</span><span style=\"font-family:宋体\">第三方系统登录授权的用户</span></span></p><p>&lt;add key=&quot;X-KDApi-UserName&quot; value=&quot;<span style=\"color: rgb(0, 0, 0)\">webapi</span>&quot;/&gt;</p><p><span style=\"color: rgb(0, 0, 0)\"><span style=\"font-family:Consolas\">//</span><span style=\"font-family:宋体\">账套语系，默认</span><span style=\"font-family:Consolas\">2052</span></span></p><p>&nbsp;&nbsp;&nbsp;&nbsp;&lt;add key=&quot;X-KDApi-LCID&quot; value=&quot;2052&quot;/&gt;</p></td></tr></tbody></table><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"></span><br/></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">特别说明：</span></span></strong></p><p><em><span style=\"color: rgb(128, 128, 128)\"><span style=\"font-family:宋体\">补丁版本为</span></span></em><em><span style=\"color: rgb(128, 128, 128)\"><span style=\"font-family:Consolas\">PT-146894 [7.7.0.202111]之前</span></span></em></p><p><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">第三方登录授权的集成用户必填某一用户，并且配置文件的</span>X-KDApi-UserName的值也要为该用户。</span></p><p><em><span style=\"color: rgb(128, 128, 128)\"><span style=\"font-family:宋体\">补丁版本为</span></span></em><em><span style=\"color: rgb(128, 128, 128)\"><span style=\"font-family:Consolas\">PT-146894 [7.7.0.202111]及之后</span></span></em></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">如果勾选允许全部用户登录，则</span>X-KDApi-UserName可以为用户列表的任一用户。</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">如果没有勾选，则</span>X-KDApi-UserName需要在指定用户登录列表中。</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><img src=\"/download/0109e4fa4736bc964a9aa2810d2b635913f5.png\"/>&nbsp;</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\">&nbsp;</span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\">2.2 检查配置文件是否被正确读取</span></strong></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">配置文件是否被正确读取，可以在代码调试时对生成的</span>K3CloudApi对象检查得知。</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">如果发现数据和配置文件中的数据不符，可能是由于：</span></span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">①配置文件的存放位置不正确</span></span></strong></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">以</span>java语言的sdk8.0.3版本为例，其文件位置读取逻辑为：最优先在项目根目录下查找</span><span style=\"color: rgb(44, 62, 80)\">kdwebapi.properties文件，如果找不到，则到资源文件目录下查找kdwebapi.properties文件。</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(44, 62, 80)\"><span style=\"font-family:微软雅黑\">解决配置文件存放位置问题的方法：将配置文件放到项目根目录下。</span></span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(44, 62, 80)\"><span style=\"font-family:微软雅黑\">②配置文件的字符编码不正确</span></span></strong></p><p style=\"text-align: justify\"><span style=\"color: rgb(44, 62, 80)\"><span style=\"font-family:微软雅黑\">如果集成用户名称中含有中文名，则配置文件的字符编码必须是</span>utf-8。</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(44, 62, 80)\"><span style=\"font-family:微软雅黑\">如果</span>Java语言的sdk版本为7.9.2，则需要升级到8.0.3版本或以上才可解决该问题。</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\">&nbsp;</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26);font-weight: bold\">3、</span><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">查看</span>cloud日志错误信息</span></strong></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\">3.1 获取cloud日志</span></strong></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\">3.1.1 私有云客户</span><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">（</span></span><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">自有服务器搭建星空产品）</span></span>&nbsp;<span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">获取</span>cloud日志</span></strong></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">步骤</span></span></strong><strong><span style=\"color: rgb(26, 26, 26)\">1：</span></strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">联系客户公司</span>IT人员确认并登录到部署安装星空产品的服务器。</span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">步骤</span>2：</span></strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">打开</span>IIS查找日志信息</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><img src=\"/download/0109f527572be7ff497e97c8118b37bbb533.png\"/>&nbsp;</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\">&nbsp; &nbsp;</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">鼠标点击</span>K3Cloud节点，右键选中浏览，进入到文件路径中，查看日志信息。</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><img src=\"/download/01093a14fc62a0734851b5472fce01353f83.png\"/>&nbsp;</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\">&nbsp;</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">示例中的文件路径为：</span>D:\\Program Files (x86)\\Kingdee\\K3Cloud\\WebSite\\App_Data\\Log</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">注意：真实路径以客户环境为准。</span></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\">&nbsp;</span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\">3.1.2 公有云客户</span><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">（订阅星空）</span></span><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">获取</span>cloud日志</span></strong></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">运维提单获取云服务近期日志信息</span></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">详细操作指南：</span></span><a href=\"https://vip.kingdee.com/article/153972738560668928\" target=\"_blank\">https://vip.kingdee.com/article/153972738560668928</a></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\">&nbsp;</span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\">3.2 从日志中查找对应错误信息</span></strong></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\">3.2.1 根据日志查询WebApi信息</span></strong></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">打开日志进行搜索关键字</span></span><span style=\"color: rgb(26, 26, 26)\">WebApiModule</span><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">，如果查询到则可以初步判断，用户通过</span>SDK与星空产品之间有数据交换，则进一步分析问题。</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\">&nbsp;<img src=\"/download/0109540f6aeff13b480baa2eed3da58e68ff.png\"/></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">如果查找不到，则有以下可能：</span></span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">①私有云客户没有开启webapi日志，因此不会记录webapi请求的错误信息。</span></span></strong></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\">webapi日志开启方法：https://vip.kingdee.com/knowledge/specialDetail/229961573895771136?category=229963554177453824&amp;id=298122933035956480&amp;productLineId=1</span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">②sdk请求的地址和cloud日志所在的服务器地址不一致。</span></span></strong></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">导致该情况的原因非常多，可能是配置文件的</span>ServerUrl不正确，可能是配置文件存放位置不正确导致没有正确读取，可能是cloud日志的来源服务器不正确等等。</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\">&nbsp;</span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\">3.2.2</span><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">查找</span></span><span style=\"color: rgb(26, 26, 26)\">webapi请求返回的错误信息</span></strong></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">如果查找到含有</span>ERROR - WebApiModule</span><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">并且发生时间和请求报错时间一致的信息，则可以根据具体的错误信息定位问题。</span></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\">&nbsp;</span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\">3.3根据错误信息分析原因和常见的解决办法</span></strong></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\">3.3.1 Fail to VerifyThirtyPassport:The passport is not exists or disabled</span></strong></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">原因分析</span></span></strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">：</span></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">客户的第三方登录授权信息不存在或者被禁用了。</span></span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">解决方案</span></span></strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">：</span></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">登录星空业务站点管理中心，通过</span>Administrator进入第三方登录授权界面，查看调用API的所使用的第三方登录授权信息是否在下图列表中，并且禁用状态为否。</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><img src=\"/download/01092cf4972557bb43c18fc0407cef597db5.png\"/>&nbsp;</span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\">3.3.2 Fail to RestoreSessionByApi:用户：？？？不存在，请采用其他认证方式登录或者联系管理员！</span></strong></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">可能一</span></span></strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">：</span></span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">原因分析</span></span></strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">：</span></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">错误信息中的用户名为？或者乱码时，说明系统读取集成用户错误，如果集成用户名中含有中文字符，则可能是配置文件的字符编码不为</span>utf-8，因此无法正确读取。</span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">解决方案</span></span></strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">：</span></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">①更换集成用户名为纯英文名。</span></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">②</span></span><span style=\"color: rgb(44, 62, 80)\"><span style=\"font-family:微软雅黑\">如果集成用户名称中含有中文名，则配置文件的字符编码必须是</span>utf-8。</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(44, 62, 80)\"><span style=\"font-family:微软雅黑\">如果</span>Java语言的sdk版本为7.9.2，则需要升级到8.0.3版本或以上。</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(44, 62, 80)\"><br/></span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">可能二</span></span></strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">：</span></span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">原因分析</span></span></strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">：</span></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">集成用户在用户列表中不存在。</span></span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">解决方案</span></span></strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">：</span></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">进入用户列表，检查使用的集成用户是否存在，配置文件中的集成用户是否与用户数据中的用户名称一致。</span></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><img src=\"/download/01090ff6358fc7be4ee69e72735f28ba01d9.png\"/>&nbsp;</span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">可能三</span></span></strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">：</span></span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">原因分析</span></span></strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">：</span></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">该</span></span><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">集成用户不具备操作单据的许可</span></span><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">权限</span></span><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">。</span></span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">解决方案</span></span></strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">：</span></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">进入用户列表，检查使用的集成用户是否拥有许可权限，如果没有需要设置对应的许可分组。</span></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><img src=\"/download/01093c0c973295114a0ab5d77f0befe82ef1.png\"/>&nbsp;</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\">&nbsp;</span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\">3.3.3 Fail to RestoreSessionByApi:时间戳验证失败，请求链接已失效，请重试！</span></strong></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">原因分析</span></span></strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">：</span></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">第三方登录授权的链接有效时间不正确。</span></span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">解决方案</span></span></strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">：</span></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">检查第三方登录授权配置中的链接有效时间是否为</span>0，如果是，改为默认值10即可。</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><img src=\"/download/0109395a2144c4a449c8b8c4b84cdf4381b9.png\"/>&nbsp;</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\">&nbsp;</span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\">3.3.4 Fail to VerifyThirtyPassport:Fail to verify X-KD-Signature（from passport）</span></strong></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">原因分析</span></span></strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">：</span></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">应用</span>id或应用密钥无法正确解析。</span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">解决方案</span></span></strong><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">：</span></span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">检查配置文件的应用</span>id和应用密钥等数据。</span></p><p style=\"text-align: justify\"><span style=\"color: rgb(26, 26, 26)\">&nbsp;</span></p><p style=\"text-align: justify\"><strong><span style=\"color: rgb(26, 26, 26)\">4、</span><span style=\"color: rgb(26, 26, 26)\"><span style=\"font-family:微软雅黑\">若前三个步骤无法定位并解决问题，请将日志打包或截图给提单处理人员，进一步分析问题。</span></span></strong></p><p><br/></p>"
+  }
+}

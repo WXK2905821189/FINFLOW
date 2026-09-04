@@ -1,0 +1,414 @@
+{
+  "categoryId": "229964434343990272",
+  "articleId": "421729980586822912",
+  "category": "进阶开发",
+  "title": "标准自定义api编写并使用sdk调用",
+  "source": "https://vip.kingdee.com/knowledge/specialDetail/229961573895771136?category=229964434343990272&id=421729980586822912&type=Knowledge&productLineId=1&lang=zh-CN",
+  "fetchedAt": "2026-09-03T04:31:45.888Z",
+  "rawResponse": {
+    "badNum": 0,
+    "identityTagIds": null,
+    "knowledgeId": "421729980586822912",
+    "createdAt": 1678356263000,
+    "collections": 27,
+    "viewAuthority": 1,
+    "feedbackNum": 0,
+    "classifies": [
+      {
+        "code": null,
+        "name": "企业版/标准版",
+        "id": 1,
+        "sort": 0,
+        "type": "product",
+        "child": {
+          "code": null,
+          "name": "协同开发",
+          "id": 5709,
+          "sort": 26,
+          "type": "domain",
+          "child": {
+            "code": "api",
+            "name": "OpenAPI",
+            "id": "228544575986699264",
+            "sort": 3,
+            "type": "module",
+            "child": null,
+            "productLineId": null
+          },
+          "productLineId": null
+        },
+        "productLineId": 1
+      }
+    ],
+    "id": "421729980586822912",
+    "contentType": 1,
+    "updatedAt": 1680512987000,
+    "knowledgeUpdater": {
+      "avatar": "/download/0101043f5028c9bc4365bcc4a99442140260.png",
+      "department": null,
+      "id": "337276984751339520",
+      "name": "zzl1994",
+      "nameSpell": "name"
+    },
+    "assessStatus": 0,
+    "knowledgeStatus": 2,
+    "assessHandleStatus": null,
+    "knowledgeCreatedAt": 1678356263000,
+    "version": 19,
+    "labels": [
+      {
+        "code": "typicalinstance",
+        "hide": false,
+        "id": "272104134017402880",
+        "name": "最佳实践",
+        "style": 0,
+        "type": 0
+      },
+      {
+        "code": "XSRM",
+        "hide": false,
+        "id": "40",
+        "name": "快速入门",
+        "style": 0,
+        "type": 1
+      }
+    ],
+    "editedAt": 1680512987000,
+    "identityTags": null,
+    "useful": 15,
+    "errors": [],
+    "isCollected": false,
+    "totalFeedBacks": 0,
+    "attachments": [],
+    "sources": [],
+    "editTitle": "标准自定义api编写并使用sdk调用",
+    "title": "标准自定义api编写并使用sdk调用",
+    "content": "<p style=\"text-align: justify;color: rgb(73, 80, 96)\">&nbsp; &nbsp; &nbsp;如何编写一个自定义api接口，并使用sdk进行调用</p><h2 label=\"二级标题\" class=\"second-title\" style=\"text-align: justify;\"><strong style=\"\">一、编写标准自定义api接口</strong></h2><p class=\"MsoListParagraph\" style=\"text-align: justify;color: rgb(73, 80, 96)\">1、自定义接口必须继承AbstractWebApiBusinessService</p><p class=\"MsoListParagraph\" style=\"text-align: justify;color: rgb(73, 80, 96)\">2、将编译成功的dll文件放入产品安装目录\\K3Cloud\\website\\bin目录下，重启iis</p><p class=\"kd-image-content\"><img src=\"/download/01003d141529fc0141f593cc200ccb9c1507.png\" alt=\"上传图片\"/></p><h2 label=\"二级标题\" class=\"second-title\" style=\"text-align: justify;\">二、sdk调用方式</h2><p style=\"text-align: justify; color: rgb(73, 80, 96);\">&nbsp; &nbsp; sdk下载和使用请跳转：<a href=\"https://vip.kingdee.com/knowledge/specialDetail/229961573895771136?category=229963554177453824&id=288990899248563456&productLineId=1\" title=\"\" target=\"_blank\" class=\"\" style=\"color: rgb(45, 140, 240);\">sdk开发指南</a></p><p style=\"text-align: justify; color: rgb(73, 80, 96);\">&nbsp; &nbsp; 接口地址：接口命名空间.接口实现类名.方法,组件名（sdk会自动拼接common.kdsvc）</p><p class=\"kd-image-content\"><img src=\"/download/010090b7d939046c48638921a8d75b6758a3.png\" alt=\"上传图片\"/></p><p class=\"kd-image-content\"></p><p><br/></p>",
+    "products": [
+      {
+        "alias": null,
+        "code": "4468a7c0a53d11e8a7f90050568926a7",
+        "id": 1,
+        "isOpen": 1,
+        "name": "企业版/标准版",
+        "productLineId": 1,
+        "series": "S036",
+        "sort": 0
+      }
+    ],
+    "knowledgeSpecial": [
+      {
+        "categoryList": [
+          {
+            "childCategory": [
+              {
+                "childCategory": [
+                  null
+                ],
+                "code": null,
+                "description": null,
+                "entityId": "421729980586822912",
+                "entityType": "Knowledge",
+                "id": "421731959644252416",
+                "isCategory": false,
+                "name": "标准自定义api编写并使用sdk调用",
+                "parentId": "229964434343990272",
+                "sort": "1",
+                "specialId": "229961573895771136",
+                "status": 1
+              }
+            ],
+            "code": null,
+            "description": null,
+            "entityId": null,
+            "entityType": null,
+            "id": "229964434343990272",
+            "isCategory": true,
+            "name": "进阶开发",
+            "parentId": "-1",
+            "sort": "5",
+            "specialId": "229961573895771136",
+            "status": 1
+          }
+        ],
+        "classifies": null,
+        "collections": 159,
+        "createdAt": "2021-09-26T13:45:11.000+08:00",
+        "creator": {
+          "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+          "department": null,
+          "id": "96907288496966400",
+          "name": "Kidd",
+          "nameSpell": "name"
+        },
+        "description": "OpenAPI",
+        "hasCollected": null,
+        "hasHomePage": 1,
+        "id": "229961573895771136",
+        "identityTags": null,
+        "itemNum": 35,
+        "logo": "/download/01007136e2cc1839483f8b3df1781bcb28f0.png",
+        "name": "OpenAPI",
+        "otherProductLineIds": null,
+        "productLineId": "1",
+        "productList": [
+          {
+            "alias": null,
+            "code": "4468a7c0a53d11e8a7f90050568926a7",
+            "id": 1,
+            "isOpen": 1,
+            "name": "企业版/标准版",
+            "productLineId": 1,
+            "series": "S036",
+            "sort": 0
+          }
+        ],
+        "sort": 3,
+        "status": 2,
+        "style": 3,
+        "totalAppraisalScore": 14,
+        "totalAppraisalUsers": 3,
+        "updatedAt": "2025-06-27T16:28:41.000+08:00",
+        "updaterId": "1149",
+        "useCategory": 1,
+        "viewAuthority": 1,
+        "views": 1361378
+      }
+    ],
+    "entityUrl": null,
+    "needTranslate": null,
+    "knowledgeCreator": {
+      "avatar": "/download/0101043f5028c9bc4365bcc4a99442140260.png",
+      "department": null,
+      "id": "337276984751339520",
+      "name": "zzl1994",
+      "nameSpell": "name"
+    },
+    "totalAppraisalScore": 74,
+    "iflytekId": null,
+    "views": 43435,
+    "productLineId": 1,
+    "comments": 4,
+    "similarityCount": null,
+    "totalAppraisalUsers": 15,
+    "isKnowledge": 1,
+    "knowledgeUpdatedAt": 1680512987000,
+    "appraisalScore": 0,
+    "unuseful": 0,
+    "knowledgeCheckStatus": 2,
+    "otherProductLineIds": [],
+    "auditAt": 1680586167000,
+    "attributes": [
+      {
+        "classifies": [
+          {
+            "child": {
+              "child": {
+                "child": null,
+                "code": "api",
+                "id": "228544575986699264",
+                "name": "OpenAPI",
+                "productLineId": null,
+                "sort": 3,
+                "type": "module"
+              },
+              "code": null,
+              "id": "5709",
+              "name": "协同开发",
+              "productLineId": null,
+              "sort": 26,
+              "type": "domain"
+            },
+            "code": null,
+            "id": "1",
+            "name": "企业版/标准版",
+            "productLineId": 1,
+            "sort": 0,
+            "type": "product"
+          }
+        ],
+        "labels": [
+          {
+            "code": "typicalinstance",
+            "createdAt": 1642682681000,
+            "creator": {
+              "avatar": "/download?fileName=010162cfa9d5437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "1129",
+              "name": "灏",
+              "nameSpell": "hao"
+            },
+            "description": "最佳实践",
+            "hasSpecifyUser": false,
+            "hide": false,
+            "icon": "/download/0100905e7651dcc940099286e9ee4a35cb2d.png",
+            "id": "272104134017402880",
+            "name": "最佳实践",
+            "productLine": {
+              "active": true,
+              "appLogo": "星空",
+              "categoryCode": "C04",
+              "courseLogo": "/download/01009af04319c0514a20a059f889104d4dd7.png",
+              "domain": null,
+              "enablePaymentCourse": false,
+              "hasAtlas": true,
+              "hasIdea": false,
+              "hasKnowledge": true,
+              "hasQZ": false,
+              "id": 1,
+              "isDefault": null,
+              "isOpen": true,
+              "isValidLearning": true,
+              "isVirtual": false,
+              "logo": "/download/01007dc91abec4a8458d8bd9eefa81a0238b.png",
+              "name": "金蝶AI星空企业版/标准版",
+              "rank": 7,
+              "seriesCode": "S036"
+            },
+            "specifyUsers": [],
+            "style": 0,
+            "type": 0,
+            "updatePerson": {
+              "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "306913800727243776",
+              "name": "Paim",
+              "nameSpell": "name"
+            },
+            "updatedAt": 1657853575000
+          },
+          {
+            "code": "XSRM",
+            "createdAt": 1568798823000,
+            "creator": {
+              "avatar": "/download?fileName=01014c2c1c8b203f4a8aaa1e18dce7725efa.png",
+              "department": null,
+              "id": "1155",
+              "name": "陈旭",
+              "nameSpell": "lansehuanxiang"
+            },
+            "description": "快速入门",
+            "hasSpecifyUser": false,
+            "hide": false,
+            "icon": "/download?fileName=01007ab64f34c9004072ad021d226f8216fe.png",
+            "id": "40",
+            "name": "快速入门",
+            "productLine": {
+              "active": true,
+              "appLogo": "星空",
+              "categoryCode": "C04",
+              "courseLogo": "/download/01009af04319c0514a20a059f889104d4dd7.png",
+              "domain": null,
+              "enablePaymentCourse": false,
+              "hasAtlas": true,
+              "hasIdea": false,
+              "hasKnowledge": true,
+              "hasQZ": false,
+              "id": 1,
+              "isDefault": null,
+              "isOpen": true,
+              "isValidLearning": true,
+              "isVirtual": false,
+              "logo": "/download/01007dc91abec4a8458d8bd9eefa81a0238b.png",
+              "name": "金蝶AI星空企业版/标准版",
+              "rank": 7,
+              "seriesCode": "S036"
+            },
+            "specifyUsers": [],
+            "style": 0,
+            "type": 1,
+            "updatePerson": {
+              "avatar": "/download/0101f60bc4bb22124014a63b35b1083486e8.png",
+              "department": null,
+              "id": "234310606810391808",
+              "name": "咬咬咬咬人",
+              "nameSpell": "name"
+            },
+            "updatedAt": 1660218233000
+          }
+        ],
+        "productLineId": 1,
+        "specials": [
+          {
+            "categoryList": [
+              {
+                "childCategory": [
+                  {
+                    "childCategory": [
+                      null
+                    ],
+                    "code": null,
+                    "description": null,
+                    "entityId": "421729980586822912",
+                    "entityType": "Knowledge",
+                    "id": "421731959644252416",
+                    "isCategory": false,
+                    "name": "标准自定义api编写并使用sdk调用",
+                    "parentId": "229964434343990272",
+                    "sort": "1",
+                    "specialId": "229961573895771136",
+                    "status": 1
+                  }
+                ],
+                "code": null,
+                "description": null,
+                "entityId": null,
+                "entityType": null,
+                "id": "229964434343990272",
+                "isCategory": true,
+                "name": "进阶开发",
+                "parentId": "-1",
+                "sort": "5",
+                "specialId": "229961573895771136",
+                "status": 1
+              }
+            ],
+            "classifies": null,
+            "collections": 159,
+            "createdAt": "2021-09-26T13:45:11.000+08:00",
+            "creator": {
+              "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "96907288496966400",
+              "name": "Kidd",
+              "nameSpell": "name"
+            },
+            "description": "OpenAPI",
+            "hasCollected": null,
+            "hasHomePage": 1,
+            "id": "229961573895771136",
+            "identityTags": null,
+            "itemNum": 35,
+            "logo": "/download/01007136e2cc1839483f8b3df1781bcb28f0.png",
+            "name": "OpenAPI",
+            "otherProductLineIds": null,
+            "productLineId": "1",
+            "productList": [
+              {
+                "alias": null,
+                "code": "4468a7c0a53d11e8a7f90050568926a7",
+                "id": 1,
+                "isOpen": 1,
+                "name": "企业版/标准版",
+                "productLineId": 1,
+                "series": "S036",
+                "sort": 0
+              }
+            ],
+            "sort": 3,
+            "status": 2,
+            "style": 3,
+            "totalAppraisalScore": 14,
+            "totalAppraisalUsers": 3,
+            "updatedAt": "2025-06-27T16:28:41.000+08:00",
+            "updaterId": "1149",
+            "useCategory": 1,
+            "viewAuthority": 1,
+            "views": 1361378
+          }
+        ]
+      }
+    ],
+    "editContent": "<p style=\"text-align: justify;color: rgb(73, 80, 96)\">&nbsp; &nbsp; &nbsp;如何编写一个自定义api接口，并使用sdk进行调用</p><h2 label=\"二级标题\" class=\"second-title\" style=\"text-align: justify;\"><strong style=\"\">一、编写标准自定义api接口</strong></h2><p class=\"MsoListParagraph\" style=\"text-align: justify;color: rgb(73, 80, 96)\">1、自定义接口必须继承AbstractWebApiBusinessService</p><p class=\"MsoListParagraph\" style=\"text-align: justify;color: rgb(73, 80, 96)\">2、将编译成功的dll文件放入产品安装目录\\K3Cloud\\website\\bin目录下，重启iis</p><p class=\"kd-image-content\"><img src=\"/download/01003d141529fc0141f593cc200ccb9c1507.png\" alt=\"上传图片\"/></p><h2 label=\"二级标题\" class=\"second-title\" style=\"text-align: justify;\">二、sdk调用方式</h2><p style=\"text-align: justify; color: rgb(73, 80, 96);\">&nbsp; &nbsp; sdk下载和使用请跳转：<a href=\"https://vip.kingdee.com/knowledge/specialDetail/229961573895771136?category=229963554177453824&id=288990899248563456&productLineId=1\" title=\"\" target=\"_blank\" class=\"\" style=\"color: rgb(45, 140, 240);\">sdk开发指南</a></p><p style=\"text-align: justify; color: rgb(73, 80, 96);\">&nbsp; &nbsp; 接口地址：接口命名空间.接口实现类名.方法,组件名（sdk会自动拼接common.kdsvc）</p><p class=\"kd-image-content\"><img src=\"/download/010090b7d939046c48638921a8d75b6758a3.png\" alt=\"上传图片\"/></p><p class=\"kd-image-content\"></p><p><br/></p>"
+  }
+}

@@ -1,0 +1,471 @@
+{
+  "categoryId": "229964434343990272",
+  "articleId": "392991096756120320",
+  "category": "进阶开发",
+  "title": "使用sdk调用附件上传下载接口",
+  "source": "https://vip.kingdee.com/knowledge/specialDetail/229961573895771136?category=229964434343990272&id=392991096756120320&type=Knowledge&productLineId=1&lang=zh-CN",
+  "fetchedAt": "2026-09-03T04:31:45.724Z",
+  "rawResponse": {
+    "badNum": 1,
+    "identityTagIds": null,
+    "knowledgeId": "392991096756120320",
+    "createdAt": 1671504379000,
+    "collections": 31,
+    "viewAuthority": 1,
+    "feedbackNum": 0,
+    "classifies": [
+      {
+        "code": null,
+        "name": "企业版/标准版",
+        "id": 1,
+        "sort": 0,
+        "type": "product",
+        "child": {
+          "code": null,
+          "name": "协同开发",
+          "id": 5709,
+          "sort": 26,
+          "type": "domain",
+          "child": {
+            "code": "api",
+            "name": "OpenAPI",
+            "id": "228544575986699264",
+            "sort": 3,
+            "type": "module",
+            "child": null,
+            "productLineId": null
+          },
+          "productLineId": null
+        },
+        "productLineId": 1
+      }
+    ],
+    "id": "392991096756120320",
+    "contentType": 1,
+    "updatedAt": 1712632501000,
+    "knowledgeUpdater": {
+      "avatar": "/download/0101043f5028c9bc4365bcc4a99442140260.png",
+      "department": null,
+      "id": "337276984751339520",
+      "name": "zzl1994",
+      "nameSpell": "name"
+    },
+    "assessStatus": 0,
+    "knowledgeStatus": 2,
+    "assessHandleStatus": null,
+    "knowledgeCreatedAt": 1671504379000,
+    "version": 34,
+    "labels": [
+      {
+        "code": "XTX",
+        "hide": true,
+        "id": "197707276529122816",
+        "name": "版本新特性汇总贴专用",
+        "style": 0,
+        "type": 2
+      },
+      {
+        "code": "AdvancedSkills",
+        "hide": false,
+        "id": "272104133312759808",
+        "name": "高级技巧",
+        "style": 0,
+        "type": 1
+      },
+      {
+        "code": "typicalinstance",
+        "hide": false,
+        "id": "272104134017402880",
+        "name": "最佳实践",
+        "style": 0,
+        "type": 0
+      }
+    ],
+    "editedAt": 1712632501000,
+    "identityTags": null,
+    "useful": 13,
+    "errors": [],
+    "isCollected": false,
+    "totalFeedBacks": 1,
+    "attachments": [],
+    "sources": [],
+    "editTitle": "使用sdk调用附件上传下载接口",
+    "title": "使用sdk调用附件上传下载接口",
+    "content": "<p><span style=\"color: rgb(44, 62, 80); font-weight: 700; text-align: justify;\">产品版本说明</span></p><p><span style=\"color: rgb(44, 62, 80); text-align: justify;\">星空产品版本为：</span>补丁版本为PT146897【7.7.2374.8】及以上</p><p><br/></p><p><span style=\"color: rgb(44, 62, 80); font-weight: 700; text-align: justify;\">使用说明</span></p><p><span style=\"text-align: justify;\">1、上传附件接口(上传附件并绑定单据)</span></p><p><span style=\"text-align: justify;\">参数说明：</span></p><p><span style=\"text-align: justify;\"><img src=\"/download/010938ab8362db38459a9f7931180ffa4fdc.png\"/></span></p><p><span style=\"text-align: justify; color: rgb(192, 80, 77);\">注意：<span style=\"text-align: justify; font-size: 13px;\">如果是单据头附件，EntryinterId要么不填，要么填-1。</span></span></p><p><span style=\"text-align: justify;\">请求示例：</span></p><pre class=\"ueditor-code-area brush:c#;toolbar:false\" style=\"\">var&nbsp;clienter&nbsp;=&nbsp;new&nbsp;K3CloudApi();\nstring&nbsp;materid=&quot;&quot;;//物料单据Id(单据内码)\nstring&nbsp;number=&quot;&quot;;//物料单据编码\nstring&nbsp;jsonData&nbsp;=&nbsp;\n&quot;{\\&quot;FileName\\&quot;:\\&quot;1016.txt\\&quot;,\\&quot;FEntryKey\\&quot;:\\&quot;\\&quot;,\\&quot;FormId\\&quot;:&nbsp;\\&quot;BD_MATERIAL\\&quot;,\\&quot;IsLast\\&quot;:&nbsp;true,&quot;&nbsp;+&nbsp;\n&quot;\\&quot;InterId\\&quot;:&nbsp;&quot;&nbsp;+&nbsp;materid&nbsp;+&nbsp;&quot;,&quot;&nbsp;+&nbsp;&quot;\\&quot;BillNO\\&quot;:&nbsp;&quot;&nbsp;+&nbsp;&quot;\\&quot;&quot;&nbsp;+&nbsp;Number&nbsp;+&nbsp;&quot;\\&quot;&quot;&nbsp;+&nbsp;\n&quot;,\\&quot;AliasFileName\\&quot;:&nbsp;\\&quot;test\\&quot;,\\&quot;SendByte\\&quot;:&nbsp;\\&quot;6L+Z5piv5rWL6K+V5paH5Lu25ZKMYmFzZTY05a2X56ym5Liy5LqS6L2s\\&quot;}&quot;;\nvar&nbsp;resultJson&nbsp;=&nbsp;clienter.AttachmentUpLoad(jsonData);</pre><p>附件过大，上传失败，需要使用分块上传<span style=\"text-align: justify;\"></span></p><p>请求示例：</p><pre class=\"ueditor-code-area brush:java;toolbar:false\" style=\"\">public&nbsp;void&nbsp;uploadFiles()&nbsp;throws&nbsp;Exception&nbsp;{\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;K3CloudApi&nbsp;api&nbsp;=&nbsp;new&nbsp;K3CloudApi();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;formId&nbsp;=&nbsp;&quot;PUR_PurchaseOrder&quot;;\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;billNo&nbsp;=&nbsp;&quot;CGDD001939&quot;;\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;id&nbsp;=&nbsp;&quot;107361&quot;;\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;fileName&nbsp;=&nbsp;&quot;image.png&quot;;\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;filePath&nbsp;=&nbsp;&quot;D:\\\\&quot;&nbsp;+&nbsp;fileName;\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;blockSize&nbsp;=&nbsp;1024&nbsp;*&nbsp;1024;&nbsp;//&nbsp;分块大小：1M\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;File&nbsp;file&nbsp;=&nbsp;new&nbsp;File(filePath);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(file.length()&nbsp;&lt;=&nbsp;0)&nbsp;{\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;throw&nbsp;new&nbsp;Exception(&quot;文件内容不允许为空。&quot;);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;FileInputStream&nbsp;fis&nbsp;=&nbsp;new&nbsp;FileInputStream(file);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;byte[]&nbsp;content&nbsp;=&nbsp;new&nbsp;byte[blockSize];\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;fileId&nbsp;=&nbsp;&quot;&quot;;\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;while&nbsp;(true)&nbsp;{\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;size&nbsp;=&nbsp;fis.read(content);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(size&nbsp;==&nbsp;0)&nbsp;{\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;break;\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;boolean&nbsp;isLast&nbsp;=&nbsp;(size&nbsp;!=&nbsp;blockSize);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;byte[]&nbsp;uploadBytes&nbsp;=&nbsp;Arrays.copyOf(content,&nbsp;&nbsp;size);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;fileBase64String&nbsp;=&nbsp;new&nbsp;BASE64Encoder().encode(uploadBytes);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Map&lt;String,&nbsp;Object&gt;&nbsp;request&nbsp;=&nbsp;new&nbsp;HashMap&lt;&gt;();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;request.put(&quot;FileName&quot;,&nbsp;fileName);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;request.put(&quot;FormId&quot;,&nbsp;formId);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;request.put(&quot;IsLast&quot;,&nbsp;isLast);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;request.put(&quot;InterId&quot;,&nbsp;id);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;request.put(&quot;BillNo&quot;,&nbsp;billNo);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;request.put(&quot;AliasFileName&quot;,&nbsp;&quot;test&quot;);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;request.put(&quot;FileId&nbsp;&quot;,&nbsp;fileId);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;request.put(&quot;SendByte&quot;,&nbsp;fileBase64String);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;result&nbsp;=&nbsp;api.attachmentUpload(new&nbsp;Gson().toJson(request));\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;System.out.println(result);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;JsonObject&nbsp;resultObject&nbsp;=&nbsp;new&nbsp;JsonParser().parse(result).getAsJsonObject();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;JsonObject&nbsp;data&nbsp;=&nbsp;resultObject.get(&quot;Result&quot;).getAsJsonObject();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;//&nbsp;第一个分块上传时，FileId是空，从第二个分块开始，FileId不能再为空\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fileId&nbsp;=&nbsp;data.get(&quot;FileId&quot;).getAsString();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(isLast)&nbsp;{\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;break;\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}\n&nbsp;&nbsp;&nbsp;&nbsp;}</pre><p>2、下载附件接口</p><p>参数说明：</p><p><img src=\"/download/01095ed08a56efb6424080ef87e497b9fdbb.png\"/></p><p>请求示例：<br/></p><pre class=\"ueditor-code-area brush:c#;toolbar:false\" style=\"\">var&nbsp;clienter&nbsp;=&nbsp;new&nbsp;K3CloudApi();\nstring&nbsp;fileid&nbsp;=&nbsp;&quot;&quot;;//文件Id\nstring&nbsp;jsonData&nbsp;=&nbsp;&quot;{\\&quot;FileId\\&quot;:&nbsp;&quot;&nbsp;+&quot;\\&quot;&quot;+&nbsp;fileid&nbsp;+&nbsp;&quot;\\&quot;&quot;+&quot;,&nbsp;\\&quot;StartIndex\\&quot;:&nbsp;0}&quot;;\nvar&nbsp;resultJson&nbsp;=&nbsp;clienter.AttachmentDownLoad(jsonData);</pre><p style=\"\">附件过大，下载文件不完整，需要使用分块下载<span style=\"text-align: justify;\"></span></p><p style=\"\">请求示例：</p><pre class=\"ueditor-code-area brush:java;toolbar:false\" style=\"\">&nbsp;public&nbsp;void&nbsp;saveFiles()&nbsp;throws&nbsp;Exception&nbsp;{\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;fileid&nbsp;=&nbsp;&quot;c7be8e41c0d64ee1b1f56f32f1ec6e8c&quot;;\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;K3CloudApi&nbsp;api&nbsp;=&nbsp;new&nbsp;K3CloudApi();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;json&nbsp;=&nbsp;&quot;&nbsp;{\\&quot;FileId\\&quot;:&nbsp;&quot;&nbsp;+&nbsp;&quot;\\&quot;&quot;&nbsp;+&nbsp;fileid&nbsp;+&nbsp;&quot;\\&quot;&quot;&nbsp;+&nbsp;&quot;,&nbsp;\\&quot;StartIndex\\&quot;:&nbsp;0}&quot;;\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;result&nbsp;=&nbsp;api.attachmentDownLoad(json);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;JsonObject&nbsp;resultObject&nbsp;=&nbsp;new&nbsp;JsonParser().parse(result).getAsJsonObject();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;JsonObject&nbsp;data&nbsp;=&nbsp;resultObject.get(&quot;Result&quot;).getAsJsonObject();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;fileName&nbsp;=&nbsp;data.get(&quot;FileName&quot;).getAsString();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;boolean&nbsp;isLast&nbsp;=&nbsp;data.get(&quot;IsLast&quot;).getAsBoolean();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(isLast)&nbsp;{\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;System.out.println(&quot;小文件&quot;);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;filePart&nbsp;=&nbsp;data.get(&quot;FilePart&quot;).getAsString();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;File&nbsp;file&nbsp;=&nbsp;new&nbsp;File(&quot;D:\\\\&quot;&nbsp;+&nbsp;fileName);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;try&nbsp;{\n\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;byte[]&nbsp;b&nbsp;=&nbsp;Base64.getDecoder().decode(filePart);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for&nbsp;(int&nbsp;i&nbsp;=&nbsp;0;&nbsp;i&nbsp;&lt;&nbsp;b.length;&nbsp;++i)&nbsp;{\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(b[i]&nbsp;&lt;&nbsp;0)&nbsp;{//调整异常数据\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b[i]&nbsp;+=&nbsp;256;\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;//生成文件\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;OutputStream&nbsp;out&nbsp;=&nbsp;new&nbsp;FileOutputStream(file.getPath());\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;out.write(b);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;out.flush();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;out.close();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;catch&nbsp;(Exception&nbsp;e)&nbsp;{\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;System.out.println(&quot;文件保存异常:&quot;&nbsp;+&nbsp;e.getMessage());\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;else&nbsp;{\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;System.out.println(&quot;大文件&quot;);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;List&lt;String&gt;&nbsp;list&nbsp;=&nbsp;new&nbsp;ArrayList&lt;&gt;();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;filePart&nbsp;=&nbsp;data.get(&quot;FilePart&quot;).getAsString();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;list.add(filePart);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;while&nbsp;(!data.get(&quot;IsLast&quot;).getAsBoolean())&nbsp;{\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;startIndex&nbsp;=&nbsp;data.get(&quot;StartIndex&quot;).getAsInt();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;request&nbsp;=&nbsp;&quot;{\\&quot;FileId\\&quot;:&nbsp;&quot;&nbsp;+&nbsp;&quot;\\&quot;&quot;&nbsp;+&nbsp;fileid&nbsp;+&nbsp;&quot;\\&quot;&quot;&nbsp;+&nbsp;&quot;,&nbsp;\\&quot;StartIndex\\&quot;:&nbsp;&quot;&nbsp;+&nbsp;startIndex&nbsp;+&nbsp;&quot;}&quot;;\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;result&nbsp;=&nbsp;api.attachmentDownLoad(request);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;resultObject&nbsp;=&nbsp;new&nbsp;JsonParser().parse(result).getAsJsonObject();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;data&nbsp;=&nbsp;resultObject.get(&quot;Result&quot;).getAsJsonObject();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;filePart&nbsp;=&nbsp;data.get(&quot;FilePart&quot;).getAsString();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;list.add(filePart);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;File&nbsp;file&nbsp;=&nbsp;new&nbsp;File(&quot;D:\\\\&quot;&nbsp;+&nbsp;fileName);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;try&nbsp;{\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for&nbsp;(int&nbsp;j&nbsp;=&nbsp;0;&nbsp;j&nbsp;&lt;&nbsp;list.size();&nbsp;j++)&nbsp;{\n\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;byte[]&nbsp;b&nbsp;=&nbsp;Base64.getDecoder().decode(list.get(j));\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for&nbsp;(int&nbsp;i&nbsp;=&nbsp;0;&nbsp;i&nbsp;&lt;&nbsp;b.length;&nbsp;++i)&nbsp;{\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(b[i]&nbsp;&lt;&nbsp;0)&nbsp;{//调整异常数据\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b[i]&nbsp;+=&nbsp;256;\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;//生成文件\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;OutputStream&nbsp;out&nbsp;=&nbsp;new&nbsp;FileOutputStream(file.getPath(),&nbsp;true);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;out.write(b);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;out.flush();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;out.close();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;catch&nbsp;(Exception&nbsp;e)&nbsp;{\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;System.out.println(&quot;文件保存异常:&quot;&nbsp;+&nbsp;e.getMessage());\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}\n\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}\n&nbsp;&nbsp;&nbsp;&nbsp;}</pre><p><br/></p>",
+    "products": [
+      {
+        "alias": null,
+        "code": "4468a7c0a53d11e8a7f90050568926a7",
+        "id": 1,
+        "isOpen": 1,
+        "name": "企业版/标准版",
+        "productLineId": 1,
+        "series": "S036",
+        "sort": 0
+      }
+    ],
+    "knowledgeSpecial": [
+      {
+        "categoryList": [
+          {
+            "childCategory": [
+              {
+                "childCategory": [
+                  null
+                ],
+                "code": null,
+                "description": null,
+                "entityId": "392991096756120320",
+                "entityType": "Knowledge",
+                "id": "392997675454641152",
+                "isCategory": false,
+                "name": "使用sdk调用附件上传下载接口",
+                "parentId": "229964434343990272",
+                "sort": "0",
+                "specialId": "229961573895771136",
+                "status": 1
+              }
+            ],
+            "code": null,
+            "description": null,
+            "entityId": null,
+            "entityType": null,
+            "id": "229964434343990272",
+            "isCategory": true,
+            "name": "进阶开发",
+            "parentId": "-1",
+            "sort": "5",
+            "specialId": "229961573895771136",
+            "status": 1
+          }
+        ],
+        "classifies": null,
+        "collections": 159,
+        "createdAt": "2021-09-26T13:45:11.000+08:00",
+        "creator": {
+          "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+          "department": null,
+          "id": "96907288496966400",
+          "name": "Kidd",
+          "nameSpell": "name"
+        },
+        "description": "OpenAPI",
+        "hasCollected": null,
+        "hasHomePage": 1,
+        "id": "229961573895771136",
+        "identityTags": null,
+        "itemNum": 35,
+        "logo": "/download/01007136e2cc1839483f8b3df1781bcb28f0.png",
+        "name": "OpenAPI",
+        "otherProductLineIds": null,
+        "productLineId": "1",
+        "productList": [
+          {
+            "alias": null,
+            "code": "4468a7c0a53d11e8a7f90050568926a7",
+            "id": 1,
+            "isOpen": 1,
+            "name": "企业版/标准版",
+            "productLineId": 1,
+            "series": "S036",
+            "sort": 0
+          }
+        ],
+        "sort": 3,
+        "status": 2,
+        "style": 3,
+        "totalAppraisalScore": 14,
+        "totalAppraisalUsers": 3,
+        "updatedAt": "2025-06-27T16:28:41.000+08:00",
+        "updaterId": "1149",
+        "useCategory": 1,
+        "viewAuthority": 1,
+        "views": 1361378
+      }
+    ],
+    "entityUrl": null,
+    "needTranslate": null,
+    "knowledgeCreator": {
+      "avatar": "/download/0101043f5028c9bc4365bcc4a99442140260.png",
+      "department": null,
+      "id": "337276984751339520",
+      "name": "zzl1994",
+      "nameSpell": "name"
+    },
+    "totalAppraisalScore": 66,
+    "iflytekId": null,
+    "views": 43104,
+    "productLineId": 1,
+    "comments": 21,
+    "similarityCount": 0,
+    "totalAppraisalUsers": 14,
+    "isKnowledge": 1,
+    "knowledgeUpdatedAt": 1712632501000,
+    "appraisalScore": 0,
+    "unuseful": 1,
+    "knowledgeCheckStatus": 2,
+    "otherProductLineIds": [],
+    "auditAt": 1712641039000,
+    "attributes": [
+      {
+        "classifies": [
+          {
+            "child": {
+              "child": {
+                "child": null,
+                "code": "api",
+                "id": "228544575986699264",
+                "name": "OpenAPI",
+                "productLineId": null,
+                "sort": 3,
+                "type": "module"
+              },
+              "code": null,
+              "id": "5709",
+              "name": "协同开发",
+              "productLineId": null,
+              "sort": 26,
+              "type": "domain"
+            },
+            "code": null,
+            "id": "1",
+            "name": "企业版/标准版",
+            "productLineId": 1,
+            "sort": 0,
+            "type": "product"
+          }
+        ],
+        "labels": [
+          {
+            "code": "XTX",
+            "createdAt": 1624945088000,
+            "creator": {
+              "avatar": "/download/01014b15cac9464149e2b6b86d497dc1e919.png",
+              "department": null,
+              "id": "428913",
+              "name": "明明明明明明",
+              "nameSpell": "name"
+            },
+            "description": "版本新特性汇总贴专用标签",
+            "hasSpecifyUser": false,
+            "hide": true,
+            "icon": "/download/0100816737dd05f8415293953695d72041b4.jpeg",
+            "id": "197707276529122816",
+            "name": "版本新特性汇总贴专用",
+            "productLine": {
+              "active": true,
+              "appLogo": "星空",
+              "categoryCode": "C04",
+              "courseLogo": "/download/01009af04319c0514a20a059f889104d4dd7.png",
+              "domain": null,
+              "enablePaymentCourse": false,
+              "hasAtlas": true,
+              "hasIdea": false,
+              "hasKnowledge": true,
+              "hasQZ": false,
+              "id": 1,
+              "isDefault": null,
+              "isOpen": true,
+              "isValidLearning": true,
+              "isVirtual": false,
+              "logo": "/download/01007dc91abec4a8458d8bd9eefa81a0238b.png",
+              "name": "金蝶AI星空企业版/标准版",
+              "rank": 7,
+              "seriesCode": "S036"
+            },
+            "specifyUsers": [],
+            "style": 0,
+            "type": 2,
+            "updatePerson": {
+              "avatar": "/download?fileName=010162cfa9d5437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "1129",
+              "name": "灏",
+              "nameSpell": "hao"
+            },
+            "updatedAt": 1634715221000
+          },
+          {
+            "code": "AdvancedSkills",
+            "createdAt": 1642682681000,
+            "creator": {
+              "avatar": "/download?fileName=010162cfa9d4437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "1",
+              "name": "administrator",
+              "nameSpell": "administrator"
+            },
+            "description": "高阶技巧标签",
+            "hasSpecifyUser": false,
+            "hide": false,
+            "icon": "/download/01005cea40211bf14113a6004322e86a6780.png",
+            "id": "272104133312759808",
+            "name": "高级技巧",
+            "productLine": {
+              "active": true,
+              "appLogo": "星空",
+              "categoryCode": "C04",
+              "courseLogo": "/download/01009af04319c0514a20a059f889104d4dd7.png",
+              "domain": null,
+              "enablePaymentCourse": false,
+              "hasAtlas": true,
+              "hasIdea": false,
+              "hasKnowledge": true,
+              "hasQZ": false,
+              "id": 1,
+              "isDefault": null,
+              "isOpen": true,
+              "isValidLearning": true,
+              "isVirtual": false,
+              "logo": "/download/01007dc91abec4a8458d8bd9eefa81a0238b.png",
+              "name": "金蝶AI星空企业版/标准版",
+              "rank": 7,
+              "seriesCode": "S036"
+            },
+            "specifyUsers": [],
+            "style": 0,
+            "type": 1,
+            "updatePerson": {
+              "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "306913800727243776",
+              "name": "Paim",
+              "nameSpell": "name"
+            },
+            "updatedAt": 1657853558000
+          },
+          {
+            "code": "typicalinstance",
+            "createdAt": 1642682681000,
+            "creator": {
+              "avatar": "/download?fileName=010162cfa9d5437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "1129",
+              "name": "灏",
+              "nameSpell": "hao"
+            },
+            "description": "最佳实践",
+            "hasSpecifyUser": false,
+            "hide": false,
+            "icon": "/download/0100905e7651dcc940099286e9ee4a35cb2d.png",
+            "id": "272104134017402880",
+            "name": "最佳实践",
+            "productLine": {
+              "active": true,
+              "appLogo": "星空",
+              "categoryCode": "C04",
+              "courseLogo": "/download/01009af04319c0514a20a059f889104d4dd7.png",
+              "domain": null,
+              "enablePaymentCourse": false,
+              "hasAtlas": true,
+              "hasIdea": false,
+              "hasKnowledge": true,
+              "hasQZ": false,
+              "id": 1,
+              "isDefault": null,
+              "isOpen": true,
+              "isValidLearning": true,
+              "isVirtual": false,
+              "logo": "/download/01007dc91abec4a8458d8bd9eefa81a0238b.png",
+              "name": "金蝶AI星空企业版/标准版",
+              "rank": 7,
+              "seriesCode": "S036"
+            },
+            "specifyUsers": [],
+            "style": 0,
+            "type": 0,
+            "updatePerson": {
+              "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "306913800727243776",
+              "name": "Paim",
+              "nameSpell": "name"
+            },
+            "updatedAt": 1657853575000
+          }
+        ],
+        "productLineId": 1,
+        "specials": [
+          {
+            "categoryList": [
+              {
+                "childCategory": [
+                  {
+                    "childCategory": [
+                      null
+                    ],
+                    "code": null,
+                    "description": null,
+                    "entityId": "392991096756120320",
+                    "entityType": "Knowledge",
+                    "id": "392997675454641152",
+                    "isCategory": false,
+                    "name": "使用sdk调用附件上传下载接口",
+                    "parentId": "229964434343990272",
+                    "sort": "0",
+                    "specialId": "229961573895771136",
+                    "status": 1
+                  }
+                ],
+                "code": null,
+                "description": null,
+                "entityId": null,
+                "entityType": null,
+                "id": "229964434343990272",
+                "isCategory": true,
+                "name": "进阶开发",
+                "parentId": "-1",
+                "sort": "5",
+                "specialId": "229961573895771136",
+                "status": 1
+              }
+            ],
+            "classifies": null,
+            "collections": 159,
+            "createdAt": "2021-09-26T13:45:11.000+08:00",
+            "creator": {
+              "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "96907288496966400",
+              "name": "Kidd",
+              "nameSpell": "name"
+            },
+            "description": "OpenAPI",
+            "hasCollected": null,
+            "hasHomePage": 1,
+            "id": "229961573895771136",
+            "identityTags": null,
+            "itemNum": 35,
+            "logo": "/download/01007136e2cc1839483f8b3df1781bcb28f0.png",
+            "name": "OpenAPI",
+            "otherProductLineIds": null,
+            "productLineId": "1",
+            "productList": [
+              {
+                "alias": null,
+                "code": "4468a7c0a53d11e8a7f90050568926a7",
+                "id": 1,
+                "isOpen": 1,
+                "name": "企业版/标准版",
+                "productLineId": 1,
+                "series": "S036",
+                "sort": 0
+              }
+            ],
+            "sort": 3,
+            "status": 2,
+            "style": 3,
+            "totalAppraisalScore": 14,
+            "totalAppraisalUsers": 3,
+            "updatedAt": "2025-06-27T16:28:41.000+08:00",
+            "updaterId": "1149",
+            "useCategory": 1,
+            "viewAuthority": 1,
+            "views": 1361378
+          }
+        ]
+      }
+    ],
+    "editContent": "<p><span style=\"color: rgb(44, 62, 80); font-weight: 700; text-align: justify;\">产品版本说明</span></p><p><span style=\"color: rgb(44, 62, 80); text-align: justify;\">星空产品版本为：</span>补丁版本为PT146897【7.7.2374.8】及以上</p><p><br/></p><p><span style=\"color: rgb(44, 62, 80); font-weight: 700; text-align: justify;\">使用说明</span></p><p><span style=\"text-align: justify;\">1、上传附件接口(上传附件并绑定单据)</span></p><p><span style=\"text-align: justify;\">参数说明：</span></p><p><span style=\"text-align: justify;\"><img src=\"/download/010938ab8362db38459a9f7931180ffa4fdc.png\"/></span></p><p><span style=\"text-align: justify; color: rgb(192, 80, 77);\">注意：<span style=\"text-align: justify; font-size: 13px;\">如果是单据头附件，EntryinterId要么不填，要么填-1。</span></span></p><p><span style=\"text-align: justify;\">请求示例：</span></p><pre class=\"ueditor-code-area brush:c#;toolbar:false\" style=\"\">var&nbsp;clienter&nbsp;=&nbsp;new&nbsp;K3CloudApi();\nstring&nbsp;materid=&quot;&quot;;//物料单据Id(单据内码)\nstring&nbsp;number=&quot;&quot;;//物料单据编码\nstring&nbsp;jsonData&nbsp;=&nbsp;\n&quot;{\\&quot;FileName\\&quot;:\\&quot;1016.txt\\&quot;,\\&quot;FEntryKey\\&quot;:\\&quot;\\&quot;,\\&quot;FormId\\&quot;:&nbsp;\\&quot;BD_MATERIAL\\&quot;,\\&quot;IsLast\\&quot;:&nbsp;true,&quot;&nbsp;+&nbsp;\n&quot;\\&quot;InterId\\&quot;:&nbsp;&quot;&nbsp;+&nbsp;materid&nbsp;+&nbsp;&quot;,&quot;&nbsp;+&nbsp;&quot;\\&quot;BillNO\\&quot;:&nbsp;&quot;&nbsp;+&nbsp;&quot;\\&quot;&quot;&nbsp;+&nbsp;Number&nbsp;+&nbsp;&quot;\\&quot;&quot;&nbsp;+&nbsp;\n&quot;,\\&quot;AliasFileName\\&quot;:&nbsp;\\&quot;test\\&quot;,\\&quot;SendByte\\&quot;:&nbsp;\\&quot;6L+Z5piv5rWL6K+V5paH5Lu25ZKMYmFzZTY05a2X56ym5Liy5LqS6L2s\\&quot;}&quot;;\nvar&nbsp;resultJson&nbsp;=&nbsp;clienter.AttachmentUpLoad(jsonData);</pre><p>附件过大，上传失败，需要使用分块上传<span style=\"text-align: justify;\"></span></p><p>请求示例：</p><pre class=\"ueditor-code-area brush:java;toolbar:false\" style=\"\">public&nbsp;void&nbsp;uploadFiles()&nbsp;throws&nbsp;Exception&nbsp;{\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;K3CloudApi&nbsp;api&nbsp;=&nbsp;new&nbsp;K3CloudApi();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;formId&nbsp;=&nbsp;&quot;PUR_PurchaseOrder&quot;;\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;billNo&nbsp;=&nbsp;&quot;CGDD001939&quot;;\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;id&nbsp;=&nbsp;&quot;107361&quot;;\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;fileName&nbsp;=&nbsp;&quot;image.png&quot;;\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;filePath&nbsp;=&nbsp;&quot;D:\\\\&quot;&nbsp;+&nbsp;fileName;\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;blockSize&nbsp;=&nbsp;1024&nbsp;*&nbsp;1024;&nbsp;//&nbsp;分块大小：1M\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;File&nbsp;file&nbsp;=&nbsp;new&nbsp;File(filePath);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(file.length()&nbsp;&lt;=&nbsp;0)&nbsp;{\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;throw&nbsp;new&nbsp;Exception(&quot;文件内容不允许为空。&quot;);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;FileInputStream&nbsp;fis&nbsp;=&nbsp;new&nbsp;FileInputStream(file);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;byte[]&nbsp;content&nbsp;=&nbsp;new&nbsp;byte[blockSize];\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;fileId&nbsp;=&nbsp;&quot;&quot;;\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;while&nbsp;(true)&nbsp;{\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;size&nbsp;=&nbsp;fis.read(content);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(size&nbsp;==&nbsp;0)&nbsp;{\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;break;\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;boolean&nbsp;isLast&nbsp;=&nbsp;(size&nbsp;!=&nbsp;blockSize);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;byte[]&nbsp;uploadBytes&nbsp;=&nbsp;Arrays.copyOf(content,&nbsp;&nbsp;size);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;fileBase64String&nbsp;=&nbsp;new&nbsp;BASE64Encoder().encode(uploadBytes);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Map&lt;String,&nbsp;Object&gt;&nbsp;request&nbsp;=&nbsp;new&nbsp;HashMap&lt;&gt;();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;request.put(&quot;FileName&quot;,&nbsp;fileName);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;request.put(&quot;FormId&quot;,&nbsp;formId);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;request.put(&quot;IsLast&quot;,&nbsp;isLast);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;request.put(&quot;InterId&quot;,&nbsp;id);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;request.put(&quot;BillNo&quot;,&nbsp;billNo);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;request.put(&quot;AliasFileName&quot;,&nbsp;&quot;test&quot;);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;request.put(&quot;FileId&nbsp;&quot;,&nbsp;fileId);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;request.put(&quot;SendByte&quot;,&nbsp;fileBase64String);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;result&nbsp;=&nbsp;api.attachmentUpload(new&nbsp;Gson().toJson(request));\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;System.out.println(result);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;JsonObject&nbsp;resultObject&nbsp;=&nbsp;new&nbsp;JsonParser().parse(result).getAsJsonObject();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;JsonObject&nbsp;data&nbsp;=&nbsp;resultObject.get(&quot;Result&quot;).getAsJsonObject();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;//&nbsp;第一个分块上传时，FileId是空，从第二个分块开始，FileId不能再为空\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fileId&nbsp;=&nbsp;data.get(&quot;FileId&quot;).getAsString();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(isLast)&nbsp;{\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;break;\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}\n&nbsp;&nbsp;&nbsp;&nbsp;}</pre><p>2、下载附件接口</p><p>参数说明：</p><p><img src=\"/download/01095ed08a56efb6424080ef87e497b9fdbb.png\"/></p><p>请求示例：<br/></p><pre class=\"ueditor-code-area brush:c#;toolbar:false\" style=\"\">var&nbsp;clienter&nbsp;=&nbsp;new&nbsp;K3CloudApi();\nstring&nbsp;fileid&nbsp;=&nbsp;&quot;&quot;;//文件Id\nstring&nbsp;jsonData&nbsp;=&nbsp;&quot;{\\&quot;FileId\\&quot;:&nbsp;&quot;&nbsp;+&quot;\\&quot;&quot;+&nbsp;fileid&nbsp;+&nbsp;&quot;\\&quot;&quot;+&quot;,&nbsp;\\&quot;StartIndex\\&quot;:&nbsp;0}&quot;;\nvar&nbsp;resultJson&nbsp;=&nbsp;clienter.AttachmentDownLoad(jsonData);</pre><p style=\"\">附件过大，下载文件不完整，需要使用分块下载<span style=\"text-align: justify;\"></span></p><p style=\"\">请求示例：</p><pre class=\"ueditor-code-area brush:java;toolbar:false\" style=\"\">&nbsp;public&nbsp;void&nbsp;saveFiles()&nbsp;throws&nbsp;Exception&nbsp;{\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;fileid&nbsp;=&nbsp;&quot;c7be8e41c0d64ee1b1f56f32f1ec6e8c&quot;;\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;K3CloudApi&nbsp;api&nbsp;=&nbsp;new&nbsp;K3CloudApi();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;json&nbsp;=&nbsp;&quot;&nbsp;{\\&quot;FileId\\&quot;:&nbsp;&quot;&nbsp;+&nbsp;&quot;\\&quot;&quot;&nbsp;+&nbsp;fileid&nbsp;+&nbsp;&quot;\\&quot;&quot;&nbsp;+&nbsp;&quot;,&nbsp;\\&quot;StartIndex\\&quot;:&nbsp;0}&quot;;\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;result&nbsp;=&nbsp;api.attachmentDownLoad(json);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;JsonObject&nbsp;resultObject&nbsp;=&nbsp;new&nbsp;JsonParser().parse(result).getAsJsonObject();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;JsonObject&nbsp;data&nbsp;=&nbsp;resultObject.get(&quot;Result&quot;).getAsJsonObject();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;fileName&nbsp;=&nbsp;data.get(&quot;FileName&quot;).getAsString();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;boolean&nbsp;isLast&nbsp;=&nbsp;data.get(&quot;IsLast&quot;).getAsBoolean();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(isLast)&nbsp;{\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;System.out.println(&quot;小文件&quot;);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;filePart&nbsp;=&nbsp;data.get(&quot;FilePart&quot;).getAsString();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;File&nbsp;file&nbsp;=&nbsp;new&nbsp;File(&quot;D:\\\\&quot;&nbsp;+&nbsp;fileName);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;try&nbsp;{\n\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;byte[]&nbsp;b&nbsp;=&nbsp;Base64.getDecoder().decode(filePart);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for&nbsp;(int&nbsp;i&nbsp;=&nbsp;0;&nbsp;i&nbsp;&lt;&nbsp;b.length;&nbsp;++i)&nbsp;{\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(b[i]&nbsp;&lt;&nbsp;0)&nbsp;{//调整异常数据\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b[i]&nbsp;+=&nbsp;256;\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;//生成文件\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;OutputStream&nbsp;out&nbsp;=&nbsp;new&nbsp;FileOutputStream(file.getPath());\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;out.write(b);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;out.flush();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;out.close();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;catch&nbsp;(Exception&nbsp;e)&nbsp;{\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;System.out.println(&quot;文件保存异常:&quot;&nbsp;+&nbsp;e.getMessage());\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;else&nbsp;{\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;System.out.println(&quot;大文件&quot;);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;List&lt;String&gt;&nbsp;list&nbsp;=&nbsp;new&nbsp;ArrayList&lt;&gt;();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;filePart&nbsp;=&nbsp;data.get(&quot;FilePart&quot;).getAsString();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;list.add(filePart);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;while&nbsp;(!data.get(&quot;IsLast&quot;).getAsBoolean())&nbsp;{\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;startIndex&nbsp;=&nbsp;data.get(&quot;StartIndex&quot;).getAsInt();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;String&nbsp;request&nbsp;=&nbsp;&quot;{\\&quot;FileId\\&quot;:&nbsp;&quot;&nbsp;+&nbsp;&quot;\\&quot;&quot;&nbsp;+&nbsp;fileid&nbsp;+&nbsp;&quot;\\&quot;&quot;&nbsp;+&nbsp;&quot;,&nbsp;\\&quot;StartIndex\\&quot;:&nbsp;&quot;&nbsp;+&nbsp;startIndex&nbsp;+&nbsp;&quot;}&quot;;\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;result&nbsp;=&nbsp;api.attachmentDownLoad(request);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;resultObject&nbsp;=&nbsp;new&nbsp;JsonParser().parse(result).getAsJsonObject();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;data&nbsp;=&nbsp;resultObject.get(&quot;Result&quot;).getAsJsonObject();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;filePart&nbsp;=&nbsp;data.get(&quot;FilePart&quot;).getAsString();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;list.add(filePart);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;File&nbsp;file&nbsp;=&nbsp;new&nbsp;File(&quot;D:\\\\&quot;&nbsp;+&nbsp;fileName);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;try&nbsp;{\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for&nbsp;(int&nbsp;j&nbsp;=&nbsp;0;&nbsp;j&nbsp;&lt;&nbsp;list.size();&nbsp;j++)&nbsp;{\n\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;byte[]&nbsp;b&nbsp;=&nbsp;Base64.getDecoder().decode(list.get(j));\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;for&nbsp;(int&nbsp;i&nbsp;=&nbsp;0;&nbsp;i&nbsp;&lt;&nbsp;b.length;&nbsp;++i)&nbsp;{\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(b[i]&nbsp;&lt;&nbsp;0)&nbsp;{//调整异常数据\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;b[i]&nbsp;+=&nbsp;256;\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;//生成文件\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;OutputStream&nbsp;out&nbsp;=&nbsp;new&nbsp;FileOutputStream(file.getPath(),&nbsp;true);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;out.write(b);\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;out.flush();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;out.close();\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}&nbsp;catch&nbsp;(Exception&nbsp;e)&nbsp;{\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;System.out.println(&quot;文件保存异常:&quot;&nbsp;+&nbsp;e.getMessage());\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}\n\n&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}\n&nbsp;&nbsp;&nbsp;&nbsp;}</pre><p><br/></p>"
+  }
+}

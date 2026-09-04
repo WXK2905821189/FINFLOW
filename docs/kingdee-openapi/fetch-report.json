@@ -1,0 +1,14 @@
+{
+  "status": "completed",
+  "updatedAt": "2026-09-03T04:35:00+08:00",
+  "total": 14,
+  "ok": 14,
+  "failed": 0,
+  "endpoint": "GET /knowledgeapi/special-knowledges/{articleId}",
+  "auth": "storage-state.json (Playwright captured)",
+  "outputs": {
+    "json": "articles/*.json",
+    "markdown": "articles-md/*.md"
+  },
+  "notes": "endpoint discovered via browser request monitoring on 2026-09-03; /api prefix is WRONG for this API, must use /knowledgeapi"
+}

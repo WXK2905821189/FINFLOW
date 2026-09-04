@@ -1,0 +1,414 @@
+{
+  "categoryId": "229964434343990272",
+  "articleId": "576099720138053888",
+  "category": "进阶开发",
+  "title": "SDK进阶使用指南",
+  "source": "https://vip.kingdee.com/knowledge/specialDetail/229961573895771136?category=229964434343990272&id=576099720138053888&type=Knowledge&productLineId=1&lang=zh-CN",
+  "fetchedAt": "2026-09-03T04:31:46.171Z",
+  "rawResponse": {
+    "badNum": 0,
+    "identityTagIds": null,
+    "knowledgeId": "576099720138053888",
+    "createdAt": 1715160877000,
+    "collections": 3,
+    "viewAuthority": 1,
+    "feedbackNum": 0,
+    "classifies": [
+      {
+        "code": null,
+        "name": "企业版/标准版",
+        "id": 1,
+        "sort": 0,
+        "type": "product",
+        "child": {
+          "code": null,
+          "name": "协同开发",
+          "id": 5709,
+          "sort": 26,
+          "type": "domain",
+          "child": {
+            "code": "api",
+            "name": "OpenAPI",
+            "id": "228544575986699264",
+            "sort": 3,
+            "type": "module",
+            "child": null,
+            "productLineId": null
+          },
+          "productLineId": null
+        },
+        "productLineId": 1
+      }
+    ],
+    "id": "576099720138053888",
+    "contentType": 1,
+    "updatedAt": 1731488142000,
+    "knowledgeUpdater": {
+      "avatar": "/download/01010753253164e84390b4c1fc11276ceff0.png",
+      "department": null,
+      "id": "250666821609831168",
+      "name": "都付笑谈中",
+      "nameSpell": "name"
+    },
+    "assessStatus": 0,
+    "knowledgeStatus": 2,
+    "assessHandleStatus": null,
+    "knowledgeCreatedAt": 1715160877000,
+    "version": 10,
+    "labels": [
+      {
+        "code": "AdvancedSkills",
+        "hide": false,
+        "id": "272104133312759808",
+        "name": "高级技巧",
+        "style": 0,
+        "type": 1
+      },
+      {
+        "code": "KFZN",
+        "hide": false,
+        "id": "335739395234214400",
+        "name": "开发指南",
+        "style": 0,
+        "type": 0
+      }
+    ],
+    "editedAt": 1731482105000,
+    "identityTags": null,
+    "useful": 8,
+    "errors": [],
+    "isCollected": false,
+    "totalFeedBacks": 0,
+    "attachments": [],
+    "sources": [],
+    "editTitle": "SDK进阶使用指南",
+    "title": "SDK进阶使用指南",
+    "content": "<p style=\"text-align: justify\"><strong><span style=\"background-color: rgb(255, 255, 255)\">SDK设计目的</span></strong></p><p style=\"text-align: justify\"><span style=\"background-color: rgb(255, 255, 255)\">SDK是为了简化用户的调用过程而诞生的，使开发更容易上手，只需要关注业务本身而不用理解复杂的http调用过程。</span></p><p style=\"text-align: justify\"><span style=\"background-color: rgb(255, 255, 255)\"><br/></span></p><p style=\"text-align: justify\"><span style=\"background-color: rgb(255, 255, 255)\"><img src=\"https://vip-admin.kingdee.com/download/01007172cd92f5b7459a99c462ccea4e0cd1.png\" alt=\"上传图片\"/></span></p><p style=\"text-align: justify\"><strong><span style=\"background-color: rgb(255, 255, 255)\">SDK主要做了以下工作：</span></strong></p><p style=\"text-align: justify\"><span style=\"background-color: rgb(255, 255, 255)\">1、</span><span style=\"background-color: rgb(255, 255, 255)\">sdk封装处理了请求参数，用户只需要给具体的接口业务数据即可。详情参考<a href=\"https://openapi.open.kingdee.com/ApiDoc\" target=\"_blank\">https://openapi.open.kingdee.com/ApiDoc</a>中的请求参数示例。</span></p><p style=\"text-align: justify\"><span style=\"background-color: rgb(255, 255, 255)\">2、</span><span style=\"background-color: rgb(255, 255, 255)\">sdk中的每个接口调用时header都携带了第三方登录授权加密信息。第三方登录授权信息从配置文件中读取，或者由用户在代码中赋值。</span></p><p style=\"text-align: justify\"><span style=\"background-color: rgb(255, 255, 255)\">3、</span><span style=\"background-color: rgb(255, 255, 255)\">sdk中的k3cloudApi类的一个实例就代表了一个会话。当新建了一个k3cloudApi的实例并执行第一次接口调用成功后，返回的sessionId将被存储，且该实例的每次接口调用都会携带sessionId。因此每个新的K3CloudApi实例在第一次调用接口时用时会较长，后续继续使用时速度会显著变快。</span></p><p style=\"text-align: justify\"><span style=\"background-color: rgb(255, 255, 255)\"><span style=\"font-family:微软雅黑\">4、对返回结果做处理和封装。</span></span></p><p style=\"text-align: justify\"><span style=\"background-color: rgb(255, 255, 255)\">&nbsp;</span></p><p style=\"text-align: justify\"><span style=\"background-color: rgb(255, 255, 255)\"></span><br/></p><p><span style=\"background-color: rgb(255, 255, 255)\"><span style=\"font-family:Arial\">对于非</span>WebApi的接口(即接口本身没有继承</span>AbstractWebApiBusinessService类）</p><p>调用时需要先进行一次手动登录，再执行后续操作。</p><p>JAVA示例如下：</p><p><span style=\"background-color: rgb(255, 255, 255)\">K3CloudApi api= new K3CloudApi();</span></p><p><span style=\"background-color: rgb(255, 255, 255)\">Object[] parameters = new Object[] {&nbsp;</span></p><p><span style=\"background-color: rgb(255, 255, 255)\">&quot;1774791181494921216&quot;,//数据中心</span></p><p><span style=\"background-color: rgb(255, 255, 255)\">&nbsp;&quot;demo2&quot;,<span style=\"background-color: rgb(255, 255, 255);\">//用户</span>&nbsp;</span></p><p><span style=\"background-color: rgb(255, 255, 255)\">&quot;266181_247qxwCt4qAYwZ0I443tUzUsyMxZ2oKt&quot;,//appid</span></p><p><span style=\"background-color: rgb(255, 255, 255)\">&nbsp;&quot;07317571e65c4781b68f8a55083b9176&quot;,//app密钥&nbsp;</span></p><p><span style=\"background-color: rgb(255, 255, 255)\">2052 };</span></p><p><span style=\"background-color: rgb(255, 255, 255)\">//先执行一次登录</span></p><p><span style=\"background-color: rgb(255, 255, 255)\"><span style=\"background-color: rgb(255, 255, 255);\">System.out.println(</span>api.execute(&quot;Kingdee.BOS.WebApi.ServicesStub.AuthService.LoginByAppSecret&quot;, parameters));&nbsp;</span></p><p><span style=\"background-color: rgb(255, 255, 255)\">//再调用业务接口</span></p><p><span style=\"background-color: rgb(255, 255, 255)\">String data = &quot;{\\n&quot; + &quot; \\&quot;FormId\\&quot;: \\&quot;BD_Department\\&quot;,\\n&quot; + &quot; \\&quot;FieldKeys\\&quot;: \\&quot;FNUMBER,FNAME,FHELPCODE,FFORBIDSTATUS,FDEPTID,FUseOrgId.fnumber,FDocumentStatus \\&quot;,\\n&quot; + &quot; \\&quot;FilterString\\&quot;: \\&quot;FNumber=&#39;BM000144&#39;\\&quot;,\\n&quot; + &quot; \\&quot;OrderString\\&quot;: \\&quot;\\&quot;,\\n&quot; + &quot; \\&quot;TopRowCount\\&quot;: 0,\\n&quot; + &quot; \\&quot;StartRow\\&quot;: 0,\\n&quot; + &quot; \\&quot;Limit\\&quot;: 2000,\\n&quot; + &quot; \\&quot;SubSystemId\\&quot;: \\&quot;\\&quot;\\n&quot; + &quot;}&quot;;</span></p><p><span style=\"background-color: rgb(255, 255, 255)\">List list = api.executeBillQuery(data);</span></p><p><span style=\"background-color: rgb(255, 255, 255)\">System.out.println(list);</span>&nbsp;</p><p><br/></p>",
+    "products": [
+      {
+        "alias": null,
+        "code": "4468a7c0a53d11e8a7f90050568926a7",
+        "id": 1,
+        "isOpen": 1,
+        "name": "企业版/标准版",
+        "productLineId": 1,
+        "series": "S036",
+        "sort": 0
+      }
+    ],
+    "knowledgeSpecial": [
+      {
+        "categoryList": [
+          {
+            "childCategory": [
+              {
+                "childCategory": [
+                  null
+                ],
+                "code": null,
+                "description": "",
+                "entityId": "576099720138053888",
+                "entityType": "Knowledge",
+                "id": "576100128981543168",
+                "isCategory": false,
+                "name": "SDK进阶使用指南",
+                "parentId": "229964434343990272",
+                "sort": "2",
+                "specialId": "229961573895771136",
+                "status": 1
+              }
+            ],
+            "code": null,
+            "description": null,
+            "entityId": null,
+            "entityType": null,
+            "id": "229964434343990272",
+            "isCategory": true,
+            "name": "进阶开发",
+            "parentId": "-1",
+            "sort": "5",
+            "specialId": "229961573895771136",
+            "status": 1
+          }
+        ],
+        "classifies": null,
+        "collections": 159,
+        "createdAt": "2021-09-26T13:45:11.000+08:00",
+        "creator": {
+          "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+          "department": null,
+          "id": "96907288496966400",
+          "name": "Kidd",
+          "nameSpell": "name"
+        },
+        "description": "OpenAPI",
+        "hasCollected": null,
+        "hasHomePage": 1,
+        "id": "229961573895771136",
+        "identityTags": null,
+        "itemNum": 35,
+        "logo": "/download/01007136e2cc1839483f8b3df1781bcb28f0.png",
+        "name": "OpenAPI",
+        "otherProductLineIds": null,
+        "productLineId": "1",
+        "productList": [
+          {
+            "alias": null,
+            "code": "4468a7c0a53d11e8a7f90050568926a7",
+            "id": 1,
+            "isOpen": 1,
+            "name": "企业版/标准版",
+            "productLineId": 1,
+            "series": "S036",
+            "sort": 0
+          }
+        ],
+        "sort": 3,
+        "status": 2,
+        "style": 3,
+        "totalAppraisalScore": 14,
+        "totalAppraisalUsers": 3,
+        "updatedAt": "2025-06-27T16:28:41.000+08:00",
+        "updaterId": "1149",
+        "useCategory": 1,
+        "viewAuthority": 1,
+        "views": 1361378
+      }
+    ],
+    "entityUrl": null,
+    "needTranslate": null,
+    "knowledgeCreator": {
+      "avatar": "/download/01010eae28ef417e4806ba0499acf4aeef12.png",
+      "department": null,
+      "id": "1149",
+      "name": "王文亮",
+      "nameSpell": "Owen"
+    },
+    "totalAppraisalScore": 37,
+    "iflytekId": null,
+    "views": 24773,
+    "productLineId": 1,
+    "comments": 9,
+    "similarityCount": 0,
+    "totalAppraisalUsers": 8,
+    "isKnowledge": 1,
+    "knowledgeUpdatedAt": 1731488142000,
+    "appraisalScore": 0,
+    "unuseful": 0,
+    "knowledgeCheckStatus": 2,
+    "otherProductLineIds": [],
+    "auditAt": 1731488142000,
+    "attributes": [
+      {
+        "classifies": [
+          {
+            "child": {
+              "child": {
+                "child": null,
+                "code": "api",
+                "id": "228544575986699264",
+                "name": "OpenAPI",
+                "productLineId": null,
+                "sort": 3,
+                "type": "module"
+              },
+              "code": null,
+              "id": "5709",
+              "name": "协同开发",
+              "productLineId": null,
+              "sort": 26,
+              "type": "domain"
+            },
+            "code": null,
+            "id": "1",
+            "name": "企业版/标准版",
+            "productLineId": 1,
+            "sort": 0,
+            "type": "product"
+          }
+        ],
+        "labels": [
+          {
+            "code": "AdvancedSkills",
+            "createdAt": 1642682681000,
+            "creator": {
+              "avatar": "/download?fileName=010162cfa9d4437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "1",
+              "name": "administrator",
+              "nameSpell": "administrator"
+            },
+            "description": "高阶技巧标签",
+            "hasSpecifyUser": false,
+            "hide": false,
+            "icon": "/download/01005cea40211bf14113a6004322e86a6780.png",
+            "id": "272104133312759808",
+            "name": "高级技巧",
+            "productLine": {
+              "active": true,
+              "appLogo": "星空",
+              "categoryCode": "C04",
+              "courseLogo": "/download/01009af04319c0514a20a059f889104d4dd7.png",
+              "domain": null,
+              "enablePaymentCourse": false,
+              "hasAtlas": true,
+              "hasIdea": false,
+              "hasKnowledge": true,
+              "hasQZ": false,
+              "id": 1,
+              "isDefault": null,
+              "isOpen": true,
+              "isValidLearning": true,
+              "isVirtual": false,
+              "logo": "/download/01007dc91abec4a8458d8bd9eefa81a0238b.png",
+              "name": "金蝶AI星空企业版/标准版",
+              "rank": 7,
+              "seriesCode": "S036"
+            },
+            "specifyUsers": [],
+            "style": 0,
+            "type": 1,
+            "updatePerson": {
+              "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "306913800727243776",
+              "name": "Paim",
+              "nameSpell": "name"
+            },
+            "updatedAt": 1657853558000
+          },
+          {
+            "code": "KFZN",
+            "createdAt": 1657854510000,
+            "creator": {
+              "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "306913800727243776",
+              "name": "Paim",
+              "nameSpell": "name"
+            },
+            "description": "开发指南",
+            "hasSpecifyUser": false,
+            "hide": false,
+            "icon": "/download/0100d7e322898da841ed85fe736e568ff202.png",
+            "id": "335739395234214400",
+            "name": "开发指南",
+            "productLine": {
+              "active": true,
+              "appLogo": "星空",
+              "categoryCode": "C04",
+              "courseLogo": "/download/01009af04319c0514a20a059f889104d4dd7.png",
+              "domain": null,
+              "enablePaymentCourse": false,
+              "hasAtlas": true,
+              "hasIdea": false,
+              "hasKnowledge": true,
+              "hasQZ": false,
+              "id": 1,
+              "isDefault": null,
+              "isOpen": true,
+              "isValidLearning": true,
+              "isVirtual": false,
+              "logo": "/download/01007dc91abec4a8458d8bd9eefa81a0238b.png",
+              "name": "金蝶AI星空企业版/标准版",
+              "rank": 7,
+              "seriesCode": "S036"
+            },
+            "specifyUsers": [],
+            "style": 0,
+            "type": 0,
+            "updatePerson": {
+              "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "306913800727243776",
+              "name": "Paim",
+              "nameSpell": "name"
+            },
+            "updatedAt": 1657854510000
+          }
+        ],
+        "productLineId": 1,
+        "specials": [
+          {
+            "categoryList": [
+              {
+                "childCategory": [
+                  {
+                    "childCategory": [
+                      null
+                    ],
+                    "code": null,
+                    "description": "",
+                    "entityId": "576099720138053888",
+                    "entityType": "Knowledge",
+                    "id": "576100128981543168",
+                    "isCategory": false,
+                    "name": "SDK进阶使用指南",
+                    "parentId": "229964434343990272",
+                    "sort": "2",
+                    "specialId": "229961573895771136",
+                    "status": 1
+                  }
+                ],
+                "code": null,
+                "description": null,
+                "entityId": null,
+                "entityType": null,
+                "id": "229964434343990272",
+                "isCategory": true,
+                "name": "进阶开发",
+                "parentId": "-1",
+                "sort": "5",
+                "specialId": "229961573895771136",
+                "status": 1
+              }
+            ],
+            "classifies": null,
+            "collections": 159,
+            "createdAt": "2021-09-26T13:45:11.000+08:00",
+            "creator": {
+              "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "96907288496966400",
+              "name": "Kidd",
+              "nameSpell": "name"
+            },
+            "description": "OpenAPI",
+            "hasCollected": null,
+            "hasHomePage": 1,
+            "id": "229961573895771136",
+            "identityTags": null,
+            "itemNum": 35,
+            "logo": "/download/01007136e2cc1839483f8b3df1781bcb28f0.png",
+            "name": "OpenAPI",
+            "otherProductLineIds": null,
+            "productLineId": "1",
+            "productList": [
+              {
+                "alias": null,
+                "code": "4468a7c0a53d11e8a7f90050568926a7",
+                "id": 1,
+                "isOpen": 1,
+                "name": "企业版/标准版",
+                "productLineId": 1,
+                "series": "S036",
+                "sort": 0
+              }
+            ],
+            "sort": 3,
+            "status": 2,
+            "style": 3,
+            "totalAppraisalScore": 14,
+            "totalAppraisalUsers": 3,
+            "updatedAt": "2025-06-27T16:28:41.000+08:00",
+            "updaterId": "1149",
+            "useCategory": 1,
+            "viewAuthority": 1,
+            "views": 1361378
+          }
+        ]
+      }
+    ],
+    "editContent": "<p style=\"text-align: justify\"><strong><span style=\"background-color: rgb(255, 255, 255)\">SDK设计目的</span></strong></p><p style=\"text-align: justify\"><span style=\"background-color: rgb(255, 255, 255)\">SDK是为了简化用户的调用过程而诞生的，使开发更容易上手，只需要关注业务本身而不用理解复杂的http调用过程。</span></p><p style=\"text-align: justify\"><span style=\"background-color: rgb(255, 255, 255)\"><br/></span></p><p style=\"text-align: justify\"><span style=\"background-color: rgb(255, 255, 255)\"><img src=\"https://vip-admin.kingdee.com/download/01007172cd92f5b7459a99c462ccea4e0cd1.png\" alt=\"上传图片\"/></span></p><p style=\"text-align: justify\"><strong><span style=\"background-color: rgb(255, 255, 255)\">SDK主要做了以下工作：</span></strong></p><p style=\"text-align: justify\"><span style=\"background-color: rgb(255, 255, 255)\">1、</span><span style=\"background-color: rgb(255, 255, 255)\">sdk封装处理了请求参数，用户只需要给具体的接口业务数据即可。详情参考<a href=\"https://openapi.open.kingdee.com/ApiDoc\" target=\"_blank\">https://openapi.open.kingdee.com/ApiDoc</a>中的请求参数示例。</span></p><p style=\"text-align: justify\"><span style=\"background-color: rgb(255, 255, 255)\">2、</span><span style=\"background-color: rgb(255, 255, 255)\">sdk中的每个接口调用时header都携带了第三方登录授权加密信息。第三方登录授权信息从配置文件中读取，或者由用户在代码中赋值。</span></p><p style=\"text-align: justify\"><span style=\"background-color: rgb(255, 255, 255)\">3、</span><span style=\"background-color: rgb(255, 255, 255)\">sdk中的k3cloudApi类的一个实例就代表了一个会话。当新建了一个k3cloudApi的实例并执行第一次接口调用成功后，返回的sessionId将被存储，且该实例的每次接口调用都会携带sessionId。因此每个新的K3CloudApi实例在第一次调用接口时用时会较长，后续继续使用时速度会显著变快。</span></p><p style=\"text-align: justify\"><span style=\"background-color: rgb(255, 255, 255)\"><span style=\"font-family:微软雅黑\">4、对返回结果做处理和封装。</span></span></p><p style=\"text-align: justify\"><span style=\"background-color: rgb(255, 255, 255)\">&nbsp;</span></p><p style=\"text-align: justify\"><span style=\"background-color: rgb(255, 255, 255)\"></span><br/></p><p><span style=\"background-color: rgb(255, 255, 255)\"><span style=\"font-family:Arial\">对于非</span>WebApi的接口(即接口本身没有继承</span>AbstractWebApiBusinessService类）</p><p>调用时需要先进行一次手动登录，再执行后续操作。</p><p>JAVA示例如下：</p><p><span style=\"background-color: rgb(255, 255, 255)\">K3CloudApi api= new K3CloudApi();</span></p><p><span style=\"background-color: rgb(255, 255, 255)\">Object[] parameters = new Object[] {&nbsp;</span></p><p><span style=\"background-color: rgb(255, 255, 255)\">&quot;1774791181494921216&quot;,//数据中心</span></p><p><span style=\"background-color: rgb(255, 255, 255)\">&nbsp;&quot;demo2&quot;,<span style=\"background-color: rgb(255, 255, 255);\">//用户</span>&nbsp;</span></p><p><span style=\"background-color: rgb(255, 255, 255)\">&quot;266181_247qxwCt4qAYwZ0I443tUzUsyMxZ2oKt&quot;,//appid</span></p><p><span style=\"background-color: rgb(255, 255, 255)\">&nbsp;&quot;07317571e65c4781b68f8a55083b9176&quot;,//app密钥&nbsp;</span></p><p><span style=\"background-color: rgb(255, 255, 255)\">2052 };</span></p><p><span style=\"background-color: rgb(255, 255, 255)\">//先执行一次登录</span></p><p><span style=\"background-color: rgb(255, 255, 255)\"><span style=\"background-color: rgb(255, 255, 255);\">System.out.println(</span>api.execute(&quot;Kingdee.BOS.WebApi.ServicesStub.AuthService.LoginByAppSecret&quot;, parameters));&nbsp;</span></p><p><span style=\"background-color: rgb(255, 255, 255)\">//再调用业务接口</span></p><p><span style=\"background-color: rgb(255, 255, 255)\">String data = &quot;{\\n&quot; + &quot; \\&quot;FormId\\&quot;: \\&quot;BD_Department\\&quot;,\\n&quot; + &quot; \\&quot;FieldKeys\\&quot;: \\&quot;FNUMBER,FNAME,FHELPCODE,FFORBIDSTATUS,FDEPTID,FUseOrgId.fnumber,FDocumentStatus \\&quot;,\\n&quot; + &quot; \\&quot;FilterString\\&quot;: \\&quot;FNumber=&#39;BM000144&#39;\\&quot;,\\n&quot; + &quot; \\&quot;OrderString\\&quot;: \\&quot;\\&quot;,\\n&quot; + &quot; \\&quot;TopRowCount\\&quot;: 0,\\n&quot; + &quot; \\&quot;StartRow\\&quot;: 0,\\n&quot; + &quot; \\&quot;Limit\\&quot;: 2000,\\n&quot; + &quot; \\&quot;SubSystemId\\&quot;: \\&quot;\\&quot;\\n&quot; + &quot;}&quot;;</span></p><p><span style=\"background-color: rgb(255, 255, 255)\">List list = api.executeBillQuery(data);</span></p><p><span style=\"background-color: rgb(255, 255, 255)\">System.out.println(list);</span>&nbsp;</p><p><br/></p>"
+  }
+}

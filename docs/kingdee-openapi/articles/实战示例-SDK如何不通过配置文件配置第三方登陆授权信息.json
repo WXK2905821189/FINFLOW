@@ -1,0 +1,471 @@
+{
+  "categoryId": "229964394179335168",
+  "articleId": "393036663222021120",
+  "category": "实战示例",
+  "title": "SDK如何不通过配置文件配置第三方登陆授权信息",
+  "source": "https://vip.kingdee.com/knowledge/specialDetail/229961573895771136?category=229964394179335168&id=393036663222021120&type=Knowledge&productLineId=1&lang=zh-CN",
+  "fetchedAt": "2026-09-03T04:31:46.446Z",
+  "rawResponse": {
+    "badNum": 5,
+    "identityTagIds": null,
+    "knowledgeId": "393036663222021120",
+    "createdAt": 1671515243000,
+    "collections": 14,
+    "viewAuthority": 1,
+    "feedbackNum": 0,
+    "classifies": [
+      {
+        "code": null,
+        "name": "企业版/标准版",
+        "id": 1,
+        "sort": 0,
+        "type": "product",
+        "child": {
+          "code": null,
+          "name": "协同开发",
+          "id": 5709,
+          "sort": 26,
+          "type": "domain",
+          "child": {
+            "code": "api",
+            "name": "OpenAPI",
+            "id": "228544575986699264",
+            "sort": 3,
+            "type": "module",
+            "child": null,
+            "productLineId": null
+          },
+          "productLineId": null
+        },
+        "productLineId": 1
+      }
+    ],
+    "id": "393036663222021120",
+    "contentType": 1,
+    "updatedAt": 1712567397000,
+    "knowledgeUpdater": {
+      "avatar": "/download/0101043f5028c9bc4365bcc4a99442140260.png",
+      "department": null,
+      "id": "337276984751339520",
+      "name": "zzl1994",
+      "nameSpell": "name"
+    },
+    "assessStatus": 0,
+    "knowledgeStatus": 2,
+    "assessHandleStatus": null,
+    "knowledgeCreatedAt": 1671515243000,
+    "version": 25,
+    "labels": [
+      {
+        "code": "XTX",
+        "hide": true,
+        "id": "197707276529122816",
+        "name": "版本新特性汇总贴专用",
+        "style": 0,
+        "type": 2
+      },
+      {
+        "code": "AdvancedSkills",
+        "hide": false,
+        "id": "272104133312759808",
+        "name": "高级技巧",
+        "style": 0,
+        "type": 1
+      },
+      {
+        "code": "typicalinstance",
+        "hide": false,
+        "id": "272104134017402880",
+        "name": "最佳实践",
+        "style": 0,
+        "type": 0
+      }
+    ],
+    "editedAt": 1712567397000,
+    "identityTags": null,
+    "useful": 15,
+    "errors": [],
+    "isCollected": false,
+    "totalFeedBacks": 5,
+    "attachments": [],
+    "sources": [],
+    "editTitle": "SDK如何不通过配置文件配置第三方登陆授权信息",
+    "title": "SDK如何不通过配置文件配置第三方登陆授权信息",
+    "content": "<p><span style=\"font-weight: 700; text-align: justify;\"><span class=\"a X2\" style=\"\">业务背景</span></span></p><p style=\"text-align: justify;\">1、客户存在多个星空环境或者一个星空环境存在多个数据中心时，通过sdk的配置文件只允许配置一个第三方登录授权信息，这个时候应该怎么做系统集成对接呢？<br/></p><p style=\"text-align: justify;\">2、第三方登录授权信息中配置了集成用户，做webapi集成时，操作用户就为配置信息中的集成用户，但是做不同操作需要切换不同的用户时，应该怎么来配置？</p><p style=\"text-align: justify;\"><br/></p><p style=\"text-align: justify;\"><strong>实现方案</strong></p><p style=\"text-align: justify;\">当环境信息需要动态的变化时，这个时候我们就不能使用配置文件的方式初始化sdk了，需要通过参数化的方式动态的初始化sdk实例，传递不同的配置信息，不同的集成用户，再进行对应的接口调用。</p><p style=\"text-align: justify;\">.net sdk示例</p><p><img src=\"/download/010922a0ff7e99ec44f9bd629897d3380806.png\"/></p><p>.netcore3.1(.net5.0\\.net6.0)版本支持传递整个对象</p><p><img src=\"/download/01093e46968a43294156858e76fb766b9a54.png\"/></p><p>Java sdk示例</p><p><img src=\"/download/0109b4885420bb754bc8b0aa7573ac3ba1f4.png\"/></p><p>python sdk示例</p><p><img src=\"/download/010937192f4cb9fc45d3a18ff820f8bbbf31.png\"/></p>",
+    "products": [
+      {
+        "alias": null,
+        "code": "4468a7c0a53d11e8a7f90050568926a7",
+        "id": 1,
+        "isOpen": 1,
+        "name": "企业版/标准版",
+        "productLineId": 1,
+        "series": "S036",
+        "sort": 0
+      }
+    ],
+    "knowledgeSpecial": [
+      {
+        "categoryList": [
+          {
+            "childCategory": [
+              {
+                "childCategory": [
+                  null
+                ],
+                "code": null,
+                "description": null,
+                "entityId": "393036663222021120",
+                "entityType": "Knowledge",
+                "id": "393051065186888704",
+                "isCategory": false,
+                "name": "SDK如何不通过配置文件配置第三方登陆授权信息",
+                "parentId": "229964394179335168",
+                "sort": "4",
+                "specialId": "229961573895771136",
+                "status": 1
+              }
+            ],
+            "code": null,
+            "description": null,
+            "entityId": null,
+            "entityType": null,
+            "id": "229964394179335168",
+            "isCategory": true,
+            "name": "实战示例",
+            "parentId": "-1",
+            "sort": "6",
+            "specialId": "229961573895771136",
+            "status": 1
+          }
+        ],
+        "classifies": null,
+        "collections": 159,
+        "createdAt": "2021-09-26T13:45:11.000+08:00",
+        "creator": {
+          "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+          "department": null,
+          "id": "96907288496966400",
+          "name": "Kidd",
+          "nameSpell": "name"
+        },
+        "description": "OpenAPI",
+        "hasCollected": null,
+        "hasHomePage": 1,
+        "id": "229961573895771136",
+        "identityTags": null,
+        "itemNum": 35,
+        "logo": "/download/01007136e2cc1839483f8b3df1781bcb28f0.png",
+        "name": "OpenAPI",
+        "otherProductLineIds": null,
+        "productLineId": "1",
+        "productList": [
+          {
+            "alias": null,
+            "code": "4468a7c0a53d11e8a7f90050568926a7",
+            "id": 1,
+            "isOpen": 1,
+            "name": "企业版/标准版",
+            "productLineId": 1,
+            "series": "S036",
+            "sort": 0
+          }
+        ],
+        "sort": 3,
+        "status": 2,
+        "style": 3,
+        "totalAppraisalScore": 14,
+        "totalAppraisalUsers": 3,
+        "updatedAt": "2025-06-27T16:28:41.000+08:00",
+        "updaterId": "1149",
+        "useCategory": 1,
+        "viewAuthority": 1,
+        "views": 1361378
+      }
+    ],
+    "entityUrl": null,
+    "needTranslate": null,
+    "knowledgeCreator": {
+      "avatar": "/download/0101043f5028c9bc4365bcc4a99442140260.png",
+      "department": null,
+      "id": "337276984751339520",
+      "name": "zzl1994",
+      "nameSpell": "name"
+    },
+    "totalAppraisalScore": 78,
+    "iflytekId": null,
+    "views": 45725,
+    "productLineId": 1,
+    "comments": 10,
+    "similarityCount": 0,
+    "totalAppraisalUsers": 20,
+    "isKnowledge": 1,
+    "knowledgeUpdatedAt": 1712567397000,
+    "appraisalScore": 0,
+    "unuseful": 5,
+    "knowledgeCheckStatus": 2,
+    "otherProductLineIds": [],
+    "auditAt": 1712567514000,
+    "attributes": [
+      {
+        "classifies": [
+          {
+            "child": {
+              "child": {
+                "child": null,
+                "code": "api",
+                "id": "228544575986699264",
+                "name": "OpenAPI",
+                "productLineId": null,
+                "sort": 3,
+                "type": "module"
+              },
+              "code": null,
+              "id": "5709",
+              "name": "协同开发",
+              "productLineId": null,
+              "sort": 26,
+              "type": "domain"
+            },
+            "code": null,
+            "id": "1",
+            "name": "企业版/标准版",
+            "productLineId": 1,
+            "sort": 0,
+            "type": "product"
+          }
+        ],
+        "labels": [
+          {
+            "code": "XTX",
+            "createdAt": 1624945088000,
+            "creator": {
+              "avatar": "/download/01014b15cac9464149e2b6b86d497dc1e919.png",
+              "department": null,
+              "id": "428913",
+              "name": "明明明明明明",
+              "nameSpell": "name"
+            },
+            "description": "版本新特性汇总贴专用标签",
+            "hasSpecifyUser": false,
+            "hide": true,
+            "icon": "/download/0100816737dd05f8415293953695d72041b4.jpeg",
+            "id": "197707276529122816",
+            "name": "版本新特性汇总贴专用",
+            "productLine": {
+              "active": true,
+              "appLogo": "星空",
+              "categoryCode": "C04",
+              "courseLogo": "/download/01009af04319c0514a20a059f889104d4dd7.png",
+              "domain": null,
+              "enablePaymentCourse": false,
+              "hasAtlas": true,
+              "hasIdea": false,
+              "hasKnowledge": true,
+              "hasQZ": false,
+              "id": 1,
+              "isDefault": null,
+              "isOpen": true,
+              "isValidLearning": true,
+              "isVirtual": false,
+              "logo": "/download/01007dc91abec4a8458d8bd9eefa81a0238b.png",
+              "name": "金蝶AI星空企业版/标准版",
+              "rank": 7,
+              "seriesCode": "S036"
+            },
+            "specifyUsers": [],
+            "style": 0,
+            "type": 2,
+            "updatePerson": {
+              "avatar": "/download?fileName=010162cfa9d5437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "1129",
+              "name": "灏",
+              "nameSpell": "hao"
+            },
+            "updatedAt": 1634715221000
+          },
+          {
+            "code": "AdvancedSkills",
+            "createdAt": 1642682681000,
+            "creator": {
+              "avatar": "/download?fileName=010162cfa9d4437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "1",
+              "name": "administrator",
+              "nameSpell": "administrator"
+            },
+            "description": "高阶技巧标签",
+            "hasSpecifyUser": false,
+            "hide": false,
+            "icon": "/download/01005cea40211bf14113a6004322e86a6780.png",
+            "id": "272104133312759808",
+            "name": "高级技巧",
+            "productLine": {
+              "active": true,
+              "appLogo": "星空",
+              "categoryCode": "C04",
+              "courseLogo": "/download/01009af04319c0514a20a059f889104d4dd7.png",
+              "domain": null,
+              "enablePaymentCourse": false,
+              "hasAtlas": true,
+              "hasIdea": false,
+              "hasKnowledge": true,
+              "hasQZ": false,
+              "id": 1,
+              "isDefault": null,
+              "isOpen": true,
+              "isValidLearning": true,
+              "isVirtual": false,
+              "logo": "/download/01007dc91abec4a8458d8bd9eefa81a0238b.png",
+              "name": "金蝶AI星空企业版/标准版",
+              "rank": 7,
+              "seriesCode": "S036"
+            },
+            "specifyUsers": [],
+            "style": 0,
+            "type": 1,
+            "updatePerson": {
+              "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "306913800727243776",
+              "name": "Paim",
+              "nameSpell": "name"
+            },
+            "updatedAt": 1657853558000
+          },
+          {
+            "code": "typicalinstance",
+            "createdAt": 1642682681000,
+            "creator": {
+              "avatar": "/download?fileName=010162cfa9d5437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "1129",
+              "name": "灏",
+              "nameSpell": "hao"
+            },
+            "description": "最佳实践",
+            "hasSpecifyUser": false,
+            "hide": false,
+            "icon": "/download/0100905e7651dcc940099286e9ee4a35cb2d.png",
+            "id": "272104134017402880",
+            "name": "最佳实践",
+            "productLine": {
+              "active": true,
+              "appLogo": "星空",
+              "categoryCode": "C04",
+              "courseLogo": "/download/01009af04319c0514a20a059f889104d4dd7.png",
+              "domain": null,
+              "enablePaymentCourse": false,
+              "hasAtlas": true,
+              "hasIdea": false,
+              "hasKnowledge": true,
+              "hasQZ": false,
+              "id": 1,
+              "isDefault": null,
+              "isOpen": true,
+              "isValidLearning": true,
+              "isVirtual": false,
+              "logo": "/download/01007dc91abec4a8458d8bd9eefa81a0238b.png",
+              "name": "金蝶AI星空企业版/标准版",
+              "rank": 7,
+              "seriesCode": "S036"
+            },
+            "specifyUsers": [],
+            "style": 0,
+            "type": 0,
+            "updatePerson": {
+              "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "306913800727243776",
+              "name": "Paim",
+              "nameSpell": "name"
+            },
+            "updatedAt": 1657853575000
+          }
+        ],
+        "productLineId": 1,
+        "specials": [
+          {
+            "categoryList": [
+              {
+                "childCategory": [
+                  {
+                    "childCategory": [
+                      null
+                    ],
+                    "code": null,
+                    "description": null,
+                    "entityId": "393036663222021120",
+                    "entityType": "Knowledge",
+                    "id": "393051065186888704",
+                    "isCategory": false,
+                    "name": "SDK如何不通过配置文件配置第三方登陆授权信息",
+                    "parentId": "229964394179335168",
+                    "sort": "4",
+                    "specialId": "229961573895771136",
+                    "status": 1
+                  }
+                ],
+                "code": null,
+                "description": null,
+                "entityId": null,
+                "entityType": null,
+                "id": "229964394179335168",
+                "isCategory": true,
+                "name": "实战示例",
+                "parentId": "-1",
+                "sort": "6",
+                "specialId": "229961573895771136",
+                "status": 1
+              }
+            ],
+            "classifies": null,
+            "collections": 159,
+            "createdAt": "2021-09-26T13:45:11.000+08:00",
+            "creator": {
+              "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "96907288496966400",
+              "name": "Kidd",
+              "nameSpell": "name"
+            },
+            "description": "OpenAPI",
+            "hasCollected": null,
+            "hasHomePage": 1,
+            "id": "229961573895771136",
+            "identityTags": null,
+            "itemNum": 35,
+            "logo": "/download/01007136e2cc1839483f8b3df1781bcb28f0.png",
+            "name": "OpenAPI",
+            "otherProductLineIds": null,
+            "productLineId": "1",
+            "productList": [
+              {
+                "alias": null,
+                "code": "4468a7c0a53d11e8a7f90050568926a7",
+                "id": 1,
+                "isOpen": 1,
+                "name": "企业版/标准版",
+                "productLineId": 1,
+                "series": "S036",
+                "sort": 0
+              }
+            ],
+            "sort": 3,
+            "status": 2,
+            "style": 3,
+            "totalAppraisalScore": 14,
+            "totalAppraisalUsers": 3,
+            "updatedAt": "2025-06-27T16:28:41.000+08:00",
+            "updaterId": "1149",
+            "useCategory": 1,
+            "viewAuthority": 1,
+            "views": 1361378
+          }
+        ]
+      }
+    ],
+    "editContent": "<p><span style=\"font-weight: 700; text-align: justify;\"><span class=\"a X2\" style=\"\">业务背景</span></span></p><p style=\"text-align: justify;\">1、客户存在多个星空环境或者一个星空环境存在多个数据中心时，通过sdk的配置文件只允许配置一个第三方登录授权信息，这个时候应该怎么做系统集成对接呢？<br/></p><p style=\"text-align: justify;\">2、第三方登录授权信息中配置了集成用户，做webapi集成时，操作用户就为配置信息中的集成用户，但是做不同操作需要切换不同的用户时，应该怎么来配置？</p><p style=\"text-align: justify;\"><br/></p><p style=\"text-align: justify;\"><strong>实现方案</strong></p><p style=\"text-align: justify;\">当环境信息需要动态的变化时，这个时候我们就不能使用配置文件的方式初始化sdk了，需要通过参数化的方式动态的初始化sdk实例，传递不同的配置信息，不同的集成用户，再进行对应的接口调用。</p><p style=\"text-align: justify;\">.net sdk示例</p><p><img src=\"/download/010922a0ff7e99ec44f9bd629897d3380806.png\"/></p><p>.netcore3.1(.net5.0\\.net6.0)版本支持传递整个对象</p><p><img src=\"/download/01093e46968a43294156858e76fb766b9a54.png\"/></p><p>Java sdk示例</p><p><img src=\"/download/0109b4885420bb754bc8b0aa7573ac3ba1f4.png\"/></p><p>python sdk示例</p><p><img src=\"/download/010937192f4cb9fc45d3a18ff820f8bbbf31.png\"/></p>"
+  }
+}

@@ -1,0 +1,414 @@
+{
+  "categoryId": "229963554177453824",
+  "articleId": "298106087772088064",
+  "category": "快速入门",
+  "title": "如何使用OpenAPI中心在线测试？",
+  "source": "https://vip.kingdee.com/knowledge/specialDetail/229961573895771136?category=229963554177453824&id=298106087772088064&type=Knowledge&productLineId=1&lang=zh-CN",
+  "fetchedAt": "2026-09-03T04:31:45.228Z",
+  "rawResponse": {
+    "badNum": 2,
+    "identityTagIds": null,
+    "knowledgeId": "298106087772088064",
+    "createdAt": 1648882030000,
+    "collections": 19,
+    "viewAuthority": 1,
+    "feedbackNum": 0,
+    "classifies": [
+      {
+        "code": null,
+        "name": "企业版/标准版",
+        "id": 1,
+        "sort": 0,
+        "type": "product",
+        "child": {
+          "code": null,
+          "name": "协同开发",
+          "id": 5709,
+          "sort": 26,
+          "type": "domain",
+          "child": {
+            "code": "api",
+            "name": "OpenAPI",
+            "id": "228544575986699264",
+            "sort": 3,
+            "type": "module",
+            "child": null,
+            "productLineId": null
+          },
+          "productLineId": null
+        },
+        "productLineId": 1
+      }
+    ],
+    "id": "298106087772088064",
+    "contentType": 1,
+    "updatedAt": 1648892753000,
+    "knowledgeUpdater": {
+      "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+      "department": null,
+      "id": "96907288496966400",
+      "name": "Kidd",
+      "nameSpell": "name"
+    },
+    "assessStatus": 0,
+    "knowledgeStatus": 2,
+    "assessHandleStatus": null,
+    "knowledgeCreatedAt": 1648882030000,
+    "version": 42,
+    "labels": [
+      {
+        "code": "changjianwenti",
+        "hide": false,
+        "id": "6",
+        "name": "常见问题",
+        "style": 0,
+        "type": 0
+      },
+      {
+        "code": "XSRM",
+        "hide": false,
+        "id": "40",
+        "name": "快速入门",
+        "style": 0,
+        "type": 1
+      }
+    ],
+    "editedAt": 1648892753000,
+    "identityTags": null,
+    "useful": 27,
+    "errors": [],
+    "isCollected": false,
+    "totalFeedBacks": 2,
+    "attachments": [],
+    "sources": [],
+    "editTitle": "如何使用OpenAPI中心在线测试？",
+    "title": "如何使用OpenAPI中心在线测试？",
+    "content": "<p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\">如何使用</span><span style=\"font-weight: bold; color: rgb(44, 62, 80);\">OpenAPI</span><span style=\"font-weight: bold; color: rgb(44, 62, 80);\">中心在线测试？</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">欢迎使用星空</span><span style=\"color: rgb(44, 62, 80);\">OpenAPI</span><span style=\"color: rgb(44, 62, 80);\">中心</span><span style=\"color: rgb(44, 62, 80);\">API</span><span style=\"color: rgb(44, 62, 80);\">在线测试功能。下面分别以基础资料中的员工查看接口和物料保存接口为例，介绍如何使用</span><span style=\"color: rgb(44, 62, 80);\">API</span><span style=\"color: rgb(44, 62, 80);\">在线测试功能。</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"><br/></span></p><p class=\"a X3\" style=\"text-align: justify;\"><span style=\"font-weight: 700;\"><span class=\"a X3\" style=\"color: rgb(44, 62, 80);\">(1)</span><span class=\"a X3\" style=\"color: rgb(44, 62, 80);\">在线测试：基础资料</span><span class=\"a X3\" style=\"color: rgb(44, 62, 80);\">-</span><span class=\"a X3\" style=\"color: rgb(44, 62, 80);\">员工</span><span class=\"a X3\" style=\"color: rgb(44, 62, 80);\">-</span><span class=\"a X3\" style=\"color: rgb(44, 62, 80);\">查看接口</span></span></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\">1.前往<a href=\"https://openapi.open.kingdee.com/\" title=\"\" target=\"_blank\" class=\"\">OpenAPI网站</a>，选择“API文档”。</span></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\">（如果用户没有注册云之家，请先注册云之家账号，再登录网站）</span></p><p style=\"text-align: justify;\"><img src=\"/download/01008822c7afb15b40d3bd8326815626b9b2.png\"/></p><p style=\"text-align: justify;\"><br/></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\">2.点击左上角的搜索框，输入需要查找的业务对象（单据名称），本示例中为“员工”。在搜索结果中点击需要的单据。</span></p><p style=\"text-align: justify;\"><img src=\"/download/0100496a62ada0a149d0be4257f0662cf42a.png\"/></p><p style=\"text-align: justify;\"><br/></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\">3.在左侧树中找到我们需要的操作接口，本示例中为“查看”，再点击右侧的“API在线测试”按钮。</span></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\">（如果未登录网站需要先登录）</span></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\"><img src=\"/download/0100128ace787af2469a95861bcc8248e3d8.png\"/></span></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\"><img src=\"/download/010083535eeafac24ca28d2948e1fd0f4eb5.png\"/></span></p><p style=\"text-align: justify;\"><br/></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\">4.用户点击左侧“测试连接”按钮，当提示连接成功，则可以在请求参数中填写，需要查看的员工编号或者</span><span style=\"color: rgb(44, 62, 80);\">id。</span></p><p style=\"text-align: justify;\"><img src=\"/download/0100ee5ab64352ba4bbbb9c6ddca305a7eec.png\"/></p><p style=\"text-align: justify;\"><br/></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\">5.</span><span style=\"color: rgb(44, 62, 80);\">用户填写完参数，点击启动测试，即可获取请求结果。</span></p><p style=\"text-align: justify;\"><span style=\"color:#2c3e50\">点击右上角的测试历史，可以查看所有测试历史记录，并重新调用。</span></p><p style=\"text-align: justify;\"><img src=\"/download/0100de91b8fd221646e9bf3114428703a443.png\"/></p><p style=\"text-align: justify;\"><br/></p><p class=\"a X3\" style=\"text-align: justify;\"><span style=\"font-weight: 700;\"><span class=\"a X3\" style=\"color: rgb(44, 62, 80);\">(2)</span><span class=\"a X3\" style=\"color: rgb(44, 62, 80);\">在线测试：基础资料</span><span class=\"a X3\" style=\"color: rgb(44, 62, 80);\">-</span><span class=\"a X3\" style=\"color: rgb(44, 62, 80);\">物料</span><span class=\"a X3\" style=\"color: rgb(44, 62, 80);\">-</span><span class=\"a X3\" style=\"color: rgb(44, 62, 80);\">保存接口</span></span></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\"></span></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\">1.前往<a href=\"https://openapi.open.kingdee.com/\" title=\"\" target=\"_blank\" class=\"\">OpenAPI网站</a>，选择“API文档”。</span></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\">（如果用户没有注册云之家，请先注册云之家账号，再登录网站）</span></p><p style=\"text-align: justify;\"><img src=\"https://vip.kingdee.com/download/01008822c7afb15b40d3bd8326815626b9b2.png\"/></p><p style=\"text-align: justify;\"><br/></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\"></span></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\">2.点击左上角的搜索框，输入需要查找的业务对象（单据名称），本示例中为“<span style=\"color: rgb(44, 62, 80); font-weight: 700; text-align: justify;\">物料</span>”。在搜索结果中点击需要的单据。</span></p><p style=\"text-align: justify;\"><img src=\"/download/010084bcb180454e46a1bd5745b5b8d237ea.png\"/></p><p style=\"text-align: justify;\"><br/></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\">3.在左侧树中找到我们需要的操作接口，本示例中为“<span style=\"color: rgb(44, 62, 80); font-weight: 700; text-align: justify;\">保存</span>”，再点击右侧的“API在线测试”按钮。</span></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\">（如果未登录网站需要先登录）</span></p><p style=\"text-align: justify;\"><img src=\"/download/0100f0c3a7e0d37d45febecd09bcb36f409e.png\"/></p><p style=\"text-align: justify;\"><img src=\"/download/01000ae30ca8506a49e18f10f4c9bed7e8c6.png\"/></p><p style=\"text-align: justify;\"><img src=\"/download/01003d3d76865d1845e1883747e737d9338b.png\"/></p><p style=\"text-align: justify;\"><br/></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\">4.</span><span style=\"color: rgb(44, 62, 80);\">用户点击左侧测试连接按钮，当提示连接成功，则可以点击填写参数按钮，跳转星空产品界面可视化填写参数。</span></p><p style=\"text-align: justify;\"><img src=\"/download/0100b952d83792494abeb35e6f408f5d5fd1.png\"/></p><p style=\"text-align: justify;\"><br/></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\">5.</span><span style=\"color: rgb(44, 62, 80);\">用户根据业务逻辑，填写需要的参数。</span></p><p style=\"text-align: justify;\"><img src=\"/download/010030899cc3d7fb41d180445de00f9f6424.png\"/><br/></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\"><br/></span></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\">6.</span><span style=\"color: rgb(44, 62, 80);\"></span><span style=\"color: rgb(44, 62, 80); text-align: justify;\">填写完成后点击左上角“生成JSON”按钮。</span><span style=\"color: rgb(44, 62, 80);\"></span></p><p style=\"text-align: justify;\"><img src=\"/download/0100aa820f08339a4132ba0bb1e0edd6156e.png\"/></p><p style=\"text-align: justify;\"><br/></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\">7.</span><span style=\"color: rgb(44, 62, 80);\">用户将生成的</span><span style=\"color: rgb(44, 62, 80);\">json</span><span style=\"color: rgb(44, 62, 80);\">复制到</span><span style=\"color: rgb(44, 62, 80);\">API</span><span style=\"color: rgb(44, 62, 80);\">在线测试请求参数输入框中<span style=\"color: rgb(44, 62, 80); text-align: justify;\">，点击“启动测试”，即可获取请求结果。</span></span></p><p style=\"text-align: justify;\"><img src=\"/download/0100c146ed72acd841dca2990d2f9c1a8234.png\"/></p><p style=\"text-align: justify;\"><br/></p><p style=\"\"><img src=\"/download/0100a8b12a0efccc455392558018ad633582.png\"/></p><p><br/></p>",
+    "products": [
+      {
+        "alias": null,
+        "code": "4468a7c0a53d11e8a7f90050568926a7",
+        "id": 1,
+        "isOpen": 1,
+        "name": "企业版/标准版",
+        "productLineId": 1,
+        "series": "S036",
+        "sort": 0
+      }
+    ],
+    "knowledgeSpecial": [
+      {
+        "categoryList": [
+          {
+            "childCategory": [
+              {
+                "childCategory": [
+                  null
+                ],
+                "code": null,
+                "description": null,
+                "entityId": "298106087772088064",
+                "entityType": "Knowledge",
+                "id": "298151062253476096",
+                "isCategory": false,
+                "name": "如何使用OpenAPI中心在线测试？",
+                "parentId": "229963554177453824",
+                "sort": "10",
+                "specialId": "229961573895771136",
+                "status": 1
+              }
+            ],
+            "code": null,
+            "description": null,
+            "entityId": null,
+            "entityType": null,
+            "id": "229963554177453824",
+            "isCategory": true,
+            "name": "快速入门",
+            "parentId": "-1",
+            "sort": "3",
+            "specialId": "229961573895771136",
+            "status": 1
+          }
+        ],
+        "classifies": null,
+        "collections": 159,
+        "createdAt": "2021-09-26T13:45:11.000+08:00",
+        "creator": {
+          "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+          "department": null,
+          "id": "96907288496966400",
+          "name": "Kidd",
+          "nameSpell": "name"
+        },
+        "description": "OpenAPI",
+        "hasCollected": null,
+        "hasHomePage": 1,
+        "id": "229961573895771136",
+        "identityTags": null,
+        "itemNum": 35,
+        "logo": "/download/01007136e2cc1839483f8b3df1781bcb28f0.png",
+        "name": "OpenAPI",
+        "otherProductLineIds": null,
+        "productLineId": "1",
+        "productList": [
+          {
+            "alias": null,
+            "code": "4468a7c0a53d11e8a7f90050568926a7",
+            "id": 1,
+            "isOpen": 1,
+            "name": "企业版/标准版",
+            "productLineId": 1,
+            "series": "S036",
+            "sort": 0
+          }
+        ],
+        "sort": 3,
+        "status": 2,
+        "style": 3,
+        "totalAppraisalScore": 14,
+        "totalAppraisalUsers": 3,
+        "updatedAt": "2025-06-27T16:28:41.000+08:00",
+        "updaterId": "1149",
+        "useCategory": 1,
+        "viewAuthority": 1,
+        "views": 1361378
+      }
+    ],
+    "entityUrl": null,
+    "needTranslate": null,
+    "knowledgeCreator": {
+      "avatar": "/download/01010eae28ef417e4806ba0499acf4aeef12.png",
+      "department": null,
+      "id": "1149",
+      "name": "王文亮",
+      "nameSpell": "Owen"
+    },
+    "totalAppraisalScore": 137,
+    "iflytekId": null,
+    "views": 72570,
+    "productLineId": 1,
+    "comments": 14,
+    "similarityCount": null,
+    "totalAppraisalUsers": 29,
+    "isKnowledge": 1,
+    "knowledgeUpdatedAt": 1648892753000,
+    "appraisalScore": 0,
+    "unuseful": 2,
+    "knowledgeCheckStatus": 2,
+    "otherProductLineIds": [],
+    "auditAt": 1648892753000,
+    "attributes": [
+      {
+        "classifies": [
+          {
+            "child": {
+              "child": {
+                "child": null,
+                "code": "api",
+                "id": "228544575986699264",
+                "name": "OpenAPI",
+                "productLineId": null,
+                "sort": 3,
+                "type": "module"
+              },
+              "code": null,
+              "id": "5709",
+              "name": "协同开发",
+              "productLineId": null,
+              "sort": 26,
+              "type": "domain"
+            },
+            "code": null,
+            "id": "1",
+            "name": "企业版/标准版",
+            "productLineId": 1,
+            "sort": 0,
+            "type": "product"
+          }
+        ],
+        "labels": [
+          {
+            "code": "changjianwenti",
+            "createdAt": 1553686053000,
+            "creator": {
+              "avatar": "/download?fileName=010162cfa9d4437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "1",
+              "name": "administrator",
+              "nameSpell": "administrator"
+            },
+            "description": "常见问题",
+            "hasSpecifyUser": false,
+            "hide": false,
+            "icon": "/download?fileName=0100ef2db45aa7524b70a990e7fd9d40db4a.png",
+            "id": "6",
+            "name": "常见问题",
+            "productLine": {
+              "active": true,
+              "appLogo": "星空",
+              "categoryCode": "C04",
+              "courseLogo": "/download/01009af04319c0514a20a059f889104d4dd7.png",
+              "domain": null,
+              "enablePaymentCourse": false,
+              "hasAtlas": true,
+              "hasIdea": false,
+              "hasKnowledge": true,
+              "hasQZ": false,
+              "id": 1,
+              "isDefault": null,
+              "isOpen": true,
+              "isValidLearning": true,
+              "isVirtual": false,
+              "logo": "/download/01007dc91abec4a8458d8bd9eefa81a0238b.png",
+              "name": "金蝶AI星空企业版/标准版",
+              "rank": 7,
+              "seriesCode": "S036"
+            },
+            "specifyUsers": [],
+            "style": 0,
+            "type": 0,
+            "updatePerson": {
+              "avatar": "/download/010162642d4ab45843119f96b5abd01c554f.png",
+              "department": null,
+              "id": "13627",
+              "name": "Anna_xiao",
+              "nameSpell": "xiaoronglan"
+            },
+            "updatedAt": 1670479317000
+          },
+          {
+            "code": "XSRM",
+            "createdAt": 1568798823000,
+            "creator": {
+              "avatar": "/download?fileName=01014c2c1c8b203f4a8aaa1e18dce7725efa.png",
+              "department": null,
+              "id": "1155",
+              "name": "陈旭",
+              "nameSpell": "lansehuanxiang"
+            },
+            "description": "快速入门",
+            "hasSpecifyUser": false,
+            "hide": false,
+            "icon": "/download?fileName=01007ab64f34c9004072ad021d226f8216fe.png",
+            "id": "40",
+            "name": "快速入门",
+            "productLine": {
+              "active": true,
+              "appLogo": "星空",
+              "categoryCode": "C04",
+              "courseLogo": "/download/01009af04319c0514a20a059f889104d4dd7.png",
+              "domain": null,
+              "enablePaymentCourse": false,
+              "hasAtlas": true,
+              "hasIdea": false,
+              "hasKnowledge": true,
+              "hasQZ": false,
+              "id": 1,
+              "isDefault": null,
+              "isOpen": true,
+              "isValidLearning": true,
+              "isVirtual": false,
+              "logo": "/download/01007dc91abec4a8458d8bd9eefa81a0238b.png",
+              "name": "金蝶AI星空企业版/标准版",
+              "rank": 7,
+              "seriesCode": "S036"
+            },
+            "specifyUsers": [],
+            "style": 0,
+            "type": 1,
+            "updatePerson": {
+              "avatar": "/download/0101f60bc4bb22124014a63b35b1083486e8.png",
+              "department": null,
+              "id": "234310606810391808",
+              "name": "咬咬咬咬人",
+              "nameSpell": "name"
+            },
+            "updatedAt": 1660218233000
+          }
+        ],
+        "productLineId": 1,
+        "specials": [
+          {
+            "categoryList": [
+              {
+                "childCategory": [
+                  {
+                    "childCategory": [
+                      null
+                    ],
+                    "code": null,
+                    "description": null,
+                    "entityId": "298106087772088064",
+                    "entityType": "Knowledge",
+                    "id": "298151062253476096",
+                    "isCategory": false,
+                    "name": "如何使用OpenAPI中心在线测试？",
+                    "parentId": "229963554177453824",
+                    "sort": "10",
+                    "specialId": "229961573895771136",
+                    "status": 1
+                  }
+                ],
+                "code": null,
+                "description": null,
+                "entityId": null,
+                "entityType": null,
+                "id": "229963554177453824",
+                "isCategory": true,
+                "name": "快速入门",
+                "parentId": "-1",
+                "sort": "3",
+                "specialId": "229961573895771136",
+                "status": 1
+              }
+            ],
+            "classifies": null,
+            "collections": 159,
+            "createdAt": "2021-09-26T13:45:11.000+08:00",
+            "creator": {
+              "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "96907288496966400",
+              "name": "Kidd",
+              "nameSpell": "name"
+            },
+            "description": "OpenAPI",
+            "hasCollected": null,
+            "hasHomePage": 1,
+            "id": "229961573895771136",
+            "identityTags": null,
+            "itemNum": 35,
+            "logo": "/download/01007136e2cc1839483f8b3df1781bcb28f0.png",
+            "name": "OpenAPI",
+            "otherProductLineIds": null,
+            "productLineId": "1",
+            "productList": [
+              {
+                "alias": null,
+                "code": "4468a7c0a53d11e8a7f90050568926a7",
+                "id": 1,
+                "isOpen": 1,
+                "name": "企业版/标准版",
+                "productLineId": 1,
+                "series": "S036",
+                "sort": 0
+              }
+            ],
+            "sort": 3,
+            "status": 2,
+            "style": 3,
+            "totalAppraisalScore": 14,
+            "totalAppraisalUsers": 3,
+            "updatedAt": "2025-06-27T16:28:41.000+08:00",
+            "updaterId": "1149",
+            "useCategory": 1,
+            "viewAuthority": 1,
+            "views": 1361378
+          }
+        ]
+      }
+    ],
+    "editContent": "<p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\">如何使用</span><span style=\"font-weight: bold; color: rgb(44, 62, 80);\">OpenAPI</span><span style=\"font-weight: bold; color: rgb(44, 62, 80);\">中心在线测试？</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">欢迎使用星空</span><span style=\"color: rgb(44, 62, 80);\">OpenAPI</span><span style=\"color: rgb(44, 62, 80);\">中心</span><span style=\"color: rgb(44, 62, 80);\">API</span><span style=\"color: rgb(44, 62, 80);\">在线测试功能。下面分别以基础资料中的员工查看接口和物料保存接口为例，介绍如何使用</span><span style=\"color: rgb(44, 62, 80);\">API</span><span style=\"color: rgb(44, 62, 80);\">在线测试功能。</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"><br/></span></p><p class=\"a X3\" style=\"text-align: justify;\"><span style=\"font-weight: 700;\"><span class=\"a X3\" style=\"color: rgb(44, 62, 80);\">(1)</span><span class=\"a X3\" style=\"color: rgb(44, 62, 80);\">在线测试：基础资料</span><span class=\"a X3\" style=\"color: rgb(44, 62, 80);\">-</span><span class=\"a X3\" style=\"color: rgb(44, 62, 80);\">员工</span><span class=\"a X3\" style=\"color: rgb(44, 62, 80);\">-</span><span class=\"a X3\" style=\"color: rgb(44, 62, 80);\">查看接口</span></span></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\">1.前往<a href=\"https://openapi.open.kingdee.com/\" title=\"\" target=\"_blank\" class=\"\">OpenAPI网站</a>，选择“API文档”。</span></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\">（如果用户没有注册云之家，请先注册云之家账号，再登录网站）</span></p><p style=\"text-align: justify;\"><img src=\"/download/01008822c7afb15b40d3bd8326815626b9b2.png\"/></p><p style=\"text-align: justify;\"><br/></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\">2.点击左上角的搜索框，输入需要查找的业务对象（单据名称），本示例中为“员工”。在搜索结果中点击需要的单据。</span></p><p style=\"text-align: justify;\"><img src=\"/download/0100496a62ada0a149d0be4257f0662cf42a.png\"/></p><p style=\"text-align: justify;\"><br/></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\">3.在左侧树中找到我们需要的操作接口，本示例中为“查看”，再点击右侧的“API在线测试”按钮。</span></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\">（如果未登录网站需要先登录）</span></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\"><img src=\"/download/0100128ace787af2469a95861bcc8248e3d8.png\"/></span></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\"><img src=\"/download/010083535eeafac24ca28d2948e1fd0f4eb5.png\"/></span></p><p style=\"text-align: justify;\"><br/></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\">4.用户点击左侧“测试连接”按钮，当提示连接成功，则可以在请求参数中填写，需要查看的员工编号或者</span><span style=\"color: rgb(44, 62, 80);\">id。</span></p><p style=\"text-align: justify;\"><img src=\"/download/0100ee5ab64352ba4bbbb9c6ddca305a7eec.png\"/></p><p style=\"text-align: justify;\"><br/></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\">5.</span><span style=\"color: rgb(44, 62, 80);\">用户填写完参数，点击启动测试，即可获取请求结果。</span></p><p style=\"text-align: justify;\"><span style=\"color:#2c3e50\">点击右上角的测试历史，可以查看所有测试历史记录，并重新调用。</span></p><p style=\"text-align: justify;\"><img src=\"/download/0100de91b8fd221646e9bf3114428703a443.png\"/></p><p style=\"text-align: justify;\"><br/></p><p class=\"a X3\" style=\"text-align: justify;\"><span style=\"font-weight: 700;\"><span class=\"a X3\" style=\"color: rgb(44, 62, 80);\">(2)</span><span class=\"a X3\" style=\"color: rgb(44, 62, 80);\">在线测试：基础资料</span><span class=\"a X3\" style=\"color: rgb(44, 62, 80);\">-</span><span class=\"a X3\" style=\"color: rgb(44, 62, 80);\">物料</span><span class=\"a X3\" style=\"color: rgb(44, 62, 80);\">-</span><span class=\"a X3\" style=\"color: rgb(44, 62, 80);\">保存接口</span></span></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\"></span></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\">1.前往<a href=\"https://openapi.open.kingdee.com/\" title=\"\" target=\"_blank\" class=\"\">OpenAPI网站</a>，选择“API文档”。</span></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\">（如果用户没有注册云之家，请先注册云之家账号，再登录网站）</span></p><p style=\"text-align: justify;\"><img src=\"https://vip.kingdee.com/download/01008822c7afb15b40d3bd8326815626b9b2.png\"/></p><p style=\"text-align: justify;\"><br/></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\"></span></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\">2.点击左上角的搜索框，输入需要查找的业务对象（单据名称），本示例中为“<span style=\"color: rgb(44, 62, 80); font-weight: 700; text-align: justify;\">物料</span>”。在搜索结果中点击需要的单据。</span></p><p style=\"text-align: justify;\"><img src=\"/download/010084bcb180454e46a1bd5745b5b8d237ea.png\"/></p><p style=\"text-align: justify;\"><br/></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\">3.在左侧树中找到我们需要的操作接口，本示例中为“<span style=\"color: rgb(44, 62, 80); font-weight: 700; text-align: justify;\">保存</span>”，再点击右侧的“API在线测试”按钮。</span></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\">（如果未登录网站需要先登录）</span></p><p style=\"text-align: justify;\"><img src=\"/download/0100f0c3a7e0d37d45febecd09bcb36f409e.png\"/></p><p style=\"text-align: justify;\"><img src=\"/download/01000ae30ca8506a49e18f10f4c9bed7e8c6.png\"/></p><p style=\"text-align: justify;\"><img src=\"/download/01003d3d76865d1845e1883747e737d9338b.png\"/></p><p style=\"text-align: justify;\"><br/></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\">4.</span><span style=\"color: rgb(44, 62, 80);\">用户点击左侧测试连接按钮，当提示连接成功，则可以点击填写参数按钮，跳转星空产品界面可视化填写参数。</span></p><p style=\"text-align: justify;\"><img src=\"/download/0100b952d83792494abeb35e6f408f5d5fd1.png\"/></p><p style=\"text-align: justify;\"><br/></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\">5.</span><span style=\"color: rgb(44, 62, 80);\">用户根据业务逻辑，填写需要的参数。</span></p><p style=\"text-align: justify;\"><img src=\"/download/010030899cc3d7fb41d180445de00f9f6424.png\"/><br/></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\"><br/></span></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\">6.</span><span style=\"color: rgb(44, 62, 80);\"></span><span style=\"color: rgb(44, 62, 80); text-align: justify;\">填写完成后点击左上角“生成JSON”按钮。</span><span style=\"color: rgb(44, 62, 80);\"></span></p><p style=\"text-align: justify;\"><img src=\"/download/0100aa820f08339a4132ba0bb1e0edd6156e.png\"/></p><p style=\"text-align: justify;\"><br/></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\">7.</span><span style=\"color: rgb(44, 62, 80);\">用户将生成的</span><span style=\"color: rgb(44, 62, 80);\">json</span><span style=\"color: rgb(44, 62, 80);\">复制到</span><span style=\"color: rgb(44, 62, 80);\">API</span><span style=\"color: rgb(44, 62, 80);\">在线测试请求参数输入框中<span style=\"color: rgb(44, 62, 80); text-align: justify;\">，点击“启动测试”，即可获取请求结果。</span></span></p><p style=\"text-align: justify;\"><img src=\"/download/0100c146ed72acd841dca2990d2f9c1a8234.png\"/></p><p style=\"text-align: justify;\"><br/></p><p style=\"\"><img src=\"/download/0100a8b12a0efccc455392558018ad633582.png\"/></p><p><br/></p>"
+  }
+}
