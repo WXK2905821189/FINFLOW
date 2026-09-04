@@ -1,0 +1,414 @@
+{
+  "categoryId": "229964512944566016",
+  "articleId": "572459225461495552",
+  "category": "常见问题",
+  "title": "如何解决“未能加载文件或程序集Newtonsoft.Json",
+  "source": "https://vip.kingdee.com/knowledge/specialDetail/229961573895771136?category=229964512944566016&id=572459225461495552&type=Knowledge&productLineId=1&lang=zh-CN",
+  "fetchedAt": "2026-09-03T04:31:47.507Z",
+  "rawResponse": {
+    "badNum": 0,
+    "identityTagIds": null,
+    "knowledgeId": "572459225461495552",
+    "createdAt": 1714292915000,
+    "collections": 24,
+    "viewAuthority": 1,
+    "feedbackNum": 0,
+    "classifies": [
+      {
+        "code": null,
+        "name": "企业版/标准版",
+        "id": 1,
+        "sort": 0,
+        "type": "product",
+        "child": {
+          "code": null,
+          "name": "协同开发",
+          "id": 5709,
+          "sort": 26,
+          "type": "domain",
+          "child": {
+            "code": "api",
+            "name": "OpenAPI",
+            "id": "228544575986699264",
+            "sort": 3,
+            "type": "module",
+            "child": null,
+            "productLineId": null
+          },
+          "productLineId": null
+        },
+        "productLineId": 1
+      }
+    ],
+    "id": "572459225461495552",
+    "contentType": 1,
+    "updatedAt": 1718947350000,
+    "knowledgeUpdater": {
+      "avatar": "/download/01010753253164e84390b4c1fc11276ceff0.png",
+      "department": null,
+      "id": "250666821609831168",
+      "name": "都付笑谈中",
+      "nameSpell": "name"
+    },
+    "assessStatus": 0,
+    "knowledgeStatus": 2,
+    "assessHandleStatus": null,
+    "knowledgeCreatedAt": 1714292915000,
+    "version": 11,
+    "labels": [
+      {
+        "code": "changjianwenti",
+        "hide": false,
+        "id": "6",
+        "name": "常见问题",
+        "style": 0,
+        "type": 0
+      },
+      {
+        "code": "XSRM",
+        "hide": false,
+        "id": "40",
+        "name": "快速入门",
+        "style": 0,
+        "type": 1
+      }
+    ],
+    "editedAt": 1718947350000,
+    "identityTags": null,
+    "useful": 14,
+    "errors": [],
+    "isCollected": false,
+    "totalFeedBacks": 0,
+    "attachments": [],
+    "sources": [],
+    "editTitle": "如何解决“未能加载文件或程序集Newtonsoft.Json",
+    "title": "如何解决“未能加载文件或程序集Newtonsoft.Json",
+    "content": "<h2 label=\"一级标题\" class=\"first-title\" style=\"\"><strong style=\"\">报错场景：</strong></h2><p class=\"kd-image-content\"><img src=\"/download/01006d241d277ed04a58a5abf5e9a79ca581.png\" alt=\"上传图片\"/></p><p>&nbsp;<br/></p><p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;用户使用<a href=\"https://openapi.open.kingdee.com/ApiSdkCenter\" target=\"_blank\"><span style=\"text-decoration:underline;\"><span style=\"color: rgb(0, 0, 255)\">SDK中心-OpenAPI (kingdee.com)</span></span></a>下载的<span style=\"font-family:微软雅黑\">适用于</span><span style=\"font-family:微软雅黑\">.net4.0的</span>sdk<span style=\"font-family:微软雅黑\">为</span><span style=\"font-family:微软雅黑\">8.1.0和9.1.0版本及之后时，如果用户使用他们的同时手动引用Newtonsoft.json.dll组件会导致报错：</span></p><p><span style=\"font-family:微软雅黑\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;未能加载文件或程序集</span><span style=\"font-family:微软雅黑\">“Newtonsoft.Json, Version=4.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed”或它的某一个依赖项。找到的程序集清单定义与程序集引用不匹配。 (异常来自 HRESULT:0x80131040)</span></p><p>&nbsp;</p><p class=\"kd-image-content\"><img src=\"/download/0100400439e35fdf4f6483cf324ed7b694e4.png\" alt=\"上传图片\"/></p><p>&nbsp;<br/></p><p>&nbsp;</p><h2 label=\"一级标题\" class=\"first-title\" style=\"\">产生原因：</h2><p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.net4.0SDK的8.1.0和9.1.0版本改动了对<span style=\"font-family:微软雅黑\">引用组件</span><span style=\"font-family:微软雅黑\">Newtonsoft.json.d</span>ll的无版本要求，<span style=\"font-family:微软雅黑\">即之前版本使用</span><span style=\"font-family:微软雅黑\">sdk时必须手动引用我们提供的Newtonsoft.json.dll包，固定版本为4.0.0。而</span>.net4.0SDK<span style=\"font-family:微软雅黑\">的</span><span style=\"font-family:微软雅黑\">8.1.0和9.1.0版本后无需手动引用，而是使用NuGet管理器安装任意4.0.0版本以上的Newtonsoft.json即可使用。</span></p><p><span style=\"font-family:微软雅黑\">对于用户的生产场景更灵活，减少和用户已有项目的同名</span><span style=\"font-family:微软雅黑\">dll的冲突。</span></p><h3 label=\"二级标题\" class=\"second-title\" style=\"\">PS：</h3><p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;这里对.net4.0SDK的8.1.0和9.1.0两个版本做出解释，8.1.0的版本sdk包名为Kingdee.BOS.WebApi.Client.dll,因为同产品包目录使用的Kingdee.BOS.WebApi.Client.dll<span style=\"font-family:微软雅黑\">同名，为了防止某些特殊情况下用户会需要同时引用这两个包的，因此更改了命名空间，重新命名包名为</span><span style=\"font-family:微软雅黑\">Kingdee.CDP.WebApi.SDK.dll,且版本从9.0.1开始。除了命名空间不同外，两个包的内容是完全一致的，官方更推荐使用</span>Kingdee.CDP.WebApi.SDK。</p><p class=\"kd-image-content\"><img src=\"/download/010007494769fb4543ec8e1273c162687f95.png\" alt=\"上传图片\"/></p><p>&nbsp;<br/></p><h2 label=\"一级标题\" class=\"first-title\" style=\"\">解决方案：</h2><h4 label=\"三级标题\" class=\"third-title\" style=\"\"><span style=\"\">场景</span><span style=\"\">1：</span></h4><p><span style=\"font-family:微软雅黑\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;用户使用的是</span>.net4.0SDK的9.1.0或者8.1.0版本，手动引用了Newtonsoft.json.dll包。且用户的二开项目会单独部署后与产品端通信。</p><h4 label=\"三级标题\" class=\"third-title\" style=\"\">方案1：</h4><p><span style=\"font-family:微软雅黑\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;移除原先的</span><span style=\"font-family:微软雅黑\">Newtonsoft.json引用，右键解决方案点击-》管理NuGet程序包，搜索Newtonsoft.json，选择自己需要的版本安装即可。</span></p><p>&nbsp;</p><h4 label=\"三级标题\" class=\"third-title\" style=\"\"><span style=\"\">场景</span><span style=\"\">2：</span></h4><p><span style=\"font-family:微软雅黑\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;同场景1，但不同的是用户二开后的包会放到K3Cloud\\WebSite\\Bin目录下，即作为产品本身的一部分与产品通信。</span></p><h4 label=\"三级标题\" class=\"third-title\" style=\"\">方案2：</h4><p><span style=\"font-family:微软雅黑\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;首先声明，官方并不建议产品内的通信使用</span><span style=\"font-family:微软雅黑\">SDK，更建议使用产品内本身的</span>Kingdee.BOS.WebApi.Client.dll<span style=\"font-family:微软雅黑\">包，而不是从</span><span style=\"font-family:微软雅黑\">SDK中心下载的专门提供给第三方调用的SDK包。</span></p><p><span style=\"font-family:微软雅黑\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;由于产品内的</span><span style=\"font-family:微软雅黑\">Newtonsoft.json.dll包与NuGet管理器中下载的Newtonsofe.json.dll包有所不同，因此无法兼容，即使你本身项目执行没有问题，但是放到</span>K3Cloud\\WebSite\\Bin产品目录下，会自动改为引用该目录下的Newtonsofe.json.dll包，导致程序集无法加载报错。</p><p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;如果用户坚持使用<span style=\"font-family:微软雅黑\">，建议改为<span style=\"\">.net4.0SDK的</span></span><span style=\"font-family:微软雅黑\">8.1.0和9.1.0版本之前的包，但是后续不会对该版本包进行升级维护。</span></p><p><span style=\"font-family:微软雅黑\"><br/></span></p><h4 label=\"三级标题\" class=\"third-title\" style=\"\"><span style=\"font-family:微软雅黑\">点击下载：</span></h4><p>Kingdee.BOS.WebApi.Client.dll&nbsp;</p><p><a href=\"https://pkgsfile.open.kingdee.com/OpenApi/Net/NetSDK_V8.0.5.rar\" target=\"_blank\" class=\"link-special-style\"><img src=\"https://vipstatic.obs.cn-north-4.myhuaweicloud.com/statics/webfront/icon/ic_default.svg\"/>V8.0.5</a></p><p><br/></p><p>Kingdee.CDP.WebApi.SDK.dll&nbsp;</p><p><a href=\"https://pkgsfile.open.kingdee.com/OpenApi/Net/NetSDK_V9.0.2.rar\" target=\"_blank\" class=\"link-special-style\"><img src=\"https://vipstatic.obs.cn-north-4.myhuaweicloud.com/statics/webfront/icon/ic_default.svg\"/>V9.0.2</a></p><p label=\"\" class=\"\" style=\"\"><br/></p><h4 label=\"三级标题\" class=\"third-title\" style=\"\">场景3：</h4><p><span style=\"font-family:微软雅黑\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;同场景</span>1，但用户环境特殊或者vs版本过低导致无法使用nuget管理包。<br/></p><h4 label=\"三级标题\" class=\"third-title\" style=\"\">方案3：</h4><p><span style=\"font-family:微软雅黑\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;也可以到官网下载标准的</span>Newtonsoft.json包到本地后<span style=\"font-family:微软雅黑\">手动引用，如果仍然不行，手动修改</span>&lt;解决方案名称&gt;.csproj文件中的Newtonsofe.json引用相关代码。</p><p><span style=\"font-family:微软雅黑\">参考如下：</span></p><p>&lt;Reference Include=&quot;Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL&quot;&gt;</p><p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;HintPath&gt;..\\Kingdee.CDP.WebApi.SDK\\packages\\Newtonsoft.Json.13.0.3\\lib\\net45\\Newtonsoft.Json.dll&lt;/HintPath&gt;</p><p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style=\"background-color: rgb(255, 255, 0)\">&lt;SpecificVersion&gt;False&lt;/SpecificVersion&gt;</span></p><p>&lt;/Reference&gt;</p><p><br/></p>",
+    "products": [
+      {
+        "alias": null,
+        "code": "4468a7c0a53d11e8a7f90050568926a7",
+        "id": 1,
+        "isOpen": 1,
+        "name": "企业版/标准版",
+        "productLineId": 1,
+        "series": "S036",
+        "sort": 0
+      }
+    ],
+    "knowledgeSpecial": [
+      {
+        "categoryList": [
+          {
+            "childCategory": [
+              {
+                "childCategory": [
+                  null
+                ],
+                "code": null,
+                "description": "",
+                "entityId": "572459225461495552",
+                "entityType": "Knowledge",
+                "id": "572460186493754112",
+                "isCategory": false,
+                "name": "如何解决“未能加载文件或程序集Newtonsoft.Json",
+                "parentId": "229964512944566016",
+                "sort": "9",
+                "specialId": "229961573895771136",
+                "status": 1
+              }
+            ],
+            "code": null,
+            "description": null,
+            "entityId": null,
+            "entityType": null,
+            "id": "229964512944566016",
+            "isCategory": true,
+            "name": "常见问题",
+            "parentId": "-1",
+            "sort": "7",
+            "specialId": "229961573895771136",
+            "status": 1
+          }
+        ],
+        "classifies": null,
+        "collections": 159,
+        "createdAt": "2021-09-26T13:45:11.000+08:00",
+        "creator": {
+          "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+          "department": null,
+          "id": "96907288496966400",
+          "name": "Kidd",
+          "nameSpell": "name"
+        },
+        "description": "OpenAPI",
+        "hasCollected": null,
+        "hasHomePage": 1,
+        "id": "229961573895771136",
+        "identityTags": null,
+        "itemNum": 35,
+        "logo": "/download/01007136e2cc1839483f8b3df1781bcb28f0.png",
+        "name": "OpenAPI",
+        "otherProductLineIds": null,
+        "productLineId": "1",
+        "productList": [
+          {
+            "alias": null,
+            "code": "4468a7c0a53d11e8a7f90050568926a7",
+            "id": 1,
+            "isOpen": 1,
+            "name": "企业版/标准版",
+            "productLineId": 1,
+            "series": "S036",
+            "sort": 0
+          }
+        ],
+        "sort": 3,
+        "status": 2,
+        "style": 3,
+        "totalAppraisalScore": 14,
+        "totalAppraisalUsers": 3,
+        "updatedAt": "2025-06-27T16:28:41.000+08:00",
+        "updaterId": "1149",
+        "useCategory": 1,
+        "viewAuthority": 1,
+        "views": 1361378
+      }
+    ],
+    "entityUrl": null,
+    "needTranslate": null,
+    "knowledgeCreator": {
+      "avatar": "/download/01010eae28ef417e4806ba0499acf4aeef12.png",
+      "department": null,
+      "id": "1149",
+      "name": "王文亮",
+      "nameSpell": "Owen"
+    },
+    "totalAppraisalScore": 69,
+    "iflytekId": null,
+    "views": 10297,
+    "productLineId": 1,
+    "comments": 1,
+    "similarityCount": 0,
+    "totalAppraisalUsers": 14,
+    "isKnowledge": 1,
+    "knowledgeUpdatedAt": 1718947350000,
+    "appraisalScore": 0,
+    "unuseful": 0,
+    "knowledgeCheckStatus": 2,
+    "otherProductLineIds": [],
+    "auditAt": 1718947350000,
+    "attributes": [
+      {
+        "classifies": [
+          {
+            "child": {
+              "child": {
+                "child": null,
+                "code": "api",
+                "id": "228544575986699264",
+                "name": "OpenAPI",
+                "productLineId": null,
+                "sort": 3,
+                "type": "module"
+              },
+              "code": null,
+              "id": "5709",
+              "name": "协同开发",
+              "productLineId": null,
+              "sort": 26,
+              "type": "domain"
+            },
+            "code": null,
+            "id": "1",
+            "name": "企业版/标准版",
+            "productLineId": 1,
+            "sort": 0,
+            "type": "product"
+          }
+        ],
+        "labels": [
+          {
+            "code": "changjianwenti",
+            "createdAt": 1553686053000,
+            "creator": {
+              "avatar": "/download?fileName=010162cfa9d4437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "1",
+              "name": "administrator",
+              "nameSpell": "administrator"
+            },
+            "description": "常见问题",
+            "hasSpecifyUser": false,
+            "hide": false,
+            "icon": "/download?fileName=0100ef2db45aa7524b70a990e7fd9d40db4a.png",
+            "id": "6",
+            "name": "常见问题",
+            "productLine": {
+              "active": true,
+              "appLogo": "星空",
+              "categoryCode": "C04",
+              "courseLogo": "/download/01009af04319c0514a20a059f889104d4dd7.png",
+              "domain": null,
+              "enablePaymentCourse": false,
+              "hasAtlas": true,
+              "hasIdea": false,
+              "hasKnowledge": true,
+              "hasQZ": false,
+              "id": 1,
+              "isDefault": null,
+              "isOpen": true,
+              "isValidLearning": true,
+              "isVirtual": false,
+              "logo": "/download/01007dc91abec4a8458d8bd9eefa81a0238b.png",
+              "name": "金蝶AI星空企业版/标准版",
+              "rank": 7,
+              "seriesCode": "S036"
+            },
+            "specifyUsers": [],
+            "style": 0,
+            "type": 0,
+            "updatePerson": {
+              "avatar": "/download/010162642d4ab45843119f96b5abd01c554f.png",
+              "department": null,
+              "id": "13627",
+              "name": "Anna_xiao",
+              "nameSpell": "xiaoronglan"
+            },
+            "updatedAt": 1670479317000
+          },
+          {
+            "code": "XSRM",
+            "createdAt": 1568798823000,
+            "creator": {
+              "avatar": "/download?fileName=01014c2c1c8b203f4a8aaa1e18dce7725efa.png",
+              "department": null,
+              "id": "1155",
+              "name": "陈旭",
+              "nameSpell": "lansehuanxiang"
+            },
+            "description": "快速入门",
+            "hasSpecifyUser": false,
+            "hide": false,
+            "icon": "/download?fileName=01007ab64f34c9004072ad021d226f8216fe.png",
+            "id": "40",
+            "name": "快速入门",
+            "productLine": {
+              "active": true,
+              "appLogo": "星空",
+              "categoryCode": "C04",
+              "courseLogo": "/download/01009af04319c0514a20a059f889104d4dd7.png",
+              "domain": null,
+              "enablePaymentCourse": false,
+              "hasAtlas": true,
+              "hasIdea": false,
+              "hasKnowledge": true,
+              "hasQZ": false,
+              "id": 1,
+              "isDefault": null,
+              "isOpen": true,
+              "isValidLearning": true,
+              "isVirtual": false,
+              "logo": "/download/01007dc91abec4a8458d8bd9eefa81a0238b.png",
+              "name": "金蝶AI星空企业版/标准版",
+              "rank": 7,
+              "seriesCode": "S036"
+            },
+            "specifyUsers": [],
+            "style": 0,
+            "type": 1,
+            "updatePerson": {
+              "avatar": "/download/0101f60bc4bb22124014a63b35b1083486e8.png",
+              "department": null,
+              "id": "234310606810391808",
+              "name": "咬咬咬咬人",
+              "nameSpell": "name"
+            },
+            "updatedAt": 1660218233000
+          }
+        ],
+        "productLineId": 1,
+        "specials": [
+          {
+            "categoryList": [
+              {
+                "childCategory": [
+                  {
+                    "childCategory": [
+                      null
+                    ],
+                    "code": null,
+                    "description": "",
+                    "entityId": "572459225461495552",
+                    "entityType": "Knowledge",
+                    "id": "572460186493754112",
+                    "isCategory": false,
+                    "name": "如何解决“未能加载文件或程序集Newtonsoft.Json",
+                    "parentId": "229964512944566016",
+                    "sort": "9",
+                    "specialId": "229961573895771136",
+                    "status": 1
+                  }
+                ],
+                "code": null,
+                "description": null,
+                "entityId": null,
+                "entityType": null,
+                "id": "229964512944566016",
+                "isCategory": true,
+                "name": "常见问题",
+                "parentId": "-1",
+                "sort": "7",
+                "specialId": "229961573895771136",
+                "status": 1
+              }
+            ],
+            "classifies": null,
+            "collections": 159,
+            "createdAt": "2021-09-26T13:45:11.000+08:00",
+            "creator": {
+              "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "96907288496966400",
+              "name": "Kidd",
+              "nameSpell": "name"
+            },
+            "description": "OpenAPI",
+            "hasCollected": null,
+            "hasHomePage": 1,
+            "id": "229961573895771136",
+            "identityTags": null,
+            "itemNum": 35,
+            "logo": "/download/01007136e2cc1839483f8b3df1781bcb28f0.png",
+            "name": "OpenAPI",
+            "otherProductLineIds": null,
+            "productLineId": "1",
+            "productList": [
+              {
+                "alias": null,
+                "code": "4468a7c0a53d11e8a7f90050568926a7",
+                "id": 1,
+                "isOpen": 1,
+                "name": "企业版/标准版",
+                "productLineId": 1,
+                "series": "S036",
+                "sort": 0
+              }
+            ],
+            "sort": 3,
+            "status": 2,
+            "style": 3,
+            "totalAppraisalScore": 14,
+            "totalAppraisalUsers": 3,
+            "updatedAt": "2025-06-27T16:28:41.000+08:00",
+            "updaterId": "1149",
+            "useCategory": 1,
+            "viewAuthority": 1,
+            "views": 1361378
+          }
+        ]
+      }
+    ],
+    "editContent": "<h2 label=\"一级标题\" class=\"first-title\" style=\"\"><strong style=\"\">报错场景：</strong></h2><p class=\"kd-image-content\"><img src=\"/download/01006d241d277ed04a58a5abf5e9a79ca581.png\" alt=\"上传图片\"/></p><p>&nbsp;<br/></p><p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;用户使用<a href=\"https://openapi.open.kingdee.com/ApiSdkCenter\" target=\"_blank\"><span style=\"text-decoration:underline;\"><span style=\"color: rgb(0, 0, 255)\">SDK中心-OpenAPI (kingdee.com)</span></span></a>下载的<span style=\"font-family:微软雅黑\">适用于</span><span style=\"font-family:微软雅黑\">.net4.0的</span>sdk<span style=\"font-family:微软雅黑\">为</span><span style=\"font-family:微软雅黑\">8.1.0和9.1.0版本及之后时，如果用户使用他们的同时手动引用Newtonsoft.json.dll组件会导致报错：</span></p><p><span style=\"font-family:微软雅黑\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;未能加载文件或程序集</span><span style=\"font-family:微软雅黑\">“Newtonsoft.Json, Version=4.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed”或它的某一个依赖项。找到的程序集清单定义与程序集引用不匹配。 (异常来自 HRESULT:0x80131040)</span></p><p>&nbsp;</p><p class=\"kd-image-content\"><img src=\"/download/0100400439e35fdf4f6483cf324ed7b694e4.png\" alt=\"上传图片\"/></p><p>&nbsp;<br/></p><p>&nbsp;</p><h2 label=\"一级标题\" class=\"first-title\" style=\"\">产生原因：</h2><p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.net4.0SDK的8.1.0和9.1.0版本改动了对<span style=\"font-family:微软雅黑\">引用组件</span><span style=\"font-family:微软雅黑\">Newtonsoft.json.d</span>ll的无版本要求，<span style=\"font-family:微软雅黑\">即之前版本使用</span><span style=\"font-family:微软雅黑\">sdk时必须手动引用我们提供的Newtonsoft.json.dll包，固定版本为4.0.0。而</span>.net4.0SDK<span style=\"font-family:微软雅黑\">的</span><span style=\"font-family:微软雅黑\">8.1.0和9.1.0版本后无需手动引用，而是使用NuGet管理器安装任意4.0.0版本以上的Newtonsoft.json即可使用。</span></p><p><span style=\"font-family:微软雅黑\">对于用户的生产场景更灵活，减少和用户已有项目的同名</span><span style=\"font-family:微软雅黑\">dll的冲突。</span></p><h3 label=\"二级标题\" class=\"second-title\" style=\"\">PS：</h3><p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;这里对.net4.0SDK的8.1.0和9.1.0两个版本做出解释，8.1.0的版本sdk包名为Kingdee.BOS.WebApi.Client.dll,因为同产品包目录使用的Kingdee.BOS.WebApi.Client.dll<span style=\"font-family:微软雅黑\">同名，为了防止某些特殊情况下用户会需要同时引用这两个包的，因此更改了命名空间，重新命名包名为</span><span style=\"font-family:微软雅黑\">Kingdee.CDP.WebApi.SDK.dll,且版本从9.0.1开始。除了命名空间不同外，两个包的内容是完全一致的，官方更推荐使用</span>Kingdee.CDP.WebApi.SDK。</p><p class=\"kd-image-content\"><img src=\"/download/010007494769fb4543ec8e1273c162687f95.png\" alt=\"上传图片\"/></p><p>&nbsp;<br/></p><h2 label=\"一级标题\" class=\"first-title\" style=\"\">解决方案：</h2><h4 label=\"三级标题\" class=\"third-title\" style=\"\"><span style=\"\">场景</span><span style=\"\">1：</span></h4><p><span style=\"font-family:微软雅黑\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;用户使用的是</span>.net4.0SDK的9.1.0或者8.1.0版本，手动引用了Newtonsoft.json.dll包。且用户的二开项目会单独部署后与产品端通信。</p><h4 label=\"三级标题\" class=\"third-title\" style=\"\">方案1：</h4><p><span style=\"font-family:微软雅黑\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;移除原先的</span><span style=\"font-family:微软雅黑\">Newtonsoft.json引用，右键解决方案点击-》管理NuGet程序包，搜索Newtonsoft.json，选择自己需要的版本安装即可。</span></p><p>&nbsp;</p><h4 label=\"三级标题\" class=\"third-title\" style=\"\"><span style=\"\">场景</span><span style=\"\">2：</span></h4><p><span style=\"font-family:微软雅黑\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;同场景1，但不同的是用户二开后的包会放到K3Cloud\\WebSite\\Bin目录下，即作为产品本身的一部分与产品通信。</span></p><h4 label=\"三级标题\" class=\"third-title\" style=\"\">方案2：</h4><p><span style=\"font-family:微软雅黑\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;首先声明，官方并不建议产品内的通信使用</span><span style=\"font-family:微软雅黑\">SDK，更建议使用产品内本身的</span>Kingdee.BOS.WebApi.Client.dll<span style=\"font-family:微软雅黑\">包，而不是从</span><span style=\"font-family:微软雅黑\">SDK中心下载的专门提供给第三方调用的SDK包。</span></p><p><span style=\"font-family:微软雅黑\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;由于产品内的</span><span style=\"font-family:微软雅黑\">Newtonsoft.json.dll包与NuGet管理器中下载的Newtonsofe.json.dll包有所不同，因此无法兼容，即使你本身项目执行没有问题，但是放到</span>K3Cloud\\WebSite\\Bin产品目录下，会自动改为引用该目录下的Newtonsofe.json.dll包，导致程序集无法加载报错。</p><p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;如果用户坚持使用<span style=\"font-family:微软雅黑\">，建议改为<span style=\"\">.net4.0SDK的</span></span><span style=\"font-family:微软雅黑\">8.1.0和9.1.0版本之前的包，但是后续不会对该版本包进行升级维护。</span></p><p><span style=\"font-family:微软雅黑\"><br/></span></p><h4 label=\"三级标题\" class=\"third-title\" style=\"\"><span style=\"font-family:微软雅黑\">点击下载：</span></h4><p>Kingdee.BOS.WebApi.Client.dll&nbsp;</p><p><a href=\"https://pkgsfile.open.kingdee.com/OpenApi/Net/NetSDK_V8.0.5.rar\" target=\"_blank\" class=\"link-special-style\"><img src=\"https://vipstatic.obs.cn-north-4.myhuaweicloud.com/statics/webfront/icon/ic_default.svg\"/>V8.0.5</a></p><p><br/></p><p>Kingdee.CDP.WebApi.SDK.dll&nbsp;</p><p><a href=\"https://pkgsfile.open.kingdee.com/OpenApi/Net/NetSDK_V9.0.2.rar\" target=\"_blank\" class=\"link-special-style\"><img src=\"https://vipstatic.obs.cn-north-4.myhuaweicloud.com/statics/webfront/icon/ic_default.svg\"/>V9.0.2</a></p><p label=\"\" class=\"\" style=\"\"><br/></p><h4 label=\"三级标题\" class=\"third-title\" style=\"\">场景3：</h4><p><span style=\"font-family:微软雅黑\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;同场景</span>1，但用户环境特殊或者vs版本过低导致无法使用nuget管理包。<br/></p><h4 label=\"三级标题\" class=\"third-title\" style=\"\">方案3：</h4><p><span style=\"font-family:微软雅黑\">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;也可以到官网下载标准的</span>Newtonsoft.json包到本地后<span style=\"font-family:微软雅黑\">手动引用，如果仍然不行，手动修改</span>&lt;解决方案名称&gt;.csproj文件中的Newtonsofe.json引用相关代码。</p><p><span style=\"font-family:微软雅黑\">参考如下：</span></p><p>&lt;Reference Include=&quot;Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL&quot;&gt;</p><p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;HintPath&gt;..\\Kingdee.CDP.WebApi.SDK\\packages\\Newtonsoft.Json.13.0.3\\lib\\net45\\Newtonsoft.Json.dll&lt;/HintPath&gt;</p><p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style=\"background-color: rgb(255, 255, 0)\">&lt;SpecificVersion&gt;False&lt;/SpecificVersion&gt;</span></p><p>&lt;/Reference&gt;</p><p><br/></p>"
+  }
+}

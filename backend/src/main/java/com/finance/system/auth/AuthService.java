@@ -6,9 +6,10 @@ import com.finance.system.auth.dto.LoginRequest;
 import com.finance.system.auth.dto.RegisterRequest;
 import com.finance.system.common.exception.BusinessException;
 import com.finance.system.domain.entity.SysUser;
-import com.finance.system.domain.service.RbacService;
-import com.finance.system.domain.service.SysUserService;
+import com.finance.system.rbac.RbacService;
+import com.finance.system.user.SysUserService;
 import com.finance.system.security.JwtService;
+import com.finance.system.security.AuthSessionService;
 import com.finance.system.security.UserPrincipal;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -22,15 +23,18 @@ public class AuthService {
     private final JwtService jwtService;
     private final SysUserService userService;
     private final RbacService rbacService;
+    private final AuthSessionService authSessionService;
 
     public AuthService(AuthenticationManager authenticationManager,
                        JwtService jwtService,
                        SysUserService userService,
-                       RbacService rbacService) {
+                       RbacService rbacService,
+                       AuthSessionService authSessionService) {
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
         this.userService = userService;
         this.rbacService = rbacService;
+        this.authSessionService = authSessionService;
     }
 
     public AuthTokenResponse login(LoginRequest request) {
@@ -38,8 +42,11 @@ public class AuthService {
             UserPrincipal principal = (UserPrincipal) authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.username(), request.password())).getPrincipal();
             SysUser user = userService.getById(principal.getId());
+            String token = jwtService.generateToken(principal);
+            authSessionService.create(user.getId(), jwtService.extractTokenId(token), principal.getTokenVersion(),
+                    jwtService.extractExpiration(token));
             return new AuthTokenResponse(
-                    jwtService.generateToken(principal),
+                    token,
                     "Bearer",
                     jwtService.expirationSeconds(),
                     currentUser(user)
@@ -67,5 +74,10 @@ public class AuthService {
 
     public CurrentUserResponse register(RegisterRequest request) {
         return currentUser(userService.register(request));
+    }
+
+    public void logout(UserPrincipal principal, String token) {
+        if (principal == null || token == null || token.isBlank()) throw new BusinessException(401, "Authentication is required");
+        authSessionService.revoke(principal.getId(), jwtService.extractTokenId(token));
     }
 }

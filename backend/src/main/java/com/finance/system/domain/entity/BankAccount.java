@@ -12,6 +12,7 @@ public class BankAccount {
 
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
+    private Long companyId;
     private String bankCode;
     private String accountName;
     private String accountNumber;
@@ -23,6 +24,8 @@ public class BankAccount {
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+    public Long getCompanyId() { return companyId; }
+    public void setCompanyId(Long companyId) { this.companyId = companyId; }
     public String getBankCode() { return bankCode; }
     public void setBankCode(String bankCode) { this.bankCode = bankCode; }
     public String getAccountName() { return accountName; }

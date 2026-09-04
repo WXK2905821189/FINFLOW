@@ -36,6 +36,8 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     set({ user: response.user, status: 'authenticated' });
   },
   logout: () => {
+    const token = getAccessToken();
+    if (token) void authApi.logout(token).catch(() => undefined);
     clearAccessToken();
     set({ user: null, status: 'anonymous' });
   },

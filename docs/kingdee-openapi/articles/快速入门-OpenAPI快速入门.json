@@ -1,0 +1,636 @@
+{
+  "categoryId": "229963554177453824",
+  "articleId": "288990899248563456",
+  "category": "快速入门",
+  "title": "OpenAPI快速入门",
+  "source": "https://vip.kingdee.com/knowledge/specialDetail/229961573895771136?category=229963554177453824&id=288990899248563456&type=Knowledge&productLineId=1&lang=zh-CN",
+  "fetchedAt": "2026-09-03T04:31:44.295Z",
+  "rawResponse": {
+    "badNum": 4,
+    "identityTagIds": null,
+    "knowledgeId": "288990899248563456",
+    "createdAt": 1646708800000,
+    "collections": 107,
+    "viewAuthority": 1,
+    "feedbackNum": 0,
+    "classifies": [
+      {
+        "code": null,
+        "name": "企业版/标准版",
+        "id": 1,
+        "sort": 0,
+        "type": "product",
+        "child": {
+          "code": null,
+          "name": "协同开发",
+          "id": 5709,
+          "sort": 26,
+          "type": "domain",
+          "child": {
+            "code": "api",
+            "name": "OpenAPI",
+            "id": "228544575986699264",
+            "sort": 3,
+            "type": "module",
+            "child": null,
+            "productLineId": null
+          },
+          "productLineId": null
+        },
+        "productLineId": 1
+      }
+    ],
+    "id": "288990899248563456",
+    "contentType": 1,
+    "updatedAt": 1678763006000,
+    "knowledgeUpdater": {
+      "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+      "department": null,
+      "id": "96907288496966400",
+      "name": "Kidd",
+      "nameSpell": "name"
+    },
+    "assessStatus": 0,
+    "knowledgeStatus": 2,
+    "assessHandleStatus": null,
+    "knowledgeCreatedAt": 1646708800000,
+    "version": 12,
+    "labels": [
+      {
+        "code": "OperatingGuide",
+        "hide": false,
+        "id": "272104133178542080",
+        "name": "功能介绍",
+        "style": 0,
+        "type": 0
+      },
+      {
+        "code": "XSRM",
+        "hide": false,
+        "id": "40",
+        "name": "快速入门",
+        "style": 0,
+        "type": 1
+      }
+    ],
+    "editedAt": 1678763006000,
+    "identityTags": null,
+    "useful": 89,
+    "errors": [],
+    "isCollected": false,
+    "totalFeedBacks": 4,
+    "attachments": [],
+    "sources": [],
+    "editTitle": "OpenAPI快速入门",
+    "title": "OpenAPI快速入门",
+    "content": "<p><img src=\"/download/0100521059b919f14b25905e327bc29fc339.png\"/></p><p>使用星空OpenAPI实现多方系统集成的流程如上图所示。<br/></p><p><br/></p><p><strong>步骤一：</strong><a href=\"https://vip.kingdee.com/knowledge/specialDetail/229961573895771136?productLineId=1&category=229963554177453824&id=298030366575393024\" title=\"\" target=\"_blank\" class=\"\">获取第三方系统登录授权</a></p><p><strong>步骤二：</strong><a href=\"https://openapi.open.kingdee.com/ApiSdkCenter\" title=\"\" target=\"_blank\" class=\"\">下载并使用SDK</a></p><p><strong>步骤三：</strong><a href=\"https://vip.kingdee.com/knowledge/specialDetail/229961573895771136?productLineId=1&category=229963554177453824&id=298050747973900544\" title=\"\" target=\"_blank\" class=\"\">通过SDK调用API接口</a></p><p><strong>步骤四：</strong><a href=\"https://vip.kingdee.com/article/11179?productLineId=1\" title=\"\" target=\"_blank\" class=\"\">数据传输与系统集成</a></p><p><br/></p><p>更多参考链接</p><ul class=\" list-paddingleft-2\" style=\"list-style-type: disc;\"><li><p><a href=\"https://openapi.open.kingdee.com/ApiDoc\" title=\"OpenAPI文档\" target=\"_blank\" class=\"\">OpenAPI文档</a><br/></p></li><li><p><a href=\"https://openapi.open.kingdee.com/ApiSdkCenter\" title=\"SDK下载\" target=\"_blank\" class=\"\">SDK下载</a><br/></p></li></ul>",
+    "products": [
+      {
+        "alias": null,
+        "code": "4468a7c0a53d11e8a7f90050568926a7",
+        "id": 1,
+        "isOpen": 1,
+        "name": "企业版/标准版",
+        "productLineId": 1,
+        "series": "S036",
+        "sort": 0
+      }
+    ],
+    "knowledgeSpecial": [
+      {
+        "categoryList": [
+          {
+            "childCategory": [
+              {
+                "childCategory": [
+                  null
+                ],
+                "code": null,
+                "description": "",
+                "entityId": "288990899248563456",
+                "entityType": "Knowledge",
+                "id": "650387801657128192",
+                "isCategory": false,
+                "name": "Open SDK调用方式",
+                "parentId": "650387419589524736",
+                "sort": "1",
+                "specialId": "650386937144032256",
+                "status": 1
+              }
+            ],
+            "code": null,
+            "description": "",
+            "entityId": null,
+            "entityType": null,
+            "id": "650387419589524736",
+            "isCategory": true,
+            "name": "调用方式",
+            "parentId": "-1",
+            "sort": "2",
+            "specialId": "650386937144032256",
+            "status": 1
+          }
+        ],
+        "classifies": [
+          {
+            "code": null,
+            "name": "企业版/标准版",
+            "id": 1,
+            "sort": 0,
+            "type": "product",
+            "child": {
+              "code": "60",
+              "name": "基础管理",
+              "id": 4945,
+              "sort": 20,
+              "type": "domain",
+              "child": {
+                "code": "SET",
+                "name": "公共设置",
+                "id": 4997,
+                "sort": 1,
+                "type": "module",
+                "child": {
+                  "code": "0050569406d2837711e3fd0d620886f3",
+                  "name": "Web API",
+                  "id": 9517,
+                  "sort": 15,
+                  "type": "bizentity",
+                  "child": null,
+                  "productLineId": null
+                },
+                "productLineId": null
+              },
+              "productLineId": null
+            },
+            "productLineId": 1
+          }
+        ],
+        "collections": 260,
+        "createdAt": "2024-11-29T17:25:29.000+08:00",
+        "creator": {
+          "avatar": "/download/01010eae28ef417e4806ba0499acf4aeef12.png",
+          "department": null,
+          "id": "1149",
+          "name": "王文亮",
+          "nameSpell": "Owen"
+        },
+        "description": "星空WebAPI介绍",
+        "hasCollected": null,
+        "hasHomePage": 0,
+        "id": "650386937144032256",
+        "identityTags": null,
+        "itemNum": 78,
+        "logo": "/download/010031da37c57f854a6cb415a7d9652fcd76.jpg",
+        "name": "WebAPI",
+        "otherProductLineIds": null,
+        "productLineId": "1",
+        "productList": [
+          {
+            "alias": null,
+            "code": "4468a7c0a53d11e8a7f90050568926a7",
+            "id": 1,
+            "isOpen": 1,
+            "name": "企业版/标准版",
+            "productLineId": 1,
+            "series": "S036",
+            "sort": 0
+          }
+        ],
+        "sort": 1,
+        "status": 2,
+        "style": 3,
+        "totalAppraisalScore": 20,
+        "totalAppraisalUsers": 4,
+        "updatedAt": "2025-04-15T09:42:35.000+08:00",
+        "updaterId": "1149",
+        "useCategory": 1,
+        "viewAuthority": 1,
+        "views": 1200060
+      },
+      {
+        "categoryList": [
+          {
+            "childCategory": [
+              {
+                "childCategory": [
+                  null
+                ],
+                "code": null,
+                "description": null,
+                "entityId": "288990899248563456",
+                "entityType": "Knowledge",
+                "id": "288991992435180800",
+                "isCategory": false,
+                "name": "OpenAPI快速入门",
+                "parentId": "229963554177453824",
+                "sort": "3",
+                "specialId": "229961573895771136",
+                "status": 1
+              }
+            ],
+            "code": null,
+            "description": null,
+            "entityId": null,
+            "entityType": null,
+            "id": "229963554177453824",
+            "isCategory": true,
+            "name": "快速入门",
+            "parentId": "-1",
+            "sort": "3",
+            "specialId": "229961573895771136",
+            "status": 1
+          }
+        ],
+        "classifies": null,
+        "collections": 159,
+        "createdAt": "2021-09-26T13:45:11.000+08:00",
+        "creator": {
+          "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+          "department": null,
+          "id": "96907288496966400",
+          "name": "Kidd",
+          "nameSpell": "name"
+        },
+        "description": "OpenAPI",
+        "hasCollected": null,
+        "hasHomePage": 1,
+        "id": "229961573895771136",
+        "identityTags": null,
+        "itemNum": 35,
+        "logo": "/download/01007136e2cc1839483f8b3df1781bcb28f0.png",
+        "name": "OpenAPI",
+        "otherProductLineIds": null,
+        "productLineId": "1",
+        "productList": [
+          {
+            "alias": null,
+            "code": "4468a7c0a53d11e8a7f90050568926a7",
+            "id": 1,
+            "isOpen": 1,
+            "name": "企业版/标准版",
+            "productLineId": 1,
+            "series": "S036",
+            "sort": 0
+          }
+        ],
+        "sort": 3,
+        "status": 2,
+        "style": 3,
+        "totalAppraisalScore": 14,
+        "totalAppraisalUsers": 3,
+        "updatedAt": "2025-06-27T16:28:41.000+08:00",
+        "updaterId": "1149",
+        "useCategory": 1,
+        "viewAuthority": 1,
+        "views": 1361378
+      }
+    ],
+    "entityUrl": null,
+    "needTranslate": null,
+    "knowledgeCreator": {
+      "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+      "department": null,
+      "id": "96907288496966400",
+      "name": "Kidd",
+      "nameSpell": "name"
+    },
+    "totalAppraisalScore": 442,
+    "iflytekId": null,
+    "views": 403094,
+    "productLineId": 1,
+    "comments": 34,
+    "similarityCount": null,
+    "totalAppraisalUsers": 93,
+    "isKnowledge": 1,
+    "knowledgeUpdatedAt": 1678763006000,
+    "appraisalScore": 0,
+    "unuseful": 4,
+    "knowledgeCheckStatus": 2,
+    "otherProductLineIds": [],
+    "auditAt": 1678763020000,
+    "attributes": [
+      {
+        "classifies": [
+          {
+            "child": {
+              "child": {
+                "child": null,
+                "code": "api",
+                "id": "228544575986699264",
+                "name": "OpenAPI",
+                "productLineId": null,
+                "sort": 3,
+                "type": "module"
+              },
+              "code": null,
+              "id": "5709",
+              "name": "协同开发",
+              "productLineId": null,
+              "sort": 26,
+              "type": "domain"
+            },
+            "code": null,
+            "id": "1",
+            "name": "企业版/标准版",
+            "productLineId": 1,
+            "sort": 0,
+            "type": "product"
+          }
+        ],
+        "labels": [
+          {
+            "code": "OperatingGuide",
+            "createdAt": 1642682681000,
+            "creator": {
+              "avatar": "/download?fileName=010162cfa9d4437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "1",
+              "name": "administrator",
+              "nameSpell": "administrator"
+            },
+            "description": "功能介绍",
+            "hasSpecifyUser": false,
+            "hide": false,
+            "icon": "/download/010067c2eb39e20946d0a9c9adc55eb5f864.png",
+            "id": "272104133178542080",
+            "name": "功能介绍",
+            "productLine": {
+              "active": true,
+              "appLogo": "星空",
+              "categoryCode": "C04",
+              "courseLogo": "/download/01009af04319c0514a20a059f889104d4dd7.png",
+              "domain": null,
+              "enablePaymentCourse": false,
+              "hasAtlas": true,
+              "hasIdea": false,
+              "hasKnowledge": true,
+              "hasQZ": false,
+              "id": 1,
+              "isDefault": null,
+              "isOpen": true,
+              "isValidLearning": true,
+              "isVirtual": false,
+              "logo": "/download/01007dc91abec4a8458d8bd9eefa81a0238b.png",
+              "name": "金蝶AI星空企业版/标准版",
+              "rank": 7,
+              "seriesCode": "S036"
+            },
+            "specifyUsers": [],
+            "style": 0,
+            "type": 0,
+            "updatePerson": {
+              "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "306913800727243776",
+              "name": "Paim",
+              "nameSpell": "name"
+            },
+            "updatedAt": 1657853546000
+          },
+          {
+            "code": "XSRM",
+            "createdAt": 1568798823000,
+            "creator": {
+              "avatar": "/download?fileName=01014c2c1c8b203f4a8aaa1e18dce7725efa.png",
+              "department": null,
+              "id": "1155",
+              "name": "陈旭",
+              "nameSpell": "lansehuanxiang"
+            },
+            "description": "快速入门",
+            "hasSpecifyUser": false,
+            "hide": false,
+            "icon": "/download?fileName=01007ab64f34c9004072ad021d226f8216fe.png",
+            "id": "40",
+            "name": "快速入门",
+            "productLine": {
+              "active": true,
+              "appLogo": "星空",
+              "categoryCode": "C04",
+              "courseLogo": "/download/01009af04319c0514a20a059f889104d4dd7.png",
+              "domain": null,
+              "enablePaymentCourse": false,
+              "hasAtlas": true,
+              "hasIdea": false,
+              "hasKnowledge": true,
+              "hasQZ": false,
+              "id": 1,
+              "isDefault": null,
+              "isOpen": true,
+              "isValidLearning": true,
+              "isVirtual": false,
+              "logo": "/download/01007dc91abec4a8458d8bd9eefa81a0238b.png",
+              "name": "金蝶AI星空企业版/标准版",
+              "rank": 7,
+              "seriesCode": "S036"
+            },
+            "specifyUsers": [],
+            "style": 0,
+            "type": 1,
+            "updatePerson": {
+              "avatar": "/download/0101f60bc4bb22124014a63b35b1083486e8.png",
+              "department": null,
+              "id": "234310606810391808",
+              "name": "咬咬咬咬人",
+              "nameSpell": "name"
+            },
+            "updatedAt": 1660218233000
+          }
+        ],
+        "productLineId": 1,
+        "specials": [
+          {
+            "categoryList": [
+              {
+                "childCategory": [
+                  {
+                    "childCategory": [
+                      null
+                    ],
+                    "code": null,
+                    "description": "",
+                    "entityId": "288990899248563456",
+                    "entityType": "Knowledge",
+                    "id": "650387801657128192",
+                    "isCategory": false,
+                    "name": "Open SDK调用方式",
+                    "parentId": "650387419589524736",
+                    "sort": "1",
+                    "specialId": "650386937144032256",
+                    "status": 1
+                  }
+                ],
+                "code": null,
+                "description": "",
+                "entityId": null,
+                "entityType": null,
+                "id": "650387419589524736",
+                "isCategory": true,
+                "name": "调用方式",
+                "parentId": "-1",
+                "sort": "2",
+                "specialId": "650386937144032256",
+                "status": 1
+              }
+            ],
+            "classifies": [
+              {
+                "code": null,
+                "name": "企业版/标准版",
+                "id": 1,
+                "sort": 0,
+                "type": "product",
+                "child": {
+                  "code": "60",
+                  "name": "基础管理",
+                  "id": 4945,
+                  "sort": 20,
+                  "type": "domain",
+                  "child": {
+                    "code": "SET",
+                    "name": "公共设置",
+                    "id": 4997,
+                    "sort": 1,
+                    "type": "module",
+                    "child": {
+                      "code": "0050569406d2837711e3fd0d620886f3",
+                      "name": "Web API",
+                      "id": 9517,
+                      "sort": 15,
+                      "type": "bizentity",
+                      "child": null,
+                      "productLineId": null
+                    },
+                    "productLineId": null
+                  },
+                  "productLineId": null
+                },
+                "productLineId": 1
+              }
+            ],
+            "collections": 260,
+            "createdAt": "2024-11-29T17:25:29.000+08:00",
+            "creator": {
+              "avatar": "/download/01010eae28ef417e4806ba0499acf4aeef12.png",
+              "department": null,
+              "id": "1149",
+              "name": "王文亮",
+              "nameSpell": "Owen"
+            },
+            "description": "星空WebAPI介绍",
+            "hasCollected": null,
+            "hasHomePage": 0,
+            "id": "650386937144032256",
+            "identityTags": null,
+            "itemNum": 78,
+            "logo": "/download/010031da37c57f854a6cb415a7d9652fcd76.jpg",
+            "name": "WebAPI",
+            "otherProductLineIds": null,
+            "productLineId": "1",
+            "productList": [
+              {
+                "alias": null,
+                "code": "4468a7c0a53d11e8a7f90050568926a7",
+                "id": 1,
+                "isOpen": 1,
+                "name": "企业版/标准版",
+                "productLineId": 1,
+                "series": "S036",
+                "sort": 0
+              }
+            ],
+            "sort": 1,
+            "status": 2,
+            "style": 3,
+            "totalAppraisalScore": 20,
+            "totalAppraisalUsers": 4,
+            "updatedAt": "2025-04-15T09:42:35.000+08:00",
+            "updaterId": "1149",
+            "useCategory": 1,
+            "viewAuthority": 1,
+            "views": 1200060
+          },
+          {
+            "categoryList": [
+              {
+                "childCategory": [
+                  {
+                    "childCategory": [
+                      null
+                    ],
+                    "code": null,
+                    "description": null,
+                    "entityId": "288990899248563456",
+                    "entityType": "Knowledge",
+                    "id": "288991992435180800",
+                    "isCategory": false,
+                    "name": "OpenAPI快速入门",
+                    "parentId": "229963554177453824",
+                    "sort": "3",
+                    "specialId": "229961573895771136",
+                    "status": 1
+                  }
+                ],
+                "code": null,
+                "description": null,
+                "entityId": null,
+                "entityType": null,
+                "id": "229963554177453824",
+                "isCategory": true,
+                "name": "快速入门",
+                "parentId": "-1",
+                "sort": "3",
+                "specialId": "229961573895771136",
+                "status": 1
+              }
+            ],
+            "classifies": null,
+            "collections": 159,
+            "createdAt": "2021-09-26T13:45:11.000+08:00",
+            "creator": {
+              "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "96907288496966400",
+              "name": "Kidd",
+              "nameSpell": "name"
+            },
+            "description": "OpenAPI",
+            "hasCollected": null,
+            "hasHomePage": 1,
+            "id": "229961573895771136",
+            "identityTags": null,
+            "itemNum": 35,
+            "logo": "/download/01007136e2cc1839483f8b3df1781bcb28f0.png",
+            "name": "OpenAPI",
+            "otherProductLineIds": null,
+            "productLineId": "1",
+            "productList": [
+              {
+                "alias": null,
+                "code": "4468a7c0a53d11e8a7f90050568926a7",
+                "id": 1,
+                "isOpen": 1,
+                "name": "企业版/标准版",
+                "productLineId": 1,
+                "series": "S036",
+                "sort": 0
+              }
+            ],
+            "sort": 3,
+            "status": 2,
+            "style": 3,
+            "totalAppraisalScore": 14,
+            "totalAppraisalUsers": 3,
+            "updatedAt": "2025-06-27T16:28:41.000+08:00",
+            "updaterId": "1149",
+            "useCategory": 1,
+            "viewAuthority": 1,
+            "views": 1361378
+          }
+        ]
+      }
+    ],
+    "editContent": "<p><img src=\"/download/0100521059b919f14b25905e327bc29fc339.png\"/></p><p>使用星空OpenAPI实现多方系统集成的流程如上图所示。<br/></p><p><br/></p><p><strong>步骤一：</strong><a href=\"https://vip.kingdee.com/knowledge/specialDetail/229961573895771136?productLineId=1&category=229963554177453824&id=298030366575393024\" title=\"\" target=\"_blank\" class=\"\">获取第三方系统登录授权</a></p><p><strong>步骤二：</strong><a href=\"https://openapi.open.kingdee.com/ApiSdkCenter\" title=\"\" target=\"_blank\" class=\"\">下载并使用SDK</a></p><p><strong>步骤三：</strong><a href=\"https://vip.kingdee.com/knowledge/specialDetail/229961573895771136?productLineId=1&category=229963554177453824&id=298050747973900544\" title=\"\" target=\"_blank\" class=\"\">通过SDK调用API接口</a></p><p><strong>步骤四：</strong><a href=\"https://vip.kingdee.com/article/11179?productLineId=1\" title=\"\" target=\"_blank\" class=\"\">数据传输与系统集成</a></p><p><br/></p><p>更多参考链接</p><ul class=\" list-paddingleft-2\" style=\"list-style-type: disc;\"><li><p><a href=\"https://openapi.open.kingdee.com/ApiDoc\" title=\"OpenAPI文档\" target=\"_blank\" class=\"\">OpenAPI文档</a><br/></p></li><li><p><a href=\"https://openapi.open.kingdee.com/ApiSdkCenter\" title=\"SDK下载\" target=\"_blank\" class=\"\">SDK下载</a><br/></p></li></ul>"
+  }
+}

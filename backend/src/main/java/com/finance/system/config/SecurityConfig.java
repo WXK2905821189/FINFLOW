@@ -22,6 +22,7 @@ import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.http.HttpMethod;
 
 @Configuration
 @EnableWebSecurity
@@ -62,8 +63,10 @@ public class SecurityConfig {
                         .accessDeniedHandler(accessDeniedHandler))
                 .authenticationProvider(authenticationProvider)
                 .authorizeHttpRequests(authorize -> authorize
+                        // 自注册已关闭（P0 2026-09-02）：公网注册入口移除，仅保留登录；
+                        // 新账号由具备 user:manage 的管理员通过 POST /api/users 或受限的 register 端点开通
+                        .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                         .requestMatchers(
-                                "/api/auth/**",
                                 "/doc.html",
                                 "/webjars/**",
                                 "/v3/api-docs/**",

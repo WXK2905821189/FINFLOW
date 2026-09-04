@@ -11,6 +11,7 @@ public class StatementAuditEvent {
 
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
+    private Long companyId;
     private Long statementId;
     private Long batchId;
     private String action;
@@ -23,6 +24,8 @@ public class StatementAuditEvent {
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+    public Long getCompanyId() { return companyId; }
+    public void setCompanyId(Long companyId) { this.companyId = companyId; }
     public Long getStatementId() { return statementId; }
     public void setStatementId(Long statementId) { this.statementId = statementId; }
     public Long getBatchId() { return batchId; }

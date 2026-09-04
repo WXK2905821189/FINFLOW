@@ -1,0 +1,129 @@
+package com.finance.system.bankdata;
+
+import com.finance.system.bankdata.dto.BankDataProjectionResponse;
+import com.finance.system.bankdata.dto.BankDataProjectionPageResponse;
+import com.finance.system.bankdata.dto.BankDataTraceResponse;
+import com.finance.system.bankdata.dto.BankSyncJobDetailResponse;
+import com.finance.system.bankdata.dto.BankSyncJobResponse;
+import com.finance.system.bankdata.dto.BankSyncJobTriggerRequest;
+import com.finance.system.common.api.ApiResponse;
+import com.finance.system.common.api.PageResponse;
+import com.finance.system.security.UserPrincipal;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.time.LocalDateTime;
+import java.util.Locale;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api")
+@SecurityRequirement(name = "bearerAuth")
+@Tag(name = "Bank data pipeline", description = "Canonical simulated bank-data synchronization and projection API")
+public class BankPipelineController {
+
+    private final BankDataSyncService service;
+    private final BankDataQueryService queryService;
+    private final BankDataTraceService traceService;
+
+    public BankPipelineController(BankDataSyncService service, BankDataQueryService queryService,
+                                  BankDataTraceService traceService) {
+        this.service = service;
+        this.queryService = queryService;
+        this.traceService = traceService;
+    }
+
+    @PostMapping("/bank-sync-jobs")
+    @PreAuthorize("hasAuthority('bankdata:sync:trigger')")
+    @Operation(summary = "Create a controlled bank synchronization job")
+    public ApiResponse<BankSyncJobResponse> trigger(
+            @Valid @RequestBody BankSyncJobTriggerRequest request,
+            @RequestHeader(value = "X-Request-Id", required = false) String requestId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success("Bank synchronization job created",
+                service.triggerJob(principal.getId(), request, requestId).job());
+    }
+
+    @GetMapping("/bank-sync-jobs")
+    @PreAuthorize("hasAnyAuthority('bankdata:view', 'operation:monitor')")
+    @Operation(summary = "List controlled bank synchronization jobs")
+    public ApiResponse<PageResponse<BankSyncJobResponse>> jobs(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String jobType,
+            @RequestParam(required = false) String connectionCode,
+            @RequestParam(required = false) String requestId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success(queryService.listJobs(principal.getId(), page, size, status, jobType,
+                connectionCode, requestId));
+    }
+
+    @GetMapping("/bank-sync-jobs/{id}")
+    @PreAuthorize("hasAnyAuthority('bankdata:view', 'operation:monitor')")
+    @Operation(summary = "Get a controlled bank synchronization job")
+    public ApiResponse<BankSyncJobDetailResponse> job(@PathVariable Long id,
+                                                       @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success(queryService.getJob(principal.getId(), id));
+    }
+
+    @GetMapping("/bank-data/{resource}")
+    @PreAuthorize("hasAnyAuthority('bankdata:view', 'bankdata:balance:view', 'bankdata:statement:view', 'bankdata:receipt:view', 'bankdata:reconciliation:view', 'bankdata:payroll:view')")
+    @Operation(summary = "Query a controlled bank data projection")
+    public ApiResponse<BankDataProjectionPageResponse> projection(
+            @PathVariable String resource,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) Long accountId,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
+            @RequestParam(required = false) String sourceSystem,
+            @RequestParam(required = false) String syncJobNo,
+            @RequestParam(required = false) String requestId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        if (!principal.getAuthorities().stream().anyMatch(authority -> authority.getAuthority().equals("bankdata:view"))
+                && !principal.getAuthorities().stream().anyMatch(authority -> authority.getAuthority().equals(permissionFor(resource)))) {
+            throw new org.springframework.security.access.AccessDeniedException("Bank data projection permission is required");
+        }
+        return ApiResponse.success(queryService.queryProjection(principal.getId(), resource, page, size, status,
+                accountId, keyword, from, to, sourceSystem, syncJobNo, requestId));
+    }
+
+    @GetMapping("/bank-data-trace")
+    @PreAuthorize("hasAuthority('bankdata:view')")
+    @Operation(summary = "Trace one bank synchronization end to end",
+            description = "Chains task number, request id, bank request number, raw summaries, normalized records "
+                    + "and projection availability inside the caller company; raw payloads are never returned")
+    public ApiResponse<BankDataTraceResponse> trace(
+            @RequestParam(required = false) String taskNo,
+            @RequestParam(required = false) String requestId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success("Bank data trace resolved",
+                traceService.trace(principal.getId(), taskNo, requestId));
+    }
+
+    private String permissionFor(String resource) {
+        return Map.of(
+                "balances", "bankdata:balance:view",
+                "statements", "bankdata:statement:view",
+                "receipts", "bankdata:receipt:view",
+                "reconciliations", "bankdata:reconciliation:view",
+                "payroll", "bankdata:payroll:view"
+        ).getOrDefault(resource == null ? "" : resource.trim().toLowerCase(Locale.ROOT), "bankdata:invalid");
+    }
+}

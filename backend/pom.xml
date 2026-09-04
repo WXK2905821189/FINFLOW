@@ -90,6 +90,19 @@
             <version>${knife4j.version}</version>
         </dependency>
 
+        <!-- CMB CloudDC (免前置) adapter: public OSS crypto/JSON libs. SM2/SM4 come from
+             BouncyCastle; version pinned to 1.61 matching the vendor demo's 说明.txt.
+             gson version is managed by the Spring Boot BOM. -->
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-jdk15on</artifactId>
+            <version>1.61</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
@@ -108,6 +121,112 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.12</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>jacoco-report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!--
+          CITIC DLink SDK integration (bankdata.adapter.citic real mode).
+
+          The vendor SDK jars are commercial binaries and MUST NOT be committed to git
+          (enforced by .github/workflows/ci.yml release-contract). They are installed into
+          the local ~/.m2 only (mvn install:install-file). The profile auto-activates when
+          the SDK jar exists locally, so machines with the SDK compile the real transport
+          and machines without it build out of the box with the 501 placeholder
+          (UnavailableCiticDlinkSdk) as the transport boundary. CI (no com.citicbank:*
+          available) keeps an explicit `-P '!citic-sdk'` deactivation as a belt-and-braces
+          guard; review 2026-09-03 P1-1 replaced activeByDefault with file-exists
+          activation because activeByDefault silently deactivates the moment any other
+          profile is activated anywhere.
+        -->
+        <profile>
+            <id>citic-sdk</id>
+            <activation>
+                <file>
+                    <exists>${user.home}/.m2/repository/com/citicbank/dlink-sdk-lib/4.1.3/dlink-sdk-lib-4.1.3.jar</exists>
+                </file>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>com.citicbank</groupId>
+                    <artifactId>dlink-sdk-lib</artifactId>
+                    <version>4.1.3</version>
+                </dependency>
+                <dependency>
+                    <groupId>com.citicbank</groupId>
+                    <artifactId>dlink-sdk-log</artifactId>
+                    <version>1.1.0</version>
+                </dependency>
+                <dependency>
+                    <groupId>com.citicbank</groupId>
+                    <artifactId>isec-func</artifactId>
+                    <version>2.0.1.9</version>
+                </dependency>
+                <dependency>
+                    <groupId>com.citicbank</groupId>
+                    <artifactId>isec-jce</artifactId>
+                    <version>2.0.1.9</version>
+                </dependency>
+                <dependency>
+                    <groupId>com.citicbank</groupId>
+                    <artifactId>logback-cfca</artifactId>
+                    <version>4.1.1.0</version>
+                </dependency>
+            </dependencies>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>build-helper-maven-plugin</artifactId>
+                        <version>3.6.0</version>
+                        <executions>
+                            <execution>
+                                <id>add-citic-sdk-source</id>
+                                <phase>generate-sources</phase>
+                                <goals>
+                                    <goal>add-source</goal>
+                                </goals>
+                                <configuration>
+                                    <sources>
+                                        <source>src/citic-sdk/java</source>
+                                    </sources>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>add-citic-sdk-test-source</id>
+                                <phase>generate-test-sources</phase>
+                                <goals>
+                                    <goal>add-test-source</goal>
+                                </goals>
+                                <configuration>
+                                    <sources>
+                                        <source>src/citic-sdk/test</source>
+                                    </sources>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

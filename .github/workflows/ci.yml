@@ -10,6 +10,295 @@ permissions:
   contents: read
 
 jobs:
+  release-contract:
+    name: Release contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Verify migration and integration boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          migration_dir=backend/src/main/resources/db/migration
+          test -f "$migration_dir/V1__init_rbac_and_bank_accounts.sql"
+          test -f "$migration_dir/V2__statement_import_and_voucher_push.sql"
+          compgen -G "$migration_dir/V3__*.sql" > /dev/null
+          test -f "$migration_dir/V4__bank_data_access_foundation.sql"
+          test -f "$migration_dir/V5__bank_data_balance_and_adapter_port.sql"
+           test -f "$migration_dir/V6__tenant_statement_payment_and_session_safety.sql"
+           test -f "$migration_dir/V8__payment_request_audit_and_unknown_resolution.sql"
+           test -f "$migration_dir/V9__bankdata_phase2_windows_retention.sql"
+           test -f "$migration_dir/V10__feishu_mock_collaboration.sql"
+           test -f "$migration_dir/V11__rules_closing_and_audit_center.sql"
+           test -f "$migration_dir/V12__bankdata_unified_aggregation_trace.sql"
+           test -f "$migration_dir/V13__permission_code_convergence.sql"
+           test -f "$migration_dir/V14__retire_dead_transfer_permissions.sql"
+           test -f backend/src/main/resources/db/vendor-migration/h2/V7__drop_legacy_statement_number_uniqueness.sql
+           test -f backend/src/main/resources/db/vendor-migration/mysql/V7__drop_legacy_statement_number_uniqueness.sql
+           expected_versions=(V1 V2 V3 V4 V5 V6 V8 V9 V10 V11 V12 V13 V14 V15)
+          actual_versions=()
+          while IFS= read -r migration; do
+            version="${migration##*/}"
+            version="${version%%__*}"
+            actual_versions+=("$version")
+          done < <(find "$migration_dir" -maxdepth 1 -type f -name 'V*.sql' -printf '%f\n' | sort -V)
+          test "${actual_versions[*]}" = "${expected_versions[*]}"
+          grep -q 'CREATE TABLE bank_data_raw_message' "$migration_dir/V4__bank_data_access_foundation.sql"
+          grep -q 'retention_until TIMESTAMP NOT NULL' "$migration_dir/V4__bank_data_access_foundation.sql"
+          grep -q 'raw.setRetentionUntil(receivedAt.plusDays(30))' backend/src/main/java/com/finance/system/bankdata/BankDataSyncEvidenceService.java
+          grep -q 'Propagation.REQUIRES_NEW' backend/src/main/java/com/finance/system/bankdata/BankDataSyncEvidenceService.java
+          grep -q '@Scheduled' backend/src/main/java/com/finance/system/bankdata/BankDataSyncScheduler.java
+          grep -q '@PostMapping("/bank-sync-jobs")' backend/src/main/java/com/finance/system/bankdata/BankPipelineController.java
+          # mock adapters are test-only fixtures since the de-mock cleanup: they must never
+          # ship inside src/main (a production mock fallback would defeat fail-closed routing)
+          ! grep -q 'class MockBankDataAdapter' backend/src/main/java/com/finance/system/bankdata/adapter/MockBankDataAdapter.java 2>/dev/null
+          test -f backend/src/test/java/com/finance/system/bankdata/adapter/MockBankDataAdapter.java
+          grep -q 'class MockBankDataAdapter' backend/src/test/java/com/finance/system/bankdata/adapter/MockBankDataAdapter.java
+          grep -q 'String requestId' backend/src/main/java/com/finance/system/bankdata/BankPipelineController.java
+          grep -q 'url: \${DB_URL}' backend/src/main/resources/application-prod.yml
+          grep -q 'username: \${DB_USERNAME}' backend/src/main/resources/application-prod.yml
+          grep -q 'password: \${DB_PASSWORD}' backend/src/main/resources/application-prod.yml
+          ! grep -q 'DB_USERNAME:finance' backend/src/main/resources/application-prod.yml
+          ! grep -q 'useSSL=false' backend/src/main/resources/application-prod.yml
+          grep -q 'requestId' backend/src/main/java/com/finance/system/bankdata/BankPipelineController.java
+          grep -q 'case UNKNOWN ->' backend/src/main/java/com/finance/system/bankdata/aggregation/BankDataAggregationService.java
+          grep -q 'request_id' backend/src/main/resources/db/migration/V8__payment_request_audit_and_unknown_resolution.sql
+          grep -q 'CONSTRAINT uk_bank_statement_business UNIQUE (company_id, bank_account_id, statement_no, transaction_time, amount)' "$migration_dir/V4__bank_data_access_foundation.sql"
+          grep -q 'CREATE UNIQUE INDEX uk_bank_sync_task_request ON bank_data_sync_task(company_id, request_id)' "$migration_dir/V4__bank_data_access_foundation.sql"
+          grep -q 'CONSTRAINT uk_payment_company_idempotency UNIQUE (company_id, idempotency_key)' "$migration_dir/V6__tenant_statement_payment_and_session_safety.sql"
+           grep -q 'ALTER TABLE payment_transfer ADD COLUMN request_id' backend/src/main/resources/db/migration/V8__payment_request_audit_and_unknown_resolution.sql
+           grep -q 'ALTER TABLE bank_data_sync_task ADD COLUMN sync_key' "$migration_dir/V9__bankdata_phase2_windows_retention.sql"
+           grep -q 'CREATE INDEX idx_bank_raw_retention_purge' "$migration_dir/V9__bankdata_phase2_windows_retention.sql"
+           grep -q 'CREATE TABLE validation_rule' "$migration_dir/V11__rules_closing_and_audit_center.sql"
+           grep -q 'CREATE TABLE closing_period' "$migration_dir/V11__rules_closing_and_audit_center.sql"
+           grep -q 'CREATE TABLE system_audit_event' "$migration_dir/V11__rules_closing_and_audit_center.sql"
+           grep -q 'ADD COLUMN mapping_version' "$migration_dir/V12__bankdata_unified_aggregation_trace.sql"
+           grep -q 'code IN ('"'"'bankdata:sync'"'"', '"'"'bank-sync:trigger'"'"', '"'"'bankdata:payment:view'"'"')' "$migration_dir/V13__permission_code_convergence.sql"
+          grep -q 'DROP CONSTRAINT IF EXISTS' backend/src/main/resources/db/vendor-migration/h2/V7__drop_legacy_statement_number_uniqueness.sql
+          grep -q 'PREPARE drop_legacy_statement_index' backend/src/main/resources/db/vendor-migration/mysql/V7__drop_legacy_statement_number_uniqueness.sql
+          grep -q 'classpath:db/vendor-migration/{vendor}' backend/src/main/resources/application.yml
+          # bankdata must not call a real bank over HTTP yet; the XML security feature
+          # URIs in CiticResponseXml (http://apache.org/xml, http://xml.org/sax) are parser
+          # hardening constants, not network calls, so they are filtered out
+          if git grep -n -I -E '(HttpClient|RestTemplate|WebClient|java\.net\.http|https?://)' -- backend/src/main/java/com/finance/system/bankdata \
+             | grep -vE 'apache\.org/xml/features|xml\.org/sax/features'; then
+            echo "v0.2 must not call a real bank SDK or API before a separately approved adapter release."
+            exit 1
+          fi
+          if git grep -n -I -E '(BANK|KINGDEE)_(API_)?(KEY|SECRET|TOKEN)=[^${[:space:]]+' -- . ':!docs/deployment-guide.md'; then
+            echo "Production bank or Kingdee credentials must not be committed."
+            exit 1
+          fi
+          test -f docs/v0.2/bank-data-runbook.md
+          grep -q 'Java 17 与 Java 8 SDK 兼容性验证' docs/v0.2/bank-data-runbook.md
+          grep -q '网络白名单、IP 与 MAC 变更' docs/v0.2/bank-data-runbook.md
+          grep -q '证书目录、日志目录与敏感配置注入' docs/v0.2/bank-data-runbook.md
+          # authoritative delivery/ops docs that replaced the retired v0.2 validation reports (removed 7b7e06b)
+          test -f docs/citic-bank-interface-dev-guide.md
+          test -f docs/deployment-aliyun-2026-09-02-noconsole.md
+          test -f docs/bank-connect-schedule-2026-09-03.md
+          test -f docs/maintenance-sop.md
+          test -f docs/pending-fixes.md
+          # REAL CITIC stays off by default until bank whitelisting; the dev-guide must record that contract
+          grep -q 'real-enabled' docs/citic-bank-interface-dev-guide.md
+          if find . -type f \( -iname '*.p12' -o -iname '*.pfx' -o -iname '*.jks' -o -iname '*.keystore' -o -iname '*.pem' -o -iname '*.key' -o -iname '*citic*.jar' \) -not -path './frontend/node_modules/*' -print -quit | grep -q .; then
+            echo "Bank SDK binaries, certificates, keystores, or private keys must not be committed."
+            exit 1
+          fi
+
+  h2-migration:
+    name: H2 migration (empty and repeat startup)
+    needs: release-contract
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+
+      - name: Package backend
+        run: mvn --batch-mode --no-transfer-progress -P '!citic-sdk' clean package -DskipTests
+
+      - name: Migrate H2 and verify repeat startup
+        shell: bash
+        run: |
+          set -euo pipefail
+          jar_file="$(find target -maxdepth 1 -type f -name '*.jar' ! -name '*.original' -print -quit)"
+          test -n "$jar_file"
+          db_url="jdbc:h2:file:${RUNNER_TEMP}/finflow-h2;MODE=MySQL"
+          first_log="${RUNNER_TEMP}/finflow-h2-first.log"
+          repeat_log="${RUNNER_TEMP}/finflow-h2-repeat.log"
+
+          wait_for_health() {
+            for attempt in $(seq 1 60); do
+              if curl --fail --silent http://127.0.0.1:18080/v3/api-docs > /dev/null; then
+                return 0
+              fi
+              sleep 2
+            done
+            cat "$1"
+            return 1
+          }
+
+          java -jar "$jar_file" \
+            --server.port=18080 \
+            --spring.datasource.url="$db_url" \
+            --spring.h2.console.enabled=false \
+            > "$first_log" 2>&1 &
+          app_pid=$!
+          trap 'kill "$app_pid" 2>/dev/null || true; wait "$app_pid" 2>/dev/null || true' EXIT
+          wait_for_health "$first_log"
+          grep -q 'Successfully applied 15 migrations' "$first_log"
+          kill "$app_pid"
+          wait "$app_pid" || true
+          app_pid=""
+
+          java -jar "$jar_file" \
+            --server.port=18080 \
+            --spring.datasource.url="$db_url" \
+            --spring.h2.console.enabled=false \
+            > "$repeat_log" 2>&1 &
+          app_pid=$!
+          wait_for_health "$repeat_log"
+          grep -q 'Successfully validated 15 migrations' "$repeat_log"
+          ! grep -q 'Migrating schema' "$repeat_log"
+          kill "$app_pid"
+          wait "$app_pid" || true
+          app_pid=""
+
+  mysql-migration:
+    name: MySQL migration (CI service container)
+    needs: release-contract
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Start MySQL container (RDS-like flags)
+        # GitHub Actions job services do not support a custom `command`, so mysqld is
+        # started with a plain docker run. mysql:8.0 matches Aliyun RDS 8.0.36's major
+        # version; explicit_defaults_for_timestamp=OFF + the strict sql-mode mirror the
+        # real RDS parameter template (a bare TIMESTAMP regression would otherwise slip
+        # through, see deployment-aliyun-2026-09-02-noconsole.md).
+        run: |
+          docker run -d --name finflow-mysql -p 3306:3306 \
+            -e MYSQL_ROOT_PASSWORD=ci-root-password \
+            -e MYSQL_DATABASE=finflow_ci \
+            mysql:8.0 \
+            --explicit_defaults_for_timestamp=OFF \
+            --sql-mode="ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION"
+
+      - name: Wait for MySQL to accept connections
+        run: |
+          for i in $(seq 1 60); do
+            if docker exec finflow-mysql mysqladmin ping -h127.0.0.1 -uroot -pci-root-password --silent 2>/dev/null; then
+              echo "MySQL ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "MySQL did not become ready"
+          docker logs finflow-mysql 2>&1 | tail -30 || true
+          exit 1
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+
+      - name: Package backend
+        run: mvn --batch-mode --no-transfer-progress -P '!citic-sdk' clean package -DskipTests
+
+      - name: Migrate MySQL empty, incremental and repeat startup
+        shell: bash
+        env:
+          DB_URL: jdbc:mysql://127.0.0.1:3306/finflow_ci?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+          DB_USERNAME: root
+          DB_PASSWORD: ci-root-password
+          JWT_SECRET: ci-only-jwt-secret-0123456789abcdef
+          CITIC_MOCK_MODE: "true"
+          KINGDEE_MOCK_MODE: "true"
+        run: |
+          set -euo pipefail
+          jar_file="$(find target -maxdepth 1 -type f -name '*.jar' ! -name '*.original' -print -quit)"
+          test -n "$jar_file"
+          first_log="${RUNNER_TEMP}/finflow-mysql-v1-v5.log"
+          incremental_log="${RUNNER_TEMP}/finflow-mysql-v6-v9.log"
+          repeat_log="${RUNNER_TEMP}/finflow-mysql-repeat.log"
+
+          wait_for_health() {
+            for attempt in $(seq 1 60); do
+              if curl --fail --silent http://127.0.0.1:18080/v3/api-docs > /dev/null; then
+                return 0
+              fi
+              sleep 2
+            done
+            cat "$1"
+            return 1
+          }
+
+          java -jar "$jar_file" \
+            --server.port=18080 \
+            --spring.profiles.active=prod \
+            --spring.flyway.target=5 \
+            > "$first_log" 2>&1 &
+          app_pid=$!
+          trap 'kill "$app_pid" 2>/dev/null || true; wait "$app_pid" 2>/dev/null || true' EXIT
+          wait_for_health "$first_log"
+          grep -q 'Successfully applied 5 migrations' "$first_log"
+          kill "$app_pid"
+          wait "$app_pid" || true
+          app_pid=""
+
+          java -jar "$jar_file" \
+            --server.port=18080 \
+            --spring.profiles.active=prod \
+            > "$incremental_log" 2>&1 &
+          app_pid=$!
+          wait_for_health "$incremental_log"
+          grep -q 'Migrating schema.*version "6' "$incremental_log"
+          grep -q 'Migrating schema.*version "7' "$incremental_log"
+          grep -q 'Migrating schema.*version "8' "$incremental_log"
+          grep -q 'Migrating schema.*version "9' "$incremental_log"
+          grep -q 'Migrating schema.*version "10' "$incremental_log"
+          grep -q 'Migrating schema.*version "11' "$incremental_log"
+          grep -q 'Migrating schema.*version "12' "$incremental_log"
+          grep -q 'Migrating schema.*version "13' "$incremental_log"
+          grep -q 'Migrating schema.*version "14' "$incremental_log"
+          grep -q 'Migrating schema.*version "15' "$incremental_log"
+          grep -q 'Successfully applied 10 migrations' "$incremental_log"
+          kill "$app_pid"
+          wait "$app_pid" || true
+          app_pid=""
+
+          java -jar "$jar_file" \
+            --server.port=18080 \
+            --spring.profiles.active=prod \
+            > "$repeat_log" 2>&1 &
+          app_pid=$!
+          wait_for_health "$repeat_log"
+          grep -q 'Successfully validated 15 migrations' "$repeat_log"
+          ! grep -q 'Migrating schema' "$repeat_log"
+          kill "$app_pid"
+          wait "$app_pid" || true
+
   backend:
     name: Backend (Java 17 / Maven)
     runs-on: ubuntu-latest
@@ -29,7 +318,7 @@ jobs:
           cache-dependency-path: backend/pom.xml
 
       - name: Build and test
-        run: mvn --batch-mode --no-transfer-progress verify
+        run: mvn --batch-mode --no-transfer-progress -P '!citic-sdk' verify -Djacoco.skip=true
 
   frontend:
     name: Frontend (Node 20 / pnpm)
@@ -55,6 +344,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm run lint
 
       - name: Build
         run: pnpm run build

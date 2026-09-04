@@ -1,0 +1,414 @@
+{
+  "categoryId": "229963348454780672",
+  "articleId": "298029356990162688",
+  "category": "整体介绍",
+  "title": "金蝶云星空OpenAPI介绍",
+  "source": "https://vip.kingdee.com/knowledge/specialDetail/229961573895771136?category=229963348454780672&id=298029356990162688&type=Knowledge&productLineId=1&lang=zh-CN",
+  "fetchedAt": "2026-09-03T04:31:44.132Z",
+  "rawResponse": {
+    "badNum": 1,
+    "identityTagIds": null,
+    "knowledgeId": "298029356990162688",
+    "createdAt": 1648863736000,
+    "collections": 42,
+    "viewAuthority": 1,
+    "feedbackNum": 0,
+    "classifies": [
+      {
+        "code": null,
+        "name": "企业版/标准版",
+        "id": 1,
+        "sort": 0,
+        "type": "product",
+        "child": {
+          "code": null,
+          "name": "协同开发",
+          "id": 5709,
+          "sort": 26,
+          "type": "domain",
+          "child": {
+            "code": "api",
+            "name": "OpenAPI",
+            "id": "228544575986699264",
+            "sort": 3,
+            "type": "module",
+            "child": null,
+            "productLineId": null
+          },
+          "productLineId": null
+        },
+        "productLineId": 1
+      }
+    ],
+    "id": "298029356990162688",
+    "contentType": 1,
+    "updatedAt": 1752629564000,
+    "knowledgeUpdater": {
+      "avatar": "/download/01010eae28ef417e4806ba0499acf4aeef12.png",
+      "department": null,
+      "id": "1149",
+      "name": "王文亮",
+      "nameSpell": "Owen"
+    },
+    "assessStatus": 0,
+    "knowledgeStatus": 2,
+    "assessHandleStatus": null,
+    "knowledgeCreatedAt": 1648863736000,
+    "version": 19,
+    "labels": [
+      {
+        "code": "AppIntroduction",
+        "hide": false,
+        "id": "272104133061101568",
+        "name": "整体介绍",
+        "style": 0,
+        "type": 0
+      },
+      {
+        "code": "XSRM",
+        "hide": false,
+        "id": "40",
+        "name": "快速入门",
+        "style": 0,
+        "type": 1
+      }
+    ],
+    "editedAt": 1752629533000,
+    "identityTags": null,
+    "useful": 48,
+    "errors": [],
+    "isCollected": false,
+    "totalFeedBacks": 1,
+    "attachments": [],
+    "sources": [],
+    "editTitle": "星空OpenAPI介绍",
+    "title": "星空OpenAPI介绍",
+    "content": "<p style=\"text-align: justify\">背景</p><p style=\"text-align: justify\">企业的IT建设过程中会发现某一家软件供应商提供的软件不能完全覆盖企业所有的业务运营流程，因此企业可能从不同软件供应商购买了不同的系统，比如ERP、OA、HR、CRM、PDM等。所有的业务由不同系统覆盖，但由于系统未集成，而形成了一些新的信息孤岛，不利于企业的后续的管理和战略发展。</p><p style=\"text-align: justify\">鉴于企业经营、IT建设的多样化，为了企业不同软件之间实现数据共享，星空OpenAPI应运而生。</p><p style=\"text-align: justify\">星空OpenAPI将各个业务领域的所有业务功能通过标准的接口开放，提供给第三方系统调用，使第三方系统能轻松的实现与星空产品的集成。</p><p style=\"text-align: justify\"></p><p style=\"text-align: justify\">实现技术</p><p style=\"text-align: justify\">星空&nbsp;OpenAPI是一种轻量级的、可维护的、可伸缩的 Web 服务。采用HTTP+JSON，也就是用RESTful的方式来开发。使用.NET Framework 4.0为开发平台，源代码使用C#编写。</p><p style=\"text-align: justify\"></p><p style=\"text-align: justify\">功能</p><p style=\"text-align: justify\">星空OpenAPI已实现18个标准接口，1个自定义接口，提供对星空产品的所有单据和基础信息的查看、保存、提交、审核、反审核和删除等功能，业务领域涵盖了财务会计、PLM、供应链、电商与分销、客户关系管理、生产制造等。并能通过自定义接口，在星空实现定制化业务功能，开放给第三方系统调用。</p><p style=\"text-align: justify\"></p><p style=\"text-align: justify\">使用方式</p><p style=\"text-align: justify\">&nbsp; &nbsp; &nbsp; &nbsp;星空OpenAPI SDK提供了.Net、Java和Python三种语言版本的SDK，SDK采用加密签名技术，避免密钥的明文传输，实现自动登录，加密会话管理。推荐用户使用官方的SDK。对于有特殊需求的开发者，也可以自行通过http请求。</p><p></p><p style=\"text-align: justify\">官方网站</p><p style=\"text-align: justify\">OpenAPI网站支持几乎所有API的文档说明、元数据预览、在线测试、全局模糊搜索、可视化参数填写 &gt;&gt;<a href=\"https://openapi.open.kingdee.com/ApiHome\" target=\"_blank\">前往查看</a></p><p style=\"text-align: justify\"></p><p style=\"text-align: justify\"><strong>SDK</strong></p><p>下载最新版本的SDK&gt;&gt;&nbsp;<a href=\"https://openapi.open.kingdee.com/ApiSdkCenter\" target=\"_blank\">前往下载</a><a href=\"https://openapi.open.kingdee.com/ApiSdkCenter\" target=\"_blank\"></a></p><p></p><p style=\"text-align: justify\"></p><p style=\"text-align: justify\"></p><p style=\"text-align: justify\"></p>",
+    "products": [
+      {
+        "alias": null,
+        "code": "4468a7c0a53d11e8a7f90050568926a7",
+        "id": 1,
+        "isOpen": 1,
+        "name": "企业版/标准版",
+        "productLineId": 1,
+        "series": "S036",
+        "sort": 0
+      }
+    ],
+    "knowledgeSpecial": [
+      {
+        "categoryList": [
+          {
+            "childCategory": [
+              {
+                "childCategory": [
+                  null
+                ],
+                "code": null,
+                "description": null,
+                "entityId": "298029356990162688",
+                "entityType": "Knowledge",
+                "id": "298151175851702528",
+                "isCategory": false,
+                "name": "金蝶云星空OpenAPI介绍",
+                "parentId": "229963348454780672",
+                "sort": "1",
+                "specialId": "229961573895771136",
+                "status": 1
+              }
+            ],
+            "code": null,
+            "description": null,
+            "entityId": null,
+            "entityType": null,
+            "id": "229963348454780672",
+            "isCategory": true,
+            "name": "整体介绍",
+            "parentId": "-1",
+            "sort": "1",
+            "specialId": "229961573895771136",
+            "status": 1
+          }
+        ],
+        "classifies": null,
+        "collections": 159,
+        "createdAt": "2021-09-26T13:45:11.000+08:00",
+        "creator": {
+          "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+          "department": null,
+          "id": "96907288496966400",
+          "name": "Kidd",
+          "nameSpell": "name"
+        },
+        "description": "OpenAPI",
+        "hasCollected": null,
+        "hasHomePage": 1,
+        "id": "229961573895771136",
+        "identityTags": null,
+        "itemNum": 35,
+        "logo": "/download/01007136e2cc1839483f8b3df1781bcb28f0.png",
+        "name": "OpenAPI",
+        "otherProductLineIds": null,
+        "productLineId": "1",
+        "productList": [
+          {
+            "alias": null,
+            "code": "4468a7c0a53d11e8a7f90050568926a7",
+            "id": 1,
+            "isOpen": 1,
+            "name": "企业版/标准版",
+            "productLineId": 1,
+            "series": "S036",
+            "sort": 0
+          }
+        ],
+        "sort": 3,
+        "status": 2,
+        "style": 3,
+        "totalAppraisalScore": 14,
+        "totalAppraisalUsers": 3,
+        "updatedAt": "2025-06-27T16:28:41.000+08:00",
+        "updaterId": "1149",
+        "useCategory": 1,
+        "viewAuthority": 1,
+        "views": 1361378
+      }
+    ],
+    "entityUrl": null,
+    "needTranslate": null,
+    "knowledgeCreator": {
+      "avatar": "/download/01010eae28ef417e4806ba0499acf4aeef12.png",
+      "department": null,
+      "id": "1149",
+      "name": "王文亮",
+      "nameSpell": "Owen"
+    },
+    "totalAppraisalScore": 241,
+    "iflytekId": null,
+    "views": 66472,
+    "productLineId": 1,
+    "comments": 19,
+    "similarityCount": 0,
+    "totalAppraisalUsers": 49,
+    "isKnowledge": 1,
+    "knowledgeUpdatedAt": 1752629564000,
+    "appraisalScore": 0,
+    "unuseful": 1,
+    "knowledgeCheckStatus": 2,
+    "otherProductLineIds": [],
+    "auditAt": 1752629564000,
+    "attributes": [
+      {
+        "classifies": [
+          {
+            "child": {
+              "child": {
+                "child": null,
+                "code": "api",
+                "id": "228544575986699264",
+                "name": "OpenAPI",
+                "productLineId": null,
+                "sort": 3,
+                "type": "module"
+              },
+              "code": null,
+              "id": "5709",
+              "name": "协同开发",
+              "productLineId": null,
+              "sort": 26,
+              "type": "domain"
+            },
+            "code": null,
+            "id": "1",
+            "name": "企业版/标准版",
+            "productLineId": 1,
+            "sort": 0,
+            "type": "product"
+          }
+        ],
+        "labels": [
+          {
+            "code": "AppIntroduction",
+            "createdAt": 1642682681000,
+            "creator": {
+              "avatar": "/download?fileName=010162cfa9d4437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "1",
+              "name": "administrator",
+              "nameSpell": "administrator"
+            },
+            "description": "对具体应用/模块的总体介绍，包括理念与结构图、应用流程与特性、核心业务场景及主要功能清单",
+            "hasSpecifyUser": false,
+            "hide": false,
+            "icon": "/download/01001f68a0fa33b44a5aa48366fe29ffb7a8.png",
+            "id": "272104133061101568",
+            "name": "整体介绍",
+            "productLine": {
+              "active": true,
+              "appLogo": "星空",
+              "categoryCode": "C04",
+              "courseLogo": "/download/01009af04319c0514a20a059f889104d4dd7.png",
+              "domain": null,
+              "enablePaymentCourse": false,
+              "hasAtlas": true,
+              "hasIdea": false,
+              "hasKnowledge": true,
+              "hasQZ": false,
+              "id": 1,
+              "isDefault": null,
+              "isOpen": true,
+              "isValidLearning": true,
+              "isVirtual": false,
+              "logo": "/download/01007dc91abec4a8458d8bd9eefa81a0238b.png",
+              "name": "金蝶AI星空企业版/标准版",
+              "rank": 7,
+              "seriesCode": "S036"
+            },
+            "specifyUsers": [],
+            "style": 0,
+            "type": 0,
+            "updatePerson": {
+              "avatar": "/download?fileName=0101ec1d6ce599b442dab7d0b794c1fce88d.png",
+              "department": null,
+              "id": "1009",
+              "name": "一颗小星星",
+              "nameSpell": "fengling"
+            },
+            "updatedAt": 1661492203000
+          },
+          {
+            "code": "XSRM",
+            "createdAt": 1568798823000,
+            "creator": {
+              "avatar": "/download?fileName=01014c2c1c8b203f4a8aaa1e18dce7725efa.png",
+              "department": null,
+              "id": "1155",
+              "name": "陈旭",
+              "nameSpell": "lansehuanxiang"
+            },
+            "description": "快速入门",
+            "hasSpecifyUser": false,
+            "hide": false,
+            "icon": "/download?fileName=01007ab64f34c9004072ad021d226f8216fe.png",
+            "id": "40",
+            "name": "快速入门",
+            "productLine": {
+              "active": true,
+              "appLogo": "星空",
+              "categoryCode": "C04",
+              "courseLogo": "/download/01009af04319c0514a20a059f889104d4dd7.png",
+              "domain": null,
+              "enablePaymentCourse": false,
+              "hasAtlas": true,
+              "hasIdea": false,
+              "hasKnowledge": true,
+              "hasQZ": false,
+              "id": 1,
+              "isDefault": null,
+              "isOpen": true,
+              "isValidLearning": true,
+              "isVirtual": false,
+              "logo": "/download/01007dc91abec4a8458d8bd9eefa81a0238b.png",
+              "name": "金蝶AI星空企业版/标准版",
+              "rank": 7,
+              "seriesCode": "S036"
+            },
+            "specifyUsers": [],
+            "style": 0,
+            "type": 1,
+            "updatePerson": {
+              "avatar": "/download/0101f60bc4bb22124014a63b35b1083486e8.png",
+              "department": null,
+              "id": "234310606810391808",
+              "name": "咬咬咬咬人",
+              "nameSpell": "name"
+            },
+            "updatedAt": 1660218233000
+          }
+        ],
+        "productLineId": 1,
+        "specials": [
+          {
+            "categoryList": [
+              {
+                "childCategory": [
+                  {
+                    "childCategory": [
+                      null
+                    ],
+                    "code": null,
+                    "description": null,
+                    "entityId": "298029356990162688",
+                    "entityType": "Knowledge",
+                    "id": "298151175851702528",
+                    "isCategory": false,
+                    "name": "金蝶云星空OpenAPI介绍",
+                    "parentId": "229963348454780672",
+                    "sort": "1",
+                    "specialId": "229961573895771136",
+                    "status": 1
+                  }
+                ],
+                "code": null,
+                "description": null,
+                "entityId": null,
+                "entityType": null,
+                "id": "229963348454780672",
+                "isCategory": true,
+                "name": "整体介绍",
+                "parentId": "-1",
+                "sort": "1",
+                "specialId": "229961573895771136",
+                "status": 1
+              }
+            ],
+            "classifies": null,
+            "collections": 159,
+            "createdAt": "2021-09-26T13:45:11.000+08:00",
+            "creator": {
+              "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "96907288496966400",
+              "name": "Kidd",
+              "nameSpell": "name"
+            },
+            "description": "OpenAPI",
+            "hasCollected": null,
+            "hasHomePage": 1,
+            "id": "229961573895771136",
+            "identityTags": null,
+            "itemNum": 35,
+            "logo": "/download/01007136e2cc1839483f8b3df1781bcb28f0.png",
+            "name": "OpenAPI",
+            "otherProductLineIds": null,
+            "productLineId": "1",
+            "productList": [
+              {
+                "alias": null,
+                "code": "4468a7c0a53d11e8a7f90050568926a7",
+                "id": 1,
+                "isOpen": 1,
+                "name": "企业版/标准版",
+                "productLineId": 1,
+                "series": "S036",
+                "sort": 0
+              }
+            ],
+            "sort": 3,
+            "status": 2,
+            "style": 3,
+            "totalAppraisalScore": 14,
+            "totalAppraisalUsers": 3,
+            "updatedAt": "2025-06-27T16:28:41.000+08:00",
+            "updaterId": "1149",
+            "useCategory": 1,
+            "viewAuthority": 1,
+            "views": 1361378
+          }
+        ]
+      }
+    ],
+    "editContent": "<p style=\"text-align: justify\">背景</p><p style=\"text-align: justify\">企业的IT建设过程中会发现某一家软件供应商提供的软件不能完全覆盖企业所有的业务运营流程，因此企业可能从不同软件供应商购买了不同的系统，比如ERP、OA、HR、CRM、PDM等。所有的业务由不同系统覆盖，但由于系统未集成，而形成了一些新的信息孤岛，不利于企业的后续的管理和战略发展。</p><p style=\"text-align: justify\">鉴于企业经营、IT建设的多样化，为了企业不同软件之间实现数据共享，星空OpenAPI应运而生。</p><p style=\"text-align: justify\">星空OpenAPI将各个业务领域的所有业务功能通过标准的接口开放，提供给第三方系统调用，使第三方系统能轻松的实现与星空产品的集成。</p><p style=\"text-align: justify\"></p><p style=\"text-align: justify\">实现技术</p><p style=\"text-align: justify\">星空&nbsp;OpenAPI是一种轻量级的、可维护的、可伸缩的 Web 服务。采用HTTP+JSON，也就是用RESTful的方式来开发。使用.NET Framework 4.0为开发平台，源代码使用C#编写。</p><p style=\"text-align: justify\"></p><p style=\"text-align: justify\">功能</p><p style=\"text-align: justify\">星空OpenAPI已实现18个标准接口，1个自定义接口，提供对星空产品的所有单据和基础信息的查看、保存、提交、审核、反审核和删除等功能，业务领域涵盖了财务会计、PLM、供应链、电商与分销、客户关系管理、生产制造等。并能通过自定义接口，在星空实现定制化业务功能，开放给第三方系统调用。</p><p style=\"text-align: justify\"></p><p style=\"text-align: justify\">使用方式</p><p style=\"text-align: justify\">&nbsp; &nbsp; &nbsp; &nbsp;星空OpenAPI SDK提供了.Net、Java和Python三种语言版本的SDK，SDK采用加密签名技术，避免密钥的明文传输，实现自动登录，加密会话管理。推荐用户使用官方的SDK。对于有特殊需求的开发者，也可以自行通过http请求。</p><p></p><p style=\"text-align: justify\">官方网站</p><p style=\"text-align: justify\">OpenAPI网站支持几乎所有API的文档说明、元数据预览、在线测试、全局模糊搜索、可视化参数填写 &gt;&gt;<a href=\"https://openapi.open.kingdee.com/ApiHome\" target=\"_blank\">前往查看</a></p><p style=\"text-align: justify\"></p><p style=\"text-align: justify\"><strong>SDK</strong></p><p>下载最新版本的SDK&gt;&gt;&nbsp;<a href=\"https://openapi.open.kingdee.com/ApiSdkCenter\" target=\"_blank\">前往下载</a><a href=\"https://openapi.open.kingdee.com/ApiSdkCenter\" target=\"_blank\"></a></p><p></p><p style=\"text-align: justify\"></p><p style=\"text-align: justify\"></p><p style=\"text-align: justify\"></p>"
+  }
+}

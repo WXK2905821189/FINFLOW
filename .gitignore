@@ -1,6 +1,8 @@
 # Java / Maven
 backend/target/
 *.class
+.m2-local/
+.vite/
 
 # Frontend
 frontend/node_modules/
@@ -16,9 +18,28 @@ backend/.idea/
 frontend/.idea/
 *.log
 
+# Machine-local Maven settings (absolute local repository path)
+backend/.m2-settings.xml
+
+# WorkBuddy agent session data
+.workbuddy/
+
+# Local deploy staging (build artifacts / deployment bundles)
+tmp/
+
+# 厂商二进制不入库（审阅 2026-09-03 P1-2）：银行官方 demo 工具仅本地留存
+docs/cmb-clouddc/samples/
+docs/cmb-clouddc/linklab/
+*.exe
+*.dll
+*.zip
+
 # IDE / OS
 .idea/
 .vscode/
 *.iml
 .DS_Store
 Thumbs.db
+# Vite dev-server temp files
+frontend/vite.config.ts.timestamp-*.mjs
+frontend/_tmp_*

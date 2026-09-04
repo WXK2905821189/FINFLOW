@@ -1,0 +1,8 @@
+{
+  "bizkey": "DCCT20201215143758097",
+  "nowdcd": "2026082616101585388",
+  "fathid": "0",
+  "title": "2.报文规范",
+  "fetchedAt": "2026-09-03T06:17:44.334Z",
+  "html": "<h1><strong>2.报文规范</strong></h1><p><strong>报文格式：</strong>JSON</p><p><br></p><p><strong>编码要求：</strong>UTF-8</p><p>控制类信息（HEAD）+业务类信息（BODY）<span class=\"ql-cursor\">﻿</span></p><p><strong style=\"color: rgb(230, 0, 0);\">请求报文大小限制：小于10M</strong></p><p><strong>数据类型说明：</strong></p><p><span style=\"color: rgb(255, 0, 0);\">注意：所有值请用字符串，如：正确：\"trsamt\": “116.01”,错误：\"trsamt\": 116.01。</span></p><p><span style=\"color: rgb(255, 0, 0);\">请字段值不要包含如下特殊字符：“\\”、“|”以及一些不可见的字符如“\\n”等。</span></p><p><strong>String：</strong>字符串类型，可输入中文，一个中文占3位长度</p><p><br></p><p><strong style=\"color: rgb(0, 0, 0);\">JSONArray：</strong><span style=\"color: rgb(0, 0, 0);\">json数组类型</span></p><p><br></p><p><strong style=\"color: rgb(0, 0, 0);\">JSONObject：</strong><span style=\"color: rgb(0, 0, 0);\">json对象</span></p><p><br></p><p><strong style=\"color: rgb(0, 0, 0);\">Number(15,2)：</strong><span style=\"color: rgb(0, 0, 0);\">字符串类型，第一位表示总长度（不含小数点），第二位表示小数位数，如示例表示13位整数、2为小数。</span></p><p><br></p><p><strong>Integer：</strong>整数类型<span style=\"color: black;\"><span class=\"ql-cursor\">﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿﻿</span></span></p>"
+}

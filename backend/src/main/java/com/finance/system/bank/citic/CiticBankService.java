@@ -30,6 +30,7 @@ public class CiticBankService implements BankService {
     @Override
     public BankTransferResponse submitTransfer(BankAccount payerAccount, BankTransferCommand command) {
         CiticBankSdkResult result = sdkClient.submitPayment(payerAccount, command);
-        return new BankTransferResponse(bankCode(), result.reference(), result.status(), result.message());
+        return new BankTransferResponse(null, command.requestReference(), bankCode(), result.reference(),
+                result.status(), result.message());
     }
 }

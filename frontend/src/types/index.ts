@@ -1,121 +1,40 @@
-export type ApiEnvelope<T> = {
-  code: number;
-  message: string;
-  data: T;
-  timestamp: string;
-};
-
-export type PageResponse<T> = {
-  page: number;
-  size: number;
-  total: number;
-  records: T[];
-};
-
-export type User = {
-  id: number;
-  username: string;
-  email: string;
-  phone?: string;
-  status: string;
-  roles: string[];
-  permissions: string[];
-};
-
-export type AuthTokenResponse = {
-  accessToken: string;
-  tokenType: string;
-  expiresInSeconds: number;
-  user: User;
-};
-
-export type StatementRecordInput = {
-  statementNo: string;
-  bankAccountId?: number;
-  transactionTime: string;
-  direction: string;
-  amount: number | string;
-  currency?: string;
-  counterpartyName?: string;
-  counterpartyAccount?: string;
-  summary?: string;
-};
-
-export type StatementImportRequest = {
-  sourceName?: string;
-  records: StatementRecordInput[];
-};
-
-export type StatementImportBatch = {
-  id: number;
-  batchNo: string;
-  sourceType: string;
-  sourceName?: string;
-  status: string;
-  totalCount: number;
-  importedCount: number;
-  duplicateCount: number;
-  invalidCount: number;
-  createdBy?: number;
-  createdAt: string;
-  completedAt?: string;
-  errorMessage?: string;
-};
-
-export type StatementRecord = {
-  id: number;
-  batchId: number;
-  statementNo: string;
-  bankAccountId?: number;
-  transactionTime?: string;
-  direction?: string;
-  amount?: number | string;
-  currency?: string;
-  counterpartyName?: string;
-  maskedCounterpartyAccount?: string;
-  summary?: string;
-  validationStatus: string;
-  validationMessage?: string;
-  reviewStatus: string;
-  reviewComment?: string;
-  reviewedBy?: number;
-  reviewedAt?: string;
-  pushStatus: string;
-  voucherNo?: string;
-  pushMessage?: string;
-  pushedAt?: string;
-  createdAt: string;
-};
-
-export type StatementReviewRequest = {
-  action: 'APPROVE' | 'REJECT';
-  comment?: string;
-};
-
-export type StatementDashboard = {
-  totalCount: number;
-  pendingReviewCount: number;
-  approvedCount: number;
-  rejectedCount: number;
-  pushedCount: number;
-  invalidCount: number;
-  totalAmount: number | string;
-  approvedAmount: number | string;
-  pushedAmount: number | string;
-};
-
-export type StatementAuditEvent = {
-  id: number;
-  action: string;
-  result: string;
-  previousStatus?: string;
-  currentStatus?: string;
-  operatorId?: number;
-  detail?: string;
-  createdAt: string;
-};
-
-export type StatementDetail = {
-  statement: StatementRecord;
-  auditTrail: StatementAuditEvent[];
-};
+// Barrel re-export: type definitions now live in modules/<domain>/types.ts.
+// This file keeps existing `from '../types'` imports working; new code should
+// import from the domain module directly.
+export type { ApiEnvelope, PageResponse } from '../modules/shared/api';
+export type { User, AuthTokenResponse } from '../modules/auth/types';
+export type {
+  BankAccount,
+  ConnectionSummary,
+  ConnectionConfiguration,
+  ConnectionOverview,
+  OperationLog,
+  DataQueryCapability,
+  BankSyncJobTrigger,
+  BankSyncJob,
+  BankSyncJobEvent,
+  BankSyncJobDetail,
+  BankDataProjection,
+  BankDataProjectionPage,
+} from '../modules/bank-access/types';
+export type {
+  StatementRecordInput,
+  StatementImportRequest,
+  StatementImportBatch,
+  StatementRecord,
+  StatementReviewRequest,
+  StatementDashboard,
+  StatementAuditEvent,
+  StatementDetail,
+  ValidationRule,
+  AccountingMapping,
+} from '../modules/statements/types';
+export type {
+  FeishuConnectionItem,
+  FeishuDestinationItem,
+  FeishuPolicyItem,
+  FeishuOverview,
+  NotificationDelivery,
+} from '../modules/feishu/types';
+export type { ClosingPeriod } from '../modules/closing/types';
+export type { SystemAuditEvent } from '../modules/audit/types';

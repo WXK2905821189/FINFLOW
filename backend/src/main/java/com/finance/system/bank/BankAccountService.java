@@ -4,66 +4,61 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.finance.system.bank.dto.BankAccountRequest;
 import com.finance.system.bank.dto.BankAccountResponse;
-import com.finance.system.bank.dto.BankTransferRequest;
-import com.finance.system.bank.dto.BankTransferResponse;
 import com.finance.system.common.exception.BusinessException;
 import com.finance.system.domain.entity.BankAccount;
 import com.finance.system.domain.mapper.BankAccountMapper;
+import com.finance.system.common.tenant.CompanyScopeService;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class BankAccountService extends ServiceImpl<BankAccountMapper, BankAccount> {
 
     private final BankServiceFactory bankServiceFactory;
+    private final CompanyScopeService companyScope;
+    private final AccountDirectStatusService directStatusService;
 
-    public BankAccountService(BankServiceFactory bankServiceFactory) {
+    public BankAccountService(BankServiceFactory bankServiceFactory, CompanyScopeService companyScope,
+                              AccountDirectStatusService directStatusService) {
         this.bankServiceFactory = bankServiceFactory;
+        this.companyScope = companyScope;
+        this.directStatusService = directStatusService;
     }
 
-    public List<BankAccountResponse> listResponses() {
-        return list(new LambdaQueryWrapper<BankAccount>().orderByAsc(BankAccount::getId)).stream()
-                .map(this::toResponse).toList();
+    public List<BankAccountResponse> listResponses(Long userId) {
+        long companyId = companyScope.companyIdForUser(userId);
+        List<BankAccount> accounts = list(new LambdaQueryWrapper<BankAccount>()
+                .eq(BankAccount::getCompanyId, companyId)
+                .orderByAsc(BankAccount::getId));
+        Map<Long, AccountDirectStatusService.DirectStatusView> statuses = directStatusService.resolve(accounts);
+        return accounts.stream()
+                .map(account -> toResponse(account, statuses.get(account.getId())))
+                .toList();
     }
 
-    public BankAccountResponse create(BankAccountRequest request) {
+    public BankAccountResponse create(Long userId, BankAccountRequest request) {
         bankServiceFactory.get(request.bankCode());
         BankAccount account = new BankAccount();
+        account.setCompanyId(companyScope.companyIdForUser(userId));
         apply(request, account);
         save(account);
-        return toResponse(account);
+        return toResponse(account, directStatusService.resolveOne(account));
     }
 
-    public BankAccountResponse updateAccount(Long id, BankAccountRequest request) {
-        BankAccount account = getById(id);
+    public BankAccountResponse updateAccount(Long userId, Long id, BankAccountRequest request) {
+        long companyId = companyScope.companyIdForUser(userId);
+        BankAccount account = getOne(new LambdaQueryWrapper<BankAccount>()
+                .eq(BankAccount::getId, id)
+                .eq(BankAccount::getCompanyId, companyId));
         if (account == null) {
             throw new BusinessException(404, "Bank account not found");
         }
         bankServiceFactory.get(request.bankCode());
         apply(request, account);
         updateById(account);
-        return toResponse(account);
-    }
-
-    public BankTransferResponse submitTransfer(BankTransferRequest request) {
-        BankAccount payer = getById(request.payerAccountId());
-        if (payer == null) {
-            throw new BusinessException(404, "Payer account not found");
-        }
-        if (!"ACTIVE".equalsIgnoreCase(payer.getStatus())) {
-            throw new BusinessException(409, "Payer account is not active");
-        }
-        if (!payer.getBankCode().equalsIgnoreCase(request.bankCode())) {
-            throw new BusinessException(400, "Payer account does not belong to the selected bank");
-        }
-        BigDecimal availableBalance = bankServiceFactory.get(request.bankCode()).queryAvailableBalance(payer);
-        if (availableBalance.compareTo(request.amount()) < 0) {
-            throw new BusinessException(409, "Available balance is insufficient");
-        }
-        return bankServiceFactory.get(request.bankCode()).submitTransfer(payer, new BankTransferCommand(
-                request.payeeName(), request.payeeAccount(), request.payeeBank(), request.amount(), request.remark()));
+        return toResponse(account, directStatusService.resolveOne(account));
     }
 
     private void apply(BankAccountRequest request, BankAccount account) {
@@ -75,9 +70,13 @@ public class BankAccountService extends ServiceImpl<BankAccountMapper, BankAccou
         account.setStatus(request.status().trim().toUpperCase());
     }
 
-    private BankAccountResponse toResponse(BankAccount account) {
+    private BankAccountResponse toResponse(BankAccount account, AccountDirectStatusService.DirectStatusView direct) {
+        AccountDirectStatusService.DirectStatusView view = direct == null
+                ? new AccountDirectStatusService.DirectStatusView(AccountDirectStatusService.NOT_CONNECTED, null)
+                : direct;
         return new BankAccountResponse(account.getId(), account.getBankCode(), account.getAccountName(),
-                maskAccountNumber(account.getAccountNumber()), account.getCurrency(), account.getAvailableBalance(), account.getStatus());
+                maskAccountNumber(account.getAccountNumber()), account.getCurrency(), account.getAvailableBalance(),
+                account.getStatus(), view.status(), view.lastRealSyncAt());
     }
 
     private String maskAccountNumber(String accountNumber) {

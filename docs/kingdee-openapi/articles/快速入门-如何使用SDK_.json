@@ -1,0 +1,414 @@
+{
+  "categoryId": "229963554177453824",
+  "articleId": "298050747973900544",
+  "category": "快速入门",
+  "title": "如何使用SDK?",
+  "source": "https://vip.kingdee.com/knowledge/specialDetail/229961573895771136?category=229963554177453824&id=298050747973900544&type=Knowledge&productLineId=1&lang=zh-CN",
+  "fetchedAt": "2026-09-03T04:31:44.972Z",
+  "rawResponse": {
+    "badNum": 7,
+    "identityTagIds": null,
+    "knowledgeId": "298050747973900544",
+    "createdAt": 1648868836000,
+    "collections": 66,
+    "viewAuthority": 1,
+    "feedbackNum": 0,
+    "classifies": [
+      {
+        "code": null,
+        "name": "企业版/标准版",
+        "id": 1,
+        "sort": 0,
+        "type": "product",
+        "child": {
+          "code": null,
+          "name": "协同开发",
+          "id": 5709,
+          "sort": 26,
+          "type": "domain",
+          "child": {
+            "code": "api",
+            "name": "OpenAPI",
+            "id": "228544575986699264",
+            "sort": 3,
+            "type": "module",
+            "child": null,
+            "productLineId": null
+          },
+          "productLineId": null
+        },
+        "productLineId": 1
+      }
+    ],
+    "id": "298050747973900544",
+    "contentType": 1,
+    "updatedAt": 1718947350000,
+    "knowledgeUpdater": {
+      "avatar": "/download/01010753253164e84390b4c1fc11276ceff0.png",
+      "department": null,
+      "id": "250666821609831168",
+      "name": "都付笑谈中",
+      "nameSpell": "name"
+    },
+    "assessStatus": 0,
+    "knowledgeStatus": 2,
+    "assessHandleStatus": null,
+    "knowledgeCreatedAt": 1648868836000,
+    "version": 76,
+    "labels": [
+      {
+        "code": "changjianwenti",
+        "hide": false,
+        "id": "6",
+        "name": "常见问题",
+        "style": 0,
+        "type": 0
+      },
+      {
+        "code": "XSRM",
+        "hide": false,
+        "id": "40",
+        "name": "快速入门",
+        "style": 0,
+        "type": 1
+      }
+    ],
+    "editedAt": 1718947350000,
+    "identityTags": null,
+    "useful": 46,
+    "errors": [],
+    "isCollected": false,
+    "totalFeedBacks": 7,
+    "attachments": [],
+    "sources": [],
+    "editTitle": "如何使用SDK?",
+    "title": "如何使用SDK?",
+    "content": "<p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\">如何使用SDK</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">欢迎使用星空OpenAPI-SDK。分别以&nbsp;.Net/Java/Python SDK&nbsp;为例，介绍如何使用、调试并接入星空API。</span></p><p style=\"\"><br/></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"></span></p><p class=\"a X3\" style=\"text-align: justify;\"><span style=\"font-weight: 700;\"><span class=\"a X3\" style=\"color: rgb(44, 62, 80);\">SDK</span><span class=\"a X3\" style=\"color: rgb(44, 62, 80);\">支持的</span><span class=\"a X3\" style=\"color: rgb(44, 62, 80);\">API</span><span class=\"a X3\" style=\"color: rgb(44, 62, 80);\">列表</span></span></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\">开发者需要清晰明确自己的星空版本，然后基于</span><span style=\"color: rgb(44, 62, 80);\">SDK</span><span style=\"color: rgb(44, 62, 80);\">进行开发。如下图所示。</span></p><p style=\"text-align: justify;\"><br/></p><table class=\"a1 ab\"><tbody style=\"\"><tr class=\"a1 ab firstRow\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">接口名称</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">接口含义</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">适用产品版本信息（按发布时间升序排列）</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">Save</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">保存</p></td><td class=\"a1 ab\" rowspan=\"13\" style=\"\"><p style=\"\">2017-09-08，PT116278，7.0.352.16</p><p style=\"\"><br/></p><p style=\"\"><br/></p><p style=\"\"><br/></p><p style=\"\"><br/></p><p style=\"\"><br/></p><p style=\"\"><br/></p><p style=\"\"><br/></p><p style=\"\"><br/></p><p style=\"\"><br/></p><p style=\"\"><br/></p><p style=\"\"><br/></p><p style=\"\"><br/></p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">BatchSave</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">批量保存</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">BatchSaveQuery</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">批量保存（轮询方式）</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">Audit</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">审核</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">Delete</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">删除</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">UnAudit</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">反审核</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">Submit</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">提交</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">View</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">查看</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">ExecuteBillQuery</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">单据查询</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">Draft</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">暂存</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">Allocate</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">分配</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">ExecuteOperation</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">操作接口</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">FlexSave</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">弹性域保存</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">SendMsg</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">发送消息</p></td><td class=\"a1 ab\" style=\"\"><p style=\"\">2017-11-10，PT117342，7.1.512.1</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">Push</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">下推</p></td><td class=\"a1 ab\" style=\"\"><p style=\"\">2018-02-04，PT120306，7.1.606.1</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">GroupSave</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">分组保存</p></td><td class=\"a1 ab\" style=\"\"><p style=\"\">2018-08-10，PT123441，7.2.856.1</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">Disassembly</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">拆单</p></td><td class=\"a1 ab\" rowspan=\"3\" style=\"\"><p style=\"\">2020-05-26，PT-146836，7.5.1.202005</p><p style=\"\"><br/></p><p style=\"\"><br/></p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">QueryBusinessInfo</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">查询单据信息</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">QueryGroupInfo</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">查询分组信息</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">WorkflowAudit</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">工作流审批</p></td><td class=\"a1 ab\" style=\"\"><p style=\"\">2020-10-15，PT-146854，7.5.1.202010</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">GroupDelete</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">分组删除</p></td><td class=\"a1 ab\" style=\"\"><p style=\"\">2020-11-26，PT-146861，7.6.0.202011</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">CancelAllocate</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">取消分配</p></td><td class=\"a1 ab\" style=\"\"><p style=\"\">2021-03-11, &nbsp;PT-146867, &nbsp;<span style=\"color: rgb(0, 0, 0);\">7.6.2108.8</span></p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">SwitchOrg</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">切换组织接口</p></td><td class=\"a1 ab\" rowspan=\"2\" style=\"\"><p style=\"\">2021-04-22, &nbsp;PT-146874, &nbsp;7.6.2150.7</p><p style=\"\"><br/></p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">CancelAssign</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">撤销服务接口</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">GetSysReportData</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">获取报表数据</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">2021-07-22, &nbsp;PT-146882 , &nbsp;7.7.2241.3</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">AttachmentUpload</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">上传附件</p></td><td class=\"a1 ab\" rowspan=\"2\" style=\"\"><p style=\"text-align: initial;\">2021-12-02，PT-146897，&nbsp;7.7.2374.8</p><p style=\"text-align: initial;\"><br/></p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">AttachmentDownLoad</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">下载附件</p></td></tr></tbody></table><p><br/></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\">依赖环境</span></p><p style=\"\"><img src=\"https://vip.kingdee.com/download/01008c9c91344bdf4defb1f122bd27dd654e.png\"/><br/></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\"><br/></span></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\">前置信息</span></p><p style=\"\">首选需要获取第三方授权信息，具体操作查看《<a href=\"https://vip.kingdee.com/knowledge/specialDetail/229961573895771136?category=229963554177453824&id=298030366575393024&productLineId=1\" target=\"_blank\">如何获取第三方登录授权？</a>》</p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\"><br/></span></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\">SDK下载</span></p><p style=\"\">前往OpenAPI网站的SDK中心下载最新版本的SDK<span style=\"\">&gt;&gt;</span> <a href=\"https://openapi.open.kingdee.com/ApiSdkCenter\" title=\"\" target=\"_blank\" class=\"\">前往下载</a></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\"><br/></span></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\">NET版本SDK使用指南</span></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\">引用关键文件</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">开发者需引用资料包中SDK&nbsp;文件夹内名为Kingdee.BOS.WebApi.Client.dll的文件。如下图所示。</span></p><p style=\"\"><img src=\"https://vip.kingdee.com/download/010029137a7bbc994d62b2402efc43cfb10c.png\"/></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\"><br/></span></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\">第三方授权登录配置文件说明</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">将第三方系统登录授权信息，严格按照格式，加入第三方产品项目的配置文件中，</span><span style=\"color: rgb(44, 62, 80);\">示例如下。</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot; ?&gt;</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;configuration&gt;</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;appSettings&gt;</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;!--&nbsp;当前使用的 账套ID(即数据中心id) --&gt;</span></p><p style=\"\"><span style=\"color: rgb(191, 191, 191);\"><em><span style=\"color:#2c3e50\">&lt;!--&nbsp;第三方系统登录授权的账套ID（即open.kingdee.com网站的第三方系统登录授权中的数据中心标识）--&gt;</span></em></span></p><p style=\"\"><span style=\"color: rgb(191, 191, 191);\"><em><span style=\"color:#2c3e50\">&lt;!--&nbsp;<span style=\"color: rgb(44, 62, 80);\">在第三方系统登录授权页面点击“生成测试链接”按钮后即可查看&nbsp;&nbsp;</span><span style=\"color: rgb(127, 127, 127);\">&nbsp;--&gt;</span></span></em></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;add key=&quot;X-KDApi-AcctID&quot; value=&quot;5*************&quot;/&gt;</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;!--&nbsp;第三方系统登录授权的 集成用户名称 &nbsp;--&gt;</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"><span style=\"color: rgb(44, 62, 80);\">&lt;!--</span><span style=\"color: rgb(44, 62, 80);\">&nbsp;<span style=\"text-align: justify;\">补丁版本为PT-146894 [7.7.0.202111]及后续的版本</span>，则为指定用户登录列表中任一用户&nbsp; --&gt;</span></span></p><p style=\"text-align: justify; \"><span style=\"color: rgb(44, 62, 80);\"><span style=\"color: rgb(44, 62, 80);\"><span style=\"color: rgb(44, 62, 80);\">&lt;!--</span><span style=\"color: rgb(44, 62, 80);\">&nbsp;若<span style=\"color: rgb(44, 62, 80);\">第三方系统登录授权已</span>勾选“允许全部用户登录”，则无以上限制&nbsp; --&gt;</span></span></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;add key=&quot;X-KDApi-UserName&quot; value=&quot;*************&quot;/&gt;</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;!--&nbsp;第三方系统登录授权的 应用ID &nbsp;--&gt;</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;add key=&quot;X-KDApi-AppID&quot; value=&quot;207************************************************&quot;/&gt;</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;!--&nbsp;第三方系统登录授权的 应用密钥 &nbsp;--&gt;</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;add key=&quot;X-KDApi-AppSec&quot; value=&quot;**************************e754a9&quot;/&gt;</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;!--&nbsp;账套语系，默认2052 &nbsp;--&gt;</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;add key=&quot;X-KDApi-LCID&quot; value=&quot;2052&quot;/&gt;</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;!--&nbsp;组织编码，启用多组织时配置对应的组织编码才有效 &nbsp;--&gt;</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;!--&lt;add key=&quot;X-KDApi-OrgNum&quot; value=&quot;*****&quot;/&gt;--&gt;</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"><br/></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;!--&nbsp;服务Url地址(<span style=\"color: rgb(255, 0, 0);\">私有云和公有云都须配置星空产品地址，K3Cloud/结尾</span>)--&gt;</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;add key=&quot;X-KDApi-ServerUrl&quot; value=&quot;<a href=\"http://*************/k3cloud/&quot;/>\" target=\"_blank\">http://*************/k3cloud/&quot;/&gt;</a>&nbsp;</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"><br/></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;/appSettings&gt;</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;/configuration&gt;</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"><br/></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">情况1：如果是基于本地桌面应用程序运行的项目工程，则新增App.config配置文件，加入上面的第三方系统登录授权信息，如下图所示。</span><br/></p><p style=\"\"><img src=\"https://vip.kingdee.com/download/0100b557f08096e2466383429f7814fe4c79.png\"/></p><p style=\"\"><span style=\"color: rgb(0, 176, 240); font-weight: 700;\">（PS：该配置文件和对应的项目文件都应为utf-8编码，当用户名为中文名时尤其需要注意。）</span></p><p style=\"\"><span style=\"color: rgb(0, 176, 240); font-weight: 700;\"><br/></span></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\">Java版本SDK使用指南</span></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\">引用关键文件</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">开发者需引用资料包中SDK&nbsp;文件夹内名为k3cloud-webapi-sdk.jar的文件。如下图所示。</span></p><p style=\"\"><img src=\"https://vip.kingdee.com/download/01003cd31e4bd93a48deb5326e931ab2eacc.png\"/></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\"><br/></span></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\">第三方授权登录配置文件说明</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">将第三方系统登录授权信息，严格按照格式，加入第三方产品项目的配置文件中，示例如下。</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"># <span style=\"color: rgb(44, 62, 80);\">当前使用的 账套ID(即数据中心id)</span></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"><span style=\"color: rgb(44, 62, 80);\">#&nbsp;<em style=\"color: rgb(191, 191, 191);\"><span style=\"color: rgb(44, 62, 80);\">第三方系统登录授权的账套ID（即open.kingdee.com网站的第三方系统登录授权中的数据中心标识）</span></em></span></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"><span style=\"color: rgb(44, 62, 80);\"><em style=\"color: rgb(191, 191, 191);\"><span style=\"color: rgb(44, 62, 80);\">#&nbsp;<em style=\"color: rgb(191, 191, 191);\"><span style=\"color: rgb(44, 62, 80);\">在第三方系统登录授权页面点击“生成测试链接”按钮后即可查看</span></em></span></em></span></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">X-KDApi-AcctID&nbsp;= ************************</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"># <span style=\"color: rgb(44, 62, 80);\">第三方系统登录授权的 集成用户名称</span></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"><span style=\"color: rgb(44, 62, 80);\">#&nbsp;<span style=\"color: rgb(44, 62, 80); text-align: justify;\">补丁版本为PT-146894 [7.7.0.202111]及后续的版本</span><span style=\"color: rgb(44, 62, 80);\">，则为指定用户登录列表中任一用户</span></span></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"><span style=\"color: rgb(44, 62, 80);\"><span style=\"color: rgb(44, 62, 80);\">#&nbsp;<span style=\"color: rgb(44, 62, 80); text-align: justify;\">若第三方系统登录授权已勾选“允许全部用户登录”，则无以上限制</span></span></span></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">X-KDApi-UserName&nbsp;= ************************</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"># 第三方系统登录授权的应用ID</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">X-KDApi-AppID&nbsp;= ************************************************</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"># 第三方系统登录授权的应用密钥</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">X-KDApi-AppSec = ********************************************</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"># 账套语系，默认2052</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"># X-KDApi-LCID = 2052</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"># 组织编码，启用多组织时配置对应的组织编码才有效</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"># X-KDApi-OrgNum&nbsp;= *******</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"># <span style=\"color: rgb(44, 62, 80);\">服务Url地址<span style=\"color: rgb(44, 62, 80);\">(</span><span style=\"color: rgb(255, 0, 0);\"><span style=\"color: rgb(255, 0, 0);\">私有云和公有云都须配置星空产品地址，K3Cloud/结尾</span></span><span style=\"color: rgb(44, 62, 80);\">)</span></span></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">X-KDApi-ServerUrl&nbsp;=************************</span></p><p style=\"\"><br/></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">情况1：如果是基于本地应用程序运行的项目工程，则新增项目配置文件&nbsp;kdwebapi.properties，如下图所示。</span></p><p style=\"\"><img src=\"https://vip.kingdee.com/download/0100124e7f99402942a3a993efbf321149af.png\"/></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\"><span style=\"color: rgb(0, 176, 240); font-weight: 700;\">（PS：该配置文件和对应的项目文件都应为utf-8编码，当用户名为中文名时尤其需要注意。）</span></span></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\"><span style=\"color: rgb(0, 176, 240); font-weight: 700;\"><br/></span></span></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\">Python版本SDK使用指南</span></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\">引用关键文件</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">开发者需安装k3cloud_webapi_sdk文件。如下所示。</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">#使用pip安装指令格式：</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">pip install {后缀为.whl的SDK包文件的本地完整目录}</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">pip install F:\\Python\\k3cloud_webapi_sdk-1.0.0-py3-none-any.whl</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"><br/></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"></span></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\">第三方授权登录配置文件说明</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">将第三方系统登录授权信息，严格按照格式，加入第三方产品项目的配置文件中，示例如下。</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"></span><font color=\"#2c3e50\"># 服务Url地址(私有云和公有云都须配置星空产品地址，K3Cloud/结尾)<br/></font></p><p><font color=\"#2c3e50\">X-KDApi-ServerUrl = http://172.17.55.175/k3cloud/</font></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">#&nbsp;当前使用的 账套ID(即数据中心id)</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">#&nbsp;<em style=\"color: rgb(191, 191, 191);\"><span style=\"color: rgb(44, 62, 80);\">第三方系统登录授权的账套ID（即open.kingdee.com网站的第三方系统登录授权中的数据中心标识）</span></em></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"><em style=\"color: rgb(191, 191, 191);\"><span style=\"color: rgb(44, 62, 80);\">#&nbsp;<em style=\"color: rgb(191, 191, 191);\"><span style=\"color: rgb(44, 62, 80);\">在第三方系统登录授权页面点击“生成测试链接”按钮后即可查看</span></em></span></em></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">X-KDApi-AcctID&nbsp;= ************************</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">#&nbsp;第三方系统登录授权的 集成用户名称</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">#&nbsp;<span style=\"text-align: justify;\">补丁版本为PT-146894 [7.7.0.202111]及后续的版本</span>，则为指定用户登录列表中任一用户</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">#&nbsp;<span style=\"text-align: justify;\">若第三方系统登录授权已勾选“允许全部用户登录”，则无以上限制</span></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">X-KDApi-UserName&nbsp;= ************************</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"># 第三方系统登录授权的应用ID</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">X-KDApi-AppID&nbsp;= ************************************************</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"># 第三方系统登录授权的应用密钥</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">X-KDApi-AppSec = ********************************************</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"># 账套语系，默认2052</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"># X-KDApi-LCID = 2052</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"># 组织编码，启用多组织时配置对应的组织编码才有效</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"># X-KDApi-OrgNum&nbsp;= *******</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"># 若使用代理，配置此参数</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"># X-KDApi-Proxy = ************************</span></p><p style=\"\"><br/></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">情况1：如果是基于本地应用程序运行的项目工程，则新增项目配置文件conf.ini节点为config：（配置参数名称不区分大小写）如下所示。</span></p><p style=\"\"><img src=\"https://vip.kingdee.com/download/0100ccacdf9eb089424b86df7421f031bad9.png\"/></p><p><span style=\"color: rgb(0, 176, 240); font-weight: 700;\">（PS：该配置文件和对应的项目文件都应为utf-8编码，当用户名为中文名时尤其需要注意。）</span></p><p><span style=\"color: rgb(0, 176, 240); font-weight: 700;\"><br/></span></p><p><span style=\"color: rgb(0, 176, 240); font-weight: 700;\"><span style=\"color: rgb(44, 62, 80); font-weight: 700;\">PHP版本SDK使用指南</span></span></p><p><span style=\"color: rgb(0, 176, 240); font-weight: 700;\"><span style=\"color: rgb(44, 62, 80); font-weight: 700;\"></span></span></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\">引用关键文件</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">开发者需引用资料包中SDK&nbsp;文件夹内名为kingdee-webapi-sdk-v8.0.5.phar的文件。如下图所示。</span></p><div style=\"\"><span style=\"color: rgb(44, 62, 80);\"><br/></span></div><p><span style=\"color: rgb(0, 176, 240); font-weight: 700;\"><span style=\"color: rgb(44, 62, 80); font-weight: 700;\"><img src=\"/download/0109c951f047d5e14f88b86940ce9675e32d.png\"/></span></span><br/></p><p><span style=\"color: rgb(0, 176, 240); font-weight: 700;\"><span style=\"color: rgb(44, 62, 80); font-weight: 700;\"><span style=\"color: rgb(44, 62, 80); font-weight: 700;\">第三方授权登录配置文件示例说明</span></span></span></p><p><span style=\"color: rgb(0, 176, 240); font-weight: 700;\"><span style=\"color: rgb(44, 62, 80); font-weight: 700;\"></span></span></p><p class=\"kd-image-content\"><br/></p><p><span style=\"color: rgb(0, 176, 240); font-weight: 700;\"><span style=\"color: rgb(44, 62, 80); font-weight: 700;\"></span></span><br/></p><p class=\"kd-image-content\"><img src=\"/download/0100fbe912a44526421c886fb9d6f785e767.png\" alt=\"上传图片\"/></p><p><br/></p><div id=\"baidu_pastebin\" style=\"position: absolute; width: 1px; height: 1px; overflow: hidden; left: -1000px; white-space: nowrap; top: 4618px;\"><img class=\"loadingclass\" id=\"loading_lxmm55lm\" src=\"https://vipstatic.obs.cn-north-4.myhuaweicloud.com/statics/webfront/ueditor/images/loading.gif\"/></div>",
+    "products": [
+      {
+        "alias": null,
+        "code": "4468a7c0a53d11e8a7f90050568926a7",
+        "id": 1,
+        "isOpen": 1,
+        "name": "企业版/标准版",
+        "productLineId": 1,
+        "series": "S036",
+        "sort": 0
+      }
+    ],
+    "knowledgeSpecial": [
+      {
+        "categoryList": [
+          {
+            "childCategory": [
+              {
+                "childCategory": [
+                  null
+                ],
+                "code": null,
+                "description": null,
+                "entityId": "298050747973900544",
+                "entityType": "Knowledge",
+                "id": "298151502738979072",
+                "isCategory": false,
+                "name": "如何使用SDK?",
+                "parentId": "229963554177453824",
+                "sort": "7",
+                "specialId": "229961573895771136",
+                "status": 1
+              }
+            ],
+            "code": null,
+            "description": null,
+            "entityId": null,
+            "entityType": null,
+            "id": "229963554177453824",
+            "isCategory": true,
+            "name": "快速入门",
+            "parentId": "-1",
+            "sort": "3",
+            "specialId": "229961573895771136",
+            "status": 1
+          }
+        ],
+        "classifies": null,
+        "collections": 159,
+        "createdAt": "2021-09-26T13:45:11.000+08:00",
+        "creator": {
+          "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+          "department": null,
+          "id": "96907288496966400",
+          "name": "Kidd",
+          "nameSpell": "name"
+        },
+        "description": "OpenAPI",
+        "hasCollected": null,
+        "hasHomePage": 1,
+        "id": "229961573895771136",
+        "identityTags": null,
+        "itemNum": 35,
+        "logo": "/download/01007136e2cc1839483f8b3df1781bcb28f0.png",
+        "name": "OpenAPI",
+        "otherProductLineIds": null,
+        "productLineId": "1",
+        "productList": [
+          {
+            "alias": null,
+            "code": "4468a7c0a53d11e8a7f90050568926a7",
+            "id": 1,
+            "isOpen": 1,
+            "name": "企业版/标准版",
+            "productLineId": 1,
+            "series": "S036",
+            "sort": 0
+          }
+        ],
+        "sort": 3,
+        "status": 2,
+        "style": 3,
+        "totalAppraisalScore": 14,
+        "totalAppraisalUsers": 3,
+        "updatedAt": "2025-06-27T16:28:41.000+08:00",
+        "updaterId": "1149",
+        "useCategory": 1,
+        "viewAuthority": 1,
+        "views": 1361378
+      }
+    ],
+    "entityUrl": null,
+    "needTranslate": null,
+    "knowledgeCreator": {
+      "avatar": "/download/01010eae28ef417e4806ba0499acf4aeef12.png",
+      "department": null,
+      "id": "1149",
+      "name": "王文亮",
+      "nameSpell": "Owen"
+    },
+    "totalAppraisalScore": 232,
+    "iflytekId": null,
+    "views": 185609,
+    "productLineId": 1,
+    "comments": 47,
+    "similarityCount": 0,
+    "totalAppraisalUsers": 53,
+    "isKnowledge": 1,
+    "knowledgeUpdatedAt": 1718947350000,
+    "appraisalScore": 0,
+    "unuseful": 7,
+    "knowledgeCheckStatus": 2,
+    "otherProductLineIds": [],
+    "auditAt": 1718947350000,
+    "attributes": [
+      {
+        "classifies": [
+          {
+            "child": {
+              "child": {
+                "child": null,
+                "code": "api",
+                "id": "228544575986699264",
+                "name": "OpenAPI",
+                "productLineId": null,
+                "sort": 3,
+                "type": "module"
+              },
+              "code": null,
+              "id": "5709",
+              "name": "协同开发",
+              "productLineId": null,
+              "sort": 26,
+              "type": "domain"
+            },
+            "code": null,
+            "id": "1",
+            "name": "企业版/标准版",
+            "productLineId": 1,
+            "sort": 0,
+            "type": "product"
+          }
+        ],
+        "labels": [
+          {
+            "code": "changjianwenti",
+            "createdAt": 1553686053000,
+            "creator": {
+              "avatar": "/download?fileName=010162cfa9d4437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "1",
+              "name": "administrator",
+              "nameSpell": "administrator"
+            },
+            "description": "常见问题",
+            "hasSpecifyUser": false,
+            "hide": false,
+            "icon": "/download?fileName=0100ef2db45aa7524b70a990e7fd9d40db4a.png",
+            "id": "6",
+            "name": "常见问题",
+            "productLine": {
+              "active": true,
+              "appLogo": "星空",
+              "categoryCode": "C04",
+              "courseLogo": "/download/01009af04319c0514a20a059f889104d4dd7.png",
+              "domain": null,
+              "enablePaymentCourse": false,
+              "hasAtlas": true,
+              "hasIdea": false,
+              "hasKnowledge": true,
+              "hasQZ": false,
+              "id": 1,
+              "isDefault": null,
+              "isOpen": true,
+              "isValidLearning": true,
+              "isVirtual": false,
+              "logo": "/download/01007dc91abec4a8458d8bd9eefa81a0238b.png",
+              "name": "金蝶AI星空企业版/标准版",
+              "rank": 7,
+              "seriesCode": "S036"
+            },
+            "specifyUsers": [],
+            "style": 0,
+            "type": 0,
+            "updatePerson": {
+              "avatar": "/download/010162642d4ab45843119f96b5abd01c554f.png",
+              "department": null,
+              "id": "13627",
+              "name": "Anna_xiao",
+              "nameSpell": "xiaoronglan"
+            },
+            "updatedAt": 1670479317000
+          },
+          {
+            "code": "XSRM",
+            "createdAt": 1568798823000,
+            "creator": {
+              "avatar": "/download?fileName=01014c2c1c8b203f4a8aaa1e18dce7725efa.png",
+              "department": null,
+              "id": "1155",
+              "name": "陈旭",
+              "nameSpell": "lansehuanxiang"
+            },
+            "description": "快速入门",
+            "hasSpecifyUser": false,
+            "hide": false,
+            "icon": "/download?fileName=01007ab64f34c9004072ad021d226f8216fe.png",
+            "id": "40",
+            "name": "快速入门",
+            "productLine": {
+              "active": true,
+              "appLogo": "星空",
+              "categoryCode": "C04",
+              "courseLogo": "/download/01009af04319c0514a20a059f889104d4dd7.png",
+              "domain": null,
+              "enablePaymentCourse": false,
+              "hasAtlas": true,
+              "hasIdea": false,
+              "hasKnowledge": true,
+              "hasQZ": false,
+              "id": 1,
+              "isDefault": null,
+              "isOpen": true,
+              "isValidLearning": true,
+              "isVirtual": false,
+              "logo": "/download/01007dc91abec4a8458d8bd9eefa81a0238b.png",
+              "name": "金蝶AI星空企业版/标准版",
+              "rank": 7,
+              "seriesCode": "S036"
+            },
+            "specifyUsers": [],
+            "style": 0,
+            "type": 1,
+            "updatePerson": {
+              "avatar": "/download/0101f60bc4bb22124014a63b35b1083486e8.png",
+              "department": null,
+              "id": "234310606810391808",
+              "name": "咬咬咬咬人",
+              "nameSpell": "name"
+            },
+            "updatedAt": 1660218233000
+          }
+        ],
+        "productLineId": 1,
+        "specials": [
+          {
+            "categoryList": [
+              {
+                "childCategory": [
+                  {
+                    "childCategory": [
+                      null
+                    ],
+                    "code": null,
+                    "description": null,
+                    "entityId": "298050747973900544",
+                    "entityType": "Knowledge",
+                    "id": "298151502738979072",
+                    "isCategory": false,
+                    "name": "如何使用SDK?",
+                    "parentId": "229963554177453824",
+                    "sort": "7",
+                    "specialId": "229961573895771136",
+                    "status": 1
+                  }
+                ],
+                "code": null,
+                "description": null,
+                "entityId": null,
+                "entityType": null,
+                "id": "229963554177453824",
+                "isCategory": true,
+                "name": "快速入门",
+                "parentId": "-1",
+                "sort": "3",
+                "specialId": "229961573895771136",
+                "status": 1
+              }
+            ],
+            "classifies": null,
+            "collections": 159,
+            "createdAt": "2021-09-26T13:45:11.000+08:00",
+            "creator": {
+              "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "96907288496966400",
+              "name": "Kidd",
+              "nameSpell": "name"
+            },
+            "description": "OpenAPI",
+            "hasCollected": null,
+            "hasHomePage": 1,
+            "id": "229961573895771136",
+            "identityTags": null,
+            "itemNum": 35,
+            "logo": "/download/01007136e2cc1839483f8b3df1781bcb28f0.png",
+            "name": "OpenAPI",
+            "otherProductLineIds": null,
+            "productLineId": "1",
+            "productList": [
+              {
+                "alias": null,
+                "code": "4468a7c0a53d11e8a7f90050568926a7",
+                "id": 1,
+                "isOpen": 1,
+                "name": "企业版/标准版",
+                "productLineId": 1,
+                "series": "S036",
+                "sort": 0
+              }
+            ],
+            "sort": 3,
+            "status": 2,
+            "style": 3,
+            "totalAppraisalScore": 14,
+            "totalAppraisalUsers": 3,
+            "updatedAt": "2025-06-27T16:28:41.000+08:00",
+            "updaterId": "1149",
+            "useCategory": 1,
+            "viewAuthority": 1,
+            "views": 1361378
+          }
+        ]
+      }
+    ],
+    "editContent": "<p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\">如何使用SDK</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">欢迎使用星空OpenAPI-SDK。分别以&nbsp;.Net/Java/Python SDK&nbsp;为例，介绍如何使用、调试并接入星空API。</span></p><p style=\"\"><br/></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"></span></p><p class=\"a X3\" style=\"text-align: justify;\"><span style=\"font-weight: 700;\"><span class=\"a X3\" style=\"color: rgb(44, 62, 80);\">SDK</span><span class=\"a X3\" style=\"color: rgb(44, 62, 80);\">支持的</span><span class=\"a X3\" style=\"color: rgb(44, 62, 80);\">API</span><span class=\"a X3\" style=\"color: rgb(44, 62, 80);\">列表</span></span></p><p style=\"text-align: justify;\"><span style=\"color: rgb(44, 62, 80);\">开发者需要清晰明确自己的星空版本，然后基于</span><span style=\"color: rgb(44, 62, 80);\">SDK</span><span style=\"color: rgb(44, 62, 80);\">进行开发。如下图所示。</span></p><p style=\"text-align: justify;\"><br/></p><table class=\"a1 ab\"><tbody style=\"\"><tr class=\"a1 ab firstRow\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">接口名称</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">接口含义</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">适用产品版本信息（按发布时间升序排列）</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">Save</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">保存</p></td><td class=\"a1 ab\" rowspan=\"13\" style=\"\"><p style=\"\">2017-09-08，PT116278，7.0.352.16</p><p style=\"\"><br/></p><p style=\"\"><br/></p><p style=\"\"><br/></p><p style=\"\"><br/></p><p style=\"\"><br/></p><p style=\"\"><br/></p><p style=\"\"><br/></p><p style=\"\"><br/></p><p style=\"\"><br/></p><p style=\"\"><br/></p><p style=\"\"><br/></p><p style=\"\"><br/></p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">BatchSave</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">批量保存</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">BatchSaveQuery</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">批量保存（轮询方式）</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">Audit</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">审核</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">Delete</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">删除</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">UnAudit</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">反审核</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">Submit</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">提交</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">View</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">查看</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">ExecuteBillQuery</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">单据查询</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">Draft</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">暂存</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">Allocate</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">分配</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">ExecuteOperation</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">操作接口</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">FlexSave</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">弹性域保存</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">SendMsg</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">发送消息</p></td><td class=\"a1 ab\" style=\"\"><p style=\"\">2017-11-10，PT117342，7.1.512.1</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">Push</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">下推</p></td><td class=\"a1 ab\" style=\"\"><p style=\"\">2018-02-04，PT120306，7.1.606.1</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">GroupSave</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">分组保存</p></td><td class=\"a1 ab\" style=\"\"><p style=\"\">2018-08-10，PT123441，7.2.856.1</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">Disassembly</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">拆单</p></td><td class=\"a1 ab\" rowspan=\"3\" style=\"\"><p style=\"\">2020-05-26，PT-146836，7.5.1.202005</p><p style=\"\"><br/></p><p style=\"\"><br/></p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">QueryBusinessInfo</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">查询单据信息</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">QueryGroupInfo</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">查询分组信息</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">WorkflowAudit</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">工作流审批</p></td><td class=\"a1 ab\" style=\"\"><p style=\"\">2020-10-15，PT-146854，7.5.1.202010</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">GroupDelete</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">分组删除</p></td><td class=\"a1 ab\" style=\"\"><p style=\"\">2020-11-26，PT-146861，7.6.0.202011</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">CancelAllocate</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">取消分配</p></td><td class=\"a1 ab\" style=\"\"><p style=\"\">2021-03-11, &nbsp;PT-146867, &nbsp;<span style=\"color: rgb(0, 0, 0);\">7.6.2108.8</span></p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">SwitchOrg</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">切换组织接口</p></td><td class=\"a1 ab\" rowspan=\"2\" style=\"\"><p style=\"\">2021-04-22, &nbsp;PT-146874, &nbsp;7.6.2150.7</p><p style=\"\"><br/></p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">CancelAssign</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">撤销服务接口</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">GetSysReportData</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">获取报表数据</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">2021-07-22, &nbsp;PT-146882 , &nbsp;7.7.2241.3</p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">AttachmentUpload</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">上传附件</p></td><td class=\"a1 ab\" rowspan=\"2\" style=\"\"><p style=\"text-align: initial;\">2021-12-02，PT-146897，&nbsp;7.7.2374.8</p><p style=\"text-align: initial;\"><br/></p></td></tr><tr class=\"a1 ab\" style=\"\"><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">AttachmentDownLoad</p></td><td class=\"a1 ab\" style=\"\"><p style=\"text-align: initial;\">下载附件</p></td></tr></tbody></table><p><br/></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\">依赖环境</span></p><p style=\"\"><img src=\"https://vip.kingdee.com/download/01008c9c91344bdf4defb1f122bd27dd654e.png\"/><br/></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\"><br/></span></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\">前置信息</span></p><p style=\"\">首选需要获取第三方授权信息，具体操作查看《<a href=\"https://vip.kingdee.com/knowledge/specialDetail/229961573895771136?category=229963554177453824&id=298030366575393024&productLineId=1\" target=\"_blank\">如何获取第三方登录授权？</a>》</p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\"><br/></span></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\">SDK下载</span></p><p style=\"\">前往OpenAPI网站的SDK中心下载最新版本的SDK<span style=\"\">&gt;&gt;</span> <a href=\"https://openapi.open.kingdee.com/ApiSdkCenter\" title=\"\" target=\"_blank\" class=\"\">前往下载</a></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\"><br/></span></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\">NET版本SDK使用指南</span></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\">引用关键文件</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">开发者需引用资料包中SDK&nbsp;文件夹内名为Kingdee.BOS.WebApi.Client.dll的文件。如下图所示。</span></p><p style=\"\"><img src=\"https://vip.kingdee.com/download/010029137a7bbc994d62b2402efc43cfb10c.png\"/></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\"><br/></span></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\">第三方授权登录配置文件说明</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">将第三方系统登录授权信息，严格按照格式，加入第三方产品项目的配置文件中，</span><span style=\"color: rgb(44, 62, 80);\">示例如下。</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot; ?&gt;</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;configuration&gt;</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;appSettings&gt;</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;!--&nbsp;当前使用的 账套ID(即数据中心id) --&gt;</span></p><p style=\"\"><span style=\"color: rgb(191, 191, 191);\"><em><span style=\"color:#2c3e50\">&lt;!--&nbsp;第三方系统登录授权的账套ID（即open.kingdee.com网站的第三方系统登录授权中的数据中心标识）--&gt;</span></em></span></p><p style=\"\"><span style=\"color: rgb(191, 191, 191);\"><em><span style=\"color:#2c3e50\">&lt;!--&nbsp;<span style=\"color: rgb(44, 62, 80);\">在第三方系统登录授权页面点击“生成测试链接”按钮后即可查看&nbsp;&nbsp;</span><span style=\"color: rgb(127, 127, 127);\">&nbsp;--&gt;</span></span></em></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;add key=&quot;X-KDApi-AcctID&quot; value=&quot;5*************&quot;/&gt;</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;!--&nbsp;第三方系统登录授权的 集成用户名称 &nbsp;--&gt;</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"><span style=\"color: rgb(44, 62, 80);\">&lt;!--</span><span style=\"color: rgb(44, 62, 80);\">&nbsp;<span style=\"text-align: justify;\">补丁版本为PT-146894 [7.7.0.202111]及后续的版本</span>，则为指定用户登录列表中任一用户&nbsp; --&gt;</span></span></p><p style=\"text-align: justify; \"><span style=\"color: rgb(44, 62, 80);\"><span style=\"color: rgb(44, 62, 80);\"><span style=\"color: rgb(44, 62, 80);\">&lt;!--</span><span style=\"color: rgb(44, 62, 80);\">&nbsp;若<span style=\"color: rgb(44, 62, 80);\">第三方系统登录授权已</span>勾选“允许全部用户登录”，则无以上限制&nbsp; --&gt;</span></span></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;add key=&quot;X-KDApi-UserName&quot; value=&quot;*************&quot;/&gt;</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;!--&nbsp;第三方系统登录授权的 应用ID &nbsp;--&gt;</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;add key=&quot;X-KDApi-AppID&quot; value=&quot;207************************************************&quot;/&gt;</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;!--&nbsp;第三方系统登录授权的 应用密钥 &nbsp;--&gt;</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;add key=&quot;X-KDApi-AppSec&quot; value=&quot;**************************e754a9&quot;/&gt;</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;!--&nbsp;账套语系，默认2052 &nbsp;--&gt;</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;add key=&quot;X-KDApi-LCID&quot; value=&quot;2052&quot;/&gt;</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;!--&nbsp;组织编码，启用多组织时配置对应的组织编码才有效 &nbsp;--&gt;</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;!--&lt;add key=&quot;X-KDApi-OrgNum&quot; value=&quot;*****&quot;/&gt;--&gt;</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"><br/></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;!--&nbsp;服务Url地址(<span style=\"color: rgb(255, 0, 0);\">私有云和公有云都须配置星空产品地址，K3Cloud/结尾</span>)--&gt;</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;add key=&quot;X-KDApi-ServerUrl&quot; value=&quot;<a href=\"http://*************/k3cloud/&quot;/>\" target=\"_blank\">http://*************/k3cloud/&quot;/&gt;</a>&nbsp;</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"><br/></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;/appSettings&gt;</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">&lt;/configuration&gt;</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"><br/></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">情况1：如果是基于本地桌面应用程序运行的项目工程，则新增App.config配置文件，加入上面的第三方系统登录授权信息，如下图所示。</span><br/></p><p style=\"\"><img src=\"https://vip.kingdee.com/download/0100b557f08096e2466383429f7814fe4c79.png\"/></p><p style=\"\"><span style=\"color: rgb(0, 176, 240); font-weight: 700;\">（PS：该配置文件和对应的项目文件都应为utf-8编码，当用户名为中文名时尤其需要注意。）</span></p><p style=\"\"><span style=\"color: rgb(0, 176, 240); font-weight: 700;\"><br/></span></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\">Java版本SDK使用指南</span></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\">引用关键文件</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">开发者需引用资料包中SDK&nbsp;文件夹内名为k3cloud-webapi-sdk.jar的文件。如下图所示。</span></p><p style=\"\"><img src=\"https://vip.kingdee.com/download/01003cd31e4bd93a48deb5326e931ab2eacc.png\"/></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\"><br/></span></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\">第三方授权登录配置文件说明</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">将第三方系统登录授权信息，严格按照格式，加入第三方产品项目的配置文件中，示例如下。</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"># <span style=\"color: rgb(44, 62, 80);\">当前使用的 账套ID(即数据中心id)</span></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"><span style=\"color: rgb(44, 62, 80);\">#&nbsp;<em style=\"color: rgb(191, 191, 191);\"><span style=\"color: rgb(44, 62, 80);\">第三方系统登录授权的账套ID（即open.kingdee.com网站的第三方系统登录授权中的数据中心标识）</span></em></span></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"><span style=\"color: rgb(44, 62, 80);\"><em style=\"color: rgb(191, 191, 191);\"><span style=\"color: rgb(44, 62, 80);\">#&nbsp;<em style=\"color: rgb(191, 191, 191);\"><span style=\"color: rgb(44, 62, 80);\">在第三方系统登录授权页面点击“生成测试链接”按钮后即可查看</span></em></span></em></span></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">X-KDApi-AcctID&nbsp;= ************************</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"># <span style=\"color: rgb(44, 62, 80);\">第三方系统登录授权的 集成用户名称</span></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"><span style=\"color: rgb(44, 62, 80);\">#&nbsp;<span style=\"color: rgb(44, 62, 80); text-align: justify;\">补丁版本为PT-146894 [7.7.0.202111]及后续的版本</span><span style=\"color: rgb(44, 62, 80);\">，则为指定用户登录列表中任一用户</span></span></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"><span style=\"color: rgb(44, 62, 80);\"><span style=\"color: rgb(44, 62, 80);\">#&nbsp;<span style=\"color: rgb(44, 62, 80); text-align: justify;\">若第三方系统登录授权已勾选“允许全部用户登录”，则无以上限制</span></span></span></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">X-KDApi-UserName&nbsp;= ************************</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"># 第三方系统登录授权的应用ID</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">X-KDApi-AppID&nbsp;= ************************************************</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"># 第三方系统登录授权的应用密钥</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">X-KDApi-AppSec = ********************************************</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"># 账套语系，默认2052</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"># X-KDApi-LCID = 2052</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"># 组织编码，启用多组织时配置对应的组织编码才有效</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"># X-KDApi-OrgNum&nbsp;= *******</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"># <span style=\"color: rgb(44, 62, 80);\">服务Url地址<span style=\"color: rgb(44, 62, 80);\">(</span><span style=\"color: rgb(255, 0, 0);\"><span style=\"color: rgb(255, 0, 0);\">私有云和公有云都须配置星空产品地址，K3Cloud/结尾</span></span><span style=\"color: rgb(44, 62, 80);\">)</span></span></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">X-KDApi-ServerUrl&nbsp;=************************</span></p><p style=\"\"><br/></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">情况1：如果是基于本地应用程序运行的项目工程，则新增项目配置文件&nbsp;kdwebapi.properties，如下图所示。</span></p><p style=\"\"><img src=\"https://vip.kingdee.com/download/0100124e7f99402942a3a993efbf321149af.png\"/></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\"><span style=\"color: rgb(0, 176, 240); font-weight: 700;\">（PS：该配置文件和对应的项目文件都应为utf-8编码，当用户名为中文名时尤其需要注意。）</span></span></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\"><span style=\"color: rgb(0, 176, 240); font-weight: 700;\"><br/></span></span></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\">Python版本SDK使用指南</span></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\">引用关键文件</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">开发者需安装k3cloud_webapi_sdk文件。如下所示。</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">#使用pip安装指令格式：</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">pip install {后缀为.whl的SDK包文件的本地完整目录}</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">pip install F:\\Python\\k3cloud_webapi_sdk-1.0.0-py3-none-any.whl</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"><br/></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"></span></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\">第三方授权登录配置文件说明</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">将第三方系统登录授权信息，严格按照格式，加入第三方产品项目的配置文件中，示例如下。</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"></span><font color=\"#2c3e50\"># 服务Url地址(私有云和公有云都须配置星空产品地址，K3Cloud/结尾)<br/></font></p><p><font color=\"#2c3e50\">X-KDApi-ServerUrl = http://172.17.55.175/k3cloud/</font></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">#&nbsp;当前使用的 账套ID(即数据中心id)</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">#&nbsp;<em style=\"color: rgb(191, 191, 191);\"><span style=\"color: rgb(44, 62, 80);\">第三方系统登录授权的账套ID（即open.kingdee.com网站的第三方系统登录授权中的数据中心标识）</span></em></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"><em style=\"color: rgb(191, 191, 191);\"><span style=\"color: rgb(44, 62, 80);\">#&nbsp;<em style=\"color: rgb(191, 191, 191);\"><span style=\"color: rgb(44, 62, 80);\">在第三方系统登录授权页面点击“生成测试链接”按钮后即可查看</span></em></span></em></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">X-KDApi-AcctID&nbsp;= ************************</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">#&nbsp;第三方系统登录授权的 集成用户名称</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">#&nbsp;<span style=\"text-align: justify;\">补丁版本为PT-146894 [7.7.0.202111]及后续的版本</span>，则为指定用户登录列表中任一用户</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">#&nbsp;<span style=\"text-align: justify;\">若第三方系统登录授权已勾选“允许全部用户登录”，则无以上限制</span></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">X-KDApi-UserName&nbsp;= ************************</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"># 第三方系统登录授权的应用ID</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">X-KDApi-AppID&nbsp;= ************************************************</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"># 第三方系统登录授权的应用密钥</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">X-KDApi-AppSec = ********************************************</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"># 账套语系，默认2052</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"># X-KDApi-LCID = 2052</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"># 组织编码，启用多组织时配置对应的组织编码才有效</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"># X-KDApi-OrgNum&nbsp;= *******</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"></span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"># 若使用代理，配置此参数</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\"># X-KDApi-Proxy = ************************</span></p><p style=\"\"><br/></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">情况1：如果是基于本地应用程序运行的项目工程，则新增项目配置文件conf.ini节点为config：（配置参数名称不区分大小写）如下所示。</span></p><p style=\"\"><img src=\"https://vip.kingdee.com/download/0100ccacdf9eb089424b86df7421f031bad9.png\"/></p><p><span style=\"color: rgb(0, 176, 240); font-weight: 700;\">（PS：该配置文件和对应的项目文件都应为utf-8编码，当用户名为中文名时尤其需要注意。）</span></p><p><span style=\"color: rgb(0, 176, 240); font-weight: 700;\"><br/></span></p><p><span style=\"color: rgb(0, 176, 240); font-weight: 700;\"><span style=\"color: rgb(44, 62, 80); font-weight: 700;\">PHP版本SDK使用指南</span></span></p><p><span style=\"color: rgb(0, 176, 240); font-weight: 700;\"><span style=\"color: rgb(44, 62, 80); font-weight: 700;\"></span></span></p><p style=\"\"><span style=\"font-weight: bold; color: rgb(44, 62, 80);\">引用关键文件</span></p><p style=\"\"><span style=\"color: rgb(44, 62, 80);\">开发者需引用资料包中SDK&nbsp;文件夹内名为kingdee-webapi-sdk-v8.0.5.phar的文件。如下图所示。</span></p><div style=\"\"><span style=\"color: rgb(44, 62, 80);\"><br/></span></div><p><span style=\"color: rgb(0, 176, 240); font-weight: 700;\"><span style=\"color: rgb(44, 62, 80); font-weight: 700;\"><img src=\"/download/0109c951f047d5e14f88b86940ce9675e32d.png\"/></span></span><br/></p><p><span style=\"color: rgb(0, 176, 240); font-weight: 700;\"><span style=\"color: rgb(44, 62, 80); font-weight: 700;\"><span style=\"color: rgb(44, 62, 80); font-weight: 700;\">第三方授权登录配置文件示例说明</span></span></span></p><p><span style=\"color: rgb(0, 176, 240); font-weight: 700;\"><span style=\"color: rgb(44, 62, 80); font-weight: 700;\"></span></span></p><p class=\"kd-image-content\"><br/></p><p><span style=\"color: rgb(0, 176, 240); font-weight: 700;\"><span style=\"color: rgb(44, 62, 80); font-weight: 700;\"></span></span><br/></p><p class=\"kd-image-content\"><img src=\"/download/0100fbe912a44526421c886fb9d6f785e767.png\" alt=\"上传图片\"/></p><p><br/></p><div id=\"baidu_pastebin\" style=\"position: absolute; width: 1px; height: 1px; overflow: hidden; left: -1000px; white-space: nowrap; top: 4618px;\"><img class=\"loadingclass\" id=\"loading_lxmm55lm\" src=\"https://vipstatic.obs.cn-north-4.myhuaweicloud.com/statics/webfront/ueditor/images/loading.gif\"/></div>"
+  }
+}

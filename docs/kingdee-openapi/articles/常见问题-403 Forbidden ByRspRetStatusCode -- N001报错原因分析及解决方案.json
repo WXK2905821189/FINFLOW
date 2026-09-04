@@ -1,0 +1,416 @@
+{
+  "categoryId": "229964512944566016",
+  "articleId": "537229068048283648",
+  "category": "常见问题",
+  "title": "403 Forbidden ByRspRetStatusCode -- N001报错原因分析及解决方案",
+  "source": "https://vip.kingdee.com/knowledge/specialDetail/229961573895771136?category=229964512944566016&id=537229068048283648&type=Knowledge&productLineId=1&lang=zh-CN",
+  "fetchedAt": "2026-09-03T04:31:47.322Z",
+  "rawResponse": {
+    "badNum": 0,
+    "templateId": "360104391694746112",
+    "identityTagIds": null,
+    "knowledgeId": "537229068048283648",
+    "createdAt": 1705893391000,
+    "collections": 8,
+    "viewAuthority": 1,
+    "feedbackNum": 0,
+    "classifies": [
+      {
+        "code": null,
+        "name": "企业版/标准版",
+        "id": 1,
+        "sort": 0,
+        "type": "product",
+        "child": {
+          "code": null,
+          "name": "协同开发",
+          "id": 5709,
+          "sort": 26,
+          "type": "domain",
+          "child": {
+            "code": "api",
+            "name": "OpenAPI",
+            "id": "228544575986699264",
+            "sort": 3,
+            "type": "module",
+            "child": null,
+            "productLineId": null
+          },
+          "productLineId": null
+        },
+        "productLineId": 1
+      }
+    ],
+    "id": "537229068048283648",
+    "contentType": 1,
+    "updatedAt": 1705902432000,
+    "knowledgeUpdater": {
+      "avatar": "/download/01010753253164e84390b4c1fc11276ceff0.png",
+      "department": null,
+      "id": "250666821609831168",
+      "name": "都付笑谈中",
+      "nameSpell": "name"
+    },
+    "assessStatus": 0,
+    "knowledgeStatus": 2,
+    "assessHandleStatus": null,
+    "knowledgeCreatedAt": 1705893391000,
+    "version": 5,
+    "labels": [
+      {
+        "code": "changjianwenti",
+        "hide": false,
+        "id": "6",
+        "name": "常见问题",
+        "style": 0,
+        "type": 0
+      },
+      {
+        "code": "XSRM",
+        "hide": false,
+        "id": "40",
+        "name": "快速入门",
+        "style": 0,
+        "type": 1
+      }
+    ],
+    "editedAt": 1705902432000,
+    "identityTags": null,
+    "useful": 6,
+    "errors": [],
+    "isCollected": false,
+    "template": "",
+    "totalFeedBacks": 0,
+    "attachments": [],
+    "sources": [],
+    "editTitle": "403 Forbidden ByRspRetStatusCode -- N001报错原因分析及解决方案",
+    "title": "403 Forbidden ByRspRetStatusCode -- N001报错原因分析及解决方案",
+    "content": "<p style=\"text-align: justify\"></p><p style=\"text-align: justify\">403 N001是调用该请求时，当前用户不是登入状态，导致无权访问服务端接口。</p><p style=\"text-align: justify\"><span style=\"font-family:Arial\">参考：</span><a href=\"https://vip.kingdee.com/article/97030089581136896?productLineId=1&isKnowledge=2\" target=\"_blank\"><span style=\"font-family:Arial\">【二开案例</span>.WebApi.从零开发自定义WebApi接口】</a></p><p style=\"text-align: justify\">&nbsp;</p><p style=\"text-align: justify\"><span style=\"font-family:Arial\">原因分析：</span></p><p style=\"text-align: justify\">1、<span style=\"font-family:Arial\">如果是确认是登入前的</span>WebApi接口，请确保该接口存在独立的.WebApi.子命名空间。</p><p style=\"text-align: justify\">2、<span style=\"font-family:Arial\">如果该接口是登入后的，请一定在当前用户登入后才调用该接口，否则提示</span>N001找不到上下文信息。</p><p style=\"text-align: justify\">&nbsp;</p><p style=\"text-align: justify\"><span style=\"font-family:Arial\">解决方案：</span></p><p style=\"text-align: justify\">1、<span style=\"font-family:Arial\">推荐使用官方的</span>sdk</p><p style=\"text-align: justify\"><span style=\"font-family:Arial\">参考：</span><a href=\"https://vip.kingdee.com/knowledge/specialDetail/229961573895771136?category=229964434343990272&id=421729980586822912&productLineId=1\" target=\"_blank\"><span style=\"font-family:Arial\">标准自定义</span>api编写并使用sdk调用</a></p><p style=\"text-align: justify\"><br/></p><p style=\"text-align: justify\">&nbsp;</p><p style=\"text-align: justify\">2、如果使用的是ApiClient类，则参考webapi示例进行登录。</p><p class=\"kd-image-content\"><img src=\"/download/0100f1349cb21d3740809a75473532a5bac9.png\" alt=\"上传图片\"/></p><p style=\"text-align: justify\">&nbsp;<br/></p><p><br/></p>",
+    "products": [
+      {
+        "alias": null,
+        "code": "4468a7c0a53d11e8a7f90050568926a7",
+        "id": 1,
+        "isOpen": 1,
+        "name": "企业版/标准版",
+        "productLineId": 1,
+        "series": "S036",
+        "sort": 0
+      }
+    ],
+    "knowledgeSpecial": [
+      {
+        "categoryList": [
+          {
+            "childCategory": [
+              {
+                "childCategory": [
+                  null
+                ],
+                "code": null,
+                "description": null,
+                "entityId": "537229068048283648",
+                "entityType": "Knowledge",
+                "id": "537266988129950208",
+                "isCategory": false,
+                "name": "403 Forbidden ByRspRetStatusCode -- N001报错原因分析及解决方案",
+                "parentId": "229964512944566016",
+                "sort": "8",
+                "specialId": "229961573895771136",
+                "status": 1
+              }
+            ],
+            "code": null,
+            "description": null,
+            "entityId": null,
+            "entityType": null,
+            "id": "229964512944566016",
+            "isCategory": true,
+            "name": "常见问题",
+            "parentId": "-1",
+            "sort": "7",
+            "specialId": "229961573895771136",
+            "status": 1
+          }
+        ],
+        "classifies": null,
+        "collections": 159,
+        "createdAt": "2021-09-26T13:45:11.000+08:00",
+        "creator": {
+          "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+          "department": null,
+          "id": "96907288496966400",
+          "name": "Kidd",
+          "nameSpell": "name"
+        },
+        "description": "OpenAPI",
+        "hasCollected": null,
+        "hasHomePage": 1,
+        "id": "229961573895771136",
+        "identityTags": null,
+        "itemNum": 35,
+        "logo": "/download/01007136e2cc1839483f8b3df1781bcb28f0.png",
+        "name": "OpenAPI",
+        "otherProductLineIds": null,
+        "productLineId": "1",
+        "productList": [
+          {
+            "alias": null,
+            "code": "4468a7c0a53d11e8a7f90050568926a7",
+            "id": 1,
+            "isOpen": 1,
+            "name": "企业版/标准版",
+            "productLineId": 1,
+            "series": "S036",
+            "sort": 0
+          }
+        ],
+        "sort": 3,
+        "status": 2,
+        "style": 3,
+        "totalAppraisalScore": 14,
+        "totalAppraisalUsers": 3,
+        "updatedAt": "2025-06-27T16:28:41.000+08:00",
+        "updaterId": "1149",
+        "useCategory": 1,
+        "viewAuthority": 1,
+        "views": 1361378
+      }
+    ],
+    "entityUrl": null,
+    "needTranslate": null,
+    "knowledgeCreator": {
+      "avatar": "/download/01010eae28ef417e4806ba0499acf4aeef12.png",
+      "department": null,
+      "id": "1149",
+      "name": "王文亮",
+      "nameSpell": "Owen"
+    },
+    "totalAppraisalScore": 30,
+    "iflytekId": null,
+    "views": 7235,
+    "productLineId": 1,
+    "comments": 2,
+    "similarityCount": 0,
+    "totalAppraisalUsers": 6,
+    "isKnowledge": 1,
+    "knowledgeUpdatedAt": 1705902432000,
+    "appraisalScore": 0,
+    "unuseful": 0,
+    "knowledgeCheckStatus": 2,
+    "otherProductLineIds": [],
+    "auditAt": 1705913338000,
+    "attributes": [
+      {
+        "classifies": [
+          {
+            "child": {
+              "child": {
+                "child": null,
+                "code": "api",
+                "id": "228544575986699264",
+                "name": "OpenAPI",
+                "productLineId": null,
+                "sort": 3,
+                "type": "module"
+              },
+              "code": null,
+              "id": "5709",
+              "name": "协同开发",
+              "productLineId": null,
+              "sort": 26,
+              "type": "domain"
+            },
+            "code": null,
+            "id": "1",
+            "name": "企业版/标准版",
+            "productLineId": 1,
+            "sort": 0,
+            "type": "product"
+          }
+        ],
+        "labels": [
+          {
+            "code": "changjianwenti",
+            "createdAt": 1553686053000,
+            "creator": {
+              "avatar": "/download?fileName=010162cfa9d4437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "1",
+              "name": "administrator",
+              "nameSpell": "administrator"
+            },
+            "description": "常见问题",
+            "hasSpecifyUser": false,
+            "hide": false,
+            "icon": "/download?fileName=0100ef2db45aa7524b70a990e7fd9d40db4a.png",
+            "id": "6",
+            "name": "常见问题",
+            "productLine": {
+              "active": true,
+              "appLogo": "星空",
+              "categoryCode": "C04",
+              "courseLogo": "/download/01009af04319c0514a20a059f889104d4dd7.png",
+              "domain": null,
+              "enablePaymentCourse": false,
+              "hasAtlas": true,
+              "hasIdea": false,
+              "hasKnowledge": true,
+              "hasQZ": false,
+              "id": 1,
+              "isDefault": null,
+              "isOpen": true,
+              "isValidLearning": true,
+              "isVirtual": false,
+              "logo": "/download/01007dc91abec4a8458d8bd9eefa81a0238b.png",
+              "name": "金蝶AI星空企业版/标准版",
+              "rank": 7,
+              "seriesCode": "S036"
+            },
+            "specifyUsers": [],
+            "style": 0,
+            "type": 0,
+            "updatePerson": {
+              "avatar": "/download/010162642d4ab45843119f96b5abd01c554f.png",
+              "department": null,
+              "id": "13627",
+              "name": "Anna_xiao",
+              "nameSpell": "xiaoronglan"
+            },
+            "updatedAt": 1670479317000
+          },
+          {
+            "code": "XSRM",
+            "createdAt": 1568798823000,
+            "creator": {
+              "avatar": "/download?fileName=01014c2c1c8b203f4a8aaa1e18dce7725efa.png",
+              "department": null,
+              "id": "1155",
+              "name": "陈旭",
+              "nameSpell": "lansehuanxiang"
+            },
+            "description": "快速入门",
+            "hasSpecifyUser": false,
+            "hide": false,
+            "icon": "/download?fileName=01007ab64f34c9004072ad021d226f8216fe.png",
+            "id": "40",
+            "name": "快速入门",
+            "productLine": {
+              "active": true,
+              "appLogo": "星空",
+              "categoryCode": "C04",
+              "courseLogo": "/download/01009af04319c0514a20a059f889104d4dd7.png",
+              "domain": null,
+              "enablePaymentCourse": false,
+              "hasAtlas": true,
+              "hasIdea": false,
+              "hasKnowledge": true,
+              "hasQZ": false,
+              "id": 1,
+              "isDefault": null,
+              "isOpen": true,
+              "isValidLearning": true,
+              "isVirtual": false,
+              "logo": "/download/01007dc91abec4a8458d8bd9eefa81a0238b.png",
+              "name": "金蝶AI星空企业版/标准版",
+              "rank": 7,
+              "seriesCode": "S036"
+            },
+            "specifyUsers": [],
+            "style": 0,
+            "type": 1,
+            "updatePerson": {
+              "avatar": "/download/0101f60bc4bb22124014a63b35b1083486e8.png",
+              "department": null,
+              "id": "234310606810391808",
+              "name": "咬咬咬咬人",
+              "nameSpell": "name"
+            },
+            "updatedAt": 1660218233000
+          }
+        ],
+        "productLineId": 1,
+        "specials": [
+          {
+            "categoryList": [
+              {
+                "childCategory": [
+                  {
+                    "childCategory": [
+                      null
+                    ],
+                    "code": null,
+                    "description": null,
+                    "entityId": "537229068048283648",
+                    "entityType": "Knowledge",
+                    "id": "537266988129950208",
+                    "isCategory": false,
+                    "name": "403 Forbidden ByRspRetStatusCode -- N001报错原因分析及解决方案",
+                    "parentId": "229964512944566016",
+                    "sort": "8",
+                    "specialId": "229961573895771136",
+                    "status": 1
+                  }
+                ],
+                "code": null,
+                "description": null,
+                "entityId": null,
+                "entityType": null,
+                "id": "229964512944566016",
+                "isCategory": true,
+                "name": "常见问题",
+                "parentId": "-1",
+                "sort": "7",
+                "specialId": "229961573895771136",
+                "status": 1
+              }
+            ],
+            "classifies": null,
+            "collections": 159,
+            "createdAt": "2021-09-26T13:45:11.000+08:00",
+            "creator": {
+              "avatar": "/download/010162cfa9d4437711e8b441060400ef5315.png",
+              "department": null,
+              "id": "96907288496966400",
+              "name": "Kidd",
+              "nameSpell": "name"
+            },
+            "description": "OpenAPI",
+            "hasCollected": null,
+            "hasHomePage": 1,
+            "id": "229961573895771136",
+            "identityTags": null,
+            "itemNum": 35,
+            "logo": "/download/01007136e2cc1839483f8b3df1781bcb28f0.png",
+            "name": "OpenAPI",
+            "otherProductLineIds": null,
+            "productLineId": "1",
+            "productList": [
+              {
+                "alias": null,
+                "code": "4468a7c0a53d11e8a7f90050568926a7",
+                "id": 1,
+                "isOpen": 1,
+                "name": "企业版/标准版",
+                "productLineId": 1,
+                "series": "S036",
+                "sort": 0
+              }
+            ],
+            "sort": 3,
+            "status": 2,
+            "style": 3,
+            "totalAppraisalScore": 14,
+            "totalAppraisalUsers": 3,
+            "updatedAt": "2025-06-27T16:28:41.000+08:00",
+            "updaterId": "1149",
+            "useCategory": 1,
+            "viewAuthority": 1,
+            "views": 1361378
+          }
+        ]
+      }
+    ],
+    "editContent": "<p style=\"text-align: justify\"></p><p style=\"text-align: justify\">403 N001是调用该请求时，当前用户不是登入状态，导致无权访问服务端接口。</p><p style=\"text-align: justify\"><span style=\"font-family:Arial\">参考：</span><a href=\"https://vip.kingdee.com/article/97030089581136896?productLineId=1&isKnowledge=2\" target=\"_blank\"><span style=\"font-family:Arial\">【二开案例</span>.WebApi.从零开发自定义WebApi接口】</a></p><p style=\"text-align: justify\">&nbsp;</p><p style=\"text-align: justify\"><span style=\"font-family:Arial\">原因分析：</span></p><p style=\"text-align: justify\">1、<span style=\"font-family:Arial\">如果是确认是登入前的</span>WebApi接口，请确保该接口存在独立的.WebApi.子命名空间。</p><p style=\"text-align: justify\">2、<span style=\"font-family:Arial\">如果该接口是登入后的，请一定在当前用户登入后才调用该接口，否则提示</span>N001找不到上下文信息。</p><p style=\"text-align: justify\">&nbsp;</p><p style=\"text-align: justify\"><span style=\"font-family:Arial\">解决方案：</span></p><p style=\"text-align: justify\">1、<span style=\"font-family:Arial\">推荐使用官方的</span>sdk</p><p style=\"text-align: justify\"><span style=\"font-family:Arial\">参考：</span><a href=\"https://vip.kingdee.com/knowledge/specialDetail/229961573895771136?category=229964434343990272&id=421729980586822912&productLineId=1\" target=\"_blank\"><span style=\"font-family:Arial\">标准自定义</span>api编写并使用sdk调用</a></p><p style=\"text-align: justify\"><br/></p><p style=\"text-align: justify\">&nbsp;</p><p style=\"text-align: justify\">2、如果使用的是ApiClient类，则参考webapi示例进行登录。</p><p class=\"kd-image-content\"><img src=\"/download/0100f1349cb21d3740809a75473532a5bac9.png\" alt=\"上传图片\"/></p><p style=\"text-align: justify\">&nbsp;<br/></p><p><br/></p>"
+  }
+}

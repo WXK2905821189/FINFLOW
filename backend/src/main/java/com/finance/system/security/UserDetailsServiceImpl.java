@@ -1,7 +1,7 @@
 package com.finance.system.security;
 
-import com.finance.system.domain.service.RbacService;
-import com.finance.system.domain.service.SysUserService;
+import com.finance.system.rbac.RbacService;
+import com.finance.system.user.SysUserService;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -20,7 +20,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        var user = userService.findByUsername(username)
+        var user = userService.findByLoginIdentifier(username)
                 .orElseThrow(() -> new UsernameNotFoundException("Account or password is invalid"));
         return new UserPrincipal(user, rbacService.authorityCodes(user.getId()));
     }

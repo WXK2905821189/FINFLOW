@@ -1,0 +1,19 @@
+# 后端运行镜像：仅含 JRE 与已构建好的 jar（jar 由本地/CI 构建后放入本目录）
+# 构建前请先执行：mvn -s backend/.m2-settings.xml -f backend/pom.xml package -DskipTests
+# 并将产物 backend/target/*.jar 复制为 deploy/app.jar
+FROM eclipse-temurin:17-jre
+
+WORKDIR /app
+
+ENV TZ=Asia/Shanghai
+ENV JAVA_OPTS="-Xms512m -Xmx1024m -Duser.timezone=Asia/Shanghai"
+
+COPY app.jar /app/app.jar
+
+# 容器内健康探测：能建立 HTTP 连接即视为 JVM 已就绪
+HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=5 \
+  CMD curl -s -o /dev/null http://127.0.0.1:8080/api/auth/login || exit 1
+
+EXPOSE 8080
+
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar --spring.profiles.active=prod"]

@@ -11,6 +11,7 @@ public class StatementImportBatch {
 
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
+    private Long companyId;
     private String batchNo;
     private String sourceType;
     private String sourceName;
@@ -26,6 +27,8 @@ public class StatementImportBatch {
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+    public Long getCompanyId() { return companyId; }
+    public void setCompanyId(Long companyId) { this.companyId = companyId; }
     public String getBatchNo() { return batchNo; }
     public void setBatchNo(String batchNo) { this.batchNo = batchNo; }
     public String getSourceType() { return sourceType; }
