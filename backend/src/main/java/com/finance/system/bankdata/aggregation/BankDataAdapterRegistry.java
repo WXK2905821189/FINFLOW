@@ -18,22 +18,16 @@ import java.util.stream.Collectors;
 public class BankDataAdapterRegistry {
 
     private final Map<String, BankDataAdapter> adapters;
-    private final boolean realAdaptersEnabled;
 
-    /** Compatibility constructor for focused unit tests: real-first routing stays off. */
-    public BankDataAdapterRegistry(List<BankDataAdapter> adapterList) {
-        this(adapterList, new BankAdapterCallProperties());
-    }
-
+    /**
+     * Routing-only registry: whether a real call may be issued is decided by
+     * {@link BankAdapterCallExecutor} (bankdata.adapter.call.real-adapters-enabled),
+     * never by this table (dead-field cleanup 2026-09-04).
+     */
     @Autowired
-    public BankDataAdapterRegistry(List<BankDataAdapter> adapterList, BankAdapterCallProperties callProperties) {
-        this(adapterList, callProperties.isRealAdaptersEnabled());
-    }
-
-    public BankDataAdapterRegistry(List<BankDataAdapter> adapterList, boolean realAdaptersEnabled) {
+    public BankDataAdapterRegistry(List<BankDataAdapter> adapterList) {
         this.adapters = adapterList.stream().collect(Collectors.toUnmodifiableMap(
                 adapter -> normalize(adapter.adapterCode()), Function.identity()));
-        this.realAdaptersEnabled = realAdaptersEnabled;
     }
 
     public BankDataAdapter require(String adapterCode) {

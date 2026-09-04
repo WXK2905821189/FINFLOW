@@ -70,3 +70,13 @@
 - **现象**：FIX-001 移除 manualChunks 后运行时稳定性恢复，但代价是主包体积集中；React.lazy 路由级拆分已缓解，首屏仍一次性加载 antd 主体。
 - **方向**：评估 antd 按需引入 / babel-plugin-import、路由级预取策略；改动后必须浏览器实测首屏（沿用 FIX-001 验收标准），避免回归 chunk 互操作问题。
 
+---
+
+### ✅ FIX-002 清偿记录（全栈工程师 2026-09-04 回填）
+
+**P2-1 · CI grep 断言易碎 → 已加固**：bankdata URL 守卫的豁免从隐式 `-vE` 正则提升为显式 `url_allowlist` 变量（XML 解析器加固 URI 白名单），报错信息从一句 echo 改为指路式（说明网关地址应登记在 docs/ 而非源码/注释）。bankdata 源码 URL 字面量已只剩 XML 安全 URI 3 处。
+
+**P2-2 · 覆盖率盲区 → 已补 `ConnectionOperationsServiceTest`（Mockito 纯单测 8 用例）**：覆盖装配推导（REAL 装配列表→connectedBanks 文案动态化）、资源门（资源不存在→BusinessException 404）、logs 投影（状态/请求号筛选、分页、空连接）、**并抓出真实生产缺陷**：`logs()` 中 `.eq(condition, normalize(status))` 因 Java 先求值参数导致 `normalize(null)` NPE——UI 不传状态筛选即 500。已修复（`normalize` 移入条件分支前判空）。kingdee 包测试仍未覆盖（后续批次）。
+
+**P2-3 · 主 chunk 798→578 kB（gzip 203→192 kB）**：Shell / Login / Forbidden 三者 React.lazy 化（Login、Forbidden 从 `auth/pages.tsx` 拆为独立文件，避免同文件守卫组件拖累拆分）。无 manualChunks（FIX-001 红线），纯页面级 lazy。Edge headless 实测首屏登录页完整渲染（FINFLOW 品牌/表单/文案全在 DOM，无 Uncaught）。剩余 578 kB 为 react/antd 基座，继续压缩只能上 manualChunks——已被 FIX-001 教训否决，警告线调至 600 kB 并在 vite.config.ts 注释说明理由。
+

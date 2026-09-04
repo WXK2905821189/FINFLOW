@@ -79,12 +79,17 @@ jobs:
           grep -q 'DROP CONSTRAINT IF EXISTS' backend/src/main/resources/db/vendor-migration/h2/V7__drop_legacy_statement_number_uniqueness.sql
           grep -q 'PREPARE drop_legacy_statement_index' backend/src/main/resources/db/vendor-migration/mysql/V7__drop_legacy_statement_number_uniqueness.sql
           grep -q 'classpath:db/vendor-migration/{vendor}' backend/src/main/resources/application.yml
-          # bankdata must not call a real bank over HTTP yet; the XML security feature
-          # URIs in CiticResponseXml (http://apache.org/xml, http://xml.org/sax) are parser
-          # hardening constants, not network calls, so they are filtered out
+          # bankdata must not call a real bank over HTTP yet. The only http(s) literals allowed
+          # anywhere in bankdata sources are XML parser hardening URIs (declared below as an
+          # explicit allow-list, P2-1). A real gateway URL — even inside a javadoc comment — fails
+          # the build on purpose: source comments travel through git history/mirrors and would leak
+          # the gateway address. Record approved gateway addresses in docs/ instead.
+          url_allowlist='apache\.org/xml/features|xml\.org/sax/features'
           if git grep -n -I -E '(HttpClient|RestTemplate|WebClient|java\.net\.http|https?://)' -- backend/src/main/java/com/finance/system/bankdata \
-             | grep -vE 'apache\.org/xml/features|xml\.org/sax/features'; then
+             | grep -vE "$url_allowlist"; then
             echo "v0.2 must not call a real bank SDK or API before a separately approved adapter release."
+            echo "Bank gateway URLs are not allowed in bankdata sources (code OR comments): register the"
+            echo "approved address in docs/ (e.g. docs/bank-connect-schedule-2026-09-03.md)."
             exit 1
           fi
           if git grep -n -I -E '(BANK|KINGDEE)_(API_)?(KEY|SECRET|TOKEN)=[^${[:space:]]+' -- . ':!docs/deployment-guide.md'; then

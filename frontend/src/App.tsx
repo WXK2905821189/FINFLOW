@@ -2,9 +2,15 @@ import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import './styles.css';
 import { useAuthStore } from './store/auth';
-import { AuthGuard, Forbidden, Login, PermissionGuard } from './modules/auth/pages';
-import { Shell } from './modules/shell/Shell';
+import { AuthGuard, PermissionGuard } from './modules/auth/pages';
 import { PageLoading, PreservedFinancePage } from './modules/shared/components';
+
+// Shell/Login/Forbidden 均懒加载：登录首屏只下载登录所需依赖；antd 控制台骨架（Layout/Menu
+// 与 Result 403 页）登录后才按需取。页面级 code splitting 一律走 React.lazy，不引入
+// manualChunks（FIX-001 白屏教训）。
+const Shell = lazy(() => import('./modules/shell/Shell').then((module) => ({ default: module.Shell })));
+const Login = lazy(() => import('./modules/auth/LoginPage').then((module) => ({ default: module.Login })));
+const Forbidden = lazy(() => import('./modules/auth/ForbiddenPage').then((module) => ({ default: module.Forbidden })));
 
 const Dashboard = lazy(() => import('./modules/dashboard/pages').then((module) => ({ default: module.Dashboard })));
 const BatchList = lazy(() => import('./modules/statements/pages').then((module) => ({ default: module.BatchList })));

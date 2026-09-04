@@ -26,7 +26,7 @@ class BankDataAdapterRegistryTest {
 
     @Test
     void explicitRegisteredCodeWinsAndProviderResolvesToItself() {
-        BankDataAdapterRegistry registry = registry(true, realCmb, mockCmb, genericMock);
+        BankDataAdapterRegistry registry = registry(realCmb, mockCmb, genericMock);
 
         assertEquals("CMB", registry.resolveCode(null, "CMB"));
         assertEquals("CMB", registry.resolveCode("CMB", "CMB"));
@@ -36,10 +36,10 @@ class BankDataAdapterRegistryTest {
 
     @Test
     void providerResolvesOnlyWhenTheProviderCodeItselfIsRegistered() {
-        BankDataAdapterRegistry registry = registry(true, realCmb, mockCmb, genericMock);
+        BankDataAdapterRegistry registry = registry(realCmb, mockCmb, genericMock);
         assertEquals("CMB", registry.resolveCode(null, "CMB"));
 
-        BankDataAdapterRegistry noRealAdapter = registry(true, mockCmb, genericMock);
+        BankDataAdapterRegistry noRealAdapter = registry(mockCmb, genericMock);
         assertEquals("CMB_MOCK", noRealAdapter.resolveCode(null, "CMB_MOCK"));
     }
 
@@ -47,14 +47,14 @@ class BankDataAdapterRegistryTest {
     void unresolvableProviderFailsClosedInsteadOfBecomingMock() {
         // No brand-MOCK or generic-MOCK fallback: a provider resolves only to a registered adapter,
         // so an unregistered bank is rejected outright.
-        BankDataAdapterRegistry withoutCmb = registry(false, mockCmb, genericMock);
+        BankDataAdapterRegistry withoutCmb = registry(mockCmb, genericMock);
         assertThrows(BusinessException.class, () -> withoutCmb.resolveCode(null, "CMB"));
 
-        BankDataAdapterRegistry onlyGeneric = registry(false, genericMock);
+        BankDataAdapterRegistry onlyGeneric = registry(genericMock);
         assertThrows(BusinessException.class, () -> onlyGeneric.resolveCode(null, "CITIC"));
         assertThrows(BusinessException.class, () -> onlyGeneric.resolveCode(null, null));
 
-        BankDataAdapterRegistry wired = registry(true, realCmb, mockCmb, genericMock);
+        BankDataAdapterRegistry wired = registry(realCmb, mockCmb, genericMock);
         assertThrows(BusinessException.class, () -> wired.resolveCode(null, "UNKNOWN_BANK"));
     }
 
@@ -64,20 +64,20 @@ class BankDataAdapterRegistryTest {
         // BankAdapterCallExecutor (bankdata.adapter.call.real-adapters-enabled). A registered
         // adapter stays routable so the executor can produce an explicit refusal instead of a
         // confusing "adapter not available".
-        BankDataAdapterRegistry closedGate = registry(false, realCmb, mockCmb, genericMock);
+        BankDataAdapterRegistry closedGate = registry(realCmb, mockCmb, genericMock);
         assertEquals("CMB", closedGate.resolveCode(null, "CMB"));
     }
 
     @Test
     void explicitUnknownCodeIsRejected() {
-        BankDataAdapterRegistry registry = registry(true, realCmb, mockCmb, genericMock);
+        BankDataAdapterRegistry registry = registry(realCmb, mockCmb, genericMock);
 
         assertThrows(BusinessException.class, () -> registry.resolveCode("REAL_NOT_REGISTERED", "CMB"));
         assertThrows(BusinessException.class, () -> registry.require("REAL_NOT_REGISTERED"));
     }
 
-    private BankDataAdapterRegistry registry(boolean realAdaptersEnabled, BankDataAdapter... adapters) {
-        return new BankDataAdapterRegistry(List.of(adapters), realAdaptersEnabled);
+    private BankDataAdapterRegistry registry(BankDataAdapter... adapters) {
+        return new BankDataAdapterRegistry(List.of(adapters));
     }
 
     private static final class ModeAdapter implements BankDataAdapter {

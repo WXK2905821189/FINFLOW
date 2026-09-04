@@ -101,10 +101,16 @@ public class ConnectionOperationsService {
         }
         LambdaQueryWrapper<ConnectionOperationLog> query = new LambdaQueryWrapper<ConnectionOperationLog>()
                 .eq(ConnectionOperationLog::getCompanyId, companyId)
-                .eq(status != null && !status.isBlank(), ConnectionOperationLog::getResult, normalize(status))
-                .eq(requestId != null && !requestId.isBlank(), ConnectionOperationLog::getRequestId, requestId.trim())
                 .orderByDesc(ConnectionOperationLog::getOccurredAt)
                 .orderByDesc(ConnectionOperationLog::getId);
+        // 注意：不能写 .eq(status != null && ..., getResult, normalize(status)) —— 方法实参总是先于
+        // condition 求值，normalize(null) 会 NPE（2026-09-04 由契约测试抓出）。改为先判空再挂条件。
+        if (status != null && !status.isBlank()) {
+            query.eq(ConnectionOperationLog::getResult, normalize(status));
+        }
+        if (requestId != null && !requestId.isBlank()) {
+            query.eq(ConnectionOperationLog::getRequestId, requestId.trim());
+        }
         if (connectionId != null) {
             List<Long> taskIds = taskMapper.selectList(new LambdaQueryWrapper<ConnectionOperationTask>()
                             .eq(ConnectionOperationTask::getCompanyId, companyId)
