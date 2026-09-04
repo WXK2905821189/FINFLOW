@@ -23,8 +23,12 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Locale;
 import java.util.Map;
@@ -83,7 +87,7 @@ public class BankPipelineController {
     @GetMapping("/bank-data/{resource}")
     @PreAuthorize("hasAnyAuthority('bankdata:view', 'bankdata:balance:view', 'bankdata:statement:view', 'bankdata:receipt:view', 'bankdata:reconciliation:view', 'bankdata:payroll:view')")
     @Operation(summary = "Query a controlled bank data projection")
-    public ApiResponse<BankDataProjectionPageResponse> projection(
+    public ApiResponse<BankDataProjectionPageResponse<?>> projection(
             @PathVariable String resource,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -102,6 +106,40 @@ public class BankPipelineController {
         }
         return ApiResponse.success(queryService.queryProjection(principal.getId(), resource, page, size, status,
                 accountId, keyword, from, to, sourceSystem, syncJobNo, requestId));
+    }
+
+    /**
+     * CSV export in the bank's own column layout so the file can be compared against the
+     * statement the bank sends. Guarded by the same permission as the on-screen query: an
+     * export is the same authorized data in another shape, so it grants no new access.
+     */
+    @GetMapping("/bank-data/{resource}/export")
+    @PreAuthorize("hasAnyAuthority('bankdata:view', 'bankdata:balance:view', 'bankdata:statement:view')")
+    @Operation(summary = "Export real bank rows as CSV in the bank's own export layout")
+    public ResponseEntity<String> export(
+            @PathVariable String resource,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) Long accountId,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
+            @RequestParam(required = false) String syncJobNo,
+            @RequestParam(required = false) String requestId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        if (!principal.getAuthorities().stream().anyMatch(authority -> authority.getAuthority().equals("bankdata:view"))
+                && !principal.getAuthorities().stream().anyMatch(authority -> authority.getAuthority().equals(permissionFor(resource)))) {
+            throw new org.springframework.security.access.AccessDeniedException("Bank data projection permission is required");
+        }
+        BankDataQueryService.BankDataExport export = queryService.export(principal.getId(), resource, status,
+                accountId, keyword, from, to, syncJobNo, requestId);
+        // RFC 6266 / RFC 5987: the ASCII fallback keeps old clients working, filename* carries
+        // the Chinese name Excel actually shows.
+        String encoded = URLEncoder.encode(export.filename(), StandardCharsets.UTF_8).replace("+", "%20");
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_TYPE, "text/csv; charset=UTF-8")
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"bank-data-export.csv\"; filename*=UTF-8''" + encoded)
+                .body(export.csv());
     }
 
     @GetMapping("/bank-data-trace")

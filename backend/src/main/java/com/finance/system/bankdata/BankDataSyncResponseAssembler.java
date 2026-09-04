@@ -55,8 +55,9 @@ public class BankDataSyncResponseAssembler {
         if (task == null) return null;
         return new BankDataSyncTaskResponse(task.getId(), task.getTaskNo(), task.getAdapterCode(), task.getMappingVersion(), connectionCode,
                 task.getBankAccountId(), task.getRequestId(), task.getBankRequestNo(), task.getStatus(), task.getRawCount(),
-                task.getNormalizedCount(), task.getDuplicateCount(), task.getInvalidCount(), task.getErrorMessage(),
-                task.getStartedAt(), task.getCompletedAt(), task.getCreatedAt());
+                task.getNormalizedCount(), task.getDuplicateCount(), task.getInvalidCount(),
+                task.getDebitAmount(), task.getDebitNums(), task.getCreditAmount(), task.getCreditNums(),
+                task.getErrorMessage(), task.getStartedAt(), task.getCompletedAt(), task.getCreatedAt());
     }
 
     public List<BankDataSyncTaskResponse> tasks(List<BankDataSyncTask> tasks, long companyId) {
@@ -101,7 +102,20 @@ public class BankDataSyncResponseAssembler {
                 statement.getBankAccountId(), statement.getBankRequestNo(), statement.getStatementNo(),
                 statement.getTransactionTime(), statement.getDirection(), statement.getAmount(), statement.getCurrency(),
                 statement.getCounterpartyName(), statement.getCounterpartyAccountMasked(), statement.getSummary(),
-                statement.getValidationStatus(), statement.getValidationMessage(), statement.getCreatedAt());
+                statement.getValidationStatus(), statement.getValidationMessage(), statement.getCreatedAt(),
+                null,
+                null,
+                statement.getBankAccountNo(), statement.getValueDate(), statement.getLoanCode(),
+                statement.getSignedAmount(), statement.getTextCode(), statement.getBillNumber(),
+                statement.getRemarkTextClt(), statement.getReversalFlag(), statement.getAcctOnlineBal(),
+                statement.getExtendedRemark(), statement.getCtpAcctNbr(), statement.getCtpBankName(),
+                statement.getCtpBankAddress(), statement.getFatOrSonAccount(), statement.getFatOrSonCompanyName(),
+                statement.getFatOrSonBankName(), statement.getFatOrSonBankAddress(), statement.getInfoFlag(),
+                statement.getBusinessName(), statement.getBusinessText(), statement.getRequestNbr(),
+                statement.getYurRef(), statement.getVirtualNbr(), statement.getMchOrderNbr(),
+                statement.getTransCardNbr(), statement.getReserve(),
+                statement.getVendorCurrencyCode(),
+                null, null, null);
     }
 
     public BankDataBalanceResponse balance(BankDataBalance balance, long companyId) {
@@ -137,7 +151,11 @@ public class BankDataSyncResponseAssembler {
                 raw == null ? null : raw.getContentSha256(), raw == null ? null : raw.getRetentionUntil(),
                 balance.getBankAccountId(), maskAccount(account == null ? null : account.getAccountNumber()),
                 balance.getBankRequestNo(), balance.getAvailableBalance(), balance.getCurrency(), balance.getAsOfTime(),
-                balance.getValidationStatus(), balance.getValidationMessage(), balance.getCreatedAt());
+                balance.getOnlineBalance(), balance.getFrozenBalance(), balance.getPreviousDayBalance(),
+                balance.getVendorCurrencyCode(), balance.getBranchCode(), balance.getBankAccountNo(),
+                balance.getBankAccountName(), balance.getAccountItem(), balance.getCustomerRelationNo(),
+                balance.getValidationStatus(), balance.getValidationMessage(), balance.getCreatedAt(),
+                null, null, null);
     }
 
     public BankDataSyncLogResponse log(BankDataSyncLog log) {

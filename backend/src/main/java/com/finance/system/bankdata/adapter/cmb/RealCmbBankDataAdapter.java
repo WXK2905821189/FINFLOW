@@ -7,6 +7,7 @@ import com.finance.system.bankdata.adapter.BankDataBalanceEntry;
 import com.finance.system.bankdata.adapter.BankDataCollection;
 import com.finance.system.bankdata.adapter.BankDataEntry;
 import com.finance.system.bankdata.adapter.BankDataSyncContext;
+import com.finance.system.bankdata.adapter.VendorStatementFields;
 import com.finance.system.bankdata.adapter.cmb.CmbResponseParser.BalanceRow;
 import com.finance.system.bankdata.adapter.cmb.CmbResponseParser.Envelope;
 import com.finance.system.bankdata.adapter.cmb.CmbResponseParser.StatementPage;
@@ -115,12 +116,12 @@ public class RealCmbBankDataAdapter implements BankDataAdapter {
             return failed(requestNo, envelope.resultcode());
         }
         StatementPage page = CmbResponseParser.parseStatementPage(envelope);
-        List<BankDataEntry> entries = toEntries(page.rows(), context.bankAccountId(), requestNo);
+        List<BankDataEntry> entries = toEntries(page, context.bankAccountId(), requestNo);
         boolean hasMore = "Y".equalsIgnoreCase(trim(page.ctnFlag()));
         String nextCursor = hasMore
                 ? StatementCursor.encode(page.queryAcctNbr(), page.breakPoints()) : null;
         return new BankDataCollection(requestNo, entries, balances, hasMore, nextCursor,
-                SUCCESS, SUCCESS);
+                SUCCESS, SUCCESS, page.pageTotals());
     }
 
     private CmbStatementQuery buildStatementQuery(BankDataSyncContext context, String accountNo,
@@ -170,24 +171,49 @@ public class RealCmbBankDataAdapter implements BankDataAdapter {
                 continue;
             }
             balances.add(new BankDataBalanceEntry(bankRequestNo, bankAccountId,
-                    decimal(trim(row.avlblv())), null, asOf));
+                    decimal(trim(row.avlblv())), null, asOf,
+                    decimal(trim(row.onlblv())), decimal(trim(row.hldblv())),
+                    decimal(trim(row.accblv())), trim(row.ccynbr()), trim(row.bbknbr()),
+                    trim(row.accnbr()), trim(row.accnam()), trim(row.accitm()),
+                    trim(row.relnbr())));
         }
         return List.copyOf(balances);
     }
 
-    private List<BankDataEntry> toEntries(List<StatementRow> rows, Long bankAccountId, String bankRequestNo) {
+    /**
+     * Z2 rows → FINFLOW entries. The bank's own fields are attached verbatim through
+     * {@link VendorStatementFields}; nothing is renamed, rounded or re-signed here, and the
+     * signed {@code transAmount} is preserved so a reviewer can reconcile against the bank's
+     * own statement export (which shows 借方/贷方 as two unsigned columns).
+     */
+    private List<BankDataEntry> toEntries(StatementPage page, Long bankAccountId, String bankRequestNo) {
+        List<StatementRow> rows = page.rows();
         if (rows == null || rows.isEmpty()) {
             return List.of();
         }
+        String pageAccountNo = trim(page.queryAcctNbr());
         List<BankDataEntry> entries = new ArrayList<>(rows.size());
         for (StatementRow row : rows) {
             LocalDateTime transactionTime = transactionTime(trim(row.transDate()), trim(row.transTime()));
-            String direction = direction(trim(row.loanCode()));
+            String loanCode = trim(row.loanCode());
+            String direction = direction(loanCode);
             BigDecimal amount = magnitude(trim(row.transAmount()));
             String statementNo = trim(row.transSequenceIdn());
             String summary = firstNonBlank(trim(row.businessText()), trim(row.remarkTextClt()));
             entries.add(new BankDataEntry(bankRequestNo, statementNo, bankAccountId, transactionTime,
-                    direction, amount, null, trim(row.ctpAcctName()), trim(row.ctpAcctNbr()), summary));
+                    direction, amount, null, trim(row.ctpAcctName()), trim(row.ctpAcctNbr()), summary,
+                    new VendorStatementFields(
+                            pageAccountNo, valueDate(trim(row.valueDate())), loanCode,
+                            trim(row.textCode()), trim(row.billNumber()), trim(row.remarkTextClt()),
+                            trim(row.reversalFlag()), decimal(trim(row.acctOnlineBal())),
+                            decimal(trim(row.transAmount())), trim(row.extendedRemark()),
+                            trim(row.ctpAcctNbr()), trim(row.ctpBankName()), trim(row.ctpBankAddress()),
+                            trim(row.fatOrSonAccount()), trim(row.fatOrSonCompanyName()),
+                            trim(row.fatOrSonBankName()), trim(row.fatOrSonBankAddress()),
+                            trim(row.infoFlag()), trim(row.businessName()), trim(row.businessText()),
+                            trim(row.requestNbr()), trim(row.yurRef()), trim(row.virtualNbr()),
+                            trim(row.mchOrderNbr()), trim(row.transCardNbr()), trim(row.reserve()),
+                            trim(row.currencyNbr()))));
         }
         return List.copyOf(entries);
     }
@@ -234,6 +260,17 @@ public class RealCmbBankDataAdapter implements BankDataAdapter {
                 return parsed.atStartOfDay();
             }
             return parsed.atTime(LocalTime.parse(time, TIME));
+        } catch (DateTimeParseException e) {
+            return null;
+        }
+    }
+
+    private LocalDate valueDate(String date) {
+        if (date == null) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(date, DAY);
         } catch (DateTimeParseException e) {
             return null;
         }

@@ -14,8 +14,11 @@ export type {
   BankSyncJob,
   BankSyncJobEvent,
   BankSyncJobDetail,
-  BankDataProjection,
+  BankDataStatementRow,
+  BankDataBalanceRow,
   BankDataProjectionPage,
+  BankRawMessage,
+  BankRawMessageDetail,
 } from '../modules/bank-access/types';
 export type {
   StatementRecordInput,

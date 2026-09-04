@@ -7,6 +7,9 @@ export const money = (value?: number | string) => {
 
 export const dateTime = (value?: string) => (value ? value.replace('T', ' ').replace(/\.\d+$/, '') : '--');
 
+/** Date-only fields such as 起息日 valueDate, serialized by Jackson as `yyyy-MM-dd`. */
+export const dateOnly = (value?: string) => (value ? value.slice(0, 10) : '--');
+
 export const displayValue = (value?: string | number | null) => (value === undefined || value === null || value === '' ? '--' : String(value));
 
 export const hasAnyStatus = (status: string | undefined, patterns: RegExp[]) => Boolean(status && patterns.some((pattern) => pattern.test(status)));

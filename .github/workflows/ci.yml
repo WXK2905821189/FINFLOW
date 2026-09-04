@@ -37,7 +37,7 @@ jobs:
            test -f "$migration_dir/V14__retire_dead_transfer_permissions.sql"
            test -f backend/src/main/resources/db/vendor-migration/h2/V7__drop_legacy_statement_number_uniqueness.sql
            test -f backend/src/main/resources/db/vendor-migration/mysql/V7__drop_legacy_statement_number_uniqueness.sql
-           expected_versions=(V1 V2 V3 V4 V5 V6 V8 V9 V10 V11 V12 V13 V14 V15)
+           expected_versions=(V1 V2 V3 V4 V5 V6 V8 V9 V10 V11 V12 V13 V14 V15 V16 V17 V18 V19 V20)
           actual_versions=()
           while IFS= read -r migration; do
             version="${migration##*/}"
@@ -159,7 +159,7 @@ jobs:
           app_pid=$!
           trap 'kill "$app_pid" 2>/dev/null || true; wait "$app_pid" 2>/dev/null || true' EXIT
           wait_for_health "$first_log"
-          grep -q 'Successfully applied 15 migrations' "$first_log"
+          grep -q 'Successfully applied 20 migrations' "$first_log"
           kill "$app_pid"
           wait "$app_pid" || true
           app_pid=""
@@ -171,7 +171,7 @@ jobs:
             > "$repeat_log" 2>&1 &
           app_pid=$!
           wait_for_health "$repeat_log"
-          grep -q 'Successfully validated 15 migrations' "$repeat_log"
+          grep -q 'Successfully validated 20 migrations' "$repeat_log"
           ! grep -q 'Migrating schema' "$repeat_log"
           kill "$app_pid"
           wait "$app_pid" || true
@@ -283,7 +283,12 @@ jobs:
           grep -q 'Migrating schema.*version "13' "$incremental_log"
           grep -q 'Migrating schema.*version "14' "$incremental_log"
           grep -q 'Migrating schema.*version "15' "$incremental_log"
-          grep -q 'Successfully applied 10 migrations' "$incremental_log"
+          grep -q 'Migrating schema.*version "16' "$incremental_log"
+          grep -q 'Migrating schema.*version "17' "$incremental_log"
+          grep -q 'Migrating schema.*version "18' "$incremental_log"
+          grep -q 'Migrating schema.*version "19' "$incremental_log"
+          grep -q 'Migrating schema.*version "20' "$incremental_log"
+          grep -q 'Successfully applied 15 migrations' "$incremental_log"
           kill "$app_pid"
           wait "$app_pid" || true
           app_pid=""
@@ -294,7 +299,7 @@ jobs:
             > "$repeat_log" 2>&1 &
           app_pid=$!
           wait_for_health "$repeat_log"
-          grep -q 'Successfully validated 15 migrations' "$repeat_log"
+          grep -q 'Successfully validated 20 migrations' "$repeat_log"
           ! grep -q 'Migrating schema' "$repeat_log"
           kill "$app_pid"
           wait "$app_pid" || true

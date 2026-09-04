@@ -75,25 +75,39 @@ public class BankDataAggregationService {
         if (empty && status == BankDataStatus.SUCCESS) status = BankDataStatus.EMPTY;
         boolean hasMore = !empty && vendorResult.hasMore();
         String nextCursor = hasMore ? clean(vendorResult.nextCursor()) : null;
+        // pageTotals is the bank's own reconciliation figure, not business vocabulary:
+        // there is nothing to canonicalize and everything to lose by rebuilding it (the
+        // same trap that dropped vendor fields here once before).
         BankDataCollection canonical = new BankDataCollection(vendorResult.bankRequestNo(), entries, balances,
-                hasMore, nextCursor, vendorResult.bankStatusCode(), status.name());
+                hasMore, nextCursor, vendorResult.bankStatusCode(), status.name(), vendorResult.pageTotals());
         return new BankDataAggregationResult(adapter.adapterCode(), mappingVersion(adapter.adapterCode()), status,
                 canonical, safeSummary(status));
     }
 
+    /**
+     * Canonicalizes the accounting fields but passes {@link BankDataEntry#vendor()} through
+     * untouched: the vendor block is deliberately not business vocabulary, so there is
+     * nothing here to canonicalize and everything to lose by rebuilding it.
+     */
     private List<BankDataEntry> canonicalEntries(List<BankDataEntry> values) {
         if (values == null) return List.of();
         return values.stream().map(entry -> entry == null ? null : new BankDataEntry(
                 clean(entry.bankRequestNo()), clean(entry.statementNo()), entry.bankAccountId(), entry.transactionTime(),
                 canonicalDirection(entry.direction()), entry.amount(), canonicalCurrency(entry.currency()),
-                clean(entry.counterpartyName()), clean(entry.counterpartyAccount()), clean(entry.summary()))).toList();
+                clean(entry.counterpartyName()), clean(entry.counterpartyAccount()), clean(entry.summary()),
+                entry.vendor())).toList();
     }
 
+    /** Same rule as {@link #canonicalEntries}: the four balances and the identity fields survive. */
     private List<BankDataBalanceEntry> canonicalBalances(List<BankDataBalanceEntry> values) {
         if (values == null) return List.of();
         return values.stream().map(entry -> entry == null ? null : new BankDataBalanceEntry(
                 clean(entry.bankRequestNo()), entry.bankAccountId(), entry.availableBalance(),
-                canonicalCurrency(entry.currency()), entry.asOfTime())).toList();
+                canonicalCurrency(entry.currency()), entry.asOfTime(),
+                entry.onlineBalance(), entry.frozenBalance(), entry.previousDayBalance(),
+                clean(entry.vendorCurrencyCode()), clean(entry.branchCode()), clean(entry.bankAccountNo()),
+                clean(entry.bankAccountName()), clean(entry.accountItem()),
+                clean(entry.customerRelationNo()))).toList();
     }
 
     private String canonicalDirection(String value) {

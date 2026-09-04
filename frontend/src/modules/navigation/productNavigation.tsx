@@ -5,6 +5,7 @@ import {
   DatabaseOutlined,
   FileAddOutlined,
   FileSearchOutlined,
+  FileTextOutlined,
   NotificationOutlined,
   RadarChartOutlined,
   SearchOutlined,
@@ -26,6 +27,7 @@ export const pageTitles: Record<string, string> = {
   '/bank-access/logs': '失败日志',
   '/bank-access/data/balances': '余额查询',
   '/bank-access/data/statements': '流水查询',
+  '/bank-access/raw-messages': '原始报文',
   '/statements/import': '导入流水',
   '/statements/batches': '标准流水',
   '/statements/review': '人工复核',
@@ -47,10 +49,11 @@ export function buildProductNavigation(hasPermission: HasPermission): MenuProps[
   const canViewBankData = [
     'bankdata:balance:view', 'bankdata:statement:view',
   ].some(hasPermission);
+  const canViewRawMessages = hasPermission('bankdata:raw:view');
 
   return [
     ...(hasPermission('dashboard:view') ? [{ key: '/dashboard', icon: <DashboardOutlined />, label: <Link to="/dashboard">工作台</Link> }] : []),
-    ...((canViewConnection || hasPermission('operation:monitor') || hasPermission('operation:log:view') || canViewTasks || canViewBankData || hasPermission('bank:view')) ? [{
+    ...((canViewConnection || hasPermission('operation:monitor') || hasPermission('operation:log:view') || canViewTasks || canViewBankData || canViewRawMessages || hasPermission('bank:view')) ? [{
       key: 'bank-access', icon: <ApartmentOutlined />, label: '银行接入', children: [
         ...(canViewConnection ? [{ key: 'bank-access-configuration', icon: <SettingOutlined />, label: '连接配置', children: [
           { key: '/bank-access/connections', label: <Link to="/bank-access/connections">银行连接</Link> },
@@ -66,6 +69,9 @@ export function buildProductNavigation(hasPermission: HasPermission): MenuProps[
           ...(hasPermission('bankdata:balance:view') ? [{ key: '/bank-access/data/balances', label: <Link to="/bank-access/data/balances">余额查询</Link> }] : []),
           ...(hasPermission('bankdata:statement:view') ? [{ key: '/bank-access/data/statements', label: <Link to="/bank-access/data/statements">流水查询</Link> }] : []),
         ] }] : []),
+        // Standalone entry: this is the only surface that shows a bank response in full,
+        // so it is deliberately not nested under 数据查询 (which only shows projections).
+        ...(canViewRawMessages ? [{ key: '/bank-access/raw-messages', icon: <FileTextOutlined />, label: <Link to="/bank-access/raw-messages">原始报文</Link> }] : []),
       ],
     }] : []),
     ...((hasPermission('statement:import') || hasPermission('statement:view') || hasPermission('statement:review')) ? [{

@@ -9,6 +9,8 @@ import com.finance.system.bankdata.adapter.BankDataBalanceEntry;
 import com.finance.system.bankdata.adapter.BankDataCollection;
 import com.finance.system.bankdata.adapter.BankDataEntry;
 import com.finance.system.bankdata.adapter.BankDataSyncContext;
+import com.finance.system.bankdata.adapter.BankPageTotals;
+import com.finance.system.bankdata.adapter.VendorStatementFields;
 import com.finance.system.common.exception.BusinessException;
 import com.finance.system.domain.entity.BankAccount;
 import com.finance.system.domain.entity.BankDataBalance;
@@ -89,6 +91,14 @@ public class BankDataSyncExecutor {
         int rawCount = 0;
         String lastBankRequestNo = null;
         boolean partialResult = false;
+        // The bank's own reconciliation figures (Z1): summed across pages and windows so the
+        // task row carries what the bank attested for the whole requested period, independent
+        // of FINFLOW's own dedup/validation counts.
+        BigDecimal debitAmountTotal = null;
+        BigDecimal creditAmountTotal = null;
+        long debitNumsTotal = 0;
+        long creditNumsTotal = 0;
+        boolean sawBankTotals = false;
         for (WindowRange window : windows) {
             String cursor = null;
             int page = 1;
@@ -117,12 +127,35 @@ public class BankDataSyncExecutor {
                     task.setNormalizedCount(0);
                     task.setDuplicateCount(0);
                     task.setInvalidCount(0);
+                    applyBankTotals(task, debitAmountTotal, debitNumsTotal, creditAmountTotal,
+                            creditNumsTotal, sawBankTotals);
                     task.setErrorMessage("PENDING".equals(status) ? "Bank response is pending reconciliation"
                             : "UNKNOWN".equals(status) ? "Bank response status is unknown and requires manual reconciliation"
                             : "Bank response failed safely before normalization");
                     task.setCompletedAt(LocalDateTime.now());
                     taskMapper.updateById(task);
                     return task;
+                }
+
+                // Only SUCCESS/PARTIAL pages contribute: an EMPTY page has no totals and a
+                // failed page must not poison the window sum.
+                BankPageTotals totals = collection.pageTotals();
+                if (totals != null) {
+                    sawBankTotals = true;
+                    if (totals.debitAmount() != null) {
+                        debitAmountTotal = debitAmountTotal == null ? totals.debitAmount()
+                                : debitAmountTotal.add(totals.debitAmount());
+                    }
+                    if (totals.creditAmount() != null) {
+                        creditAmountTotal = creditAmountTotal == null ? totals.creditAmount()
+                                : creditAmountTotal.add(totals.creditAmount());
+                    }
+                    if (totals.debitNums() != null) {
+                        debitNumsTotal += totals.debitNums();
+                    }
+                    if (totals.creditNums() != null) {
+                        creditNumsTotal += totals.creditNums();
+                    }
                 }
 
                 List<BankDataEntry> pageEntries = collection.entries() == null ? List.of() : collection.entries();
@@ -240,11 +273,28 @@ public class BankDataSyncExecutor {
         task.setNormalizedCount(normalized);
         task.setDuplicateCount(duplicates);
         task.setInvalidCount(invalid);
+        applyBankTotals(task, debitAmountTotal, debitNumsTotal, creditAmountTotal, creditNumsTotal, sawBankTotals);
         task.setCompletedAt(LocalDateTime.now());
         taskMapper.updateById(task);
         log(task, "INFO", "SYNC_COMPLETED", task.getStatus(), lastBankRequestNo,
                 "Bank data synchronization completed without external network calls");
         return task;
+    }
+
+    /**
+     * Stores the bank's own debit/credit totals on the task. Only written when at least one
+     * page actually reported Z1 totals: null means "the bank says nothing about this window",
+     * which must stay distinguishable from zero.
+     */
+    private void applyBankTotals(BankDataSyncTask task, BigDecimal debitAmount, long debitNums,
+                                 BigDecimal creditAmount, long creditNums, boolean sawBankTotals) {
+        if (!sawBankTotals) {
+            return;
+        }
+        task.setDebitAmount(debitAmount);
+        task.setDebitNums((int) debitNums);
+        task.setCreditAmount(creditAmount);
+        task.setCreditNums((int) creditNums);
     }
 
     private List<WindowRange> splitWindows(LocalDateTime requestedStart, LocalDateTime requestedEnd) {
@@ -317,7 +367,46 @@ public class BankDataSyncExecutor {
         statement.setCounterpartyAccountMasked(maskAccount(entry.counterpartyAccount()));
         statement.setSummary(trimToNull(entry.summary()));
         statement.setValidationStatus(VALID);
+        applyVendorFields(statement, entry.vendor());
         return statement;
+    }
+
+    /**
+     * Copies the bank's own fields onto the row verbatim. Nothing here is derived, renamed
+     * or re-signed: the value stored is the value the bank returned, which is what makes the
+     * statement screen comparable to the bank's own export.
+     */
+    private void applyVendorFields(BankDataStatement statement, VendorStatementFields vendor) {
+        if (vendor == null) {
+            return;
+        }
+        statement.setBankAccountNo(blankToNull(vendor.bankAccountNo()));
+        statement.setValueDate(vendor.valueDate());
+        statement.setLoanCode(blankToNull(vendor.loanCode()));
+        statement.setSignedAmount(scaled(vendor.signedAmount()));
+        statement.setTextCode(blankToNull(vendor.textCode()));
+        statement.setBillNumber(blankToNull(vendor.billNumber()));
+        statement.setRemarkTextClt(blankToNull(vendor.remarkTextClt()));
+        statement.setReversalFlag(blankToNull(vendor.reversalFlag()));
+        statement.setAcctOnlineBal(scaled(vendor.acctOnlineBal()));
+        statement.setExtendedRemark(blankToNull(vendor.extendedRemark()));
+        statement.setCtpAcctNbr(blankToNull(vendor.ctpAcctNbr()));
+        statement.setCtpBankName(blankToNull(vendor.ctpBankName()));
+        statement.setCtpBankAddress(blankToNull(vendor.ctpBankAddress()));
+        statement.setFatOrSonAccount(blankToNull(vendor.fatOrSonAccount()));
+        statement.setFatOrSonCompanyName(blankToNull(vendor.fatOrSonCompanyName()));
+        statement.setFatOrSonBankName(blankToNull(vendor.fatOrSonBankName()));
+        statement.setFatOrSonBankAddress(blankToNull(vendor.fatOrSonBankAddress()));
+        statement.setInfoFlag(blankToNull(vendor.infoFlag()));
+        statement.setBusinessName(blankToNull(vendor.businessName()));
+        statement.setBusinessText(blankToNull(vendor.businessText()));
+        statement.setRequestNbr(blankToNull(vendor.requestNbr()));
+        statement.setYurRef(blankToNull(vendor.yurRef()));
+        statement.setVirtualNbr(blankToNull(vendor.virtualNbr()));
+        statement.setMchOrderNbr(blankToNull(vendor.mchOrderNbr()));
+        statement.setTransCardNbr(blankToNull(vendor.transCardNbr()));
+        statement.setReserve(blankToNull(vendor.reserve()));
+        statement.setVendorCurrencyCode(blankToNull(vendor.vendorCurrencyCode()));
     }
 
     private BankDataBalance toBalance(BankDataBalanceEntry entry, BankDataSyncTask task, BankDataRawMessage raw,
@@ -332,8 +421,27 @@ public class BankDataSyncExecutor {
         balance.setCurrency(entry.currency() == null || entry.currency().isBlank()
                 ? "CNY" : entry.currency().trim().toUpperCase(Locale.ROOT));
         balance.setAsOfTime(entry.asOfTime());
+        // Vendor detail is stored verbatim: the four balances the bank reports are not
+        // interchangeable, and the identity fields are what makes a figure reconcilable.
+        balance.setOnlineBalance(scaled(entry.onlineBalance()));
+        balance.setFrozenBalance(scaled(entry.frozenBalance()));
+        balance.setPreviousDayBalance(scaled(entry.previousDayBalance()));
+        balance.setVendorCurrencyCode(blankToNull(entry.vendorCurrencyCode()));
+        balance.setBranchCode(blankToNull(entry.branchCode()));
+        balance.setBankAccountNo(blankToNull(entry.bankAccountNo()));
+        balance.setBankAccountName(blankToNull(entry.bankAccountName()));
+        balance.setAccountItem(blankToNull(entry.accountItem()));
+        balance.setCustomerRelationNo(blankToNull(entry.customerRelationNo()));
         balance.setValidationStatus(VALID);
         return balance;
+    }
+
+    private static BigDecimal scaled(BigDecimal value) {
+        return value == null ? null : value.setScale(2);
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     private void log(BankDataSyncTask task, String level, String eventType, String result,

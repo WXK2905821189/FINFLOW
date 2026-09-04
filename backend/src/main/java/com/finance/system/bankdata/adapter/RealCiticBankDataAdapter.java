@@ -143,10 +143,26 @@ public class RealCiticBankDataAdapter implements BankDataAdapter {
         return CiticResponseXml.parseStatementPage(responseXml);
     }
 
+    /**
+     * DLTRNALL rows → FINFLOW entries, with the bank's own fields attached.
+     *
+     * <p>The vendor columns are shared with CMB, so each CITIC field is mapped onto the
+     * semantically equivalent one and the mapping is spelled out here rather than left
+     * implied. Two honest caveats:</p>
+     * <ul>
+     *   <li>CITIC reports {@code tranAmount} <strong>unsigned</strong> (88.00 with
+     *       creditDebitFlag=C, 12.00 with D) where CMB reports it signed. {@code signedAmount}
+     *       is therefore reconstructed from {@code creditDebitFlag} for CITIC, and is verbatim
+     *       for CMB — the column means "the bank's signed figure", not "the wire value".</li>
+     *   <li>Fields CITIC simply does not report (起息日, 票据号, 冲账标志, 信息标志, 母子公司…)
+     *       stay null. Nothing is invented to fill a column.</li>
+     * </ul>
+     */
     private List<BankDataEntry> statementEntries(CiticStatementPage page, Long bankAccountId, String bankRequestNo) {
         if (page.rows() == null || page.rows().isEmpty()) {
             return List.of();
         }
+        String containerAccount = trim(page.accountNo());
         List<BankDataEntry> entries = new ArrayList<>(page.rows().size());
         for (CiticStatementRow row : page.rows()) {
             LocalDateTime transactionTime = transactionTime(row.tranDate(), row.tranTime());
@@ -154,9 +170,28 @@ public class RealCiticBankDataAdapter implements BankDataAdapter {
             String statementNo = firstNonBlank(row.tranNo(), row.sumTranNo(), row.oriNum());
             entries.add(new BankDataEntry(bankRequestNo, statementNo, bankAccountId, transactionTime, direction,
                     row.tranAmount(), null, trim(row.oppAccountName()), trim(row.oppAccountNo()),
-                    trim(row.summary())));
+                    trim(row.summary()),
+                    new VendorStatementFields(containerAccount, null, trim(row.creditDebitFlag()),
+                            null, null, null, null, row.balance(),
+                            signedAmount(row.tranAmount(), row.creditDebitFlag()), null,
+                            trim(row.oppAccountNo()), trim(row.oppOpenBankName()), null,
+                            null, null, null, null, null, null, null,
+                            trim(row.sumTranNo()), trim(row.oriNum()), null, null, null, null,
+                            null)));
         }
         return List.copyOf(entries);
+    }
+
+    /**
+     * CITIC sends an unsigned amount plus a C/D flag; the shared column carries the signed
+     * figure, so the sign is re-applied here (D 借方 negative, C 贷方 positive).
+     */
+    private BigDecimal signedAmount(BigDecimal amount, String creditDebitFlag) {
+        if (amount == null) {
+            return null;
+        }
+        String flag = creditDebitFlag == null ? null : creditDebitFlag.trim().toUpperCase(Locale.ROOT);
+        return "D".equals(flag) ? amount.negate() : amount;
     }
 
     private List<BankDataBalanceEntry> acceptedBalanceRows(List<CiticBalanceRow> rows, Long bankAccountId,
@@ -172,7 +207,12 @@ public class RealCiticBankDataAdapter implements BankDataAdapter {
             if (rowStatus != null && !SUCCESS.equals(rowStatus)) {
                 continue;
             }
-            balances.add(new BankDataBalanceEntry(bankRequestNo, bankAccountId, row.usableBalance(), null, asOf));
+            // DLBALQRY and NTQADINF report the same three figures under different names, so
+            // they land in the same columns: usableBalance=可用, balance=账面(联机),
+            // forzenAmt=冻结. CITIC reports no 上日余额 and no 科目/客户关系号 - left null.
+            balances.add(new BankDataBalanceEntry(bankRequestNo, bankAccountId, row.usableBalance(), null, asOf,
+                    row.balance(), row.forzenAmt(), null, trim(row.currencyId()), null,
+                    trim(row.accountNo()), trim(row.accountName()), null, null));
         }
         return List.copyOf(balances);
     }

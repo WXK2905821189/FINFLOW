@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @TableName("bank_data_sync_task")
@@ -30,6 +31,14 @@ public class BankDataSyncTask {
     private Integer duplicateCount;
     private Integer invalidCount;
     private String errorMessage;
+    /** 银行 Z1 口径借方合计（各页求和，带符号）；银行不报或未走到该页时为 null。 */
+    private BigDecimal debitAmount;
+    /** 银行 Z1 口径借方笔数合计。 */
+    private Integer debitNums;
+    /** 银行 Z1 口径贷方合计（各页求和，带符号）。 */
+    private BigDecimal creditAmount;
+    /** 银行 Z1 口径贷方笔数合计。 */
+    private Integer creditNums;
     private LocalDateTime startedAt;
     private LocalDateTime completedAt;
     private LocalDateTime createdAt;
@@ -74,6 +83,14 @@ public class BankDataSyncTask {
     public void setInvalidCount(Integer invalidCount) { this.invalidCount = invalidCount; }
     public String getErrorMessage() { return errorMessage; }
     public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
+    public BigDecimal getDebitAmount() { return debitAmount; }
+    public void setDebitAmount(BigDecimal debitAmount) { this.debitAmount = debitAmount; }
+    public Integer getDebitNums() { return debitNums; }
+    public void setDebitNums(Integer debitNums) { this.debitNums = debitNums; }
+    public BigDecimal getCreditAmount() { return creditAmount; }
+    public void setCreditAmount(BigDecimal creditAmount) { this.creditAmount = creditAmount; }
+    public Integer getCreditNums() { return creditNums; }
+    public void setCreditNums(Integer creditNums) { this.creditNums = creditNums; }
     public LocalDateTime getStartedAt() { return startedAt; }
     public void setStartedAt(LocalDateTime startedAt) { this.startedAt = startedAt; }
     public LocalDateTime getCompletedAt() { return completedAt; }

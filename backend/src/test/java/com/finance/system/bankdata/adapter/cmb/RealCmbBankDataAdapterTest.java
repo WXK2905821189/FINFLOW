@@ -4,6 +4,7 @@ import com.finance.system.bankdata.adapter.BankDataBalanceEntry;
 import com.finance.system.bankdata.adapter.BankDataCollection;
 import com.finance.system.bankdata.adapter.BankDataEntry;
 import com.finance.system.bankdata.adapter.BankDataSyncContext;
+import com.finance.system.bankdata.adapter.VendorStatementFields;
 import com.finance.system.bankdata.adapter.cmb.FakeCmbServer.CapturedRequest;
 import com.finance.system.common.exception.BusinessException;
 import com.finance.system.domain.entity.BankAccount;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -130,6 +132,66 @@ class RealCmbBankDataAdapterTest {
                 .getAsJsonObject("body").getAsJsonArray("TRANSQUERYBYBREAKPOINT_Y1")
                 .get(0).getAsJsonObject();
         assertEquals("769900000010370", y1.get("acctNbr").getAsString());
+    }
+
+    /**
+     * The point of the vendor fields is that nothing is translated: the screen has to be
+     * comparable to the bank's own statement export field by field. So this asserts the
+     * values the fake bank put on the wire come back with the same codes, the same sign
+     * convention and the same names.
+     */
+    @Test
+    void statementRowsCarryTheBanksOwnFieldsVerbatim() {
+        bank.respondBalance(balanceResponse("12345.67", "SUC0000"));
+        bank.respondStatement(statementResponse("Y", "769900000010370-CUR", true));
+
+        VendorStatementFields vendor = adapter.collect(context(1, null)).entries().get(0).vendor();
+
+        assertNotNull(vendor, "a CMB row always carries vendor detail");
+        assertEquals("769900000010370-CUR", vendor.bankAccountNo());
+        assertEquals(LocalDate.of(2026, 9, 2), vendor.valueDate());
+        assertEquals("C", vendor.loanCode());
+        // 带符号金额与无符号记账金额并存：借方为负、贷方为正。
+        assertEquals(0, new BigDecimal("100.50").compareTo(vendor.signedAmount()));
+        assertEquals(0, new BigDecimal("12446.17").compareTo(vendor.acctOnlineBal()));
+        assertEquals("EBPP", vendor.textCode());
+        assertEquals("BILL-0001", vendor.billNumber());
+        assertEquals("你方摘要-代付", vendor.remarkTextClt());
+        assertEquals("N", vendor.reversalFlag());
+        assertEquals("扩展摘要", vendor.extendedRemark());
+        assertEquals("957151020441242810", vendor.ctpAcctNbr());
+        assertEquals("招商银行深圳分行", vendor.ctpBankName());
+        assertEquals("深圳市", vendor.ctpBankAddress());
+        assertEquals("1", vendor.infoFlag());
+        assertEquals("批量代付", vendor.businessName());
+        assertEquals("网银业务摘要", vendor.businessText());
+        assertEquals("RQ00000001", vendor.requestNbr());
+        assertEquals("YUR-REF-001", vendor.yurRef());
+        assertEquals("**", vendor.reserve());
+        assertNull(vendor.fatOrSonAccount(), "blank bank fields are null, not empty strings");
+        assertNull(vendor.virtualNbr());
+        assertNull(vendor.mchOrderNbr());
+        assertNull(vendor.transCardNbr());
+    }
+
+    @Test
+    void debitRowKeepsTheNegativeSignAndTheReversalFlag() {
+        bank.respondBalance(balanceResponse("12345.67", "SUC0000"));
+        bank.respondStatement(statementResponse("N", null, false));
+
+        BankDataEntry entry = adapter.collect(context(1, null)).entries().get(0);
+
+        assertEquals("D", entry.vendor().loanCode());
+        assertEquals("EXPENSE", entry.direction());
+        assertEquals(0, new BigDecimal("-12.00").compareTo(entry.vendor().signedAmount()),
+                "the bank signs debits negative and that sign must survive to storage");
+        assertEquals(0, new BigDecimal("12.00").compareTo(entry.amount()),
+                "the accounting amount stays an unsigned magnitude");
+        assertEquals("*", entry.vendor().reversalFlag(),
+                "冲账标志 is preserved so a reversal is not silently summed as a normal expense");
+        assertEquals(LocalDate.of(2026, 9, 1), entry.vendor().valueDate());
+        assertEquals("FEE", entry.vendor().textCode());
+        assertEquals("手续费", entry.vendor().remarkTextClt());
     }
 
     @Test
@@ -249,16 +311,31 @@ class RealCmbBankDataAdapterTest {
      */
     private String statementResponse(String ctnFlag, String queryAcctNbr, boolean withCreditRow) {
         String row = withCreditRow
-                ? "{\"transDate\":\"20260901\",\"transTime\":\"101530\","
+                ? "{\"transDate\":\"20260901\",\"transTime\":\"101530\",\"valueDate\":\"20260902\","
                 + "\"transSequenceIdn\":\"T0000000000001\",\"loanCode\":\"C\","
-                + "\"transAmount\":\"100.50\",\"currencyNbr\":\"10\",\"ctpAcctNbr\":\"957151020441242810\","
+                + "\"transAmount\":\"100.50\",\"currencyNbr\":\"10\",\"textCode\":\"EBPP\","
+                + "\"billNumber\":\"BILL-0001\",\"ctpAcctNbr\":\"957151020441242810\","
                 + "\"ctpAcctName\":\"对手方公司\",\"businessText\":\"网银业务摘要\","
-                + "\"remarkTextClt\":\" \",\"acctOnlineBal\":\"12446.17\"}"
-                : "{\"transDate\":\"20260901\",\"transTime\":\"091500\","
+                + "\"remarkTextClt\":\"你方摘要-代付\",\"acctOnlineBal\":\"12446.17\","
+                + "\"extendedRemark\":\"扩展摘要\",\"ctpBankName\":\"招商银行深圳分行\","
+                + "\"ctpBankAddress\":\"深圳市\",\"fatOrSonAccount\":\" \","
+                + "\"fatOrSonCompanyName\":\" \",\"fatOrSonBankName\":\" \","
+                + "\"fatOrSonBankAddress\":\" \",\"infoFlag\":\"1\",\"businessName\":\"批量代付\","
+                + "\"requestNbr\":\"RQ00000001\",\"yurRef\":\"YUR-REF-001\",\"virtualNbr\":\" \","
+                + "\"mchOrderNbr\":\" \",\"transCardNbr\":\" \",\"reversalFlag\":\"N\","
+                + "\"reserve\":\"**\"}"
+                : "{\"transDate\":\"20260901\",\"transTime\":\"091500\",\"valueDate\":\"20260901\","
                 + "\"transSequenceIdn\":\"T0000000000002\",\"loanCode\":\"D\","
-                + "\"transAmount\":\"-12.00\",\"currencyNbr\":\"10\",\"ctpAcctNbr\":\"62220000001234\","
+                + "\"transAmount\":\"-12.00\",\"currencyNbr\":\"10\",\"textCode\":\"FEE\","
+                + "\"billNumber\":\" \",\"ctpAcctNbr\":\"62220000001234\","
                 + "\"ctpAcctName\":\"收款方\",\"businessText\":\" \",\"remarkTextClt\":\"手续费\","
-                + "\"acctOnlineBal\":\"12333.67\"}";
+                + "\"acctOnlineBal\":\"12333.67\",\"extendedRemark\":\" \","
+                + "\"ctpBankName\":\" \",\"ctpBankAddress\":\" \",\"fatOrSonAccount\":\" \","
+                + "\"fatOrSonCompanyName\":\" \",\"fatOrSonBankName\":\" \","
+                + "\"fatOrSonBankAddress\":\" \",\"infoFlag\":\" \",\"businessName\":\" \","
+                + "\"requestNbr\":\" \",\"yurRef\":\" \",\"virtualNbr\":\" \","
+                + "\"mchOrderNbr\":\" \",\"transCardNbr\":\" \",\"reversalFlag\":\"*\","
+                + "\"reserve\":\"**\"}";
         String y1 = "Y".equals(ctnFlag)
                 ? "\"TRANSQUERYBYBREAKPOINT_Y1\":[{\"acctNbr\":\"" + ACCOUNT_NO
                 + "\",\"transDate\":\"20260901\",\"expectNextSequence\":\"2\"}],"

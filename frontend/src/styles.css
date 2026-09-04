@@ -888,6 +888,26 @@ a {
   margin-bottom: 16px;
 }
 
+.raw-payload-toolbar {
+  margin-top: 16px;
+}
+
+.raw-payload {
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  max-height: 420px;
+  overflow: auto;
+  background: #f6f8f9;
+  border: 1px solid #e3e9eb;
+  border-radius: 6px;
+  color: #556c72;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
 .phase-one-notice .ant-tag {
   margin-inline: 4px;
 }

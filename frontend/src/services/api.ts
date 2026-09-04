@@ -1,3 +1,4 @@
+import type { AxiosResponse } from 'axios';
 import { http } from './http';
 import type {
   AuthTokenResponse,
@@ -12,6 +13,8 @@ import type {
   OperationLog,
   BankAccount,
   BankDataProjectionPage,
+  BankRawMessage,
+  BankRawMessageDetail,
   BankSyncJob,
   BankSyncJobDetail,
   BankSyncJobTrigger,
@@ -111,6 +114,16 @@ export const auditApi = {
 
 type BankJobListParams = { page?: number; size?: number; status?: string; jobType?: string; connectionCode?: string; requestId?: string };
 
+type BankRawMessageListParams = {
+  page?: number;
+  size?: number;
+  accountId?: string;
+  taskNo?: string;
+  adapterCode?: string;
+  from?: string;
+  to?: string;
+};
+
 type BankDataQueryParams = {
   page?: number;
   size?: number;
@@ -124,11 +137,41 @@ type BankDataQueryParams = {
   requestId?: string;
 };
 
-// v0.2 exposes only internal job resources and business projections. The client
-// never requests bank SDK payloads, raw messages, credentials, or sync logs.
+// v0.2 exposed only internal job resources and business projections, and the client
+// never requested raw payloads, credentials, or sync logs. That boundary was relaxed
+// deliberately for one surface: the raw message module (bankdata:raw:view) exists to
+// evidence that the bank was actually reached, which is exactly what a digest-only
+// view cannot prove. Everything else still stays server-side.
 export const bankPipelineApi = {
   triggerJob: (data: BankSyncJobTrigger) => http.post<never, BankSyncJob>('/bank-sync-jobs', data),
   listJobs: (params: BankJobListParams) => http.get<never, PageResponse<BankSyncJob>>('/bank-sync-jobs', { params }),
   getJob: (id: number) => http.get<never, BankSyncJobDetail>(`/bank-sync-jobs/${id}`),
-  queryProjection: (resource: string, params: BankDataQueryParams) => http.get<never, BankDataProjectionPage>(`/bank-data/${resource}`, { params }),
+  /**
+   * Returns the bank's own row shape for the resource (BankDataStatementRow for statements,
+   * BankDataBalanceRow for balances) rather than a generic business projection.
+   */
+  queryProjection: <T>(resource: string, params: BankDataQueryParams) => http.get<never, BankDataProjectionPage<T>>(`/bank-data/${resource}`, { params }),
+  listRawMessages: (params: BankRawMessageListParams) => http.get<never, PageResponse<BankRawMessage>>('/bank-data-raw-messages', { params }),
+  getRawMessage: (id: number) => http.get<never, BankRawMessageDetail>(`/bank-data-raw-messages/${id}`),
+  /**
+   * CSV export in the bank's own column layout. The backend renders the file and
+   * names it (filename* RFC5987 for the Chinese name); the client only carries
+   * the auth header and hands the blob to the user. Export reads the same
+   * authorized data as queryProjection in another shape, so it grants no new access.
+   */
+  exportCsv: async (resource: 'balances' | 'statements', params: Omit<BankDataQueryParams, 'page' | 'size'>): Promise<void> => {
+    const response = await http.get<never, AxiosResponse<Blob>>(`/bank-data/${resource}/export`, { params, responseType: 'blob' });
+    const disposition = String(response.headers?.['content-disposition'] ?? '');
+    const utf8Name = /filename\*=UTF-8''([^;]+)/i.exec(disposition)?.[1];
+    const asciiName = /filename="([^"]+)"/i.exec(disposition)?.[1];
+    const filename = utf8Name ? decodeURIComponent(utf8Name) : asciiName || `${resource === 'balances' ? '银行余额' : '银行流水'}导出.csv`;
+    const url = URL.createObjectURL(response.data);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  },
 };
