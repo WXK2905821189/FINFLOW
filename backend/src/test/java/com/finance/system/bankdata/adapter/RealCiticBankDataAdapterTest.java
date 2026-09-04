@@ -7,6 +7,7 @@ import com.finance.system.domain.mapper.BankAccountMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -14,6 +15,7 @@ import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -121,6 +123,71 @@ class RealCiticBankDataAdapterTest {
         assertEquals("手续费", only.summary());
     }
 
+    /**
+     * CITIC fills the same vendor columns as CMB under different wire names, so the mapping
+     * is worth locking down: 借贷码/余额/收付方 are genuine equivalents, and the fields CITIC
+     * simply does not report must stay null rather than being invented.
+     */
+    @Test
+    void statementRowsCarryCiticFieldsOnTheSharedVendorColumns() {
+        sdk.respondBalance(successBalanceXml());
+        sdk.respondStatement(successStatementXml(1, 1, "C"));
+
+        BankDataEntry entry = adapter.collect(firstWindow()).entries().get(0);
+        VendorStatementFields vendor = entry.vendor();
+
+        assertNotNull(vendor, "a CITIC row carries vendor detail too");
+        assertEquals(ACCOUNT_NO, vendor.bankAccountNo(), "container accountNo is the queried account");
+        assertEquals("C", vendor.loanCode());
+        assertEquals(0, new BigDecimal("1.00").compareTo(vendor.signedAmount()),
+                "CITIC sends the amount unsigned; a credit stays positive");
+        assertEquals(0, new BigDecimal("1.00").compareTo(entry.amount()));
+        assertEquals(0, new BigDecimal("1000.00").compareTo(vendor.acctOnlineBal()));
+        assertEquals("62220000001", vendor.ctpAcctNbr());
+        assertEquals("中信银行深圳分行", vendor.ctpBankName());
+        assertEquals("S000000000001", vendor.requestNbr(), "sumTranNo");
+        assertEquals("ORI-1", vendor.yurRef(), "oriNum");
+        assertNull(vendor.valueDate(), "CITIC reports no 起息日 - not invented");
+        assertNull(vendor.reversalFlag(), "CITIC reports no 冲账标志 - not invented");
+        assertNull(vendor.infoFlag());
+    }
+
+    @Test
+    void debitRowReappliesTheNegativeSignBecauseCiticSendsUnsignedAmounts() {
+        sdk.respondBalance(successBalanceXml());
+        sdk.respondStatement(successStatementXml(1, 1, "D"));
+
+        BankDataEntry entry = adapter.collect(firstWindow()).entries().get(0);
+
+        assertEquals("D", entry.vendor().loanCode());
+        assertEquals("EXPENSE", entry.direction());
+        assertEquals(0, new BigDecimal("-1.00").compareTo(entry.vendor().signedAmount()),
+                "the shared column is the signed figure; CITIC's flag is what carries the sign");
+        assertEquals(0, new BigDecimal("1.00").compareTo(entry.amount()),
+                "the accounting amount stays an unsigned magnitude");
+    }
+
+    /** DLBALQRY's usableBalance / balance / forzenAmt are the same three figures as NTQADINF. */
+    @Test
+    void balanceRowMapsCiticAmountsOntoTheSharedBalanceColumns() {
+        sdk.respondBalance(successBalanceXml());
+        sdk.respondStatement(successStatementXml(1, 1, "C"));
+
+        BankDataBalanceEntry balance = adapter.collect(firstWindow()).balances().get(0);
+
+        assertEquals(0, new BigDecimal("1000.00").compareTo(balance.availableBalance()), "usableBalance");
+        assertEquals(0, new BigDecimal("1088.00").compareTo(balance.onlineBalance()), "balance");
+        assertEquals(0, new BigDecimal("0.00").compareTo(balance.frozenBalance()), "forzenAmt");
+        assertNull(balance.previousDayBalance(), "CITIC reports no 上日余额 - not invented");
+        assertEquals("01", balance.vendorCurrencyCode());
+        assertEquals(ACCOUNT_NO, balance.bankAccountNo());
+        assertEquals("活期户", balance.bankAccountName());
+    }
+
+    private BankDataSyncContext firstWindow() {
+        return context(1, "2026-09-01T00:00:00", "2026-09-02T00:00:00", null);
+    }
+
     @Test
     void treatsNoTransactionCodeAsEmptyPageWithBalance() {
         sdk.respondBalance(successBalanceXml());
@@ -189,6 +256,7 @@ class RealCiticBankDataAdapterTest {
                     .append("<creditDebitFlag>").append(flag).append("</creditDebitFlag>")
                     .append("<oppAccountNo>6222000000").append(i).append("</oppAccountNo>")
                     .append("<oppAccountName>对手").append(i).append("</oppAccountName>")
+                    .append("<oppOpenBankName>中信银行深圳分行</oppOpenBankName>")
                     .append("<abstract>摘要").append(i).append("</abstract>")
                     .append("<balance>1000.00</balance><oriNum>ORI-").append(i).append("</oriNum></row>");
         }
