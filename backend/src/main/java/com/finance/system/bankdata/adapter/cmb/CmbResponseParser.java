@@ -36,7 +36,8 @@ public final class CmbResponseParser {
     public record BalanceRow(String ccynbr, String bbknbr, String accnbr, String accnam,
                              String onlblv, String hldblv, String avlblv, String lmtovr,
                              String stscod, String errcod, String errtxt,
-                             String accblv, String accitm, String relnbr) {
+                             String accblv, String accitm, String relnbr,
+                             String opndat, String inttyp, String dpstxt) {
     }
 
     /**
@@ -98,7 +99,8 @@ public final class CmbResponseParser {
                     text(row.get("accnam")), text(row.get("onlblv")), text(row.get("hldblv")),
                     text(row.get("avlblv")), text(row.get("lmtovr")), text(row.get("stscod")),
                     text(row.get("errcod")), text(row.get("errtxt")),
-                    text(row.get("accblv")), text(row.get("accitm")), text(row.get("relnbr"))));
+                    text(row.get("accblv")), text(row.get("accitm")), text(row.get("relnbr")),
+                    text(row.get("opndat")), text(row.get("inttyp")), text(row.get("dpstxt"))));
         }
         return List.copyOf(rows);
     }

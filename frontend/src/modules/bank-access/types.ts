@@ -179,6 +179,14 @@ export type BankDataBalanceRow = {
   bankAccountName?: string;
   accountItem?: string;
   customerRelationNo?: string;
+  /** 账户状态 stscod：A=活动 B=冻结 C=关户。 */
+  accountStatus?: string;
+  /** 开户日 opndat（银行口径 yyyyMMdd）。 */
+  openDate?: string;
+  /** 利率类型 inttyp：ZZZ=不计息等。 */
+  interestType?: string;
+  /** 存期 dpstxt。 */
+  depositTerm?: string;
   validationStatus?: string;
   validationMessage?: string;
   createdAt?: string;

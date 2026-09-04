@@ -175,7 +175,8 @@ public class RealCmbBankDataAdapter implements BankDataAdapter {
                     decimal(trim(row.onlblv())), decimal(trim(row.hldblv())),
                     decimal(trim(row.accblv())), trim(row.ccynbr()), trim(row.bbknbr()),
                     trim(row.accnbr()), trim(row.accnam()), trim(row.accitm()),
-                    trim(row.relnbr())));
+                    trim(row.relnbr()), trim(row.stscod()), trim(row.opndat()),
+                    trim(row.inttyp()), trim(row.dpstxt())));
         }
         return List.copyOf(balances);
     }

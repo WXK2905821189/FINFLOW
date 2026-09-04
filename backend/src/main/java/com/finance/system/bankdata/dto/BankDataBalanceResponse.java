@@ -33,6 +33,14 @@ public record BankDataBalanceResponse(
         String accountItem,
         /** 客户关系号 relnbr. */
         String customerRelationNo,
+        /** 账户状态 stscod: A=活动 B=冻结 C=关户. */
+        String accountStatus,
+        /** 开户日 opndat, 8-digit yyyyMMdd as the bank codes it. */
+        String openDate,
+        /** 利率类型 inttyp: ZZZ=不计息等. */
+        String interestType,
+        /** 存期 dpstxt. */
+        String depositTerm,
         String validationStatus,
         String validationMessage,
         LocalDateTime createdAt,
@@ -52,7 +60,8 @@ public record BankDataBalanceResponse(
         return new BankDataBalanceResponse(id, taskId, rawMessageId, contentSha256, retentionUntil,
                 bankAccountId, accountMasked, bankRequestNo, availableBalance, currency, asOfTime,
                 onlineBalance, frozenBalance, previousDayBalance, vendorCurrencyCode, branchCode,
-                bankAccountNo, bankAccountName, accountItem, customerRelationNo, validationStatus,
-                validationMessage, createdAt, taskNo, taskRequestId, taskStatus);
+                bankAccountNo, bankAccountName, accountItem, customerRelationNo,
+                accountStatus, openDate, interestType, depositTerm,
+                validationStatus, validationMessage, createdAt, taskNo, taskRequestId, taskStatus);
     }
 }

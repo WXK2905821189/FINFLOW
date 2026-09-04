@@ -38,6 +38,14 @@ public class BankDataBalance {
     private String accountItem;
     /** 客户关系号 relnbr. */
     private String customerRelationNo;
+    /** 账户状态 stscod: A=活动 B=冻结 C=关户. */
+    private String accountStatus;
+    /** 开户日 opndat, 8-digit yyyyMMdd as the bank codes it. */
+    private String openDate;
+    /** 利率类型 inttyp: ZZZ=不计息 等，见 NTQADINF 文档. */
+    private String interestType;
+    /** 存期 dpstxt, e.g. Z(12). */
+    private String depositTerm;
     private String validationStatus;
     private String validationMessage;
     private LocalDateTime createdAt;
@@ -78,6 +86,14 @@ public class BankDataBalance {
     public void setAccountItem(String accountItem) { this.accountItem = accountItem; }
     public String getCustomerRelationNo() { return customerRelationNo; }
     public void setCustomerRelationNo(String customerRelationNo) { this.customerRelationNo = customerRelationNo; }
+    public String getAccountStatus() { return accountStatus; }
+    public void setAccountStatus(String accountStatus) { this.accountStatus = accountStatus; }
+    public String getOpenDate() { return openDate; }
+    public void setOpenDate(String openDate) { this.openDate = openDate; }
+    public String getInterestType() { return interestType; }
+    public void setInterestType(String interestType) { this.interestType = interestType; }
+    public String getDepositTerm() { return depositTerm; }
+    public void setDepositTerm(String depositTerm) { this.depositTerm = depositTerm; }
     public String getValidationStatus() { return validationStatus; }
     public void setValidationStatus(String validationStatus) { this.validationStatus = validationStatus; }
     public String getValidationMessage() { return validationMessage; }

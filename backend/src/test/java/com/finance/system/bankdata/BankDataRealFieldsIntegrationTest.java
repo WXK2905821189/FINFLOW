@@ -134,6 +134,11 @@ class BankDataRealFieldsIntegrationTest {
         assertEquals("上海图虫网络科技有限公司", row.get("bankAccountName").asText());
         assertEquals("2011", row.get("accountItem").asText());
         assertEquals("CR-778899", row.get("customerRelationNo").asText());
+        // 账户生命周期字段（NTQADINF Y 必返）：冻结/关户状态直接影响余额数字的可信度
+        assertEquals("A", row.get("accountStatus").asText());
+        assertEquals("20140519", row.get("openDate").asText());
+        assertEquals("ZZZ", row.get("interestType").asText());
+        assertEquals("Z(12)", row.get("depositTerm").asText());
         assertNotNull(row.get("taskNo"));
         assertEquals("SUCCEEDED", row.get("taskStatus").asText());
     }
@@ -279,7 +284,8 @@ class BankDataRealFieldsIntegrationTest {
                             context.bankAccountId(), new BigDecimal("816065.34"), "CNY",
                             context.windowEnd().minusMinutes(1), new BigDecimal("820000.00"),
                             new BigDecimal("3934.66"), new BigDecimal("810000.00"), "10", "0755",
-                            "1299000000000001", "上海图虫网络科技有限公司", "2011", "CR-778899");
+                            "1299000000000001", "上海图虫网络科技有限公司", "2011", "CR-778899",
+                            "A", "20140519", "ZZZ", "Z(12)");
                     return new BankDataCollection("STUB-REAL-BANK-1", List.of(entry), List.of(balance),
                             false, null, "SUC0000", "SUC0000",
                             new BankPageTotals(new BigDecimal("-12.34"), 1L,

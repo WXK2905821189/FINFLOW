@@ -892,6 +892,16 @@ a {
   margin-top: 16px;
 }
 
+/* 行详情抽屉里的「查看本次报文」入口：与血缘字段区块留出间距 */
+.raw-message-entry {
+  margin-top: 16px;
+}
+
+.raw-message-loading {
+  padding: 48px 0;
+  text-align: center;
+}
+
 .raw-payload {
   margin: 12px 0 0;
   padding: 12px 14px;

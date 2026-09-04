@@ -432,6 +432,10 @@ public class BankDataSyncExecutor {
         balance.setBankAccountName(blankToNull(entry.bankAccountName()));
         balance.setAccountItem(blankToNull(entry.accountItem()));
         balance.setCustomerRelationNo(blankToNull(entry.customerRelationNo()));
+        balance.setAccountStatus(blankToNull(entry.accountStatus()));
+        balance.setOpenDate(blankToNull(entry.openDate()));
+        balance.setInterestType(blankToNull(entry.interestType()));
+        balance.setDepositTerm(blankToNull(entry.depositTerm()));
         balance.setValidationStatus(VALID);
         return balance;
     }

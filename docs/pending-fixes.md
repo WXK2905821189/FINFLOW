@@ -80,3 +80,20 @@
 
 **P2-3 · 主 chunk 798→578 kB（gzip 203→192 kB）**：Shell / Login / Forbidden 三者 React.lazy 化（Login、Forbidden 从 `auth/pages.tsx` 拆为独立文件，避免同文件守卫组件拖累拆分）。无 manualChunks（FIX-001 红线），纯页面级 lazy。Edge headless 实测首屏登录页完整渲染（FINFLOW 品牌/表单/文案全在 DOM，无 Uncaught）。剩余 578 kB 为 react/antd 基座，继续压缩只能上 manualChunks——已被 FIX-001 教训否决，警告线调至 600 kB 并在 vite.config.ts 注释说明理由。
 
+---
+
+## FIX-003（P2 · 报文证据链与接口补全，非阻塞）2026-09-04 登记（来源：招行云直联文档对照审查）
+
+> 对照 openbiz.cmbchina.com 三份接口文档（NTQADINF 余额 / trsQryByBreakPoint 流水 / NTQABINF 历史余额）与线上 raw 数据发现。当日已顺手完成的部分不在登记范围（NTQADINF 漏解析的 stscod/opndat/inttyp/dpstxt 四个 Y 必返字段已随 V21 补齐）。
+
+### P2-4 · raw-message 报文体存的不是银行原始响应
+- **位置**：`BankRawMessage.payload` —— 当前存的是 FINFLOW 入库后的 `BankDataCollection.toJson()`（约 300B），不是招行解密后的原始响应 body（几 KB 级）。
+- **现象**：用户在「原始报文」/行级报文抽屉看到的不是"银行真的回答了什么"，而是"我们解析后保留了哪些字段"。适配器丢字段（如 V21 前的 stscod）raw 里也丢——报文证据链与解析正确性耦合，违背该模块"报文体才能证明银行真的回答了"的自身定位。
+- **方向**：DB 加列 `raw_response_body`（或复用 payload 双视图：原始 + 入库后），适配器解密后先落原始 body 再投影；需评估体积增长与保留策略联动、敏感字段脱敏范围（现在 sanitize 只在日志层）。涉及迁移 + 双写 + 隐私评估，故排 P2。
+
+### P2-5 · NTQABINF 历史余额接口未实现
+- **位置**：招行云直联 7 号接口 NTQABINF（6 响应字段：accnbr/accnam/onlblv/avlblv/dat/hour 之类按文档），FINFLOW 未实现。
+- **现象**：余额页只有"当下快照"（NTQADINF），查不到历史某日的余额；对账场景如需 T-1/T-N 余额只能靠流水倒推。
+- **方向**：非 v0.2 必需（测试用户申请表未开通）。若 M2/M3 阶段对账需要历史余额锚点，再按文档实现（接口简单：单账户 + 日期 → 一行余额）。
+
+

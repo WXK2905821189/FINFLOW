@@ -55,15 +55,15 @@ export function buildProductNavigation(hasPermission: HasPermission): MenuProps[
     ...(hasPermission('dashboard:view') ? [{ key: '/dashboard', icon: <DashboardOutlined />, label: <Link to="/dashboard">工作台</Link> }] : []),
     ...((canViewConnection || hasPermission('operation:monitor') || hasPermission('operation:log:view') || canViewTasks || canViewBankData || canViewRawMessages || hasPermission('bank:view')) ? [{
       key: 'bank-access', icon: <ApartmentOutlined />, label: '银行接入', children: [
-        ...(canViewConnection ? [{ key: 'bank-access-configuration', icon: <SettingOutlined />, label: '连接配置', children: [
+        ...(canViewConnection ? [{ key: 'bank-access-configuration', icon: <SettingOutlined />, label: '接入配置', children: [
           { key: '/bank-access/connections', label: <Link to="/bank-access/connections">银行连接</Link> },
           { key: '/bank-access/agreements', label: <Link to="/bank-access/agreements">签约准备与采集设置</Link> },
         ] }] : []),
         ...(hasPermission('bank:view') ? [{ key: '/bank-access/accounts', icon: <DatabaseOutlined />, label: <Link to="/bank-access/accounts">银行账户</Link> }] : []),
-        ...((hasPermission('operation:monitor') || hasPermission('operation:log:view') || canViewTasks) ? [{ key: 'bank-access-operations', icon: <RadarChartOutlined />, label: '采集运营', children: [
+        ...((hasPermission('operation:monitor') || hasPermission('operation:log:view') || canViewTasks) ? [{ key: 'bank-access-operations', icon: <RadarChartOutlined />, label: '采集与监控', children: [
           ...(hasPermission('operation:monitor') ? [{ key: '/bank-access/monitoring', label: <Link to="/bank-access/monitoring">连接监控</Link> }] : []),
           ...(canViewTasks ? [{ key: '/bank-access/tasks', label: <Link to="/bank-access/tasks">采集任务</Link> }] : []),
-          ...(hasPermission('operation:log:view') ? [{ key: '/bank-access/logs', label: <Link to="/bank-access/logs">失败日志</Link> }] : []),
+          ...(hasPermission('operation:log:view') ? [{ key: '/bank-access/logs', label: <Link to="/bank-access/logs">采集失败日志</Link> }] : []),
         ] }] : []),
         ...(canViewBankData ? [{ key: 'bank-access-data', icon: <SearchOutlined />, label: '数据查询', children: [
           ...(hasPermission('bankdata:balance:view') ? [{ key: '/bank-access/data/balances', label: <Link to="/bank-access/data/balances">余额查询</Link> }] : []),

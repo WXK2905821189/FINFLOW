@@ -107,7 +107,9 @@ public class BankDataAggregationService {
                 entry.onlineBalance(), entry.frozenBalance(), entry.previousDayBalance(),
                 clean(entry.vendorCurrencyCode()), clean(entry.branchCode()), clean(entry.bankAccountNo()),
                 clean(entry.bankAccountName()), clean(entry.accountItem()),
-                clean(entry.customerRelationNo()))).toList();
+                clean(entry.customerRelationNo()), clean(entry.accountStatus()),
+                clean(entry.openDate()), clean(entry.interestType()),
+                clean(entry.depositTerm()))).toList();
     }
 
     private String canonicalDirection(String value) {

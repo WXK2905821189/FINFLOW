@@ -39,13 +39,21 @@ public record BankDataBalanceEntry(
         /** 科目 accitm. */
         String accountItem,
         /** 客户关系号 relnbr. */
-        String customerRelationNo
+        String customerRelationNo,
+        /** 账户状态 stscod: A=活动 B=冻结 C=关户. */
+        String accountStatus,
+        /** 开户日 opndat, 8-digit date as the bank codes it (yyyyMMdd). */
+        String openDate,
+        /** 利率类型 inttyp: ZZZ=不计息, TD2=定期3月, ... per NTQADINF doc. */
+        String interestType,
+        /** 存期 dpstxt, e.g. Z(12). */
+        String depositTerm
 ) {
 
     /** Projection-only constructor kept for adapters that report a single available amount. */
     public BankDataBalanceEntry(String bankRequestNo, Long bankAccountId, BigDecimal availableBalance,
                                 String currency, LocalDateTime asOfTime) {
         this(bankRequestNo, bankAccountId, availableBalance, currency, asOfTime,
-                null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null, null, null, null, null);
     }
 }

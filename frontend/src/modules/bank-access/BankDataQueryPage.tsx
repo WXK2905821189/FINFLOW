@@ -1,13 +1,13 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, Button, Card, DatePicker, Descriptions, Drawer, Empty, Input, Modal, Pagination, Space, Table, Tag, message, type TableColumnsType } from 'antd';
-import { DownloadOutlined, PlayCircleOutlined, SearchOutlined } from '@ant-design/icons';
+import { Alert, Button, Card, DatePicker, Descriptions, Drawer, Empty, Input, Modal, Pagination, Space, Spin, Table, Tag, message, type TableColumnsType } from 'antd';
+import { CopyOutlined, DownloadOutlined, FileTextOutlined, PlayCircleOutlined, SearchOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { Link } from 'react-router-dom';
 import { bankPipelineApi } from '../../services/api';
 import { useAuthStore } from '../../store/auth';
 import { useRemote, ResourceFailure, StatusTag } from '../shared/components';
 import { dateTime, displayValue, cleanText, money, dateOnly, maskAccountDisplay, isUnavailableStatus, isFailedStatus } from '../shared/format';
-import type { BankDataBalanceRow, BankDataProjectionPage, BankDataStatementRow } from '../../types';
+import type { BankDataBalanceRow, BankDataProjectionPage, BankDataStatementRow, BankRawMessageDetail } from '../../types';
 
 export const bankDataResources = {
   balances: { title: '余额查询', permission: 'bankdata:balance:view' },
@@ -32,11 +32,28 @@ type BankQueryRow = BankDataStatementRow | BankDataBalanceRow;
 /** 借贷码是银行自己的口径，不做业务翻译——翻译过一次就对不上银行导出的明细了。 */
 const LOAN_CODE_TEXT: Record<string, string> = { C: '贷方（收）', D: '借方（付）' };
 const REVERSAL_TEXT: Record<string, string> = { '*': '冲账', X: '补账', N: '正常' };
+/** NTQADINF stscod：A=活动 B=冻结 C=关户。冻结/关户账户配着余额数字是 reconciliation 风险，须可视化。 */
+const ACCOUNT_STATUS_TEXT: Record<string, string> = { A: '活动', B: '冻结', C: '关户' };
+const accountStatusColor = (code?: string) => (code === 'A' ? 'green' : code === 'B' ? 'red' : code === 'C' ? 'default' : 'default');
+/** NTQADINF inttyp（节选常见值，未收录的原样展示银行码）。 */
+const INTEREST_TYPE_TEXT: Record<string, string> = {
+  ZZZ: '不计息', TD1: '定期7天', TD2: '定期3月', TD3: '定期6月', TD4: '定期1年',
+  TD5: '定期2年', TD6: '定期3年', TD7: '定期5年', TD8: '定期1天', CQ: '活期',
+};
 const INFO_FLAG_TEXT: Record<string, string> = {
   '': '付方账号 / 子公司',
   '1': '收方账号 / 子公司',
   '2': '收方账号 / 母公司',
   '3': '原收方账号 / 子公司',
+};
+
+/** Pretty-print the bank payload; fall back to the raw text when it is not JSON. */
+const prettyPayload = (payload: string) => {
+  try {
+    return JSON.stringify(JSON.parse(payload), null, 2);
+  } catch {
+    return payload;
+  }
 };
 
 export function BankProjectionState({ data }: { data?: BankDataProjectionPage<BankQueryRow> }) {
@@ -126,6 +143,12 @@ const balanceColumns = (openDetail: (row: BankDataBalanceRow) => void): TableCol
   { title: '上日余额', dataIndex: 'previousDayBalance', width: 140, align: 'right', render: (value) => (value === undefined || value === null ? '--' : <span className="mono">{money(value)}</span>) },
   { title: '币种', dataIndex: 'vendorCurrencyCode', width: 90, render: (value, row) => displayValue(value || row.currency) },
   { title: '科目 / 分行', width: 140, render: (_, row) => <span className="mono">{displayValue(row.accountItem)} / {displayValue(row.branchCode)}</span> },
+  {
+    title: '账户状态',
+    dataIndex: 'accountStatus',
+    width: 90,
+    render: (value?: string) => (value ? <Tag color={accountStatusColor(value)}>{ACCOUNT_STATUS_TEXT[value] || value}</Tag> : '--'),
+  },
   { title: '银行请求号', dataIndex: 'bankRequestNo', width: 170, render: (value) => (value ? <span className="mono">{value}</span> : '--') },
   {
     title: '状态',
@@ -195,6 +218,10 @@ function BalanceDetail({ row }: { row: BankDataBalanceRow }) {
       <Descriptions.Item label="科目">{displayValue(row.accountItem)}</Descriptions.Item>
       <Descriptions.Item label="分行号">{displayValue(row.branchCode)}</Descriptions.Item>
       <Descriptions.Item label="客户关系号">{displayValue(row.customerRelationNo)}</Descriptions.Item>
+      <Descriptions.Item label="账户状态（stscod）">{row.accountStatus ? <Tag color={accountStatusColor(row.accountStatus)}>{ACCOUNT_STATUS_TEXT[row.accountStatus] || row.accountStatus}（{row.accountStatus}）</Tag> : '--'}</Descriptions.Item>
+      <Descriptions.Item label="开户日（opndat）">{row.openDate ? <span className="mono">{row.openDate}</span> : '--'}</Descriptions.Item>
+      <Descriptions.Item label="利率类型（inttyp）">{row.interestType ? `${INTEREST_TYPE_TEXT[row.interestType] || row.interestType}（${row.interestType}）` : '--'}</Descriptions.Item>
+      <Descriptions.Item label="存期（dpstxt）">{displayValue(row.depositTerm)}</Descriptions.Item>
     </Descriptions>
   );
 }
@@ -202,6 +229,7 @@ function BalanceDetail({ row }: { row: BankDataBalanceRow }) {
 export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDataResources }) {
   const hasPermission = useAuthStore((state) => state.hasPermission);
   const canTriggerSync = hasPermission('bankdata:sync:trigger');
+  const canViewRawMessage = hasPermission('bankdata:raw:view');
   const [page, setPage] = useState(1);
   const [size, setSize] = useState(20);
   const [submitted, setSubmitted] = useState(false);
@@ -209,6 +237,32 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
   const [filters, setFilters] = useState<BankQueryFilters>(emptyBankQueryFilters);
   const [draft, setDraft] = useState<BankQueryFilters>(emptyBankQueryFilters);
   const [selected, setSelected] = useState<BankQueryRow>();
+  // 行级报文抽屉（方案 A）：余额/流水行 → 该次同步留存的原始报文，证明银行真的回答了什么。
+  // 权限与「原始报文」模块同源（bankdata:raw:view，仅 role 1/2），无权限的用户不渲染入口。
+  const [rawMessage, setRawMessage] = useState<BankRawMessageDetail>();
+  const [rawMessageLoading, setRawMessageLoading] = useState(false);
+  const [rawMessageError, setRawMessageError] = useState<string>();
+  const openRawMessage = async (id: number) => {
+    setRawMessage(undefined);
+    setRawMessageError(undefined);
+    setRawMessageLoading(true);
+    try {
+      setRawMessage(await bankPipelineApi.getRawMessage(id));
+    } catch (reason) {
+      setRawMessageError(reason instanceof Error ? reason.message : '报文加载失败，请稍后重试');
+    } finally {
+      setRawMessageLoading(false);
+    }
+  };
+  const copyRawPayload = async () => {
+    if (!rawMessage?.payload) return;
+    try {
+      await navigator.clipboard.writeText(rawMessage.payload);
+      message.success('报文已复制');
+    } catch {
+      message.error('复制失败，请手动选择复制');
+    }
+  };
   // Where to return keyboard focus when the detail drawer closes. Kept in state rather
   // than a ref: writing a ref from a handler that flows through render-created column
   // callbacks trips the react-compiler refs rule, and state does the same job here.
@@ -317,7 +371,22 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
           <>
             <BankProjectionState data={data} />
             {data?.requestId && <div className="query-request-id">请求编号：<span className="mono">{data.requestId}</span><Link to={`/operations/logs?requestId=${encodeURIComponent(data.requestId)}`}>查看脱敏审计追溯</Link></div>}
-            <Table rowKey="id" loading={loading} columns={columns} dataSource={data?.records || []} pagination={false} locale={{ emptyText: <Empty description={emptyDescription} /> }} scroll={{ x: isStatement ? 1900 : 1800 }} />
+            <Table
+              rowKey="id"
+              loading={loading}
+              columns={columns}
+              dataSource={data?.records || []}
+              pagination={false}
+              expandable={{
+                // 行内展开全量银行原生字段：主表格列有限，展开即得银行返回的每一个字段，
+                // 不必逐行点进抽屉。展开内容与详情抽屉同一组件，单一事实来源。
+                expandedRowRender: (row) => (isStatement
+                  ? <StatementDetail row={row as BankDataStatementRow} />
+                  : <BalanceDetail row={row as BankDataBalanceRow} />),
+              }}
+              locale={{ emptyText: <Empty description={emptyDescription} /> }}
+              scroll={{ x: isStatement ? 1900 : 1900 }}
+            />
             {data && <Pagination className="table-pagination" current={data.page} pageSize={data.size || size} total={data.total} showSizeChanger pageSizeOptions={[10, 20, 50]} onChange={(next, nextSize) => { setPage(next); setSize(nextSize); setSubmitted(true); }} />}
           </>
         )}
@@ -329,9 +398,18 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
               type="info"
               showIcon
               message="银行原始字段"
-              description="字段 ID 与银行接口一致，可与银行导出的交易明细逐列比对；借贷、冲账、信息标志均未做业务翻译。完整响应报文请在「原始报文」模块查看。"
+              description="字段 ID 与银行接口一致，可与银行导出的交易明细逐列比对；借贷、冲账、信息标志均未做业务翻译。点击下方「查看本次报文」可直接看到该行数据的原始请求/响应留档。"
             />
             {isStatement ? <StatementDetail row={selected as BankDataStatementRow} /> : <BalanceDetail row={selected as BankDataBalanceRow} />}
+            {canViewRawMessage && selected.rawMessageId && (
+              <Button
+                className="raw-message-entry"
+                icon={<FileTextOutlined />}
+                onClick={() => void openRawMessage(selected.rawMessageId as number)}
+              >
+                查看本次报文
+              </Button>
+            )}
             <Descriptions className="projection-detail" column={1} size="small" bordered>
               <Descriptions.Item label="银行请求号"><span className="mono">{displayValue(selected.bankRequestNo)}</span></Descriptions.Item>
               <Descriptions.Item label="同步任务号"><span className="mono">{displayValue(selected.taskNo)}</span></Descriptions.Item>
@@ -346,6 +424,45 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
               <Descriptions.Item label="入库时间">{dateTime(selected.createdAt)}</Descriptions.Item>
             </Descriptions>
             {detailRequestId && <Link className="trace-link" to={`/operations/logs?requestId=${encodeURIComponent(detailRequestId)}`}>查看该请求的脱敏日志与审计追溯</Link>}
+          </>
+        )}
+      </Drawer>
+      <Drawer
+        title={`银行报文留档 · ${rawMessage?.bankRequestNo || (rawMessageLoading ? '加载中' : '未知请求')}`}
+        width={720}
+        open={Boolean(rawMessage) || rawMessageLoading}
+        onClose={() => { setRawMessage(undefined); setRawMessageError(undefined); setRawMessageLoading(false); }}
+      >
+        {rawMessageLoading && <div className="raw-message-loading"><Spin tip="正在加载报文……" /></div>}
+        {rawMessageError && <Alert type="error" showIcon message="报文加载失败" description={rawMessageError} />}
+        {rawMessage && (
+          <>
+            <Alert
+              type={rawMessage.realDirect ? 'success' : 'warning'}
+              showIcon
+              message={rawMessage.realDirect ? '真实银行直联报文' : '非 REAL 适配器报文'}
+              description={rawMessage.realDirect
+                ? '该报文由真实银行直联适配器产生，报文体即银行应答的留存（敏感字段已脱敏）。'
+                : '该报文不是真实银行直联产生，仅作留档比对，不能作为银行应答证据。'}
+            />
+            <Descriptions className="projection-detail" column={1} size="small" bordered>
+              <Descriptions.Item label="银行请求号"><span className="mono">{displayValue(rawMessage.bankRequestNo)}</span></Descriptions.Item>
+              <Descriptions.Item label="接收时间">{dateTime(rawMessage.receivedAt)}</Descriptions.Item>
+              <Descriptions.Item label="适配器">{displayValue(rawMessage.adapterCode)}</Descriptions.Item>
+              <Descriptions.Item label="报文大小">{rawMessage.payloadBytes} 字节</Descriptions.Item>
+              <Descriptions.Item label="报文摘要"><span className="mono">{displayValue(rawMessage.contentSha256)}</span></Descriptions.Item>
+              <Descriptions.Item label="保留期限">{dateTime(rawMessage.retentionUntil)}</Descriptions.Item>
+            </Descriptions>
+            <div className="raw-payload-toolbar">
+              <Space>
+                <Button size="small" icon={<CopyOutlined />} disabled={!rawMessage.payload} onClick={() => void copyRawPayload()}>复制报文</Button>
+              </Space>
+            </div>
+            <pre className="raw-payload">
+              {rawMessage.payload
+                ? prettyPayload(rawMessage.payload)
+                : '（该报文体已按保留策略清理，仅剩元数据。）'}
+            </pre>
           </>
         )}
       </Drawer>

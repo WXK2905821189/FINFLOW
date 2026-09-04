@@ -209,10 +209,12 @@ public class RealCiticBankDataAdapter implements BankDataAdapter {
             }
             // DLBALQRY and NTQADINF report the same three figures under different names, so
             // they land in the same columns: usableBalance=可用, balance=账面(联机),
-            // forzenAmt=冻结. CITIC reports no 上日余额 and no 科目/客户关系号 - left null.
+            // forzenAmt=冻结. CITIC reports no 上日余额 and no 科目/客户关系号/账户状态/
+            // 开户日/利率类型/存期 (NTQADINF-specific lifecycle fields) - left null.
             balances.add(new BankDataBalanceEntry(bankRequestNo, bankAccountId, row.usableBalance(), null, asOf,
                     row.balance(), row.forzenAmt(), null, trim(row.currencyId()), null,
-                    trim(row.accountNo()), trim(row.accountName()), null, null));
+                    trim(row.accountNo()), trim(row.accountName()), null, null,
+                    null, null, null, null));
         }
         return List.copyOf(balances);
     }

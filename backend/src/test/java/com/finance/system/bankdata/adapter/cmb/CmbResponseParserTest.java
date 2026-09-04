@@ -51,6 +51,11 @@ class CmbResponseParserTest {
         assertEquals("SUC0000", row.errcod());
         assertEquals("A", row.stscod());
         assertEquals("北京迪龙化工有限公司", row.accnam());
+        // lifecycle fields (NTQADINF doc marks stscod/opndat/inttyp/dpstxt as always-returned;
+        // the doc wire sample carries stscod/opndat; inttyp/dpstxt absent -> null, never blank)
+        assertEquals("20140519", row.opndat());
+        assertNull(row.inttyp());
+        assertNull(row.dpstxt());
     }
 
     @Test
