@@ -19,6 +19,7 @@ import com.finance.system.domain.mapper.SysUserMapper;
 import com.finance.system.domain.mapper.SysUserRoleMapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -95,6 +96,19 @@ class CmbRealPathTenantIsolationIntegrationTest {
         if (bank != null) {
             bank.close();
         }
+    }
+
+    /**
+     * Wipe bankdata landing-zone tables before each run. The suite shares one H2 across
+     * integration-test classes (V02 etc. also insert REAL rows for company 1), and JUnit
+     * class order differs per machine, so a prior class's rows would otherwise pollute the
+     * company-A fallback assertions ("expected 1 but was 5" on CI, green locally).
+     */
+    @BeforeEach
+    void cleanLandingZone() {
+        syncTaskMapper.delete(null);
+        statementMapper.delete(null);
+        balanceMapper.delete(null);
     }
 
     @Autowired
