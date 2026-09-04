@@ -20,8 +20,6 @@ const ReviewStatements = lazy(() => import('./modules/statements/pages').then((m
 const VoucherStatements = lazy(() => import('./modules/statements/pages').then((module) => ({ default: module.VoucherStatements })));
 const ValidationPage = lazy(() => import('./modules/statements/ValidationPage').then((module) => ({ default: module.ValidationPage })));
 const BankAccountPage = lazy(() => import('./modules/bank-access/pages').then((module) => ({ default: module.BankAccountPage })));
-const ConnectionConfigurationPage = lazy(() => import('./modules/bank-access/pages').then((module) => ({ default: module.ConnectionConfigurationPage })));
-const ConnectionMonitoring = lazy(() => import('./modules/bank-access/pages').then((module) => ({ default: module.ConnectionMonitoring })));
 const OperationLogs = lazy(() => import('./modules/bank-access/operations').then((module) => ({ default: module.OperationLogs })));
 const OperationTasks = lazy(() => import('./modules/bank-access/operations').then((module) => ({ default: module.OperationTasks })));
 const BankDataQueryPage = lazy(() => import('./modules/bank-access/BankDataQueryPage').then((module) => ({ default: module.BankDataQueryPage })));
@@ -72,15 +70,8 @@ function AppRoutes() {
           <Route element={<PermissionGuard permissions={['reconciliation:view']} />}>
             <Route path="/reconciliation/dashboard" element={<Reconciliation />} />
           </Route>
-          <Route element={<PermissionGuard permissions={['connection:view', 'connection:manage']} />}>
-            <Route path="/bank-access/connections" element={<ConnectionConfigurationPage section="applications" title="银行连接" description="管理真实银行直联连接的受控元数据；密钥仅存于服务端环境变量，不落库、不返回。" />} />
-            <Route path="/bank-access/agreements" element={<ConnectionConfigurationPage section="contracts" title="签约准备与采集设置" description="展示签约准备度与采集配置；签约生效以银行侧开通为准，浏览器不读取或保存密钥、证书或令牌。" />} />
-          </Route>
           <Route element={<PermissionGuard permissions={['bank:view']} />}>
             <Route path="/bank-access/accounts" element={<BankAccountPage />} />
-          </Route>
-          <Route element={<PermissionGuard permissions={['operation:monitor']} />}>
-            <Route path="/bank-access/monitoring" element={<ConnectionMonitoring />} />
           </Route>
           <Route element={<PermissionGuard permissions={['operation:monitor', 'bankdata:view']} />}>
             <Route path="/bank-access/tasks" element={<OperationTasks />} />
@@ -97,16 +88,20 @@ function AppRoutes() {
           <Route element={<PermissionGuard permissions={['bankdata:raw:view']} />}>
             <Route path="/bank-access/raw-messages" element={<RawMessagesPage />} />
           </Route>
-          <Route path="/connections/apps" element={<Navigate to="/bank-access/connections" replace />} />
-          <Route path="/connections/agreements" element={<Navigate to="/bank-access/agreements" replace />} />
-          <Route path="/connections/preferences" element={<Navigate to="/bank-access/agreements" replace />} />
-          <Route path="/operations/connectivity" element={<Navigate to="/bank-access/monitoring" replace />} />
+          {/* 已下线页面的旧路径统一重定向：接入配置两页并入银行账户，连接监控并入采集任务 */}
+          <Route path="/bank-access/connections" element={<Navigate to="/bank-access/accounts" replace />} />
+          <Route path="/bank-access/agreements" element={<Navigate to="/bank-access/accounts" replace />} />
+          <Route path="/bank-access/preferences" element={<Navigate to="/bank-access/accounts" replace />} />
+          <Route path="/bank-access/monitoring" element={<Navigate to="/bank-access/tasks" replace />} />
+          <Route path="/connections/apps" element={<Navigate to="/bank-access/accounts" replace />} />
+          <Route path="/connections/agreements" element={<Navigate to="/bank-access/accounts" replace />} />
+          <Route path="/connections/preferences" element={<Navigate to="/bank-access/accounts" replace />} />
+          <Route path="/operations/connectivity" element={<Navigate to="/bank-access/tasks" replace />} />
           <Route path="/operations/tasks" element={<Navigate to="/bank-access/tasks" replace />} />
           <Route path="/operations/logs" element={<Navigate to="/bank-access/logs" replace />} />
           <Route path="/bank-data/balances" element={<Navigate to="/bank-access/data/balances" replace />} />
           <Route path="/bank-data/statements" element={<Navigate to="/bank-access/data/statements" replace />} />
           <Route path="/statements/reconciliation" element={<Navigate to="/reconciliation/dashboard" replace />} />
-          <Route path="/bank-access/preferences" element={<Navigate to="/bank-access/agreements" replace />} />
           <Route path="/403" element={<Forbidden />} />
         </Route>
       </Route>

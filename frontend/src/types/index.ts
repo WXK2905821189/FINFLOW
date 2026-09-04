@@ -6,7 +6,6 @@ export type { User, AuthTokenResponse } from '../modules/auth/types';
 export type {
   BankAccount,
   ConnectionSummary,
-  ConnectionConfiguration,
   ConnectionOverview,
   OperationLog,
   DataQueryCapability,

@@ -2,7 +2,6 @@ import type { AxiosResponse } from 'axios';
 import { http } from './http';
 import type {
   AuthTokenResponse,
-  ConnectionConfiguration,
   ConnectionOverview,
   FeishuOverview,
   FeishuConnectionItem,
@@ -77,7 +76,6 @@ type OperationListParams = { page?: number; size?: number; connectionCode?: stri
 // Operations APIs are deliberately read-only in phase one. They expose FINFLOW
 // facts and simulated/unavailable state only; no browser action can establish a bank connection.
 export const operationsApi = {
-  configuration: (section: 'applications' | 'contracts' | 'preferences') => http.get<never, ConnectionConfiguration>('/connections/configuration', { params: { section } }),
   connectionOverview: () => http.get<never, ConnectionOverview>('/operations/connections'),
   logs: (params: OperationListParams) => http.get<never, PageResponse<OperationLog>>('/operations/logs', { params }),
   dataCapability: (resource: string) => http.get<never, DataQueryCapability>(`/data/${resource}`),

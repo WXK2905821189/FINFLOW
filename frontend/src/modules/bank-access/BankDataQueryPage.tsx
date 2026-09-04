@@ -377,13 +377,6 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
               columns={columns}
               dataSource={data?.records || []}
               pagination={false}
-              expandable={{
-                // 行内展开全量银行原生字段：主表格列有限，展开即得银行返回的每一个字段，
-                // 不必逐行点进抽屉。展开内容与详情抽屉同一组件，单一事实来源。
-                expandedRowRender: (row) => (isStatement
-                  ? <StatementDetail row={row as BankDataStatementRow} />
-                  : <BalanceDetail row={row as BankDataBalanceRow} />),
-              }}
               locale={{ emptyText: <Empty description={emptyDescription} /> }}
               scroll={{ x: isStatement ? 1900 : 1900 }}
             />

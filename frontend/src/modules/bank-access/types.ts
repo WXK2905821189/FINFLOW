@@ -23,14 +23,6 @@ export type ConnectionSummary = {
   lastCheckedAt?: string;
 };
 
-export type ConnectionConfiguration = {
-  enabled: boolean;
-  status: string;
-  message: string;
-  supportedProviderTypes: string[];
-  connections: ConnectionSummary[];
-};
-
 export type ConnectionOverview = {
   enabled: boolean;
   status: string;
