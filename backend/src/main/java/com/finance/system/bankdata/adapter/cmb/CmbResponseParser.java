@@ -1,10 +1,12 @@
 package com.finance.system.bankdata.adapter.cmb;
 
+import com.finance.system.bankdata.adapter.BankPageTotals;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -54,8 +56,8 @@ public final class CmbResponseParser {
                                String reserve) {
     }
 
-    /** trsQryByBreakPoint page result (Z1 continuation control + Z2 rows). */
-    public record StatementPage(String ctnFlag, String queryAcctNbr,
+    /** trsQryByBreakPoint page result (Z1 continuation control + page totals + Z2 rows). */
+    public record StatementPage(String ctnFlag, String queryAcctNbr, BankPageTotals pageTotals,
                                 List<CmbStatementQuery.CmbStatementBreakPoint> breakPoints,
                                 List<StatementRow> rows) {
     }
@@ -114,11 +116,18 @@ public final class CmbResponseParser {
 
         String ctnFlag = null;
         String queryAcctNbr = null;
+        BankPageTotals pageTotals = null;
         JsonArray z1 = arrayOrEmpty(envelope.body(), "TRANSQUERYBYBREAKPOINT_Z1");
         if (!z1.isEmpty()) {
             JsonObject control = z1.get(0).getAsJsonObject();
             ctnFlag = text(control.get("ctnFlag"));
             queryAcctNbr = text(control.get("queryAcctNbr"));
+            // The bank's own debit/credit totals for this page (Z1). Kept verbatim —
+            // signed amounts, string-rendered numbers — so the executor's window sum is
+            // reconcilable against the bank's own figures rather than our recount.
+            pageTotals = new BankPageTotals(
+                    decimal(control.get("debitAmount")), whole(control.get("debitNums")),
+                    decimal(control.get("creditAmount")), whole(control.get("creditNums")));
         }
 
         List<StatementRow> rows = new ArrayList<>();
@@ -142,7 +151,7 @@ public final class CmbResponseParser {
                     text(row.get("virtualNbr")), text(row.get("mchOrderNbr")),
                     text(row.get("transCardNbr")), text(row.get("reserve"))));
         }
-        return new StatementPage(ctnFlag, queryAcctNbr, List.copyOf(breakPoints), List.copyOf(rows));
+        return new StatementPage(ctnFlag, queryAcctNbr, pageTotals, List.copyOf(breakPoints), List.copyOf(rows));
     }
 
     private static JsonObject objectOrEmpty(JsonElement element) {
@@ -160,5 +169,24 @@ public final class CmbResponseParser {
         }
         String value = element.getAsString();
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    /** Bank numeric string → BigDecimal; blank or non-numeric stays null rather than zero. */
+    private static BigDecimal decimal(JsonElement element) {
+        String value = text(element);
+        if (value == null) {
+            return null;
+        }
+        try {
+            return new BigDecimal(value);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /** Bank count string → Long; same rule as {@link #decimal}. */
+    private static Long whole(JsonElement element) {
+        BigDecimal value = decimal(element);
+        return value == null ? null : Long.valueOf(value.longValue());
     }
 }

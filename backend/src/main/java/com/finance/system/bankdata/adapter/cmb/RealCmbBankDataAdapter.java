@@ -121,7 +121,7 @@ public class RealCmbBankDataAdapter implements BankDataAdapter {
         String nextCursor = hasMore
                 ? StatementCursor.encode(page.queryAcctNbr(), page.breakPoints()) : null;
         return new BankDataCollection(requestNo, entries, balances, hasMore, nextCursor,
-                SUCCESS, SUCCESS);
+                SUCCESS, SUCCESS, page.pageTotals());
     }
 
     private CmbStatementQuery buildStatementQuery(BankDataSyncContext context, String accountNo,

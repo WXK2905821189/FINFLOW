@@ -10,6 +10,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -72,6 +73,14 @@ class CmbResponseParserTest {
         assertEquals("Y", page.ctnFlag());
         assertEquals("755947919880029", page.queryAcctNbr());
 
+        // Z1 carries the bank's own debit/credit totals for this page - the reconciliation
+        // figure that does not depend on our own recount.
+        assertNotNull(page.pageTotals());
+        assertEquals(new java.math.BigDecimal("-40.01"), page.pageTotals().debitAmount());
+        assertEquals(1L, page.pageTotals().debitNums());
+        assertEquals(new java.math.BigDecimal("0"), page.pageTotals().creditAmount());
+        assertEquals(0L, page.pageTotals().creditNums());
+
         assertEquals(3, page.breakPoints().size());
         assertEquals("755947919880003", page.breakPoints().get(0).acctNbr());
         assertEquals("101", page.breakPoints().get(2).expectNextSequence());
@@ -98,6 +107,7 @@ class CmbResponseParserTest {
                 CmbResponseParser.parseEnvelope(json));
         assertNull(page.ctnFlag());
         assertNull(page.queryAcctNbr());
+        assertNull(page.pageTotals(), "no Z1 record means the bank says nothing - null, not zero");
         assertTrue(page.breakPoints().isEmpty());
         assertTrue(page.rows().isEmpty());
     }

@@ -55,8 +55,9 @@ public class BankDataSyncResponseAssembler {
         if (task == null) return null;
         return new BankDataSyncTaskResponse(task.getId(), task.getTaskNo(), task.getAdapterCode(), task.getMappingVersion(), connectionCode,
                 task.getBankAccountId(), task.getRequestId(), task.getBankRequestNo(), task.getStatus(), task.getRawCount(),
-                task.getNormalizedCount(), task.getDuplicateCount(), task.getInvalidCount(), task.getErrorMessage(),
-                task.getStartedAt(), task.getCompletedAt(), task.getCreatedAt());
+                task.getNormalizedCount(), task.getDuplicateCount(), task.getInvalidCount(),
+                task.getDebitAmount(), task.getDebitNums(), task.getCreditAmount(), task.getCreditNums(),
+                task.getErrorMessage(), task.getStartedAt(), task.getCompletedAt(), task.getCreatedAt());
     }
 
     public List<BankDataSyncTaskResponse> tasks(List<BankDataSyncTask> tasks, long companyId) {

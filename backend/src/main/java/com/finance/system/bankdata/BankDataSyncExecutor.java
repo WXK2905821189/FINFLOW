@@ -9,6 +9,7 @@ import com.finance.system.bankdata.adapter.BankDataBalanceEntry;
 import com.finance.system.bankdata.adapter.BankDataCollection;
 import com.finance.system.bankdata.adapter.BankDataEntry;
 import com.finance.system.bankdata.adapter.BankDataSyncContext;
+import com.finance.system.bankdata.adapter.BankPageTotals;
 import com.finance.system.bankdata.adapter.VendorStatementFields;
 import com.finance.system.common.exception.BusinessException;
 import com.finance.system.domain.entity.BankAccount;
@@ -90,6 +91,14 @@ public class BankDataSyncExecutor {
         int rawCount = 0;
         String lastBankRequestNo = null;
         boolean partialResult = false;
+        // The bank's own reconciliation figures (Z1): summed across pages and windows so the
+        // task row carries what the bank attested for the whole requested period, independent
+        // of FINFLOW's own dedup/validation counts.
+        BigDecimal debitAmountTotal = null;
+        BigDecimal creditAmountTotal = null;
+        long debitNumsTotal = 0;
+        long creditNumsTotal = 0;
+        boolean sawBankTotals = false;
         for (WindowRange window : windows) {
             String cursor = null;
             int page = 1;
@@ -118,12 +127,35 @@ public class BankDataSyncExecutor {
                     task.setNormalizedCount(0);
                     task.setDuplicateCount(0);
                     task.setInvalidCount(0);
+                    applyBankTotals(task, debitAmountTotal, debitNumsTotal, creditAmountTotal,
+                            creditNumsTotal, sawBankTotals);
                     task.setErrorMessage("PENDING".equals(status) ? "Bank response is pending reconciliation"
                             : "UNKNOWN".equals(status) ? "Bank response status is unknown and requires manual reconciliation"
                             : "Bank response failed safely before normalization");
                     task.setCompletedAt(LocalDateTime.now());
                     taskMapper.updateById(task);
                     return task;
+                }
+
+                // Only SUCCESS/PARTIAL pages contribute: an EMPTY page has no totals and a
+                // failed page must not poison the window sum.
+                BankPageTotals totals = collection.pageTotals();
+                if (totals != null) {
+                    sawBankTotals = true;
+                    if (totals.debitAmount() != null) {
+                        debitAmountTotal = debitAmountTotal == null ? totals.debitAmount()
+                                : debitAmountTotal.add(totals.debitAmount());
+                    }
+                    if (totals.creditAmount() != null) {
+                        creditAmountTotal = creditAmountTotal == null ? totals.creditAmount()
+                                : creditAmountTotal.add(totals.creditAmount());
+                    }
+                    if (totals.debitNums() != null) {
+                        debitNumsTotal += totals.debitNums();
+                    }
+                    if (totals.creditNums() != null) {
+                        creditNumsTotal += totals.creditNums();
+                    }
                 }
 
                 List<BankDataEntry> pageEntries = collection.entries() == null ? List.of() : collection.entries();
@@ -241,11 +273,28 @@ public class BankDataSyncExecutor {
         task.setNormalizedCount(normalized);
         task.setDuplicateCount(duplicates);
         task.setInvalidCount(invalid);
+        applyBankTotals(task, debitAmountTotal, debitNumsTotal, creditAmountTotal, creditNumsTotal, sawBankTotals);
         task.setCompletedAt(LocalDateTime.now());
         taskMapper.updateById(task);
         log(task, "INFO", "SYNC_COMPLETED", task.getStatus(), lastBankRequestNo,
                 "Bank data synchronization completed without external network calls");
         return task;
+    }
+
+    /**
+     * Stores the bank's own debit/credit totals on the task. Only written when at least one
+     * page actually reported Z1 totals: null means "the bank says nothing about this window",
+     * which must stay distinguishable from zero.
+     */
+    private void applyBankTotals(BankDataSyncTask task, BigDecimal debitAmount, long debitNums,
+                                 BigDecimal creditAmount, long creditNums, boolean sawBankTotals) {
+        if (!sawBankTotals) {
+            return;
+        }
+        task.setDebitAmount(debitAmount);
+        task.setDebitNums((int) debitNums);
+        task.setCreditAmount(creditAmount);
+        task.setCreditNums((int) creditNums);
     }
 
     private List<WindowRange> splitWindows(LocalDateTime requestedStart, LocalDateTime requestedEnd) {

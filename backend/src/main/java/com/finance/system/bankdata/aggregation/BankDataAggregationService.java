@@ -75,8 +75,11 @@ public class BankDataAggregationService {
         if (empty && status == BankDataStatus.SUCCESS) status = BankDataStatus.EMPTY;
         boolean hasMore = !empty && vendorResult.hasMore();
         String nextCursor = hasMore ? clean(vendorResult.nextCursor()) : null;
+        // pageTotals is the bank's own reconciliation figure, not business vocabulary:
+        // there is nothing to canonicalize and everything to lose by rebuilding it (the
+        // same trap that dropped vendor fields here once before).
         BankDataCollection canonical = new BankDataCollection(vendorResult.bankRequestNo(), entries, balances,
-                hasMore, nextCursor, vendorResult.bankStatusCode(), status.name());
+                hasMore, nextCursor, vendorResult.bankStatusCode(), status.name(), vendorResult.pageTotals());
         return new BankDataAggregationResult(adapter.adapterCode(), mappingVersion(adapter.adapterCode()), status,
                 canonical, safeSummary(status));
     }

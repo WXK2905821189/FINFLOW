@@ -8,7 +8,10 @@ import com.finance.system.bankdata.adapter.BankDataBalanceEntry;
 import com.finance.system.bankdata.adapter.BankDataCollection;
 import com.finance.system.bankdata.adapter.BankDataEntry;
 import com.finance.system.bankdata.adapter.BankDataSyncContext;
+import com.finance.system.bankdata.adapter.BankPageTotals;
 import com.finance.system.bankdata.adapter.VendorStatementFields;
+import com.finance.system.domain.entity.BankDataSyncTask;
+import com.finance.system.domain.mapper.BankDataSyncTaskMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -55,6 +58,8 @@ class BankDataRealFieldsIntegrationTest {
     private MockMvc mockMvc;
     @Autowired
     private ObjectMapper objectMapper;
+    @Autowired
+    private BankDataSyncTaskMapper taskMapper;
 
     @Test
     void statementQueryReturnsTheBanksOwnFieldsRatherThanAProjection() throws Exception {
@@ -96,6 +101,15 @@ class BankDataRealFieldsIntegrationTest {
         assertTrue(row.get("accountMasked").asText().startsWith("****"),
                 "our own account number is masked in the response");
         assertEquals("****0001", row.get("accountMasked").asText());
+
+        // 银行 Z1 口径的窗口合计落库：这是银行自己认的账，独立于我们的去重/校验计数
+        BankDataSyncTask task = taskMapper.selectList(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<BankDataSyncTask>()
+                .eq(BankDataSyncTask::getBankAccountId, accountId)).get(0);
+        assertEquals(new java.math.BigDecimal("-12.34"), task.getDebitAmount(),
+                "the bank's own debit total for the window, signed as reported");
+        assertEquals(1, task.getDebitNums());
+        assertEquals(new java.math.BigDecimal("100.50"), task.getCreditAmount());
+        assertEquals(2, task.getCreditNums());
     }
 
     @Test
@@ -267,7 +281,9 @@ class BankDataRealFieldsIntegrationTest {
                             new BigDecimal("3934.66"), new BigDecimal("810000.00"), "10", "0755",
                             "1299000000000001", "上海图虫网络科技有限公司", "2011", "CR-778899");
                     return new BankDataCollection("STUB-REAL-BANK-1", List.of(entry), List.of(balance),
-                            false, null, "SUC0000", "SUC0000");
+                            false, null, "SUC0000", "SUC0000",
+                            new BankPageTotals(new BigDecimal("-12.34"), 1L,
+                                    new BigDecimal("100.50"), 2L));
                 }
             };
         }
