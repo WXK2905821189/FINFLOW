@@ -69,7 +69,11 @@ public class BankDataSyncResponseAssembler {
                         .eq(ConnectionProfile::getCompanyId, companyId)
                         .in(ConnectionProfile::getId, connectionIds))
                 .stream().collect(Collectors.toMap(ConnectionProfile::getId, ConnectionProfile::getConnectionCode));
-        return tasks.stream().map(item -> task(item, connectionCodes.get(item.getConnectionId()))).toList();
+        // Map.of() (and any immutable map) throws NPE on get(null) - unlike HashMap.
+        // Tasks created by the scheduler may legitimately have no connection_id, so
+        // guard the lookup before touching the map (mirrors connectionCode()'s null guard).
+        return tasks.stream().map(item -> task(item,
+                item.getConnectionId() == null ? null : connectionCodes.get(item.getConnectionId()))).toList();
     }
 
     public BankSyncJobResponse job(BankDataSyncTaskResponse task, String jobType, String triggerType) {
