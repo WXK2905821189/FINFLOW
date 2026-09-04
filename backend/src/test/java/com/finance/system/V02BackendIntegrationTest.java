@@ -114,6 +114,7 @@ class V02BackendIntegrationTest {
 
     private Company companyB;
     private SysUser userB;
+    private BankAccount accountA;
     private BankAccount accountB;
 
     @BeforeEach
@@ -133,6 +134,18 @@ class V02BackendIntegrationTest {
         userB.setStatus("ACTIVE");
         userMapper.insert(userB);
         userRoleMapper.insert(new SysUserRole(userB.getId(), 2L));
+
+        // V15 retired the two CITIC accounts V1 used to seed, so the admin tenant can no longer
+        // borrow id 1 - own the row explicitly (V4 backfills sys_user.company_id = 1).
+        accountA = new BankAccount();
+        accountA.setCompanyId(1L);
+        accountA.setBankCode("CITIC");
+        accountA.setAccountName("QA admin company account");
+        accountA.setAccountNumber("6222" + suffix + "0002");
+        accountA.setCurrency("CNY");
+        accountA.setAvailableBalance(new BigDecimal("500000.00"));
+        accountA.setStatus("ACTIVE");
+        bankAccountMapper.insert(accountA);
 
         accountB = new BankAccount();
         accountB.setCompanyId(companyB.getId());
@@ -207,7 +220,7 @@ class V02BackendIntegrationTest {
         String companyBToken = login(userB.getUsername(), PASSWORD);
 
         String sharedStatementNo = "QA-SHARED-STATEMENT-" + UUID.randomUUID();
-        long statementAId = importStatement(adminToken, 1L, sharedStatementNo);
+        long statementAId = importStatement(adminToken, accountA.getId(), sharedStatementNo);
         long statementBId = importStatement(companyBToken, accountB.getId(), sharedStatementNo);
 
         mockMvc.perform(get("/api/statements").header("Authorization", bearer(adminToken)))
@@ -230,8 +243,8 @@ class V02BackendIntegrationTest {
                 .andExpect(status().isNotFound());
 
         String syncARequestId = "QA-BANK-A-" + UUID.randomUUID();
-        long syncAId = triggerBankData(adminUserId(), 1L, syncARequestId);
-        assertEquals(syncAId, triggerBankData(adminUserId(), 1L, syncARequestId));
+        long syncAId = triggerBankData(adminUserId(), accountA.getId(), syncARequestId);
+        assertEquals(syncAId, triggerBankData(adminUserId(), accountA.getId(), syncARequestId));
         String syncBRequestId = "QA-BANK-B-" + UUID.randomUUID();
         long syncBId = triggerBankData(userB.getId(), accountB.getId(), syncBRequestId);
 
@@ -243,8 +256,7 @@ class V02BackendIntegrationTest {
                             .header("Authorization", bearer(adminToken)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.status").value("NOT_CONFIGURED"))
-                    .andExpect(jsonPath("$.data.total").value(0))
-                    .andExpect(jsonPath("$.data.simulated").value(false));
+                    .andExpect(jsonPath("$.data.total").value(0));
             mockMvc.perform(get("/api/bank-data/" + resource).param("requestId", syncBRequestId)
                             .header("Authorization", bearer(companyBToken)))
                     .andExpect(status().isOk())
@@ -281,6 +293,9 @@ class V02BackendIntegrationTest {
                         .header("X-Request-Id", "QA-JOB-" + UUID.randomUUID())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"jobType\":\"STATEMENT_PULL\",\"bankAccountId\":" + accountB.getId()
+                                // Adapter routing is fail-closed now: an account whose bank has no
+                                // registered adapter is rejected, so name this context's double.
+                                + ",\"adapterCode\":\"MOCK_PHASE2\""
                                 + ",\"windowStart\":\"2026-08-27T00:00:00\",\"windowEnd\":\"2026-08-28T00:00:00\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.jobNo").isString())
@@ -304,7 +319,7 @@ class V02BackendIntegrationTest {
 
         String adminRequestId = "QA-PROJECTION-A-" + UUID.randomUUID();
         String companyBRequestId = "QA-PROJECTION-B-" + UUID.randomUUID();
-        triggerBankData(adminUserId(), 1L, adminRequestId);
+        triggerBankData(adminUserId(), accountA.getId(), adminRequestId);
         triggerBankData(userB.getId(), accountB.getId(), companyBRequestId);
 
         // 三模块已下线（回单/对账单/代发）：resource 白名单只剩 balances + statements，
@@ -319,7 +334,7 @@ class V02BackendIntegrationTest {
         }
 
         // 模拟/测试数据已下线：未启用真实银行适配器时，投影返回 NOT_CONFIGURED，
-        // simulated 恒 false、enabled 恒 false，且不带 normalization-failure 痕迹。
+        // enabled 恒 false，且不带 normalization-failure 痕迹。
         for (String resource : java.util.List.of("balances", "statements")) {
             mockMvc.perform(get("/api/bank-data/" + resource)
                             .header("Authorization", bearer(companyBToken))
@@ -329,7 +344,6 @@ class V02BackendIntegrationTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.total").value(0))
                     .andExpect(jsonPath("$.data.status").value("NOT_CONFIGURED"))
-                    .andExpect(jsonPath("$.data.simulated").value(false))
                     .andExpect(jsonPath("$.data.enabled").value(false))
                     .andExpect(content().string(org.hamcrest.Matchers.not(
                             org.hamcrest.Matchers.containsString("normalization-failure"))));
@@ -495,7 +509,9 @@ class V02BackendIntegrationTest {
         profile.setCompanyId(companyB.getId());
         profile.setConnectionCode("QA-PHASE2-" + UUID.randomUUID().toString().replace("-", "").substring(0, 8));
         profile.setDisplayName("QA phase2 connection");
-        profile.setProviderType("MOCK");
+        // Scheduled scans route by the profile's provider; point it at this context's test double
+        // (the generic MOCK adapter was removed, so "MOCK" would now fail closed).
+        profile.setProviderType("MOCK_PHASE2");
         profile.setEnabled(true);
         profile.setStatus("SIMULATED");
         connectionProfileMapper.insert(profile);
@@ -590,8 +606,10 @@ class V02BackendIntegrationTest {
     }
 
     private long triggerBankData(Long userId, Long accountId, String requestId) {
+        // The generic MOCK adapter no longer exists (mock-clean workstream): route to this
+        // context's own test double, the same way production routes to a registered bank adapter.
         BankDataSyncTaskDetailResponse detail = bankDataSyncService.trigger(userId,
-                new BankDataSyncRequest(null, accountId, "MOCK"), requestId);
+                new BankDataSyncRequest(null, accountId, "MOCK_PHASE2"), requestId);
         assertEquals("SUCCEEDED", detail.task().status());
         return detail.task().id();
     }

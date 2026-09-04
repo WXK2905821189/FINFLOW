@@ -43,8 +43,9 @@ class BankDataAggregationServiceTest {
     }
 
     @Test
-    void rejectsUnknownAdapterAndResolvesProviderBrandMock() {
-        assertEquals("CITIC_MOCK", service.resolveAdapterCode(null, "citic"));
+    void rejectsUnknownAdapterAndFailsClosedOnUnregisteredProvider() {
+        // Fail-closed routing: an unregistered provider never falls back to a mock adapter.
+        assertThrows(BusinessException.class, () -> service.resolveAdapterCode(null, "citic"));
         assertThrows(BusinessException.class, () -> service.collect(context(), "BANK_PROD"));
     }
 

@@ -80,6 +80,7 @@ class BankDataAggregationTraceTest {
 
     private Company companyB;
     private SysUser userB;
+    private BankAccount accountA;
     private BankAccount accountB;
 
     @BeforeEach
@@ -99,6 +100,18 @@ class BankDataAggregationTraceTest {
         userB.setStatus("ACTIVE");
         userMapper.insert(userB);
         userRoleMapper.insert(new SysUserRole(userB.getId(), 2L));
+
+        // V15 retired the two CITIC accounts V1 used to seed, so the "company A" side can no
+        // longer borrow id 1 - own the row explicitly (V4 backfills sys_user.company_id = 1).
+        accountA = new BankAccount();
+        accountA.setCompanyId(1L);
+        accountA.setBankCode("CMB");
+        accountA.setAccountName("AGG admin company account");
+        accountA.setAccountNumber("6222" + suffix + "0001");
+        accountA.setCurrency("CNY");
+        accountA.setAvailableBalance(new BigDecimal("400000.00"));
+        accountA.setStatus("ACTIVE");
+        bankAccountMapper.insert(accountA);
 
         accountB = new BankAccount();
         accountB.setCompanyId(companyB.getId());
@@ -152,7 +165,7 @@ class BankDataAggregationTraceTest {
     void traceChainsTaskRawSummaryNormalizedRecordsAndProjection() throws Exception {
         String adminToken = login("admin", "Admin@123");
         String requestId = "AGG-TRACE-" + UUID.randomUUID();
-        long taskId = triggerSync(adminUserId(), 1L, requestId, "MOCK",
+        long taskId = triggerSync(adminUserId(), accountA.getId(), requestId, "MOCK",
                 "2026-09-07T00:00:00", "2026-09-08T00:00:00");
 
         String body = mockMvc.perform(get("/api/bank-data-trace")
@@ -197,8 +210,7 @@ class BankDataAggregationTraceTest {
                             .header("Authorization", bearer(adminToken)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.status").value("NOT_CONFIGURED"))
-                    .andExpect(jsonPath("$.data.total").value(0))
-                    .andExpect(jsonPath("$.data.simulated").value(false));
+                    .andExpect(jsonPath("$.data.total").value(0));
         }
         // Sync logs carry the bank request number that ties the chain together.
         BankDataSyncTaskDetailResponse detail = bankDataQueryService.getTaskDetail(adminUserId(), taskId);
@@ -213,7 +225,7 @@ class BankDataAggregationTraceTest {
         String companyBToken = login(userB.getUsername(), PASSWORD);
 
         String requestId = "AGG-ISOLATED-" + UUID.randomUUID();
-        triggerSync(adminUserId(), 1L, requestId, "MOCK", "2026-09-01T00:00:00", "2026-09-02T00:00:00");
+        triggerSync(adminUserId(), accountA.getId(), requestId, "MOCK", "2026-09-01T00:00:00", "2026-09-02T00:00:00");
 
         // Company B must see a plain 404, not a distinguishable "exists but forbidden" response.
         mockMvc.perform(get("/api/bank-data-trace")
@@ -247,7 +259,7 @@ class BankDataAggregationTraceTest {
     void traceResponseNeverExposesRawPayloadOrBankSpecificFields() throws Exception {
         String adminToken = login("admin", "Admin@123");
         String requestId = "AGG-SAFE-" + UUID.randomUUID();
-        triggerSync(adminUserId(), 1L, requestId, "MOCK", "2026-09-05T00:00:00", "2026-09-06T00:00:00");
+        triggerSync(adminUserId(), accountA.getId(), requestId, "MOCK", "2026-09-05T00:00:00", "2026-09-06T00:00:00");
 
         String body = mockMvc.perform(get("/api/bank-data-trace")
                         .param("requestId", requestId)
@@ -270,14 +282,14 @@ class BankDataAggregationTraceTest {
 
         String pendingRequestId = "AGG-PENDING-" + UUID.randomUUID();
         BankDataSyncTaskDetailResponse pending = bankDataSyncService.trigger(adminUserId(),
-                new BankDataSyncRequest(null, 1L, "MOCK_PENDING"), pendingRequestId);
+                new BankDataSyncRequest(null, accountA.getId(), "MOCK_PENDING"), pendingRequestId);
         assertEquals("PENDING", pending.task().status());
         assertEquals(0, pending.task().normalizedCount());
         assertEquals("FINFLOW-BANKDATA-V1", pending.task().mappingVersion());
 
         String unknownRequestId = "AGG-UNKNOWN-" + UUID.randomUUID();
         BankDataSyncTaskDetailResponse unknown = bankDataSyncService.trigger(adminUserId(),
-                new BankDataSyncRequest(null, 2L, "MOCK_UNKNOWN"), unknownRequestId);
+                new BankDataSyncRequest(null, accountA.getId(), "MOCK_UNKNOWN"), unknownRequestId);
         assertEquals("UNKNOWN", unknown.task().status());
         assertEquals(0, unknown.task().normalizedCount());
 
@@ -296,13 +308,13 @@ class BankDataAggregationTraceTest {
         String adminToken = login("admin", "Admin@123");
 
         String originalRequestId = "AGG-REUSE-ORIG-" + UUID.randomUUID();
-        long taskId = triggerSync(adminUserId(), 1L, originalRequestId, "MOCK",
+        long taskId = triggerSync(adminUserId(), accountA.getId(), originalRequestId, "MOCK",
                 "2026-09-09T00:00:00", "2026-09-10T00:00:00");
 
         // Same account + adapter + window, different request id: idempotent reuse
         // returns the original task, but the new request id must be recorded (D7-A).
         String reusedRequestId = "AGG-REUSE-NEW-" + UUID.randomUUID();
-        long reusedTaskId = triggerSync(adminUserId(), 1L, reusedRequestId, "MOCK",
+        long reusedTaskId = triggerSync(adminUserId(), accountA.getId(), reusedRequestId, "MOCK",
                 "2026-09-09T00:00:00", "2026-09-10T00:00:00");
         assertEquals(taskId, reusedTaskId, "syncKey hit must reuse the original task");
 
@@ -364,16 +376,43 @@ class BankDataAggregationTraceTest {
         BankDataAdapter unknownAdapter() {
             return new DeferredAdapter("MOCK_UNKNOWN", "ZZZZZZZ");
         }
+
+        /**
+         * Test doubles for the codes this suite routes to. The generic/brand MOCK adapters were
+         * removed from production with the mock-clean workstream, so the codes now have to be
+         * supplied by the test context itself; each keeps its own vendor vocabulary so the
+         * normalisation contract (direction + status collapsing to one model) stays covered.
+         */
+        @Bean
+        BankDataAdapter genericMockAdapter() {
+            return new DeferredAdapter("MOCK", "SUC0000", "INCOME");
+        }
+
+        @Bean
+        BankDataAdapter cmbMockAdapter() {
+            return new DeferredAdapter("CMB_MOCK", "SUC0000", "C");
+        }
+
+        @Bean
+        BankDataAdapter citicMockAdapter() {
+            return new DeferredAdapter("CITIC_MOCK", "AAAAAAA", "IN");
+        }
     }
 
     private static final class DeferredAdapter implements BankDataAdapter {
 
         private final String code;
         private final String vendorStatus;
+        private final String vendorDirection;
 
         private DeferredAdapter(String code, String vendorStatus) {
+            this(code, vendorStatus, "INCOME");
+        }
+
+        private DeferredAdapter(String code, String vendorStatus, String vendorDirection) {
             this.code = code;
             this.vendorStatus = vendorStatus;
+            this.vendorDirection = vendorDirection;
         }
 
         @Override
@@ -384,7 +423,7 @@ class BankDataAggregationTraceTest {
         @Override
         public BankDataCollection collect(BankDataSyncContext context) {
             BankDataEntry entry = new BankDataEntry(code + "-REQ", code + "-STMT", context.bankAccountId(),
-                    context.windowStart().plusHours(3), "INCOME", new BigDecimal("7.00"), "CNY",
+                    context.windowStart().plusHours(3), vendorDirection, new BigDecimal("7.00"), "CNY",
                     "QA", "123456789012", "deferred result");
             return new BankDataCollection(code + "-REQ", List.of(entry), List.of(), false, null,
                     vendorStatus, vendorStatus);

@@ -14,7 +14,6 @@ public record BankDataProjectionPageResponse(
         String message,
         String requestId,
         String sourceSystem,
-        LocalDateTime lastSyncedAt,
-        boolean simulated
+        LocalDateTime lastSyncedAt
 ) {
 }

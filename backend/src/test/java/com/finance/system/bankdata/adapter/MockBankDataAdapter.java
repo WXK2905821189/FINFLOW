@@ -1,15 +1,15 @@
 package com.finance.system.bankdata.adapter;
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.stereotype.Component;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 
-@Component
-@ConditionalOnProperty(prefix = "bankdata.adapter", name = "mode", havingValue = "mock", matchIfMissing = true)
+/**
+ * Test-only deterministic fixture (mock-clean workstream 2026-09-04): production code no longer
+ * ships any simulated adapter and routing is fail-closed. This class is a plain test fixture —
+ * no Spring stereotype — and is never registered in a production context.
+ */
 public class MockBankDataAdapter implements BankDataAdapter {
 
     @Override

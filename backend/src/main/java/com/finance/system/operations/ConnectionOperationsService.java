@@ -2,7 +2,7 @@ package com.finance.system.operations;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.finance.system.bankdata.adapter.cmb.CmbAdapterProperties;
+import com.finance.system.bankdata.aggregation.BankDataAdapterRegistry;
 import com.finance.system.common.api.PageResponse;
 import com.finance.system.common.exception.BusinessException;
 import com.finance.system.common.tenant.CompanyScopeService;
@@ -22,9 +22,21 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+/**
+ * Connection/直联 status for the operations console.
+ *
+ * <p>Provider status is derived from adapter assembly (a REAL-mode adapter bean only exists when
+ * its per-bank switch is on), NOT from a single CMB flag and NOT from a persisted status column:
+ * a stored {@code connection_profile.status} can drift from reality, so it is only ever shown as
+ * metadata. Per-account status is a separate concern handled by
+ * {@code AccountDirectStatusService} — a bank can be connected while an individual account is
+ * still unverified.
+ */
 @Service
 public class ConnectionOperationsService {
 
@@ -35,45 +47,49 @@ public class ConnectionOperationsService {
     private final ConnectionOperationTaskMapper taskMapper;
     private final ConnectionOperationLogMapper logMapper;
     private final CompanyScopeService companyScope;
-    private final CmbAdapterProperties cmbProperties;
+    private final BankDataAdapterRegistry adapterRegistry;
 
     public ConnectionOperationsService(ConnectionProfileMapper profileMapper,
                                        ConnectionOperationTaskMapper taskMapper,
                                        ConnectionOperationLogMapper logMapper,
                                        CompanyScopeService companyScope,
-                                       CmbAdapterProperties cmbProperties) {
+                                       BankDataAdapterRegistry adapterRegistry) {
         this.profileMapper = profileMapper;
         this.taskMapper = taskMapper;
         this.logMapper = logMapper;
         this.companyScope = companyScope;
-        this.cmbProperties = cmbProperties;
+        this.adapterRegistry = adapterRegistry;
     }
 
     public ConnectionConfigurationResponse configuration(Long userId, String section) {
         long companyId = companyScope.companyIdForUser(userId);
         validateSection(section);
-        boolean cmbReal = cmbProperties.isRealEnabled();
-        List<ConnectionSummaryResponse> connections = profiles(companyId).stream().map(this::toSummary).toList();
+        Set<String> realProviders = realProviders();
+        List<ConnectionSummaryResponse> connections = profiles(companyId).stream()
+                .map(profile -> toSummary(profile, realProviders)).toList();
         return new ConnectionConfigurationResponse(
-                cmbReal,
-                cmbReal ? "REAL" : "NOT_CONFIGURED",
-                cmbReal
-                        ? "已连接真实银行直联（招行 CMB）；密钥仅存于服务端环境变量，不落库、不返回。"
-                        : "真实银行直联未连接：服务端未启用真实银行适配器（需配置 CMB 并开启 BANKDATA_CMB_REAL_ENABLED）。",
-                cmbReal ? List.of("CMB") : List.of(),
+                !realProviders.isEmpty(),
+                realProviders.isEmpty() ? "NOT_CONFIGURED" : "REAL",
+                realProviders.isEmpty()
+                        ? "真实银行直联未连接：服务端未装配任何真实银行适配器（需为对应银行开启 real-enabled 配置）。"
+                        : "已连接真实银行直联（" + String.join("、", realProviders) + "）；密钥仅存于服务端环境变量，不落库、不返回。",
+                List.copyOf(realProviders),
                 connections);
     }
 
     public ConnectionOverviewResponse overview(Long userId) {
         long companyId = companyScope.companyIdForUser(userId);
         List<ConnectionProfile> profiles = profiles(companyId);
-        List<ConnectionSummaryResponse> connections = profiles.stream().map(this::toSummary).toList();
-        boolean cmbReal = cmbProperties.isRealEnabled();
-        String status = cmbReal ? "REAL" : (profiles.isEmpty() ? "NOT_ENABLED" : "DISABLED");
-        String message = cmbReal
-                ? "已连接真实银行直联（招行 CMB）：余额/流水查询走真实银行接口。"
-                : "真实银行直联未连接：未启用真实银行适配器，查询页将明确标红提示。";
-        return new ConnectionOverviewResponse(cmbReal, status, message, connections);
+        Set<String> realProviders = realProviders();
+        List<ConnectionSummaryResponse> connections = profiles.stream()
+                .map(profile -> toSummary(profile, realProviders)).toList();
+        boolean connected = !realProviders.isEmpty();
+        String status = connected ? "REAL" : (profiles.isEmpty() ? "NOT_ENABLED" : "DISABLED");
+        String message = connected
+                ? "已连接真实银行直联（" + String.join("、", realProviders) + "）：余额/流水查询走真实银行接口；"
+                        + "具体到每个账户是否已验证可查，请在银行账户页查看账户级直联状态。"
+                : "真实银行直联未连接：服务端未装配任何真实银行适配器，查询页将明确标红提示。";
+        return new ConnectionOverviewResponse(connected, status, message, connections);
     }
 
     public PageResponse<OperationLogResponse> logs(Long userId, int page, int size, String connectionCode,
@@ -110,15 +126,21 @@ public class ConnectionOperationsService {
             throw new BusinessException(404,
                     "银行侧未开通该功能；当前仅支持 balances(余额查询) / statements(流水查询)");
         }
-        boolean cmbReal = cmbProperties.isRealEnabled();
+        Set<String> realProviders = realProviders();
+        boolean connected = !realProviders.isEmpty();
         return new DataQueryCapabilityResponse(
                 normalized,
-                cmbReal,
-                cmbReal ? "REAL" : "NOT_CONFIGURED",
-                cmbReal
-                        ? "已连接真实银行直联（招行 CMB），余额/流水为真实银行数据。"
-                        : "真实银行直联未连接：服务端未启用真实银行适配器。"
+                connected,
+                connected ? "REAL" : "NOT_CONFIGURED",
+                connected
+                        ? "已连接真实银行直联（" + String.join("、", realProviders) + "），余额/流水为真实银行数据。"
+                        : "真实银行直联未连接：服务端未装配任何真实银行适配器。"
         );
+    }
+
+    /** Banks with a REAL-mode adapter bean, i.e. actually wired for real traffic. */
+    private Set<String> realProviders() {
+        return new TreeSet<>(adapterRegistry.realAdapterCodes());
     }
 
     private List<ConnectionProfile> profiles(long companyId) {
@@ -145,9 +167,16 @@ public class ConnectionOperationsService {
                 .collect(Collectors.toMap(ConnectionProfile::getId, Function.identity()));
     }
 
-    private ConnectionSummaryResponse toSummary(ConnectionProfile profile) {
+    /**
+     * Row status is derived from adapter assembly for this profile's provider instead of the
+     * persisted status column: a bank that is not wired must read NOT_CONNECTED regardless of
+     * what the profile row says.
+     */
+    private ConnectionSummaryResponse toSummary(ConnectionProfile profile, Set<String> realProviders) {
+        String provider = normalizeOrNull(profile.getProviderType());
+        boolean real = provider != null && realProviders.contains(provider);
         return new ConnectionSummaryResponse(profile.getConnectionCode(), profile.getDisplayName(),
-                profile.getProviderType(), Boolean.TRUE.equals(profile.getEnabled()), profile.getStatus(),
+                profile.getProviderType(), real, real ? "REAL" : "NOT_CONNECTED",
                 profile.getLastCheckedAt());
     }
 
@@ -165,6 +194,10 @@ public class ConnectionOperationsService {
 
     private String normalize(String value) {
         return value.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private String normalizeOrNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim().toUpperCase(Locale.ROOT);
     }
 
     private long boundedSize(int size) {

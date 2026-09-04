@@ -5,7 +5,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 
-/** Shared deterministic fixture for branded MOCK adapters; never performs I/O. */
+/** Shared deterministic test fixture for branded MOCK adapters; never performs I/O, never registered in production. */
 abstract class BrandMockBankDataAdapter implements BankDataAdapter {
 
     private final String code;

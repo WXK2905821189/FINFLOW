@@ -1,11 +1,20 @@
 import { useCallback, useEffect, useState, type DependencyList } from 'react';
-import { Alert, Button, Card, Skeleton, Tag } from 'antd';
+import { Alert, Button, Card, Skeleton, Tag, Tooltip } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import { ApiRequestError } from '../../services/http';
-import { statusColor } from './format';
+import { dateTime, directStatusText, statusColor } from './format';
 
 export function StatusTag({ status }: { status?: string }) {
   return <Tag color={statusColor(status)}>{status || '--'}</Tag>;
+}
+
+/**
+ * Per-account direct-connect badge. The status comes from the account row itself (resolved
+ * server-side per account), so one bank being connected never turns other banks' rows green.
+ */
+export function DirectStatusTag({ status, lastRealSyncAt }: { status?: string; lastRealSyncAt?: string }) {
+  const hint = lastRealSyncAt ? `最近真实同步：${dateTime(lastRealSyncAt)}` : '尚无真实同步记录';
+  return <Tooltip title={hint}><Tag color={statusColor(status)}>{directStatusText(status)}</Tag></Tooltip>;
 }
 
 export function ResourceFailure({ error, onRetry }: { error: unknown; onRetry: () => void }) {

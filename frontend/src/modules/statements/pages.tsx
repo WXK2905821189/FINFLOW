@@ -38,7 +38,7 @@ import type {
   StatementReviewRequest,
 } from '../../types';
 
-type ImportFormValues = { sourceName?: string; sourceMode: 'JSON' | 'MOCK'; payload?: string };
+type ImportFormValues = { sourceName?: string; payload?: string };
 
 export function parseStatementPayload(text: string): { sourceName?: string; records: StatementRecordInput[] } {
   const parsed: unknown = JSON.parse(text);
@@ -55,13 +55,12 @@ export function ImportStatements() {
   const [loading, setLoading] = useState(false);
   const [batch, setBatch] = useState<StatementImportBatch>();
   const [error, setError] = useState<string>();
-  const mode = Form.useWatch('sourceMode', form) || 'JSON';
   const submit = async (values: ImportFormValues) => {
     if (loading) return;
     setLoading(true);
     setError(undefined);
     try {
-      const payload = values.sourceMode === 'JSON' ? parseStatementPayload(values.payload || '') : { records: [] as StatementRecordInput[] };
+      const payload = parseStatementPayload(values.payload || '');
       const result = await statementApi.import({ sourceName: values.sourceName || payload.sourceName, records: payload.records });
       setBatch(result);
       message.success('服务端已返回导入批次');
@@ -75,7 +74,7 @@ export function ImportStatements() {
     void file.text().then((text) => form.setFieldValue('payload', text)).catch(() => setError('无法读取所选文件'));
     return Upload.LIST_IGNORE;
   };
-  return <><div className="page-heading"><div><span className="section-kicker">自动入账 / 入口</span><h2>导入流水</h2><p className="muted">JSON 内容由服务端校验并创建批次；模拟来源仅请求服务端当前配置的采集器。</p></div></div><Row gutter={[16, 16]}><Col xs={24} xl={15}><Card title="新建导入批次"><Form form={form} layout="vertical" initialValues={{ sourceMode: 'JSON' }} onFinish={submit}><Form.Item label="导入来源" name="sourceMode"><Radio.Group options={[{ value: 'JSON', label: 'JSON 文件或内容' }, { value: 'MOCK', label: '模拟来源（服务端采集器）' }]} /></Form.Item><Form.Item label="来源名称" name="sourceName" rules={[{ max: 128 }]}><Input placeholder={mode === 'JSON' ? '例如：2026-08-银行流水.json' : '例如：本地模拟采集'} /></Form.Item>{mode === 'JSON' ? <><Form.Item label="选择 JSON 文件"><Upload accept="application/json,.json" maxCount={1} beforeUpload={readJson}><Button>选择文件</Button></Upload></Form.Item><Form.Item label="JSON 内容" name="payload" rules={[{ required: true, message: '请提供 JSON 流水内容' }]} extra="支持流水数组，或包含 sourceName 和 records 数组的对象。"><Input.TextArea rows={12} placeholder="粘贴待导入的 JSON 内容" /></Form.Item></> : <Alert type="info" showIcon message="不会在浏览器生成模拟流水" description="该请求只触发服务端已配置的模拟采集器；若服务端未启用该采集器，页面会显示其返回的错误。" />} {error && <Alert className="form-error" type="error" showIcon message="导入未完成" description={error} />}<Button type="primary" htmlType="submit" loading={loading}>{mode === 'JSON' ? '提交 JSON 导入' : '请求模拟来源导入'}</Button></Form></Card></Col><Col xs={24} xl={9}>{batch ? <Card title="服务端导入结果"><Descriptions column={1} size="small"><Descriptions.Item label="批次编号"><span className="mono">{batch.batchNo}</span></Descriptions.Item><Descriptions.Item label="状态"><StatusTag status={batch.status} /></Descriptions.Item><Descriptions.Item label="来源">{batch.sourceType} {batch.sourceName ? `· ${batch.sourceName}` : ''}</Descriptions.Item><Descriptions.Item label="总记录数">{batch.totalCount}</Descriptions.Item><Descriptions.Item label="已导入">{batch.importedCount}</Descriptions.Item><Descriptions.Item label="重复">{batch.duplicateCount}</Descriptions.Item><Descriptions.Item label="无效">{batch.invalidCount}</Descriptions.Item>{batch.errorMessage && <Descriptions.Item label="服务端说明">{batch.errorMessage}</Descriptions.Item>}</Descriptions></Card> : <Card title="导入结果"><Empty description="提交后展示服务端返回的批次结果" /></Card>}</Col></Row></>;
+  return <><div className="page-heading"><div><span className="section-kicker">自动入账 / 入口</span><h2>导入流水</h2><p className="muted">JSON 内容由服务端校验并创建批次（模拟来源入口已下线，数据仅来自真实银行直联或受控导入）。</p></div></div><Row gutter={[16, 16]}><Col xs={24} xl={15}><Card title="新建导入批次"><Form form={form} layout="vertical" onFinish={submit}><Form.Item label="来源名称" name="sourceName" rules={[{ max: 128 }]}><Input placeholder="例如：2026-08-银行流水.json" /></Form.Item><Form.Item label="选择 JSON 文件"><Upload accept="application/json,.json" maxCount={1} beforeUpload={readJson}><Button>选择文件</Button></Upload></Form.Item><Form.Item label="JSON 内容" name="payload" rules={[{ required: true, message: '请提供 JSON 流水内容' }]} extra="支持流水数组，或包含 sourceName 和 records 数组的对象。"><Input.TextArea rows={12} placeholder="粘贴待导入的 JSON 内容" /></Form.Item> {error && <Alert className="form-error" type="error" showIcon message="导入未完成" description={error} />}<Button type="primary" htmlType="submit" loading={loading}>提交 JSON 导入</Button></Form></Card></Col><Col xs={24} xl={9}>{batch ? <Card title="服务端导入结果"><Descriptions column={1} size="small"><Descriptions.Item label="批次编号"><span className="mono">{batch.batchNo}</span></Descriptions.Item><Descriptions.Item label="状态"><StatusTag status={batch.status} /></Descriptions.Item><Descriptions.Item label="来源">{batch.sourceType} {batch.sourceName ? `· ${batch.sourceName}` : ''}</Descriptions.Item><Descriptions.Item label="总记录数">{batch.totalCount}</Descriptions.Item><Descriptions.Item label="已导入">{batch.importedCount}</Descriptions.Item><Descriptions.Item label="重复">{batch.duplicateCount}</Descriptions.Item><Descriptions.Item label="无效">{batch.invalidCount}</Descriptions.Item>{batch.errorMessage && <Descriptions.Item label="服务端说明">{batch.errorMessage}</Descriptions.Item>}</Descriptions></Card> : <Card title="导入结果"><Empty description="提交后展示服务端返回的批次结果" /></Card>}</Col></Row></>;
 }
 
 export function BatchList() {

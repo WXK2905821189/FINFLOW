@@ -47,7 +47,8 @@ kingdee:
 
 bankdata:
   adapter:
-    mode: ${BANKDATA_ADAPTER_MODE:mock}
+    # bankdata.adapter.mode was removed (mock-clean 2026-09-04): production ships no simulated
+    # adapters, routing is fail-closed. The old BANKDATA_ADAPTER_MODE env var is a no-op.
     call:
       real-adapters-enabled: ${BANKDATA_REAL_ADAPTERS_ENABLED:false}
       max-attempts: ${BANKDATA_ADAPTER_MAX_ATTEMPTS:3}

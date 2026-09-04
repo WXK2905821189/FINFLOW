@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -42,33 +43,46 @@ public class BankDataAdapterRegistry {
     }
 
     /**
-     * Explicit request wins; otherwise a connection provider may select a brand MOCK adapter.
-     * When the real-call gate is open and the provider resolves to a registered REAL-mode
-     * adapter (e.g. CMB -> RealCmbBankDataAdapter), the real adapter is preferred and the
-     * brand MOCK adapter remains only a fallback.
+     * Fail-closed routing (review 2026-09-03, mock-clean workstream): an explicit request must be
+     * a registered adapter; with no explicit request the provider type itself must be registered.
+     * There is deliberately NO simulated fallback here — an unresolvable provider throws 400
+     * instead of silently producing mock data. The real-call gate lives in
+     * {@link BankAdapterCallExecutor} (bankdata.adapter.call.real-adapters-enabled); this
+     * registry only routes.
      */
     public String resolveCode(String requestedCode, String providerType) {
         String requested = normalizeOrNull(requestedCode);
-        if (requested != null && adapters.containsKey(requested)) return requested;
-        String provider = normalizeOrNull(providerType);
-        if (requested == null && provider != null) {
-            if (realAdaptersEnabled) {
-                BankDataAdapter providerAdapter = adapters.get(provider);
-                if (providerAdapter != null && providerAdapter.executionMode() == BankAdapterExecutionMode.REAL) {
-                    return provider;
-                }
-            }
-            String brandMock = provider.endsWith("_MOCK") ? provider : provider + "_MOCK";
-            if (adapters.containsKey(brandMock)) return brandMock;
-            if (adapters.containsKey(provider)) return provider;
+        if (requested != null) {
+            require(requested);
+            return requested;
         }
-        if (requested == null && adapters.containsKey("MOCK")) return "MOCK";
+        String provider = normalizeOrNull(providerType);
+        if (provider != null && adapters.containsKey(provider)) return provider;
         throw new BusinessException(400, "Bank data adapter is not available");
     }
 
     public String mappingVersion(String adapterCode) {
         require(adapterCode);
         return "FINFLOW-BANKDATA-V1";
+    }
+
+    /**
+     * Adapter codes whose bean declares REAL execution mode. A real adapter is only registered
+     * when its per-bank switch is on (e.g. {@code bankdata.adapter.cmb.real-enabled=true}), so
+     * this set is the server-side fact source for "which banks are actually wired for real
+     * traffic". Simulated/MOCK adapters are deliberately excluded.
+     */
+    public Set<String> realAdapterCodes() {
+        return adapters.entrySet().stream()
+                .filter(entry -> entry.getValue().executionMode() == BankAdapterExecutionMode.REAL)
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
+    /** True when the given bank/provider code has a REAL-mode adapter registered. */
+    public boolean isRealProvider(String providerCode) {
+        String provider = normalizeOrNull(providerCode);
+        return provider != null && realAdapterCodes().contains(provider);
     }
 
     private String normalize(String value) {

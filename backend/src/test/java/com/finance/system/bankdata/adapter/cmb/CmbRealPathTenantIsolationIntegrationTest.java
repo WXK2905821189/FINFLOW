@@ -217,14 +217,17 @@ class CmbRealPathTenantIsolationIntegrationTest {
                 .eq(BankDataBalance::getTaskId, taskA.getId())));
 
         // Projection over the real path: REAL + enabled for the owning tenant, own rows only.
+        // Lineage (mock-clean 2026-09-04): every row carries the bank request number and the
+        // producing task's status — no simulated flag exists anymore.
         for (String resource : List.of("balances", "statements")) {
             mockMvc.perform(get("/api/bank-data/" + resource).param("requestId", requestIdB)
                             .header("Authorization", bearer(companyBToken)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.status").value("REAL"))
                     .andExpect(jsonPath("$.data.enabled").value(true))
-                    .andExpect(jsonPath("$.data.simulated").value(false))
-                    .andExpect(jsonPath("$.data.total").value(1));
+                    .andExpect(jsonPath("$.data.total").value(1))
+                    .andExpect(jsonPath("$.data.records[0].bankRequestNo").isNotEmpty())
+                    .andExpect(jsonPath("$.data.records[0].taskStatus").isNotEmpty());
         }
 
         // A foreign requestId must never leak the other tenant's rows: the projection falls

@@ -13,6 +13,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 /** Coordinates scheduled scans; task creation and execution remain in the sync service. */
@@ -44,10 +45,11 @@ public class BankDataScheduledSyncService {
                     .orderByAsc(BankAccount::getId)
                     .last("LIMIT 1"));
             if (account == null) continue;
+            String adapterCode = adapterCodeOf(profile);
             try {
-                String requestId = scheduledRequestId(profile, account, window);
+                String requestId = scheduledRequestId(profile, account, adapterCode, window);
                 syncService.triggerForCompany(profile.getCompanyId(), null,
-                        new BankDataSyncRequest(profile.getConnectionCode(), account.getId(), "MOCK",
+                        new BankDataSyncRequest(profile.getConnectionCode(), account.getId(), adapterCode,
                                 window.start(), window.end()), requestId, "SCHEDULED");
             } catch (RuntimeException ignored) {
                 // The sync service persists task failures; one company must not stop the scan.
@@ -55,9 +57,20 @@ public class BankDataScheduledSyncService {
         }
     }
 
-    private String scheduledRequestId(ConnectionProfile profile, BankAccount account, Window window) {
+    /**
+     * Scheduled scans follow the connection's provider (e.g. CMB) instead of a simulated adapter:
+     * the generic MOCK adapter was removed with the mock-clean workstream, so routing to it made
+     * every scheduled scan fail silently. A provider that is not wired now fails closed for that
+     * profile only, which is the intended "真实联通才有数据" behaviour.
+     */
+    private String adapterCodeOf(ConnectionProfile profile) {
+        String provider = profile.getProviderType();
+        return provider == null || provider.isBlank() ? null : provider.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private String scheduledRequestId(ConnectionProfile profile, BankAccount account, String adapterCode, Window window) {
         String key = profile.getCompanyId() + ":" + account.getId() + ":" + profile.getId()
-                + ":MOCK:" + window.start() + ":" + window.end();
+                + ":" + adapterCode + ":" + window.start() + ":" + window.end();
         return "scheduled-" + UUID.nameUUIDFromBytes(key.getBytes(StandardCharsets.UTF_8));
     }
 

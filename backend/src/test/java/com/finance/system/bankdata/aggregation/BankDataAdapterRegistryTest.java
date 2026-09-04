@@ -13,9 +13,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Runtime evidence for the CMB gap ticket: when the real-call gate is open and the
- * provider resolves to a REAL-mode adapter, that adapter wins over the brand MOCK;
- * mock remains only a fallback and an explicit unknown code never silently becomes MOCK.
+ * Fail-closed routing contract (mock-clean workstream 2026-09-04): an explicit request must be a
+ * registered adapter, and a provider resolves only to itself — there is deliberately no brand-MOCK
+ * or generic-MOCK fallback in production. Unresolvable codes fail with 400 instead of silently
+ * producing simulated data.
  */
 class BankDataAdapterRegistryTest {
 
@@ -24,41 +25,55 @@ class BankDataAdapterRegistryTest {
     private final BankDataAdapter genericMock = new ModeAdapter("MOCK", BankAdapterExecutionMode.SIMULATED);
 
     @Test
-    void realAdapterIsPreferredOverBrandMockWhenRealGateIsOpen() {
+    void explicitRegisteredCodeWinsAndProviderResolvesToItself() {
         BankDataAdapterRegistry registry = registry(true, realCmb, mockCmb, genericMock);
 
         assertEquals("CMB", registry.resolveCode(null, "CMB"));
-        // An explicit request keeps working either way.
         assertEquals("CMB", registry.resolveCode("CMB", "CMB"));
         assertEquals("CMB_MOCK", registry.resolveCode("CMB_MOCK", "CMB"));
+        assertEquals("MOCK", registry.resolveCode("MOCK", null));
     }
 
     @Test
-    void brandMockIsTheFallbackWhenRealGateIsClosedOrNoRealAdapterIsRegistered() {
-        BankDataAdapterRegistry closedGate = registry(false, realCmb, mockCmb, genericMock);
-        assertEquals("CMB_MOCK", closedGate.resolveCode(null, "CMB"));
+    void providerResolvesOnlyWhenTheProviderCodeItselfIsRegistered() {
+        BankDataAdapterRegistry registry = registry(true, realCmb, mockCmb, genericMock);
+        assertEquals("CMB", registry.resolveCode(null, "CMB"));
 
         BankDataAdapterRegistry noRealAdapter = registry(true, mockCmb, genericMock);
-        assertEquals("CMB_MOCK", noRealAdapter.resolveCode(null, "CMB"));
+        assertEquals("CMB_MOCK", noRealAdapter.resolveCode(null, "CMB_MOCK"));
     }
 
     @Test
-    void providerWithoutBrandMockFallsBackToProviderCodeThenGenericMock() {
-        BankDataAdapterRegistry closedGate = registry(false, realCmb, genericMock);
-        assertEquals("CMB", closedGate.resolveCode(null, "CMB"));
+    void unresolvableProviderFailsClosedInsteadOfBecomingMock() {
+        // No brand-MOCK or generic-MOCK fallback: a provider resolves only to a registered adapter,
+        // so an unregistered bank is rejected outright.
+        BankDataAdapterRegistry withoutCmb = registry(false, mockCmb, genericMock);
+        assertThrows(BusinessException.class, () -> withoutCmb.resolveCode(null, "CMB"));
 
         BankDataAdapterRegistry onlyGeneric = registry(false, genericMock);
-        assertEquals("MOCK", onlyGeneric.resolveCode(null, "CITIC"));
-        assertEquals("MOCK", onlyGeneric.resolveCode(null, null));
+        assertThrows(BusinessException.class, () -> onlyGeneric.resolveCode(null, "CITIC"));
+        assertThrows(BusinessException.class, () -> onlyGeneric.resolveCode(null, null));
+
+        BankDataAdapterRegistry wired = registry(true, realCmb, mockCmb, genericMock);
+        assertThrows(BusinessException.class, () -> wired.resolveCode(null, "UNKNOWN_BANK"));
     }
 
     @Test
-    void explicitUnknownCodeIsRejectedInsteadOfSilentlyBecomingMock() {
+    void registeredProviderResolvesEvenWhenTheRealCallGateIsClosed() {
+        // Routing is not the gate: whether a real call may be issued is decided by
+        // BankAdapterCallExecutor (bankdata.adapter.call.real-adapters-enabled). A registered
+        // adapter stays routable so the executor can produce an explicit refusal instead of a
+        // confusing "adapter not available".
+        BankDataAdapterRegistry closedGate = registry(false, realCmb, mockCmb, genericMock);
+        assertEquals("CMB", closedGate.resolveCode(null, "CMB"));
+    }
+
+    @Test
+    void explicitUnknownCodeIsRejected() {
         BankDataAdapterRegistry registry = registry(true, realCmb, mockCmb, genericMock);
 
         assertThrows(BusinessException.class, () -> registry.resolveCode("REAL_NOT_REGISTERED", "CMB"));
         assertThrows(BusinessException.class, () -> registry.require("REAL_NOT_REGISTERED"));
-        assertEquals("MOCK", registry.resolveCode("MOCK", null));
     }
 
     private BankDataAdapterRegistry registry(boolean realAdaptersEnabled, BankDataAdapter... adapters) {

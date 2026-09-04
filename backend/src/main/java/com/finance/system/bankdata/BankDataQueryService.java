@@ -145,7 +145,8 @@ public class BankDataQueryService {
                             "BALANCE-" + balance.id(), balance.validationStatus(), balance.asOfTime(),
                             balance.accountMasked(), balance.availableBalance(), balance.currency(), null,
                             "账户余额快照", taskNo(tasksById.get(balance.taskId())),
-                            requestId(tasksById.get(balance.taskId())), balance.createdAt(), false))
+                            requestId(tasksById.get(balance.taskId())), balance.createdAt(),
+                            balance.bankRequestNo(), taskStatus(tasksById.get(balance.taskId()))))
                     .toList();
             return projectionPage(balances.page(), balances.size(), balances.total(), records,
                     companyId, "BANKDATA", balances.records().stream().map(BankDataBalanceResponse::createdAt)
@@ -174,7 +175,8 @@ public class BankDataQueryService {
                         statement.getValidationStatus(), statement.getTransactionTime(), null, statement.getAmount(),
                         statement.getCurrency(), statement.getDirection(), statement.getSummary(),
                         taskNo(tasksById.get(statement.getTaskId())), requestId(tasksById.get(statement.getTaskId())),
-                        statement.getCreatedAt(), false))
+                        statement.getCreatedAt(), statement.getBankRequestNo(),
+                        taskStatus(tasksById.get(statement.getTaskId()))))
                 .toList();
         return projectionPage(result.getCurrent(), result.getSize(), result.getTotal(), records,
                 companyId, "BANKDATA", result.getRecords().stream().map(BankDataStatement::getCreatedAt)
@@ -236,7 +238,8 @@ public class BankDataQueryService {
         return taskMapper.selectList(new LambdaQueryWrapper<BankDataSyncTask>()
                         .eq(BankDataSyncTask::getCompanyId, companyId)
                         .in(BankDataSyncTask::getId, ids)
-                        .select(BankDataSyncTask::getId, BankDataSyncTask::getTaskNo, BankDataSyncTask::getRequestId))
+                        .select(BankDataSyncTask::getId, BankDataSyncTask::getTaskNo,
+                                BankDataSyncTask::getRequestId, BankDataSyncTask::getStatus))
                 .stream().collect(Collectors.toMap(BankDataSyncTask::getId, java.util.function.Function.identity()));
     }
 
@@ -248,6 +251,10 @@ public class BankDataQueryService {
         return task == null ? null : task.getRequestId();
     }
 
+    private String taskStatus(BankDataSyncTask task) {
+        return task == null ? null : task.getStatus();
+    }
+
     private BankDataProjectionPageResponse projectionPage(long page, long size, long total,
                                                            List<BankDataProjectionResponse> records,
                                                            long companyId, String sourceSystem,
@@ -256,13 +263,13 @@ public class BankDataQueryService {
                 ? "已连接真实银行直联；当前筛选无数据，请先发起同步或调整条件"
                 : "已连接真实银行直联，以下为银行返回的真实数据";
         return new BankDataProjectionPageResponse(page, size, total, records, true, "REAL",
-                message, null, sourceSystem, lastSyncedAt, false);
+                message, null, sourceSystem, lastSyncedAt);
     }
 
     /** Real bank direct link is connected but nothing matched the criteria (or no sync ran yet). */
     private BankDataProjectionPageResponse emptyProjectionPage(int page, int size, String message) {
         return new BankDataProjectionPageResponse(Math.max(1, page), boundedSize(size), 0, List.of(),
-                true, "REAL", message, null, "BANKDATA", null, false);
+                true, "REAL", message, null, "BANKDATA", null);
     }
 
     /** No REAL bank adapter is active in this deployment: the UI must show an explicit red "not connected". */
@@ -270,7 +277,7 @@ public class BankDataQueryService {
         return new BankDataProjectionPageResponse(Math.max(1, page), boundedSize(size), 0, List.of(),
                 false, "NOT_CONFIGURED",
                 "真实银行直联未连接：服务端未启用真实银行适配器（需配置 CMB 直联并开启 BANKDATA_CMB_REAL_ENABLED）",
-                null, "BANKDATA", null, false);
+                null, "BANKDATA", null);
     }
 
     /** Task ids produced by the active REAL adapters only (mock/simulated tasks are never projected). */

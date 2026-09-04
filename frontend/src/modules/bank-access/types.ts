@@ -8,6 +8,10 @@ export type BankAccount = {
   currency: string;
   availableBalance: number | string;
   status: string;
+  /** Per-account direct-connect status: DIRECT_CONNECTED | ONBOARDED | NOT_CONNECTED. */
+  directStatus?: string;
+  /** ISO timestamp of the latest successful real-adapter sync for this account. */
+  lastRealSyncAt?: string;
 };
 
 export type ConnectionSummary = {
@@ -107,7 +111,10 @@ export type BankDataProjection = {
   updatedAt?: string;
   sourceMode?: string;
   channelMode?: string;
-  simulated?: boolean;
+  /** 银行原始请求号：产出该行的银行侧请求标识（血缘字段）。 */
+  bankRequestNo?: string;
+  /** 产出该行的同步任务状态（SUCCEEDED / UNKNOWN / ...），UNKNOWN 需人工核验。 */
+  taskStatus?: string;
 };
 
 export type BankDataProjectionPage = PageResponse<BankDataProjection> & {
@@ -117,5 +124,4 @@ export type BankDataProjectionPage = PageResponse<BankDataProjection> & {
   requestId?: string;
   sourceSystem?: string;
   lastSyncedAt?: string;
-  simulated?: boolean;
 };
