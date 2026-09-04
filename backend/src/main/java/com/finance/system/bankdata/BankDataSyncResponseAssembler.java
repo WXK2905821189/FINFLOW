@@ -101,7 +101,18 @@ public class BankDataSyncResponseAssembler {
                 statement.getBankAccountId(), statement.getBankRequestNo(), statement.getStatementNo(),
                 statement.getTransactionTime(), statement.getDirection(), statement.getAmount(), statement.getCurrency(),
                 statement.getCounterpartyName(), statement.getCounterpartyAccountMasked(), statement.getSummary(),
-                statement.getValidationStatus(), statement.getValidationMessage(), statement.getCreatedAt());
+                statement.getValidationStatus(), statement.getValidationMessage(), statement.getCreatedAt(),
+                null,
+                statement.getBankAccountNo(), statement.getValueDate(), statement.getLoanCode(),
+                statement.getSignedAmount(), statement.getTextCode(), statement.getBillNumber(),
+                statement.getRemarkTextClt(), statement.getReversalFlag(), statement.getAcctOnlineBal(),
+                statement.getExtendedRemark(), statement.getCtpAcctNbr(), statement.getCtpBankName(),
+                statement.getCtpBankAddress(), statement.getFatOrSonAccount(), statement.getFatOrSonCompanyName(),
+                statement.getFatOrSonBankName(), statement.getFatOrSonBankAddress(), statement.getInfoFlag(),
+                statement.getBusinessName(), statement.getBusinessText(), statement.getRequestNbr(),
+                statement.getYurRef(), statement.getVirtualNbr(), statement.getMchOrderNbr(),
+                statement.getTransCardNbr(), statement.getReserve(),
+                null, null, null);
     }
 
     public BankDataBalanceResponse balance(BankDataBalance balance, long companyId) {
@@ -137,7 +148,11 @@ public class BankDataSyncResponseAssembler {
                 raw == null ? null : raw.getContentSha256(), raw == null ? null : raw.getRetentionUntil(),
                 balance.getBankAccountId(), maskAccount(account == null ? null : account.getAccountNumber()),
                 balance.getBankRequestNo(), balance.getAvailableBalance(), balance.getCurrency(), balance.getAsOfTime(),
-                balance.getValidationStatus(), balance.getValidationMessage(), balance.getCreatedAt());
+                balance.getOnlineBalance(), balance.getFrozenBalance(), balance.getPreviousDayBalance(),
+                balance.getVendorCurrencyCode(), balance.getBranchCode(), balance.getBankAccountNo(),
+                balance.getBankAccountName(), balance.getAccountItem(), balance.getCustomerRelationNo(),
+                balance.getValidationStatus(), balance.getValidationMessage(), balance.getCreatedAt(),
+                null, null, null);
     }
 
     public BankDataSyncLogResponse log(BankDataSyncLog log) {

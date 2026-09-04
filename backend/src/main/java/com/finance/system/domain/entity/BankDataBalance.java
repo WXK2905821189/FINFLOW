@@ -20,6 +20,24 @@ public class BankDataBalance {
     private BigDecimal availableBalance;
     private String currency;
     private LocalDateTime asOfTime;
+    /** 联机余额 onlblv - the account's actual funds. */
+    private BigDecimal onlineBalance;
+    /** 冻结余额 hldblv - judicial + bank holds combined. */
+    private BigDecimal frozenBalance;
+    /** 上日余额 accblv - online balance minus today's financial transactions. */
+    private BigDecimal previousDayBalance;
+    /** 币种代码 ccynbr as the bank codes it, not an ISO code. */
+    private String vendorCurrencyCode;
+    /** 分行号 bbknbr. */
+    private String branchCode;
+    /** 银行侧账号 accnbr. */
+    private String bankAccountNo;
+    /** 银行侧户名 accnam. */
+    private String bankAccountName;
+    /** 科目 accitm. */
+    private String accountItem;
+    /** 客户关系号 relnbr. */
+    private String customerRelationNo;
     private String validationStatus;
     private String validationMessage;
     private LocalDateTime createdAt;
@@ -42,6 +60,24 @@ public class BankDataBalance {
     public void setCurrency(String currency) { this.currency = currency; }
     public LocalDateTime getAsOfTime() { return asOfTime; }
     public void setAsOfTime(LocalDateTime asOfTime) { this.asOfTime = asOfTime; }
+    public BigDecimal getOnlineBalance() { return onlineBalance; }
+    public void setOnlineBalance(BigDecimal onlineBalance) { this.onlineBalance = onlineBalance; }
+    public BigDecimal getFrozenBalance() { return frozenBalance; }
+    public void setFrozenBalance(BigDecimal frozenBalance) { this.frozenBalance = frozenBalance; }
+    public BigDecimal getPreviousDayBalance() { return previousDayBalance; }
+    public void setPreviousDayBalance(BigDecimal previousDayBalance) { this.previousDayBalance = previousDayBalance; }
+    public String getVendorCurrencyCode() { return vendorCurrencyCode; }
+    public void setVendorCurrencyCode(String vendorCurrencyCode) { this.vendorCurrencyCode = vendorCurrencyCode; }
+    public String getBranchCode() { return branchCode; }
+    public void setBranchCode(String branchCode) { this.branchCode = branchCode; }
+    public String getBankAccountNo() { return bankAccountNo; }
+    public void setBankAccountNo(String bankAccountNo) { this.bankAccountNo = bankAccountNo; }
+    public String getBankAccountName() { return bankAccountName; }
+    public void setBankAccountName(String bankAccountName) { this.bankAccountName = bankAccountName; }
+    public String getAccountItem() { return accountItem; }
+    public void setAccountItem(String accountItem) { this.accountItem = accountItem; }
+    public String getCustomerRelationNo() { return customerRelationNo; }
+    public void setCustomerRelationNo(String customerRelationNo) { this.customerRelationNo = customerRelationNo; }
     public String getValidationStatus() { return validationStatus; }
     public void setValidationStatus(String validationStatus) { this.validationStatus = validationStatus; }
     public String getValidationMessage() { return validationMessage; }

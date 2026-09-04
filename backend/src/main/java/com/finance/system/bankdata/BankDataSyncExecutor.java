@@ -9,6 +9,7 @@ import com.finance.system.bankdata.adapter.BankDataBalanceEntry;
 import com.finance.system.bankdata.adapter.BankDataCollection;
 import com.finance.system.bankdata.adapter.BankDataEntry;
 import com.finance.system.bankdata.adapter.BankDataSyncContext;
+import com.finance.system.bankdata.adapter.VendorStatementFields;
 import com.finance.system.common.exception.BusinessException;
 import com.finance.system.domain.entity.BankAccount;
 import com.finance.system.domain.entity.BankDataBalance;
@@ -317,7 +318,45 @@ public class BankDataSyncExecutor {
         statement.setCounterpartyAccountMasked(maskAccount(entry.counterpartyAccount()));
         statement.setSummary(trimToNull(entry.summary()));
         statement.setValidationStatus(VALID);
+        applyVendorFields(statement, entry.vendor());
         return statement;
+    }
+
+    /**
+     * Copies the bank's own fields onto the row verbatim. Nothing here is derived, renamed
+     * or re-signed: the value stored is the value the bank returned, which is what makes the
+     * statement screen comparable to the bank's own export.
+     */
+    private void applyVendorFields(BankDataStatement statement, VendorStatementFields vendor) {
+        if (vendor == null) {
+            return;
+        }
+        statement.setBankAccountNo(blankToNull(vendor.bankAccountNo()));
+        statement.setValueDate(vendor.valueDate());
+        statement.setLoanCode(blankToNull(vendor.loanCode()));
+        statement.setSignedAmount(scaled(vendor.signedAmount()));
+        statement.setTextCode(blankToNull(vendor.textCode()));
+        statement.setBillNumber(blankToNull(vendor.billNumber()));
+        statement.setRemarkTextClt(blankToNull(vendor.remarkTextClt()));
+        statement.setReversalFlag(blankToNull(vendor.reversalFlag()));
+        statement.setAcctOnlineBal(scaled(vendor.acctOnlineBal()));
+        statement.setExtendedRemark(blankToNull(vendor.extendedRemark()));
+        statement.setCtpAcctNbr(blankToNull(vendor.ctpAcctNbr()));
+        statement.setCtpBankName(blankToNull(vendor.ctpBankName()));
+        statement.setCtpBankAddress(blankToNull(vendor.ctpBankAddress()));
+        statement.setFatOrSonAccount(blankToNull(vendor.fatOrSonAccount()));
+        statement.setFatOrSonCompanyName(blankToNull(vendor.fatOrSonCompanyName()));
+        statement.setFatOrSonBankName(blankToNull(vendor.fatOrSonBankName()));
+        statement.setFatOrSonBankAddress(blankToNull(vendor.fatOrSonBankAddress()));
+        statement.setInfoFlag(blankToNull(vendor.infoFlag()));
+        statement.setBusinessName(blankToNull(vendor.businessName()));
+        statement.setBusinessText(blankToNull(vendor.businessText()));
+        statement.setRequestNbr(blankToNull(vendor.requestNbr()));
+        statement.setYurRef(blankToNull(vendor.yurRef()));
+        statement.setVirtualNbr(blankToNull(vendor.virtualNbr()));
+        statement.setMchOrderNbr(blankToNull(vendor.mchOrderNbr()));
+        statement.setTransCardNbr(blankToNull(vendor.transCardNbr()));
+        statement.setReserve(blankToNull(vendor.reserve()));
     }
 
     private BankDataBalance toBalance(BankDataBalanceEntry entry, BankDataSyncTask task, BankDataRawMessage raw,
@@ -332,8 +371,27 @@ public class BankDataSyncExecutor {
         balance.setCurrency(entry.currency() == null || entry.currency().isBlank()
                 ? "CNY" : entry.currency().trim().toUpperCase(Locale.ROOT));
         balance.setAsOfTime(entry.asOfTime());
+        // Vendor detail is stored verbatim: the four balances the bank reports are not
+        // interchangeable, and the identity fields are what makes a figure reconcilable.
+        balance.setOnlineBalance(scaled(entry.onlineBalance()));
+        balance.setFrozenBalance(scaled(entry.frozenBalance()));
+        balance.setPreviousDayBalance(scaled(entry.previousDayBalance()));
+        balance.setVendorCurrencyCode(blankToNull(entry.vendorCurrencyCode()));
+        balance.setBranchCode(blankToNull(entry.branchCode()));
+        balance.setBankAccountNo(blankToNull(entry.bankAccountNo()));
+        balance.setBankAccountName(blankToNull(entry.bankAccountName()));
+        balance.setAccountItem(blankToNull(entry.accountItem()));
+        balance.setCustomerRelationNo(blankToNull(entry.customerRelationNo()));
         balance.setValidationStatus(VALID);
         return balance;
+    }
+
+    private static BigDecimal scaled(BigDecimal value) {
+        return value == null ? null : value.setScale(2);
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     private void log(BankDataSyncTask task, String level, String eventType, String result,

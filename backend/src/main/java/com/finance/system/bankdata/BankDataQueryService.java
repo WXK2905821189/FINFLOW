@@ -7,7 +7,6 @@ import com.finance.system.bankdata.adapter.BankDataAdapter;
 import com.finance.system.bankdata.dto.BankDataBalanceResponse;
 import com.finance.system.bankdata.dto.BankDataConnectionResponse;
 import com.finance.system.bankdata.dto.BankDataProjectionPageResponse;
-import com.finance.system.bankdata.dto.BankDataProjectionResponse;
 import com.finance.system.bankdata.dto.BankDataReconciliationResponse;
 import com.finance.system.bankdata.dto.BankDataStatementDetailResponse;
 import com.finance.system.bankdata.dto.BankDataStatementResponse;
@@ -20,11 +19,13 @@ import com.finance.system.bankdata.dto.BankSyncJobResponse;
 import com.finance.system.common.api.PageResponse;
 import com.finance.system.common.exception.BusinessException;
 import com.finance.system.common.tenant.CompanyScopeService;
+import com.finance.system.domain.entity.BankAccount;
 import com.finance.system.domain.entity.BankDataBalance;
 import com.finance.system.domain.entity.BankDataStatement;
 import com.finance.system.domain.entity.BankDataSyncLog;
 import com.finance.system.domain.entity.BankDataSyncTask;
 import com.finance.system.domain.entity.ConnectionProfile;
+import com.finance.system.domain.mapper.BankAccountMapper;
 import com.finance.system.domain.mapper.BankDataBalanceMapper;
 import com.finance.system.domain.mapper.BankDataStatementMapper;
 import com.finance.system.domain.mapper.BankDataSyncLogMapper;
@@ -54,6 +55,7 @@ public class BankDataQueryService {
     private final BankDataBalanceMapper balanceMapper;
     private final BankDataSyncLogMapper logMapper;
     private final ConnectionProfileMapper connectionProfileMapper;
+    private final BankAccountMapper bankAccountMapper;
     private final BankDataSyncResponseAssembler responseAssembler;
     /** True when at least one REAL (non-simulated) bank adapter bean is active in this deployment. */
     private final boolean realDirectConnected;
@@ -66,6 +68,7 @@ public class BankDataQueryService {
                                 BankDataBalanceMapper balanceMapper,
                                 BankDataSyncLogMapper logMapper,
                                 ConnectionProfileMapper connectionProfileMapper,
+                                BankAccountMapper bankAccountMapper,
                                 BankDataSyncResponseAssembler responseAssembler,
                                 List<BankDataAdapter> bankDataAdapters) {
         this.companyScope = companyScope;
@@ -74,6 +77,7 @@ public class BankDataQueryService {
         this.balanceMapper = balanceMapper;
         this.logMapper = logMapper;
         this.connectionProfileMapper = connectionProfileMapper;
+        this.bankAccountMapper = bankAccountMapper;
         this.responseAssembler = responseAssembler;
         List<BankDataAdapter> realAdapters = bankDataAdapters == null ? List.of() : bankDataAdapters.stream()
                 .filter(adapter -> adapter.executionMode() == BankAdapterExecutionMode.REAL)
@@ -106,12 +110,12 @@ public class BankDataQueryService {
         return new BankSyncJobDetailResponse(job, timeline);
     }
 
-    public BankDataProjectionPageResponse queryProjection(Long userId, String resource,
-                                                          int page, int size, String status,
-                                                          Long bankAccountId, String keyword,
-                                                          LocalDateTime from, LocalDateTime to,
-                                                          String sourceSystem, String syncJobNo,
-                                                          String requestId) {
+    public BankDataProjectionPageResponse<?> queryProjection(Long userId, String resource,
+                                                             int page, int size, String status,
+                                                             Long bankAccountId, String keyword,
+                                                             LocalDateTime from, LocalDateTime to,
+                                                             String sourceSystem, String syncJobNo,
+                                                             String requestId) {
         String normalized = resource == null ? "" : resource.trim().toLowerCase(Locale.ROOT);
         if (!List.of("balances", "statements").contains(normalized)) {
             throw new BusinessException(404,
@@ -140,13 +144,11 @@ public class BankDataQueryService {
                     status, from, to, taskIds);
             Map<Long, BankDataSyncTask> tasksById = tasksById(companyId,
                     balances.records().stream().map(BankDataBalanceResponse::taskId).toList());
-            List<BankDataProjectionResponse> records = balances.records().stream()
-                    .map(balance -> new BankDataProjectionResponse(String.valueOf(balance.id()), "BANKDATA",
-                            "BALANCE-" + balance.id(), balance.validationStatus(), balance.asOfTime(),
-                            balance.accountMasked(), balance.availableBalance(), balance.currency(), null,
-                            "账户余额快照", taskNo(tasksById.get(balance.taskId())),
-                            requestId(tasksById.get(balance.taskId())), balance.createdAt(),
-                            balance.bankRequestNo(), taskStatus(tasksById.get(balance.taskId()))))
+            List<BankDataBalanceResponse> records = balances.records().stream()
+                    .map(balance -> {
+                        BankDataSyncTask task = tasksById.get(balance.taskId());
+                        return balance.withLineage(taskNo(task), requestId(task), taskStatus(task));
+                    })
                     .toList();
             return projectionPage(balances.page(), balances.size(), balances.total(), records,
                     companyId, "BANKDATA", balances.records().stream().map(BankDataBalanceResponse::createdAt)
@@ -162,25 +164,45 @@ public class BankDataQueryService {
                 .le(to != null, BankDataStatement::getTransactionTime, to)
                 .and(keyword != null && !keyword.isBlank(), nested -> nested
                         .like(BankDataStatement::getStatementNo, keyword.trim())
-                        .or().like(BankDataStatement::getSummary, keyword.trim()))
+                        .or().like(BankDataStatement::getSummary, keyword.trim())
+                        .or().like(BankDataStatement::getCounterpartyName, keyword.trim())
+                        .or().like(BankDataStatement::getBusinessText, keyword.trim())
+                        .or().like(BankDataStatement::getRemarkTextClt, keyword.trim())
+                        .or().like(BankDataStatement::getYurRef, keyword.trim())
+                        .or().like(BankDataStatement::getBillNumber, keyword.trim())
+                        .or().like(BankDataStatement::getBankRequestNo, keyword.trim()))
                 .orderByDesc(BankDataStatement::getTransactionTime)
                 .orderByDesc(BankDataStatement::getId);
         Page<BankDataStatement> result = statementMapper.selectPage(
                 new Page<>(Math.max(1, page), boundedSize(size)), query);
         Map<Long, BankDataSyncTask> tasksById = tasksById(companyId,
                 result.getRecords().stream().map(BankDataStatement::getTaskId).toList());
-        List<BankDataProjectionResponse> records = result.getRecords().stream()
-                .map(statement -> new BankDataProjectionResponse(
-                        String.valueOf(statement.getId()), "BANKDATA", statement.getStatementNo(),
-                        statement.getValidationStatus(), statement.getTransactionTime(), null, statement.getAmount(),
-                        statement.getCurrency(), statement.getDirection(), statement.getSummary(),
-                        taskNo(tasksById.get(statement.getTaskId())), requestId(tasksById.get(statement.getTaskId())),
-                        statement.getCreatedAt(), statement.getBankRequestNo(),
-                        taskStatus(tasksById.get(statement.getTaskId()))))
+        Map<Long, String> maskedAccounts = maskedAccounts(companyId,
+                result.getRecords().stream().map(BankDataStatement::getBankAccountId).toList());
+        List<BankDataStatementResponse> records = responseAssembler.statements(result.getRecords(), companyId)
+                .stream()
+                .map(statement -> {
+                    BankDataSyncTask task = tasksById.get(statement.taskId());
+                    return statement.withLineage(taskNo(task), requestId(task), taskStatus(task),
+                            maskedAccounts.get(statement.bankAccountId()));
+                })
                 .toList();
         return projectionPage(result.getCurrent(), result.getSize(), result.getTotal(), records,
                 companyId, "BANKDATA", result.getRecords().stream().map(BankDataStatement::getCreatedAt)
                         .filter(java.util.Objects::nonNull).max(LocalDateTime::compareTo).orElse(null));
+    }
+
+    /** Masked account numbers keyed by bank account id, for rows that need to display our own account. */
+    private Map<Long, String> maskedAccounts(long companyId, List<Long> accountIds) {
+        List<Long> ids = accountIds.stream().filter(java.util.Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) return Map.of();
+        return bankAccountMapper.selectList(new LambdaQueryWrapper<BankAccount>()
+                        .eq(BankAccount::getCompanyId, companyId)
+                        .in(BankAccount::getId, ids)
+                        .select(BankAccount::getId, BankAccount::getAccountNumber))
+                .stream()
+                .collect(Collectors.toMap(BankAccount::getId,
+                        account -> responseAssembler.maskAccount(account.getAccountNumber())));
     }
 
     public PageResponse<BankDataBalanceResponse> listBalances(Long userId, int page, int size,
@@ -255,29 +277,27 @@ public class BankDataQueryService {
         return task == null ? null : task.getStatus();
     }
 
-    private BankDataProjectionPageResponse projectionPage(long page, long size, long total,
-                                                           List<BankDataProjectionResponse> records,
-                                                           long companyId, String sourceSystem,
-                                                           LocalDateTime lastSyncedAt) {
+    private <T> BankDataProjectionPageResponse<T> projectionPage(long page, long size, long total,
+                                                                  List<T> records,
+                                                                  long companyId, String sourceSystem,
+                                                                  LocalDateTime lastSyncedAt) {
         String message = records.isEmpty()
                 ? "已连接真实银行直联；当前筛选无数据，请先发起同步或调整条件"
                 : "已连接真实银行直联，以下为银行返回的真实数据";
-        return new BankDataProjectionPageResponse(page, size, total, records, true, "REAL",
+        return new BankDataProjectionPageResponse<>(page, size, total, records, true, "REAL",
                 message, null, sourceSystem, lastSyncedAt);
     }
 
     /** Real bank direct link is connected but nothing matched the criteria (or no sync ran yet). */
-    private BankDataProjectionPageResponse emptyProjectionPage(int page, int size, String message) {
-        return new BankDataProjectionPageResponse(Math.max(1, page), boundedSize(size), 0, List.of(),
-                true, "REAL", message, null, "BANKDATA", null);
+    private BankDataProjectionPageResponse<Object> emptyProjectionPage(int page, int size, String message) {
+        return BankDataProjectionPageResponse.empty(page, size, "REAL", message, true);
     }
 
     /** No REAL bank adapter is active in this deployment: the UI must show an explicit red "not connected". */
-    private BankDataProjectionPageResponse notConnectedPage(int page, int size) {
-        return new BankDataProjectionPageResponse(Math.max(1, page), boundedSize(size), 0, List.of(),
-                false, "NOT_CONFIGURED",
+    private BankDataProjectionPageResponse<Object> notConnectedPage(int page, int size) {
+        return BankDataProjectionPageResponse.empty(page, size, "NOT_CONFIGURED",
                 "真实银行直联未连接：服务端未启用真实银行适配器（需配置 CMB 直联并开启 BANKDATA_CMB_REAL_ENABLED）",
-                null, "BANKDATA", null);
+                false);
     }
 
     /** Task ids produced by the active REAL adapters only (mock/simulated tasks are never projected). */

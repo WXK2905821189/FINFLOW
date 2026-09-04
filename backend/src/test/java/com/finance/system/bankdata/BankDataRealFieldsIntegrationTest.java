@@ -1,0 +1,220 @@
+package com.finance.system.bankdata;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.finance.system.bankdata.adapter.BankAdapterExecutionMode;
+import com.finance.system.bankdata.adapter.BankDataAdapter;
+import com.finance.system.bankdata.adapter.BankDataBalanceEntry;
+import com.finance.system.bankdata.adapter.BankDataCollection;
+import com.finance.system.bankdata.adapter.BankDataEntry;
+import com.finance.system.bankdata.adapter.BankDataSyncContext;
+import com.finance.system.bankdata.adapter.VendorStatementFields;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.web.servlet.MockMvc;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+/**
+ * End-to-end lock on the "no business projection" contract: what the bank put on the wire
+ * is what lands in storage and what comes back out of the query API, field for field.
+ *
+ * <p>The balance and statement screens used to collapse 10 bank balance fields into one
+ * figure and 30 statement fields into seven, then dress the remainder up in a generic
+ * {@code id / occurredAt / amount / direction} projection. Anything the projection did not
+ * have a slot for was dropped — including the per-transaction balance, the 起息日 and the
+ * 冲账标志. This test exists so that cannot quietly come back: the assertions insist on the
+ * bank's own field names, codes and sign convention.</p>
+ */
+@SpringBootTest
+@AutoConfigureMockMvc
+@ActiveProfiles("dev")
+@TestPropertySource(properties = "bankdata.adapter.call.real-adapters-enabled=true")
+@Import(BankDataRealFieldsIntegrationTest.StubRealCmbAdapterConfiguration.class)
+class BankDataRealFieldsIntegrationTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @Test
+    void statementQueryReturnsTheBanksOwnFieldsRatherThanAProjection() throws Exception {
+        String adminToken = login("admin", "Admin@123");
+        long accountId = archiveAccount(adminToken);
+        triggerSync(adminToken, accountId);
+
+        JsonNode records = query(adminToken, "statements", accountId);
+        assertEquals(1, records.size(), "the stub produced exactly one transaction");
+        JsonNode row = records.get(0);
+
+        // 银行原始字段，逐列对齐招行 trsQryByBreakPoint 的 Z2
+        assertEquals("STUB-REAL-STMT-001", row.get("statementNo").asText());
+        assertEquals("D", row.get("loanCode").asText(), "借贷码 is the bank's C/D, not INCOME/EXPENSE");
+        assertEquals("EXPENSE", row.get("direction").asText(), "direction stays the derived accounting flag");
+        assertEquals(-12.34, row.get("signedAmount").asDouble(), 0.001,
+                "the bank signs debits negative and the sign survives storage");
+        assertEquals(12.34, row.get("amount").asDouble(), 0.001,
+                "the accounting amount stays an unsigned magnitude");
+        assertEquals(1233.67, row.get("acctOnlineBal").asDouble(), 0.001, "每笔后余额 is what makes a day verifiable");
+        assertEquals("2026-09-02", row.get("valueDate").asText(), "起息日 is not the trade date");
+        assertEquals("*", row.get("reversalFlag").asText(), "冲账标志 must survive or reversals get double counted");
+        assertEquals("1", row.get("infoFlag").asText());
+        assertEquals("FEE", row.get("textCode").asText());
+        assertEquals("957151020441242810", row.get("ctpAcctNbr").asText(), "收付方帐号 in full");
+        assertEquals("对手方公司", row.get("counterpartyName").asText());
+        assertEquals("招商银行深圳分行", row.get("ctpBankName").asText());
+        assertEquals("深圳市", row.get("ctpBankAddress").asText());
+        assertEquals("你方摘要-手续费", row.get("remarkTextClt").asText());
+        assertEquals("网银业务摘要", row.get("businessText").asText());
+        assertEquals("扩展摘要", row.get("extendedRemark").asText());
+        assertEquals("YUR-REF-001", row.get("yurRef").asText());
+        assertEquals("STUB-REAL-BANK-1", row.get("bankRequestNo").asText());
+
+        // 血缘字段：哪次银行调用产出了这一行、那次调用是否落定
+        assertNotNull(row.get("taskNo"), "the producing sync task is part of the evidence");
+        assertEquals("SUCCEEDED", row.get("taskStatus").asText());
+        // 本方账号脱敏，收付方账号不脱敏
+        assertTrue(row.get("accountMasked").asText().startsWith("****"),
+                "our own account number is masked in the response");
+        assertEquals("****0001", row.get("accountMasked").asText());
+    }
+
+    @Test
+    void balanceQueryReturnsAllFourBalanceFiguresTheBankReports() throws Exception {
+        String adminToken = login("admin", "Admin@123");
+        long accountId = archiveAccount(adminToken);
+        triggerSync(adminToken, accountId);
+
+        JsonNode records = query(adminToken, "balances", accountId);
+        assertEquals(1, records.size());
+        JsonNode row = records.get(0);
+
+        // 四个口径不可互相替代：可用 / 联机 / 冻结 / 上日
+        assertEquals(816065.34, row.get("availableBalance").asDouble(), 0.001);
+        assertEquals(820000.00, row.get("onlineBalance").asDouble(), 0.001);
+        assertEquals(3934.66, row.get("frozenBalance").asDouble(), 0.001);
+        assertEquals(810000.00, row.get("previousDayBalance").asDouble(), 0.001);
+        // 账户身份字段：对账时要能证明这个数字是哪个户的
+        assertEquals("10", row.get("vendorCurrencyCode").asText());
+        assertEquals("0755", row.get("branchCode").asText());
+        assertEquals("1299000000000001", row.get("bankAccountNo").asText());
+        assertEquals("上海图虫网络科技有限公司", row.get("bankAccountName").asText());
+        assertEquals("2011", row.get("accountItem").asText());
+        assertEquals("CR-778899", row.get("customerRelationNo").asText());
+        assertNotNull(row.get("taskNo"));
+        assertEquals("SUCCEEDED", row.get("taskStatus").asText());
+    }
+
+    private JsonNode query(String token, String resource, long accountId) throws Exception {
+        String body = mockMvc.perform(get("/api/bank-data/" + resource)
+                        .param("accountId", String.valueOf(accountId))
+                        .header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        JsonNode data = objectMapper.readTree(body).get("data");
+        assertTrue(data.get("enabled").asBoolean(), "a REAL adapter is assembled, so the page is enabled");
+        assertEquals("REAL", data.get("status").asText());
+        return data.get("records");
+    }
+
+    private void triggerSync(String token, long accountId) throws Exception {
+        mockMvc.perform(post("/api/bank-sync-jobs")
+                        .header("Authorization", bearer(token))
+                        .header("X-Request-Id", "REAL-FIELDS-" + UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"jobType\":\"STATEMENT_PULL\",\"bankAccountId\":" + accountId
+                                + ",\"adapterCode\":\"CMB\""
+                                + ",\"windowStart\":\"2026-09-01T00:00:00\",\"windowEnd\":\"2026-09-02T00:00:00\"}"))
+                .andExpect(status().isOk());
+    }
+
+    /** Account number ends in 0001 so the masked form is deterministic (****0001). */
+    private long archiveAccount(String token) throws Exception {
+        String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 11);
+        String body = mockMvc.perform(post("/api/bank-accounts")
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"bankCode\":\"CMB\",\"accountName\":\"真实字段验证账户\",\"accountNumber\":\""
+                                + suffix + "0001\",\"currency\":\"CNY\",\"availableBalance\":0,\"status\":\"ACTIVE\"}"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        return objectMapper.readTree(body).get("data").get("id").asLong();
+    }
+
+    private String login(String username, String password) throws Exception {
+        String body = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"" + username + "\",\"password\":\"" + password + "\"}"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        return objectMapper.readTree(body).get("data").get("accessToken").asText();
+    }
+
+    private String bearer(String token) {
+        return "Bearer " + token;
+    }
+
+    /** Deterministic REAL-mode CMB adapter carrying full vendor detail - no network I/O. */
+    @TestConfiguration(proxyBeanMethods = false)
+    static class StubRealCmbAdapterConfiguration {
+
+        @Bean
+        BankDataAdapter stubRealCmbAdapter() {
+            return new BankDataAdapter() {
+                @Override
+                public String adapterCode() {
+                    return "CMB";
+                }
+
+                @Override
+                public BankAdapterExecutionMode executionMode() {
+                    return BankAdapterExecutionMode.REAL;
+                }
+
+                @Override
+                public BankDataCollection collect(BankDataSyncContext context) {
+                    if (context.pageNumber() != null && context.pageNumber() > 1) {
+                        return new BankDataCollection("STUB-REAL-BANK-1-P" + context.pageNumber(),
+                                List.of(), List.of(), false, null, "SUC0000", "SUC0000");
+                    }
+                    BankDataEntry entry = new BankDataEntry("STUB-REAL-BANK-1", "STUB-REAL-STMT-001",
+                            context.bankAccountId(), context.windowStart().plusHours(9), "EXPENSE",
+                            new BigDecimal("12.34"), "CNY", "对手方公司", "957151020441242810",
+                            "网银业务摘要", new VendorStatementFields("1299000000000001",
+                                    LocalDate.of(2026, 9, 2), "D", "FEE", "BILL-0001",
+                                    "你方摘要-手续费", "*", new BigDecimal("1233.67"),
+                                    new BigDecimal("-12.34"), "扩展摘要", "957151020441242810",
+                                    "招商银行深圳分行", "深圳市", null, null, null, null,
+                                    "1", "批量代付", "网银业务摘要", "RQ00000001", "YUR-REF-001",
+                                    null, null, null, "**"));
+                    BankDataBalanceEntry balance = new BankDataBalanceEntry("STUB-REAL-BANK-1",
+                            context.bankAccountId(), new BigDecimal("816065.34"), "CNY",
+                            context.windowEnd().minusMinutes(1), new BigDecimal("820000.00"),
+                            new BigDecimal("3934.66"), new BigDecimal("810000.00"), "10", "0755",
+                            "1299000000000001", "上海图虫网络科技有限公司", "2011", "CR-778899");
+                    return new BankDataCollection("STUB-REAL-BANK-1", List.of(entry), List.of(balance),
+                            false, null, "SUC0000", "SUC0000");
+                }
+            };
+        }
+    }
+}

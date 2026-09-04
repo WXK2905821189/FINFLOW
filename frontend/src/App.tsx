@@ -19,6 +19,7 @@ const ConnectionMonitoring = lazy(() => import('./modules/bank-access/pages').th
 const OperationLogs = lazy(() => import('./modules/bank-access/operations').then((module) => ({ default: module.OperationLogs })));
 const OperationTasks = lazy(() => import('./modules/bank-access/operations').then((module) => ({ default: module.OperationTasks })));
 const BankDataQueryPage = lazy(() => import('./modules/bank-access/BankDataQueryPage').then((module) => ({ default: module.BankDataQueryPage })));
+const RawMessagesPage = lazy(() => import('./modules/bank-access/RawMessagesPage').then((module) => ({ default: module.RawMessagesPage })));
 const FeishuCollaboration = lazy(() => import('./modules/feishu/pages').then((module) => ({ default: module.FeishuCollaboration })));
 const ClosingPage = lazy(() => import('./modules/closing/pages').then((module) => ({ default: module.ClosingPage })));
 const AuditCenterPage = lazy(() => import('./modules/audit/pages').then((module) => ({ default: module.AuditCenterPage })));
@@ -86,6 +87,9 @@ function AppRoutes() {
           </Route>
           <Route element={<PermissionGuard permissions={['bankdata:statement:view']} />}>
             <Route path="/bank-access/data/statements" element={<BankDataQueryPage resource="statements" />} />
+          </Route>
+          <Route element={<PermissionGuard permissions={['bankdata:raw:view']} />}>
+            <Route path="/bank-access/raw-messages" element={<RawMessagesPage />} />
           </Route>
           <Route path="/connections/apps" element={<Navigate to="/bank-access/connections" replace />} />
           <Route path="/connections/agreements" element={<Navigate to="/bank-access/agreements" replace />} />

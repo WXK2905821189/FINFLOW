@@ -83,7 +83,7 @@ public class BankPipelineController {
     @GetMapping("/bank-data/{resource}")
     @PreAuthorize("hasAnyAuthority('bankdata:view', 'bankdata:balance:view', 'bankdata:statement:view', 'bankdata:receipt:view', 'bankdata:reconciliation:view', 'bankdata:payroll:view')")
     @Operation(summary = "Query a controlled bank data projection")
-    public ApiResponse<BankDataProjectionPageResponse> projection(
+    public ApiResponse<BankDataProjectionPageResponse<?>> projection(
             @PathVariable String resource,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size,
