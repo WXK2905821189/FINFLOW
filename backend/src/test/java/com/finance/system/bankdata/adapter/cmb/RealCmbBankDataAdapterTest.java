@@ -72,6 +72,10 @@ class RealCmbBankDataAdapterTest {
         BankDataBalanceEntry balance = collection.balances().get(0);
         assertEquals(0, new BigDecimal("12345.67").compareTo(balance.availableBalance()));
         assertEquals(10L, balance.bankAccountId());
+        assertEquals(0, new BigDecimal("50000.00").compareTo(balance.overdraftLimit()));
+        assertEquals("S", balance.interestCode());
+        assertEquals(0, new BigDecimal("0.0125000").compareTo(balance.interestRate()));
+        assertEquals("20270519", balance.maturityDate());
 
         assertEquals(1, collection.entries().size());
         BankDataEntry entry = collection.entries().get(0);
@@ -301,7 +305,8 @@ class RealCmbBankDataAdapterTest {
                 + "\"resultmsg\":\"\"},\"body\":{\"ntqadinfz\":[{\"accnbr\":\"" + ACCOUNT_NO + "\","
                 + "\"accnam\":\"活期户\",\"avlblv\":\"" + avlblv + "\",\"onlblv\":\"0.00\","
                 + "\"hldblv\":\"0.00\",\"stscod\":\"A\",\"errcod\":\"" + errcod + "\","
-                + "\"errtxt\":\"\"}]}}}";
+                + "\"errtxt\":\"\",\"lmtovr\":\"50000.00\",\"intcod\":\"S\","
+                + "\"intrat\":\"0.0125000\",\"mutdat\":\"20270519\"}]}}}";
     }
 
     /**

@@ -109,7 +109,9 @@ public class BankDataAggregationService {
                 clean(entry.bankAccountName()), clean(entry.accountItem()),
                 clean(entry.customerRelationNo()), clean(entry.accountStatus()),
                 clean(entry.openDate()), clean(entry.interestType()),
-                clean(entry.depositTerm()))).toList();
+                clean(entry.depositTerm()),
+                entry.overdraftLimit(), clean(entry.interestCode()),
+                entry.interestRate(), clean(entry.maturityDate()))).toList();
     }
 
     private String canonicalDirection(String value) {

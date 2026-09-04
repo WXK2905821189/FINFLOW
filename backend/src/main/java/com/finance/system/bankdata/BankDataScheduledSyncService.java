@@ -39,20 +39,23 @@ public class BankDataScheduledSyncService {
                 .in(ConnectionProfile::getStatus, List.of("SIMULATED", "ACTIVE")));
         for (ConnectionProfile profile : profiles) {
             if (profile.getCompanyId() == null) continue;
-            BankAccount account = bankAccountMapper.selectOne(new LambdaQueryWrapper<BankAccount>()
+            // Every ACTIVE account of the company gets its own scheduled sync, not just the
+            // first one: the scheduledRequestId already folds the account id into the
+            // idempotency key, so repeated scans are deduped per account per window.
+            List<BankAccount> accounts = bankAccountMapper.selectList(new LambdaQueryWrapper<BankAccount>()
                     .eq(BankAccount::getCompanyId, profile.getCompanyId())
                     .eq(BankAccount::getStatus, "ACTIVE")
-                    .orderByAsc(BankAccount::getId)
-                    .last("LIMIT 1"));
-            if (account == null) continue;
+                    .orderByAsc(BankAccount::getId));
             String adapterCode = adapterCodeOf(profile);
-            try {
-                String requestId = scheduledRequestId(profile, account, adapterCode, window);
-                syncService.triggerForCompany(profile.getCompanyId(), null,
-                        new BankDataSyncRequest(profile.getConnectionCode(), account.getId(), adapterCode,
-                                window.start(), window.end()), requestId, "SCHEDULED");
-            } catch (RuntimeException ignored) {
-                // The sync service persists task failures; one company must not stop the scan.
+            for (BankAccount account : accounts) {
+                try {
+                    String requestId = scheduledRequestId(profile, account, adapterCode, window);
+                    syncService.triggerForCompany(profile.getCompanyId(), null,
+                            new BankDataSyncRequest(profile.getConnectionCode(), account.getId(), adapterCode,
+                                    window.start(), window.end()), requestId, "SCHEDULED");
+                } catch (RuntimeException ignored) {
+                    // The sync service persists task failures; one account must not stop the scan.
+                }
             }
         }
     }

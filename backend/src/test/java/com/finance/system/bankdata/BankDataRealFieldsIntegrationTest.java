@@ -139,6 +139,11 @@ class BankDataRealFieldsIntegrationTest {
         assertEquals("20140519", row.get("openDate").asText());
         assertEquals("ZZZ", row.get("interestType").asText());
         assertEquals("Z(12)", row.get("depositTerm").asText());
+        // 透支/利息字段（V22 收口）：intcod='S' 标记子公司虚拟余额，须与真实资金区分
+        assertEquals(50000.00, row.get("overdraftLimit").asDouble(), 0.001);
+        assertEquals("S", row.get("interestCode").asText());
+        assertEquals(0.0125, row.get("interestRate").asDouble(), 0.0000001);
+        assertEquals("20270519", row.get("maturityDate").asText());
         assertNotNull(row.get("taskNo"));
         assertEquals("SUCCEEDED", row.get("taskStatus").asText());
     }
@@ -285,7 +290,8 @@ class BankDataRealFieldsIntegrationTest {
                             context.windowEnd().minusMinutes(1), new BigDecimal("820000.00"),
                             new BigDecimal("3934.66"), new BigDecimal("810000.00"), "10", "0755",
                             "1299000000000001", "上海图虫网络科技有限公司", "2011", "CR-778899",
-                            "A", "20140519", "ZZZ", "Z(12)");
+                            "A", "20140519", "ZZZ", "Z(12)",
+                            new BigDecimal("50000.00"), "S", new BigDecimal("0.0125000"), "20270519");
                     return new BankDataCollection("STUB-REAL-BANK-1", List.of(entry), List.of(balance),
                             false, null, "SUC0000", "SUC0000",
                             new BankPageTotals(new BigDecimal("-12.34"), 1L,

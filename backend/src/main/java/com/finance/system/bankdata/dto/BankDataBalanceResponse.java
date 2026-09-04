@@ -41,6 +41,14 @@ public record BankDataBalanceResponse(
         String interestType,
         /** 存期 dpstxt. */
         String depositTerm,
+        /** 透支额度 lmtovr. */
+        BigDecimal overdraftLimit,
+        /** 利息码 intcod: S=子公司虚拟余额. */
+        String interestCode,
+        /** 年利率 intrat F(11,7). */
+        BigDecimal interestRate,
+        /** 到期日 mutdat, 8-digit yyyyMMdd as the bank codes it. */
+        String maturityDate,
         String validationStatus,
         String validationMessage,
         LocalDateTime createdAt,
@@ -62,6 +70,7 @@ public record BankDataBalanceResponse(
                 onlineBalance, frozenBalance, previousDayBalance, vendorCurrencyCode, branchCode,
                 bankAccountNo, bankAccountName, accountItem, customerRelationNo,
                 accountStatus, openDate, interestType, depositTerm,
+                overdraftLimit, interestCode, interestRate, maturityDate,
                 validationStatus, validationMessage, createdAt, taskNo, taskRequestId, taskStatus);
     }
 }

@@ -159,6 +159,7 @@ public class BankDataSyncResponseAssembler {
                 balance.getVendorCurrencyCode(), balance.getBranchCode(), balance.getBankAccountNo(),
                 balance.getBankAccountName(), balance.getAccountItem(), balance.getCustomerRelationNo(),
                 balance.getAccountStatus(), balance.getOpenDate(), balance.getInterestType(), balance.getDepositTerm(),
+                balance.getOverdraftLimit(), balance.getInterestCode(), balance.getInterestRate(), balance.getMaturityDate(),
                 balance.getValidationStatus(), balance.getValidationMessage(), balance.getCreatedAt(),
                 null, null, null);
     }

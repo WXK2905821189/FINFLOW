@@ -47,13 +47,22 @@ public record BankDataBalanceEntry(
         /** 利率类型 inttyp: ZZZ=不计息, TD2=定期3月, ... per NTQADINF doc. */
         String interestType,
         /** 存期 dpstxt, e.g. Z(12). */
-        String depositTerm
+        String depositTerm,
+        /** 透支额度 lmtovr, part of the available-balance formula on the bank side. */
+        BigDecimal overdraftLimit,
+        /** 利息码 intcod: S = 子公司虚拟余额（头寸额度），须与真实资金区分. */
+        String interestCode,
+        /** 年利率 intrat F(11,7), as the bank reports it. */
+        BigDecimal interestRate,
+        /** 到期日 mutdat, 8-digit yyyyMMdd as the bank codes it (00000000 = none). */
+        String maturityDate
 ) {
 
     /** Projection-only constructor kept for adapters that report a single available amount. */
     public BankDataBalanceEntry(String bankRequestNo, Long bankAccountId, BigDecimal availableBalance,
                                 String currency, LocalDateTime asOfTime) {
         this(bankRequestNo, bankAccountId, availableBalance, currency, asOfTime,
-                null, null, null, null, null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null);
     }
 }

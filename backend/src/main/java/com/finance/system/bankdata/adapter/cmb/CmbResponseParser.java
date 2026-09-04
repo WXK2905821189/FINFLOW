@@ -32,12 +32,13 @@ public final class CmbResponseParser {
         }
     }
 
-    /** NTQADINF per-account balance row (ntqadinfz element). */
+    /** NTQADINF per-account balance row (ntqadinfz element) — all 20 fields of doc 9, verbatim. */
     public record BalanceRow(String ccynbr, String bbknbr, String accnbr, String accnam,
                              String onlblv, String hldblv, String avlblv, String lmtovr,
                              String stscod, String errcod, String errtxt,
                              String accblv, String accitm, String relnbr,
-                             String opndat, String inttyp, String dpstxt) {
+                             String opndat, String inttyp, String dpstxt,
+                             String intcod, String intrat, String mutdat) {
     }
 
     /**
@@ -100,7 +101,8 @@ public final class CmbResponseParser {
                     text(row.get("avlblv")), text(row.get("lmtovr")), text(row.get("stscod")),
                     text(row.get("errcod")), text(row.get("errtxt")),
                     text(row.get("accblv")), text(row.get("accitm")), text(row.get("relnbr")),
-                    text(row.get("opndat")), text(row.get("inttyp")), text(row.get("dpstxt"))));
+                    text(row.get("opndat")), text(row.get("inttyp")), text(row.get("dpstxt")),
+                    text(row.get("intcod")), text(row.get("intrat")), text(row.get("mutdat"))));
         }
         return List.copyOf(rows);
     }

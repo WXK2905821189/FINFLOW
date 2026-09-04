@@ -179,6 +179,14 @@ export type BankDataBalanceRow = {
   interestType?: string;
   /** 存期 dpstxt。 */
   depositTerm?: string;
+  /** 透支额度 lmtovr。 */
+  overdraftLimit?: number | string;
+  /** 利息码 intcod：S=子公司虚拟余额。 */
+  interestCode?: string;
+  /** 年利率 intrat。 */
+  interestRate?: number | string;
+  /** 到期日 mutdat（银行口径 yyyyMMdd）。 */
+  maturityDate?: string;
   validationStatus?: string;
   validationMessage?: string;
   createdAt?: string;

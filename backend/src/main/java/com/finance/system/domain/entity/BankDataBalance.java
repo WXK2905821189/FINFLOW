@@ -46,6 +46,14 @@ public class BankDataBalance {
     private String interestType;
     /** 存期 dpstxt, e.g. Z(12). */
     private String depositTerm;
+    /** 透支额度 lmtovr. */
+    private BigDecimal overdraftLimit;
+    /** 利息码 intcod: S=子公司虚拟余额. */
+    private String interestCode;
+    /** 年利率 intrat F(11,7). */
+    private BigDecimal interestRate;
+    /** 到期日 mutdat, 8-digit yyyyMMdd as the bank codes it. */
+    private String maturityDate;
     private String validationStatus;
     private String validationMessage;
     private LocalDateTime createdAt;
@@ -94,6 +102,14 @@ public class BankDataBalance {
     public void setInterestType(String interestType) { this.interestType = interestType; }
     public String getDepositTerm() { return depositTerm; }
     public void setDepositTerm(String depositTerm) { this.depositTerm = depositTerm; }
+    public BigDecimal getOverdraftLimit() { return overdraftLimit; }
+    public void setOverdraftLimit(BigDecimal overdraftLimit) { this.overdraftLimit = overdraftLimit; }
+    public String getInterestCode() { return interestCode; }
+    public void setInterestCode(String interestCode) { this.interestCode = interestCode; }
+    public BigDecimal getInterestRate() { return interestRate; }
+    public void setInterestRate(BigDecimal interestRate) { this.interestRate = interestRate; }
+    public String getMaturityDate() { return maturityDate; }
+    public void setMaturityDate(String maturityDate) { this.maturityDate = maturityDate; }
     public String getValidationStatus() { return validationStatus; }
     public void setValidationStatus(String validationStatus) { this.validationStatus = validationStatus; }
     public String getValidationMessage() { return validationMessage; }

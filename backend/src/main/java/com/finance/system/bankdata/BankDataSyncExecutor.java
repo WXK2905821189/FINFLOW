@@ -436,6 +436,10 @@ public class BankDataSyncExecutor {
         balance.setOpenDate(blankToNull(entry.openDate()));
         balance.setInterestType(blankToNull(entry.interestType()));
         balance.setDepositTerm(blankToNull(entry.depositTerm()));
+        balance.setOverdraftLimit(scaled(entry.overdraftLimit()));
+        balance.setInterestCode(blankToNull(entry.interestCode()));
+        balance.setInterestRate(entry.interestRate());
+        balance.setMaturityDate(blankToNull(entry.maturityDate()));
         balance.setValidationStatus(VALID);
         return balance;
     }

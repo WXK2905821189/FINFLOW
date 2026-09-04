@@ -222,6 +222,10 @@ function BalanceDetail({ row }: { row: BankDataBalanceRow }) {
       <Descriptions.Item label="开户日（opndat）">{row.openDate ? <span className="mono">{row.openDate}</span> : '--'}</Descriptions.Item>
       <Descriptions.Item label="利率类型（inttyp）">{row.interestType ? `${INTEREST_TYPE_TEXT[row.interestType] || row.interestType}（${row.interestType}）` : '--'}</Descriptions.Item>
       <Descriptions.Item label="存期（dpstxt）">{displayValue(row.depositTerm)}</Descriptions.Item>
+      <Descriptions.Item label="透支额度（lmtovr）">{row.overdraftLimit === undefined || row.overdraftLimit === null ? '--' : <span className="mono">{money(row.overdraftLimit)}</span>}</Descriptions.Item>
+      <Descriptions.Item label="利息码（intcod）">{displayValue(row.interestCode)}{row.interestCode === 'S' ? '（子公司虚拟余额）' : ''}</Descriptions.Item>
+      <Descriptions.Item label="年利率（intrat）">{displayValue(row.interestRate)}</Descriptions.Item>
+      <Descriptions.Item label="到期日（mutdat）">{row.maturityDate && row.maturityDate !== '00000000' ? <span className="mono">{row.maturityDate}</span> : '--'}</Descriptions.Item>
     </Descriptions>
   );
 }
