@@ -85,7 +85,7 @@ export function BankReconciliationPage() {
   return <>
     <div className="page-heading">
       <div>
-        <span className="section-kicker">银行接入 / 数据查询</span>
+        <span className="section-kicker">银行数据 / 对账核对</span>
         <h2>对账核对</h2>
         <p className="muted">银行自己声明的窗口合计（Z1）与平台实际入库流水的勾稽视图：银行说收了 N 笔，库里就得有 N 笔，金额分毫不差。</p>
       </div>

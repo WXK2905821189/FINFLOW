@@ -15,9 +15,9 @@ export function Shell() {
   const [openKeys, setOpenKeys] = useState<string[]>(() => {
     try {
       const saved = window.localStorage.getItem(PRODUCT_MENU_STORAGE_KEY);
-      return saved ? JSON.parse(saved) as string[] : ['bank-access'];
+      return saved ? JSON.parse(saved) as string[] : ['bank-data'];
     } catch {
-      return ['bank-access'];
+      return ['bank-data'];
     }
   });
   const menuItems = buildProductNavigation(hasPermission);

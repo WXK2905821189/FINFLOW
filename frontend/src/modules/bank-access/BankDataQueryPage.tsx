@@ -381,7 +381,7 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
     <>
       <div className="page-heading">
         <div>
-          <span className="section-kicker">银行接入 / 数据查询{companyName ? ` · ${companyName}` : ''}</span>
+          <span className="section-kicker">银行数据 / 数据查询{companyName ? ` · ${companyName}` : ''}</span>
           <h2>{definition.title}</h2>
           <p className="muted">{canCrossCompany ? '可跨公司主体查看全部 ACTIVE 公司的银行数据，行内标注归属公司；' : '数据按登录公司主体隔离展示；'}直出银行返回的原始字段（招行 trsQryByBreakPoint / NTQADINF），不做业务投影翻译；本方账号脱敏，完整报文体在「原始报文」模块查看。</p>
         </div>

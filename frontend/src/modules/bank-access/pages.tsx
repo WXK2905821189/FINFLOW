@@ -23,5 +23,5 @@ export function BankAccountPage() {
   const banner = overview ? (connected
     ? <Alert className="phase-one-notice" type="success" showIcon message="已连接真实银行直联" description={overview.message || '余额/流水查询走真实银行接口。'} />
     : <Alert className="phase-one-notice" type="error" showIcon message="真实银行直联未连接" description={overview.message || '服务端未装配真实银行适配器，当前无法获取银行数据。'} />) : null;
-  return <><div className="page-heading"><div><span className="section-kicker">银行接入 / 账户</span><h2>银行账户</h2><p className="muted">展示当前企业已授权的银行账户；账号仅显示脱敏结果，余额和流水由真实银行直联采集任务更新。</p></div></div>{banner}<Card title="企业授权账户">{error ? <ResourceFailure error={error} onRetry={reload} /> : <Table rowKey="id" loading={loading} columns={columns} dataSource={data || []} pagination={false} locale={{ emptyText: <Empty description="当前企业暂无授权银行账户" /> }} scroll={{ x: 780 }} />}</Card></>;
+  return <><div className="page-heading"><div><span className="section-kicker">银行数据 / 账户</span><h2>银行账户</h2><p className="muted">展示当前企业已授权的银行账户；账号仅显示脱敏结果，余额和流水由真实银行直联采集任务更新。</p></div></div>{banner}<Card title="企业授权账户">{error ? <ResourceFailure error={error} onRetry={reload} /> : <Table rowKey="id" loading={loading} columns={columns} dataSource={data || []} pagination={false} locale={{ emptyText: <Empty description="当前企业暂无授权银行账户" /> }} scroll={{ x: 780 }} />}</Card></>;
 }

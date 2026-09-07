@@ -150,7 +150,7 @@ export function RawMessagesPage() {
   return <>
     <div className="page-heading">
       <div>
-        <span className="section-kicker">银行接入 / 原始报文</span>
+        <span className="section-kicker">银行数据 / 原始报文</span>
         <h2>原始报文</h2>
         <p className="muted">银行响应的原始留存档。摘要只能证明记录被保存，报文体才能证明银行真的回答了——这就是本模块存在的意义。</p>
       </div>
