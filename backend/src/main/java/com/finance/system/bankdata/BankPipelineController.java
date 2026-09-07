@@ -6,6 +6,7 @@ import com.finance.system.bankdata.dto.BankDataTraceResponse;
 import com.finance.system.bankdata.dto.BankSyncJobDetailResponse;
 import com.finance.system.bankdata.dto.BankSyncJobResponse;
 import com.finance.system.bankdata.dto.BankSyncJobTriggerRequest;
+import com.finance.system.bankdata.dto.CompanyOptionResponse;
 import com.finance.system.common.api.ApiResponse;
 import com.finance.system.common.api.PageResponse;
 import com.finance.system.security.UserPrincipal;
@@ -30,6 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
@@ -84,6 +86,13 @@ public class BankPipelineController {
         return ApiResponse.success(queryService.getJob(principal.getId(), id));
     }
 
+    @GetMapping("/bank-data/company-options")
+    @PreAuthorize("hasAnyAuthority('bankdata:view', 'bankdata:balance:view', 'bankdata:statement:view', 'bankdata:receipt:view', 'bankdata:reconciliation:view', 'bankdata:payroll:view')")
+    @Operation(summary = "Company options for the bank-data projection filters")
+    public ApiResponse<List<CompanyOptionResponse>> companyOptions(@AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success(queryService.companyOptions(principal.getId()));
+    }
+
     @GetMapping("/bank-data/{resource}")
     @PreAuthorize("hasAnyAuthority('bankdata:view', 'bankdata:balance:view', 'bankdata:statement:view', 'bankdata:receipt:view', 'bankdata:reconciliation:view', 'bankdata:payroll:view')")
     @Operation(summary = "Query a controlled bank data projection")
@@ -99,13 +108,14 @@ public class BankPipelineController {
             @RequestParam(required = false) String sourceSystem,
             @RequestParam(required = false) String syncJobNo,
             @RequestParam(required = false) String requestId,
+            @RequestParam(required = false) Long companyId,
             @AuthenticationPrincipal UserPrincipal principal) {
         if (!principal.getAuthorities().stream().anyMatch(authority -> authority.getAuthority().equals("bankdata:view"))
                 && !principal.getAuthorities().stream().anyMatch(authority -> authority.getAuthority().equals(permissionFor(resource)))) {
             throw new org.springframework.security.access.AccessDeniedException("Bank data projection permission is required");
         }
         return ApiResponse.success(queryService.queryProjection(principal.getId(), resource, page, size, status,
-                accountId, keyword, from, to, sourceSystem, syncJobNo, requestId));
+                accountId, keyword, from, to, sourceSystem, syncJobNo, requestId, companyId));
     }
 
     /**
@@ -125,13 +135,14 @@ public class BankPipelineController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
             @RequestParam(required = false) String syncJobNo,
             @RequestParam(required = false) String requestId,
+            @RequestParam(required = false) Long companyId,
             @AuthenticationPrincipal UserPrincipal principal) {
         if (!principal.getAuthorities().stream().anyMatch(authority -> authority.getAuthority().equals("bankdata:view"))
                 && !principal.getAuthorities().stream().anyMatch(authority -> authority.getAuthority().equals(permissionFor(resource)))) {
             throw new org.springframework.security.access.AccessDeniedException("Bank data projection permission is required");
         }
         BankDataQueryService.BankDataExport export = queryService.export(principal.getId(), resource, status,
-                accountId, keyword, from, to, syncJobNo, requestId);
+                accountId, keyword, from, to, syncJobNo, requestId, companyId);
         // RFC 6266 / RFC 5987: the ASCII fallback keeps old clients working, filename* carries
         // the Chinese name Excel actually shows.
         String encoded = URLEncoder.encode(export.filename(), StandardCharsets.UTF_8).replace("+", "%20");

@@ -11,7 +11,7 @@
 - resource：域内资源（balance / statement / receipt / reconciliation / payroll / sync / log / monitor）
 - action：view / manage / create / review / import / push / trigger / notify / retry / query
 
-## 有效权限清单（现行 32 项 = V14 基线 31 + V16 增补 raw:view）
+## 有效权限清单（现行 33 项 = V14 基线 31 + V16 raw:view + V24 cross-company）
 
 | 编码 | 名称 | 授予角色 | 引用位置 |
 |---|---|---|---|
@@ -41,6 +41,7 @@
 | closing:view / closing:manage | 结账查看/管理 | 全部 / ADMIN+FINANCE_MANAGER | 结账管理页 |
 | audit:view | 审计中心 | ADMIN, FINANCE_MANAGER, VIEWER | 审计中心页 |
 | bankdata:raw:view | 原始报文查看（全系统唯一返回完整银行响应体的接口） | ADMIN, FINANCE_STAFF | RawMessagesPage、BankRawMessageController（V16 引入，2026-09-07 补登） |
+| bankdata:cross-company:view | 跨公司银行数据查看（余额/流水投影可见全部 ACTIVE 公司，行带公司列） | ADMIN, FINANCE_MANAGER | BankDataQueryService 投影/导出 companyId 过滤 + /bank-data/company-options（V24 引入，2026-09-07） |
 
 ## 已收敛的别名（禁止再引用）
 
@@ -61,6 +62,8 @@
 3. **兼容期可选**：若旧客户端仍在用旧编码，可保留一个发布周期的双编码 + 日志埋点统计旧编码命中，到期再删——本次三个编码均无外部客户端，直接收敛。
 
 ## 变更记录
+
+- 2026-09-07 新增：V24 引入 bankdata:cross-company:view(id=40)，授权 ADMIN+FINANCE_MANAGER（默认授权，角色管理页可调整）；现行总数 32 → **33 项**。
 
 - 2026-09-07 补登：V16（2026-09-05）引入的 bankdata:raw:view(id=39) 当时未登记本文（文档漂移），现补登为正式行；现行总数 31 → **32 项**。
 - 2026-09-01 V14：删除 transaction:view(2)、transfer:create(6)、transfer:approve(7)、transfer:execute(8)；legacy `/api/transfers`(7 端点)、`/api/banks`、`/api/bank-data/*`(8 端点)、`/api/operations/tasks` 一并移除，前端"采集设置"入口并入签约准备页。

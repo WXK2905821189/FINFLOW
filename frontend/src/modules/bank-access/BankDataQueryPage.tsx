@@ -8,7 +8,7 @@ import { useAuthStore } from '../../store/auth';
 import { useRemote, ResourceFailure, StatusTag } from '../shared/components';
 import { syncStatusOptions } from '../shared/dict';
 import { dateTime, displayValue, cleanText, money, dateOnly, maskAccountDisplay, isUnavailableStatus, isFailedStatus } from '../shared/format';
-import type { BankAccount, BankDataBalanceRow, BankDataProjectionPage, BankDataStatementRow, BankRawMessageDetail } from '../../types';
+import type { BankAccount, CompanyOption, BankDataBalanceRow, BankDataProjectionPage, BankDataStatementRow, BankRawMessageDetail } from '../../types';
 
 export const bankDataResources = {
   balances: { title: '余额查询', permission: 'bankdata:balance:view' },
@@ -24,9 +24,10 @@ export type BankQueryFilters = {
   requestId: string;
   from: string;
   to: string;
+  companyId: string;
 };
 
-export const emptyBankQueryFilters: BankQueryFilters = { keyword: '', accountId: '', status: '', sourceSystem: '', syncJobNo: '', requestId: '', from: '', to: '' };
+export const emptyBankQueryFilters: BankQueryFilters = { keyword: '', accountId: '', status: '', sourceSystem: '', syncJobNo: '', requestId: '', from: '', to: '', companyId: '' };
 
 type BankQueryRow = BankDataStatementRow | BankDataBalanceRow;
 
@@ -70,6 +71,15 @@ export function BankProjectionState({ data }: { data?: BankDataProjectionPage<Ba
   }
   return <Alert className="phase-one-notice" type="success" showIcon message="已连接真实银行直联" description={<span>{data.message || '以下为真实银行直联返回的余额/流水数据。'}</span>} />;
 }
+
+/** 跨公司视图的公司主体列：仅持有 bankdata:cross-company:view 权限的用户注入（见 columns useMemo）。 */
+const COMPANY_COLUMN = {
+  title: '公司主体',
+  dataIndex: 'companyName',
+  width: 150,
+  ellipsis: true,
+  render: (value?: string) => displayValue(value),
+};
 
 const statementColumns = (openDetail: (row: BankDataStatementRow) => void): TableColumnsType<BankDataStatementRow> => [
   { title: '交易时间', dataIndex: 'transactionTime', width: 160, render: (value) => dateTime(value) },
@@ -238,6 +248,10 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
   const companyName = useAuthStore((state) => state.user?.companyName);
   const canTriggerSync = hasPermission('bankdata:sync:trigger');
   const canViewRawMessage = hasPermission('bankdata:raw:view');
+  // 跨公司查看（V24）：仅持有 bankdata:cross-company:view 权限的用户渲染公司下拉与公司列。
+  const canCrossCompany = hasPermission('bankdata:cross-company:view');
+  const companyOptionsLoader = useCallback(() => bankPipelineApi.companyOptions(), []);
+  const { data: companyOptions } = useRemote<CompanyOption[]>(companyOptionsLoader, [companyOptionsLoader]);
   const [page, setPage] = useState(1);
   const [size, setSize] = useState(20);
   const [submitted, setSubmitted] = useState(false);
@@ -287,7 +301,7 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
       })),
     }));
   }, [accounts]);
-  const loader = useCallback(() => submitted ? bankPipelineApi.queryProjection<BankQueryRow>(resource, { page, size, keyword: filters.keyword || undefined, accountId: filters.accountId || undefined, status: filters.status || undefined, from: filters.from || undefined, to: filters.to || undefined, sourceSystem: filters.sourceSystem || undefined, syncJobNo: filters.syncJobNo || undefined, requestId: filters.requestId || undefined }) : Promise.resolve<BankDataProjectionPage<BankQueryRow>>({ page, size, total: 0, records: [] }), [resource, page, size, filters, submitted]);
+  const loader = useCallback(() => submitted ? bankPipelineApi.queryProjection<BankQueryRow>(resource, { page, size, keyword: filters.keyword || undefined, accountId: filters.accountId || undefined, status: filters.status || undefined, from: filters.from || undefined, to: filters.to || undefined, sourceSystem: filters.sourceSystem || undefined, syncJobNo: filters.syncJobNo || undefined, requestId: filters.requestId || undefined, companyId: filters.companyId ? Number(filters.companyId) : undefined }) : Promise.resolve<BankDataProjectionPage<BankQueryRow>>({ page, size, total: 0, records: [] }), [resource, page, size, filters, submitted]);
   const { data, loading, error, reload } = useRemote<BankDataProjectionPage<BankQueryRow>>(loader, [loader]);
   const query = () => { setPage(1); setFilters(draft); setSubmitted(true); };
   const reset = () => { setPage(1); setDraft(emptyBankQueryFilters); setFilters(emptyBankQueryFilters); setSubmitted(false); };
@@ -309,6 +323,7 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
         status: filters.status || undefined, from: filters.from || undefined, to: filters.to || undefined,
         sourceSystem: filters.sourceSystem || undefined, syncJobNo: filters.syncJobNo || undefined,
         requestId: filters.requestId || undefined,
+        companyId: filters.companyId ? Number(filters.companyId) : undefined,
       });
       message.success('导出已生成');
     } catch (reason) {
@@ -347,9 +362,13 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
       },
     });
   };
-  const columns: TableColumnsType<BankQueryRow> = useMemo(() => (isStatement
-    ? statementColumns((row) => openDetail(row)) as TableColumnsType<BankQueryRow>
-    : balanceColumns((row) => openDetail(row)) as TableColumnsType<BankQueryRow>), [isStatement, openDetail]);
+  const columns: TableColumnsType<BankQueryRow> = useMemo(() => {
+    const base = (isStatement
+      ? statementColumns((row) => openDetail(row)) as TableColumnsType<BankQueryRow>
+      : balanceColumns((row) => openDetail(row)) as TableColumnsType<BankQueryRow>);
+    // 跨公司权限用户注入「公司主体」列；单公司用户所有行同属一家，不占列宽。
+    return canCrossCompany ? [COMPANY_COLUMN, ...base] : base;
+  }, [isStatement, openDetail, canCrossCompany]);
   const definition = bankDataResources[resource];
   const emptyDescription = data?.enabled === false || isUnavailableStatus(data?.status) ? '真实银行直联未连接，无法获取数据。' : isFailedStatus(data?.status) ? '银行查询失败，请检查同步任务。' : '当前筛选没有匹配的真实银行数据。';
   const detailRequestId = isStatement
@@ -364,7 +383,7 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
         <div>
           <span className="section-kicker">银行接入 / 数据查询{companyName ? ` · ${companyName}` : ''}</span>
           <h2>{definition.title}</h2>
-          <p className="muted">数据按登录公司主体隔离展示；直出银行返回的原始字段（招行 trsQryByBreakPoint / NTQADINF），不做业务投影翻译；本方账号脱敏，完整报文体在「原始报文」模块查看。</p>
+          <p className="muted">{canCrossCompany ? '可跨公司主体查看全部 ACTIVE 公司的银行数据，行内标注归属公司；' : '数据按登录公司主体隔离展示；'}直出银行返回的原始字段（招行 trsQryByBreakPoint / NTQADINF），不做业务投影翻译；本方账号脱敏，完整报文体在「原始报文」模块查看。</p>
         </div>
         {submitted && <Button icon={<DownloadOutlined />} loading={exporting} onClick={exportCsv}>导出 CSV</Button>}
         {canTriggerSync && <Button icon={<PlayCircleOutlined />} loading={syncTriggering} onClick={triggerSyncFromFilters}>按所选账户创建同步任务</Button>}
@@ -381,6 +400,18 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
             notFoundContent={accounts === undefined ? <Spin size="small" /> : <Empty description="当前企业暂无授权账户" />}
             onChange={(value) => setDraft((current) => ({ ...current, accountId: value || '' }))}
           />
+          {canCrossCompany && (
+            <Select
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              placeholder="公司主体（全部）"
+              value={draft.companyId || undefined}
+              options={companyOptions}
+              notFoundContent={<Spin size="small" />}
+              onChange={(value) => setDraft((current) => ({ ...current, companyId: value ? String(value) : '' }))}
+            />
+          )}
           <Select value={draft.status || undefined} allowClear placeholder="任务状态" style={{ minWidth: 130 }} options={syncStatusOptions} onChange={(value) => setDraft((current) => ({ ...current, status: value || '' }))} />
           <Input value={draft.sourceSystem} placeholder="来源（真实数据为 BANKDATA）" onChange={(event) => setDraft((current) => ({ ...current, sourceSystem: event.target.value }))} />
           <Input value={draft.syncJobNo} placeholder="任务号" onChange={(event) => setDraft((current) => ({ ...current, syncJobNo: event.target.value }))} />

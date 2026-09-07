@@ -20,6 +20,7 @@ export type {
   BankRawMessageDetail,
   BankRawReplayResult,
   BankTaskReconciliationRow,
+  CompanyOption,
 } from '../modules/bank-access/types';
 export type {
   StatementRecordInput,

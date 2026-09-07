@@ -144,6 +144,8 @@ export type BankDataStatementRow = {
   taskNo?: string;
   taskRequestId?: string;
   taskStatus?: string;
+  /** 行所属公司主体（跨公司权限用户可见；单公司用户恒为本公司）。 */
+  companyName?: string;
 };
 
 /** 银行返回的余额字段（CMB NTQADINF ntqadinfz）。四余额口径不可互相替代，故全部直出。 */
@@ -193,6 +195,8 @@ export type BankDataBalanceRow = {
   taskNo?: string;
   taskRequestId?: string;
   taskStatus?: string;
+  /** 行所属公司主体（跨公司权限用户可见；单公司用户恒为本公司）。 */
+  companyName?: string;
 };
 
 /** 银行数据查询页信封；records 直接是银行原始行，不再是统一业务投影。 */
@@ -268,4 +272,10 @@ export type BankTaskReconciliationRow = {
   platformIncomeAmount: number;
   countConsistent?: boolean | null;
   amountConsistent?: boolean | null;
+};
+
+/** 公司主体下拉选项（/bank-data/company-options）。 */
+export type CompanyOption = {
+  id: number;
+  name: string;
 };

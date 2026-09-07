@@ -57,7 +57,9 @@ public record BankDataBalanceResponse(
         /** 产出该行的同步任务请求编号；仅投影查询填充。 */
         String taskRequestId,
         /** 产出该行的同步任务状态（SUCCEEDED / UNKNOWN / ...）；仅投影查询填充。 */
-        String taskStatus
+        String taskStatus,
+        /** 行所属公司主体名称；仅投影查询填充（跨公司权限用户可见，单公司用户恒为本公司）。 */
+        String companyName
 ) {
 
     /**
@@ -71,6 +73,19 @@ public record BankDataBalanceResponse(
                 bankAccountNo, bankAccountName, accountItem, customerRelationNo,
                 accountStatus, openDate, interestType, depositTerm,
                 overdraftLimit, interestCode, interestRate, maturityDate,
-                validationStatus, validationMessage, createdAt, taskNo, taskRequestId, taskStatus);
+                validationStatus, validationMessage, createdAt, taskNo, taskRequestId, taskStatus,
+                null);
+    }
+
+    /** Attaches the owning company's display name; chained after {@link #withLineage} in the projection query. */
+    public BankDataBalanceResponse withCompanyName(String companyName) {
+        return new BankDataBalanceResponse(id, taskId, rawMessageId, contentSha256, retentionUntil,
+                bankAccountId, accountMasked, bankRequestNo, availableBalance, currency, asOfTime,
+                onlineBalance, frozenBalance, previousDayBalance, vendorCurrencyCode, branchCode,
+                bankAccountNo, bankAccountName, accountItem, customerRelationNo,
+                accountStatus, openDate, interestType, depositTerm,
+                overdraftLimit, interestCode, interestRate, maturityDate,
+                validationStatus, validationMessage, createdAt, taskNo, taskRequestId, taskStatus,
+                companyName);
     }
 }

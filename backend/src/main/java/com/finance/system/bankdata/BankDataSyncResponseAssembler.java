@@ -88,13 +88,13 @@ public class BankDataSyncResponseAssembler {
         return statement(statement, raw);
     }
 
-    public List<BankDataStatementResponse> statements(List<BankDataStatement> statements, long companyId) {
+    public List<BankDataStatementResponse> statements(List<BankDataStatement> statements, java.util.Collection<Long> companyIds) {
         if (statements == null || statements.isEmpty()) return List.of();
         List<Long> rawIds = statements.stream().map(BankDataStatement::getRawMessageId)
                 .filter(java.util.Objects::nonNull).distinct().toList();
         Map<Long, BankDataRawMessage> rawMessages = rawIds.isEmpty() ? Map.of() : rawMessageMapper.selectList(
                 new LambdaQueryWrapper<BankDataRawMessage>()
-                        .eq(BankDataRawMessage::getCompanyId, companyId)
+                        .in(BankDataRawMessage::getCompanyId, companyIds)
                         .in(BankDataRawMessage::getId, rawIds))
                 .stream().collect(Collectors.toMap(BankDataRawMessage::getId, Function.identity()));
         return statements.stream().map(item -> statement(item, rawMessages.get(item.getRawMessageId()))).toList();
@@ -119,7 +119,7 @@ public class BankDataSyncResponseAssembler {
                 statement.getYurRef(), statement.getVirtualNbr(), statement.getMchOrderNbr(),
                 statement.getTransCardNbr(), statement.getReserve(),
                 statement.getVendorCurrencyCode(),
-                null, null, null);
+                null, null, null, null);
     }
 
     public BankDataBalanceResponse balance(BankDataBalance balance, long companyId) {
@@ -130,7 +130,7 @@ public class BankDataSyncResponseAssembler {
         return balance(balance, raw, account);
     }
 
-    public List<BankDataBalanceResponse> balances(List<BankDataBalance> balances, long companyId) {
+    public List<BankDataBalanceResponse> balances(List<BankDataBalance> balances, java.util.Collection<Long> companyIds) {
         if (balances == null || balances.isEmpty()) return List.of();
         List<Long> rawIds = balances.stream().map(BankDataBalance::getRawMessageId)
                 .filter(java.util.Objects::nonNull).distinct().toList();
@@ -138,12 +138,12 @@ public class BankDataSyncResponseAssembler {
                 .filter(java.util.Objects::nonNull).distinct().toList();
         Map<Long, BankDataRawMessage> rawMessages = rawIds.isEmpty() ? Map.of() : rawMessageMapper.selectList(
                 new LambdaQueryWrapper<BankDataRawMessage>()
-                        .eq(BankDataRawMessage::getCompanyId, companyId)
+                        .in(BankDataRawMessage::getCompanyId, companyIds)
                         .in(BankDataRawMessage::getId, rawIds))
                 .stream().collect(Collectors.toMap(BankDataRawMessage::getId, Function.identity()));
         Map<Long, BankAccount> accounts = accountIds.isEmpty() ? Map.of() : bankAccountMapper.selectList(
                 new LambdaQueryWrapper<BankAccount>()
-                        .eq(BankAccount::getCompanyId, companyId)
+                        .in(BankAccount::getCompanyId, companyIds)
                         .in(BankAccount::getId, accountIds))
                 .stream().collect(Collectors.toMap(BankAccount::getId, Function.identity()));
         return balances.stream().map(item -> balance(item, rawMessages.get(item.getRawMessageId()),
@@ -161,7 +161,7 @@ public class BankDataSyncResponseAssembler {
                 balance.getAccountStatus(), balance.getOpenDate(), balance.getInterestType(), balance.getDepositTerm(),
                 balance.getOverdraftLimit(), balance.getInterestCode(), balance.getInterestRate(), balance.getMaturityDate(),
                 balance.getValidationStatus(), balance.getValidationMessage(), balance.getCreatedAt(),
-                null, null, null);
+                null, null, null, null);
     }
 
     public BankDataSyncLogResponse log(BankDataSyncLog log) {

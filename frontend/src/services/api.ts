@@ -16,6 +16,7 @@ import type {
   BankRawMessageDetail,
   BankRawReplayResult,
   BankTaskReconciliationRow,
+  CompanyOption,
   BankSyncJob,
   BankSyncJobDetail,
   BankSyncJobTrigger,
@@ -156,6 +157,8 @@ type BankDataQueryParams = {
   sourceSystem?: string;
   syncJobNo?: string;
   requestId?: string;
+  /** 跨公司权限用户可选定公司主体；不传=全部可见公司，无权限用户传值会被服务端 403。 */
+  companyId?: number;
 };
 
 // v0.2 exposed only internal job resources and business projections, and the client
@@ -172,6 +175,8 @@ export const bankPipelineApi = {
    * BankDataBalanceRow for balances) rather than a generic business projection.
    */
   queryProjection: <T>(resource: string, params: BankDataQueryParams) => http.get<never, BankDataProjectionPage<T>>(`/bank-data/${resource}`, { params }),
+  /** 公司主体下拉数据源：跨公司权限者返回全部 ACTIVE 公司，否则仅本公司。 */
+  companyOptions: () => http.get<never, CompanyOption[]>('/bank-data/company-options'),
   listRawMessages: (params: BankRawMessageListParams) => http.get<never, PageResponse<BankRawMessage>>('/bank-data-raw-messages', { params }),
   getRawMessage: (id: number) => http.get<never, BankRawMessageDetail>(`/bank-data-raw-messages/${id}`),
   /** 用当前解析规则重放银行原文，与入库视图对比；仅读不写。 */

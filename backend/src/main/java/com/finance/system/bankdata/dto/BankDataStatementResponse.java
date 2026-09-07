@@ -78,7 +78,9 @@ public record BankDataStatementResponse(
         /** 产出该行的同步任务请求编号；仅投影查询填充。 */
         String taskRequestId,
         /** 产出该行的同步任务状态（SUCCEEDED / UNKNOWN / ...）；仅投影查询填充。 */
-        String taskStatus
+        String taskStatus,
+        /** 行所属公司主体名称；仅投影查询填充（跨公司权限用户可见，单公司用户恒为本公司）。 */
+        String companyName
 ) {
 
     /**
@@ -94,6 +96,20 @@ public record BankDataStatementResponse(
                 billNumber, remarkTextClt, reversalFlag, acctOnlineBal, extendedRemark, ctpAcctNbr,
                 ctpBankName, ctpBankAddress, fatOrSonAccount, fatOrSonCompanyName, fatOrSonBankName,
                 fatOrSonBankAddress, infoFlag, businessName, businessText, requestNbr, yurRef, virtualNbr,
-                mchOrderNbr, transCardNbr, reserve, vendorCurrencyCode, taskNo, taskRequestId, taskStatus);
+                mchOrderNbr, transCardNbr, reserve, vendorCurrencyCode, taskNo, taskRequestId, taskStatus,
+                null);
+    }
+
+    /** Attaches the owning company's display name; chained after {@link #withLineage} in the projection query. */
+    public BankDataStatementResponse withCompanyName(String companyName) {
+        return new BankDataStatementResponse(id, taskId, rawMessageId, contentSha256, retentionUntil,
+                bankAccountId, bankRequestNo, statementNo, transactionTime, direction, amount, currency,
+                counterpartyName, counterpartyAccountMasked, summary, validationStatus, validationMessage,
+                createdAt, accountMasked, accountName, bankAccountNo, valueDate, loanCode, signedAmount, textCode,
+                billNumber, remarkTextClt, reversalFlag, acctOnlineBal, extendedRemark, ctpAcctNbr,
+                ctpBankName, ctpBankAddress, fatOrSonAccount, fatOrSonCompanyName, fatOrSonBankName,
+                fatOrSonBankAddress, infoFlag, businessName, businessText, requestNbr, yurRef, virtualNbr,
+                mchOrderNbr, transCardNbr, reserve, vendorCurrencyCode, taskNo, taskRequestId, taskStatus,
+                companyName);
     }
 }
