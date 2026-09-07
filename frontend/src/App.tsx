@@ -3,7 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import './styles.css';
 import { useAuthStore } from './store/auth';
 import { AuthGuard, PermissionGuard } from './modules/auth/pages';
-import { PageLoading, PreservedFinancePage } from './modules/shared/components';
+import { PageLoading } from './modules/shared/components';
 
 // Shell/Login/Forbidden 均懒加载：登录首屏只下载登录所需依赖；antd 控制台骨架（Layout/Menu
 // 与 Result 403 页）登录后才按需取。页面级 code splitting 一律走 React.lazy，不引入
@@ -27,6 +27,7 @@ const RawMessagesPage = lazy(() => import('./modules/bank-access/RawMessagesPage
 const FeishuCollaboration = lazy(() => import('./modules/feishu/pages').then((module) => ({ default: module.FeishuCollaboration })));
 const ClosingPage = lazy(() => import('./modules/closing/pages').then((module) => ({ default: module.ClosingPage })));
 const AuditCenterPage = lazy(() => import('./modules/audit/pages').then((module) => ({ default: module.AuditCenterPage })));
+const UserAdminPage = lazy(() => import('./modules/admin/UsersPage').then((module) => ({ default: module.UserAdminPage })));
 
 function AppRoutes() {
   const hydrate = useAuthStore((state) => state.hydrate);
@@ -41,7 +42,7 @@ function AppRoutes() {
             <Route path="/dashboard" element={<Dashboard />} />
           </Route>
           <Route element={<PermissionGuard permissions={['user:manage']} />}>
-            <Route path="/users" element={<PreservedFinancePage title="用户管理" description="用户管理入口已保留，银行接入权限不提升用户管理权限。" />} />
+            <Route path="/users" element={<UserAdminPage />} />
           </Route>
           <Route element={<PermissionGuard permissions={['audit:view']} />}>
             <Route path="/audit" element={<AuditCenterPage />} />

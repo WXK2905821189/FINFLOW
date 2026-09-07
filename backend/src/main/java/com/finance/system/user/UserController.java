@@ -6,11 +6,13 @@ import com.finance.system.auth.dto.CurrentUserResponse;
 import com.finance.system.common.api.ApiResponse;
 import com.finance.system.common.api.PageResponse;
 import com.finance.system.common.exception.BusinessException;
+import com.finance.system.security.UserPrincipal;
 import com.finance.system.user.dto.UserUpsertRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -59,15 +61,18 @@ public class UserController {
     @PostMapping
     @PreAuthorize("hasAuthority('user:manage')")
     @Operation(summary = "Create an active user")
-    public ApiResponse<CurrentUserResponse> create(@Valid @RequestBody UserUpsertRequest request) {
-        return ApiResponse.success("User created", authService.currentUser(userService.create(request)));
+    public ApiResponse<CurrentUserResponse> create(@AuthenticationPrincipal UserPrincipal principal,
+                                                   @Valid @RequestBody UserUpsertRequest request) {
+        return ApiResponse.success("User created", authService.currentUser(userService.create(principal.getId(), request)));
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('user:manage')")
     @Operation(summary = "Update a user and its roles")
-    public ApiResponse<CurrentUserResponse> update(@PathVariable Long id, @Valid @RequestBody UserUpsertRequest request) {
-        return ApiResponse.success("User updated", authService.currentUser(userService.updateUser(id, request)));
+    public ApiResponse<CurrentUserResponse> update(@AuthenticationPrincipal UserPrincipal principal,
+                                                   @PathVariable Long id,
+                                                   @Valid @RequestBody UserUpsertRequest request) {
+        return ApiResponse.success("User updated", authService.currentUser(userService.updateUser(principal.getId(), id, request)));
     }
 
     private long normalizePage(long page) {

@@ -30,6 +30,13 @@ import type {
   SystemAuditEvent,
   User,
 } from '../types';
+import type {
+  SysPermission,
+  SysRole,
+  RoleCreatePayload,
+  RoleUpdatePayload,
+  UserUpsertPayload,
+} from '../modules/admin/types';
 
 export const authApi = {
   login: (username: string, password: string) => http.post<never, AuthTokenResponse>('/auth/login', { username, password }),
@@ -46,6 +53,20 @@ export const bankApi = {
 
 export const userApi = {
   list: (params: { page?: number; size?: number }) => http.get<never, PageResponse<User>>('/users', { params }),
+  create: (data: UserUpsertPayload) => http.post<never, User>('/users', data),
+  update: (id: number, data: UserUpsertPayload) => http.put<never, User>(`/users/${id}`, data),
+};
+
+/**
+ * Role/permission management (user:manage + role:manage, ADMIN only). The permission list
+ * doubles as the single source of truth for the role editor checkboxes; codes follow
+ * docs/permission-catalog.md and are never invented client-side.
+ */
+export const rbacApi = {
+  roles: () => http.get<never, SysRole[]>('/rbac/roles'),
+  permissions: () => http.get<never, SysPermission[]>('/rbac/permissions'),
+  createRole: (data: RoleCreatePayload) => http.post<never, SysRole>('/rbac/roles', data),
+  updateRole: (id: number, data: RoleUpdatePayload) => http.put<never, SysRole>(`/rbac/roles/${id}`, data),
 };
 
 type StatementListParams = {

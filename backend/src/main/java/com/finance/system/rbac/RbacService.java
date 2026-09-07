@@ -1,39 +1,56 @@
 package com.finance.system.rbac;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.finance.system.audit.SystemAuditService;
+import com.finance.system.common.exception.BusinessException;
 import com.finance.system.domain.entity.SysPermission;
 import com.finance.system.domain.entity.SysRole;
 import com.finance.system.domain.entity.SysRolePermission;
+import com.finance.system.domain.entity.SysUser;
 import com.finance.system.domain.entity.SysUserRole;
 import com.finance.system.domain.mapper.SysPermissionMapper;
 import com.finance.system.domain.mapper.SysRoleMapper;
 import com.finance.system.domain.mapper.SysRolePermissionMapper;
+import com.finance.system.domain.mapper.SysUserMapper;
 import com.finance.system.domain.mapper.SysUserRoleMapper;
+import com.finance.system.rbac.dto.RolePermissionsResponse;
 import com.finance.system.rbac.dto.RoleRequest;
+import com.finance.system.rbac.dto.RoleUpdateRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 public class RbacService {
+
+    /** Bootstrap roles (V1 seed) are authorization anchors and must stay immutable via API. */
+    public static final Set<String> BUILT_IN_ROLE_CODES = Set.of("ADMIN", "FINANCE_STAFF", "FINANCE_MANAGER", "VIEWER");
 
     private final SysRoleMapper roleMapper;
     private final SysPermissionMapper permissionMapper;
     private final SysUserRoleMapper userRoleMapper;
     private final SysRolePermissionMapper rolePermissionMapper;
+    private final SysUserMapper userMapper;
+    private final SystemAuditService auditService;
 
     public RbacService(SysRoleMapper roleMapper,
                        SysPermissionMapper permissionMapper,
                        SysUserRoleMapper userRoleMapper,
-                       SysRolePermissionMapper rolePermissionMapper) {
+                       SysRolePermissionMapper rolePermissionMapper,
+                       SysUserMapper userMapper,
+                       SystemAuditService auditService) {
         this.roleMapper = roleMapper;
         this.permissionMapper = permissionMapper;
         this.userRoleMapper = userRoleMapper;
         this.rolePermissionMapper = rolePermissionMapper;
+        this.userMapper = userMapper;
+        this.auditService = auditService;
     }
 
     public List<SysRole> rolesForUser(Long userId) {
@@ -71,6 +88,22 @@ public class RbacService {
         return roleMapper.selectList(new LambdaQueryWrapper<SysRole>().orderByAsc(SysRole::getId));
     }
 
+    /** Roles with their permission id sets (one grouped query, ordered by role id). */
+    public List<RolePermissionsResponse> listRolesWithPermissions() {
+        List<SysRole> roles = listRoles();
+        if (roles.isEmpty()) {
+            return List.of();
+        }
+        List<Long> roleIds = roles.stream().map(SysRole::getId).toList();
+        Map<Long, List<Long>> permissionIdsByRole = new java.util.HashMap<>();
+        for (SysRolePermission relation : rolePermissionMapper.findByRoleIds(roleIds)) {
+            permissionIdsByRole.computeIfAbsent(relation.getRoleId(), key -> new java.util.ArrayList<>())
+                    .add(relation.getPermissionId());
+        }
+        return roles.stream().map(role -> new RolePermissionsResponse(role.getId(), role.getCode(), role.getName(),
+                role.getDescription(), permissionIdsByRole.getOrDefault(role.getId(), List.of()))).toList();
+    }
+
     public List<SysPermission> listPermissions() {
         return permissionMapper.selectList(new LambdaQueryWrapper<SysPermission>().orderByAsc(SysPermission::getId));
     }
@@ -80,9 +113,9 @@ public class RbacService {
     }
 
     @Transactional
-    public SysRole createRole(RoleRequest request) {
+    public SysRole createRole(Long actorId, RoleRequest request) {
         if (findRoleByCode(request.code()).isPresent()) {
-            throw new com.finance.system.common.exception.BusinessException(409, "Role code already exists");
+            throw new BusinessException(409, "Role code already exists");
         }
         validatePermissionIds(request.permissionIds());
         SysRole role = new SysRole();
@@ -90,9 +123,62 @@ public class RbacService {
         role.setName(request.name().trim());
         role.setDescription(request.description());
         roleMapper.insert(role);
-        request.permissionIds().stream().distinct()
-                .forEach(permissionId -> rolePermissionMapper.insert(new SysRolePermission(role.getId(), permissionId)));
+        List<Long> permissionIds = request.permissionIds().stream().distinct().toList();
+        permissionIds.forEach(permissionId -> rolePermissionMapper.insert(new SysRolePermission(role.getId(), permissionId)));
+        auditService.record(actorId, "ROLE_CREATE", "ROLE", role.getCode(), null, "SUCCESS", "permissions=" + permissionIds);
         return role;
+    }
+
+    /**
+     * GAP-6: adjust name/description/permission set of a custom role. Built-in roles are
+     * rejected — their grants are bootstrap anchors (permission-catalog.md). Permission
+     * changes take effect on the next request because authorities are reloaded from the
+     * database per request (UserDetailsServiceImpl), so no token invalidation is needed.
+     */
+    @Transactional
+    public SysRole updateRole(Long actorId, Long roleId, RoleUpdateRequest request) {
+        SysRole role = roleMapper.selectById(roleId);
+        if (role == null) {
+            throw new BusinessException(404, "Role not found");
+        }
+        if (BUILT_IN_ROLE_CODES.contains(role.getCode())) {
+            throw new BusinessException(400, "Built-in roles cannot be modified");
+        }
+        List<Long> before = rolePermissionMapper.findByRoleIds(List.of(roleId)).stream()
+                .map(SysRolePermission::getPermissionId).distinct().sorted().toList();
+        validatePermissionIds(request.permissionIds());
+        role.setName(request.name().trim());
+        role.setDescription(request.description());
+        roleMapper.updateById(role);
+        rolePermissionMapper.deleteByRoleId(roleId);
+        List<Long> after = request.permissionIds().stream().distinct().toList();
+        after.forEach(permissionId -> rolePermissionMapper.insert(new SysRolePermission(roleId, permissionId)));
+        auditService.record(actorId, "ROLE_UPDATE", "ROLE", role.getCode(), null, "SUCCESS",
+                "permissions " + before + " -> " + after);
+        return role;
+    }
+
+    /**
+     * GAP-2 guard helper: number of ACTIVE users holding the ADMIN role, optionally
+     * excluding one user. Used to refuse demotion/disabling of the last active administrator.
+     */
+    public long countActiveAdminsExcluding(Long excludeUserId) {
+        SysRole adminRole = findRoleByCode("ADMIN").orElse(null);
+        if (adminRole == null) {
+            return 0;
+        }
+        List<Long> userIds = userRoleMapper.findByRoleId(adminRole.getId()).stream()
+                .map(SysUserRole::getUserId).distinct().toList();
+        if (userIds.isEmpty()) {
+            return 0;
+        }
+        LambdaQueryWrapper<SysUser> query = new LambdaQueryWrapper<SysUser>()
+                .eq(SysUser::getStatus, "ACTIVE")
+                .in(SysUser::getId, userIds);
+        if (excludeUserId != null) {
+            query.ne(SysUser::getId, excludeUserId);
+        }
+        return userMapper.selectCount(query);
     }
 
     @Transactional

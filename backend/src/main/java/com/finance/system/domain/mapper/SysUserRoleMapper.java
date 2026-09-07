@@ -14,6 +14,9 @@ public interface SysUserRoleMapper {
     @Select("SELECT user_id, role_id FROM sys_user_role WHERE user_id = #{userId}")
     List<SysUserRole> findByUserId(Long userId);
 
+    @Select("SELECT user_id, role_id FROM sys_user_role WHERE role_id = #{roleId}")
+    List<SysUserRole> findByRoleId(Long roleId);
+
     @Insert("INSERT INTO sys_user_role (user_id, role_id) VALUES (#{userId}, #{roleId})")
     int insert(SysUserRole relation);
 

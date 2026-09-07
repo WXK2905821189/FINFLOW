@@ -42,6 +42,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserPrincipal principal = (UserPrincipal) userDetailsService.loadUserByUsername(username);
                 if (jwtService.isValid(token, principal)
+                        // tokenVersion gate: the version inside the token must ALSO match the
+                        // user's current DB version. A password reset bumps the DB version
+                        // (GAP-7, module doc 2026-09-07), so outstanding tokens die immediately
+                        // even though their auth_session rows still carry the old version.
+                        && jwtService.extractTokenVersion(token) == principal.getTokenVersion()
                         && authSessionService.isActive(jwtService.extractUserId(token), jwtService.extractTokenId(token),
                         jwtService.extractTokenVersion(token))) {
                     UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(

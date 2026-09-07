@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestHeader;
 
+import jakarta.servlet.http.HttpServletRequest;
+
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -29,8 +31,21 @@ public class AuthController {
 
     @PostMapping("/login")
     @Operation(summary = "Sign in and receive a JWT")
-    public ApiResponse<AuthTokenResponse> login(@Valid @RequestBody LoginRequest request) {
-        return ApiResponse.success(authService.login(request));
+    public ApiResponse<AuthTokenResponse> login(@Valid @RequestBody LoginRequest request, HttpServletRequest httpRequest) {
+        return ApiResponse.success(authService.login(request, clientIp(httpRequest)));
+    }
+
+    /**
+     * Resolve the caller IP for the login throttle (GAP-4). Behind the nginx TLS terminator
+     * every request would otherwise share the proxy address, so the forwarded chain wins
+     * when present.
+     */
+    private String clientIp(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 
     /**
