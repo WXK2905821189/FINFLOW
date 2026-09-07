@@ -25,6 +25,9 @@ services:
       CMB_PUBLIC_KEY: ${CMB_PUBLIC_KEY:-}
       CMB_SYM_KEY: ${CMB_SYM_KEY:-}
       CMB_BRANCH_CODE: ${CMB_BRANCH_CODE:-}
+      # 每日 T-1 自动拉数（bankdata.sync.schedule-enabled），账户驱动、仅 REAL 适配器银行
+      BANKDATA_SYNC_SCHEDULE_ENABLED: ${BANKDATA_SYNC_SCHEDULE_ENABLED:-false}
+      BANKDATA_SYNC_FIXED_DELAY_MS: ${BANKDATA_SYNC_FIXED_DELAY_MS:-600000}
     # 不向宿主机暴露 8080，仅由 nginx 内网转发
     expose:
       - "8080"
