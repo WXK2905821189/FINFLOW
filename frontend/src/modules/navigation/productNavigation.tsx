@@ -25,6 +25,7 @@ export const pageTitles: Record<string, string> = {
   '/bank-access/logs': '采集失败日志',
   '/bank-access/data/balances': '余额查询',
   '/bank-access/data/statements': '流水查询',
+  '/bank-access/data/reconciliation': '对账核对',
   '/bank-access/raw-messages': '原始报文',
   '/statements/import': '导入流水',
   '/statements/batches': '标准流水',
@@ -47,6 +48,7 @@ export function buildProductNavigation(hasPermission: HasPermission): MenuProps[
     'bankdata:balance:view', 'bankdata:statement:view',
   ].some(hasPermission);
   const canViewRawMessages = hasPermission('bankdata:raw:view');
+  const canViewReconciliation = hasPermission('bankdata:view') || hasPermission('bankdata:reconciliation:view');
 
   return [
     ...(hasPermission('dashboard:view') ? [{ key: '/dashboard', icon: <DashboardOutlined />, label: <Link to="/dashboard">工作台</Link> }] : []),
@@ -58,6 +60,7 @@ export function buildProductNavigation(hasPermission: HasPermission): MenuProps[
         ...(canViewBankData ? [{ key: 'bank-access-data', icon: <SearchOutlined />, label: '数据查询', children: [
           ...(hasPermission('bankdata:balance:view') ? [{ key: '/bank-access/data/balances', label: <Link to="/bank-access/data/balances">余额查询</Link> }] : []),
           ...(hasPermission('bankdata:statement:view') ? [{ key: '/bank-access/data/statements', label: <Link to="/bank-access/data/statements">流水查询</Link> }] : []),
+          ...(canViewReconciliation ? [{ key: '/bank-access/data/reconciliation', label: <Link to="/bank-access/data/reconciliation">对账核对</Link> }] : []),
         ] }] : []),
         // Standalone entry: this is the only surface that shows a bank response in full,
         // so it is deliberately not nested under 数据查询 (which only shows projections).

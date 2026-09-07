@@ -13,6 +13,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -33,9 +34,11 @@ import java.time.LocalDateTime;
 public class BankRawMessageController {
 
     private final RawMessageQueryService service;
+    private final BankRawReplayService replayService;
 
-    public BankRawMessageController(RawMessageQueryService service) {
+    public BankRawMessageController(RawMessageQueryService service, BankRawReplayService replayService) {
         this.service = service;
+        this.replayService = replayService;
     }
 
     @GetMapping("/bank-data-raw-messages")
@@ -60,5 +63,20 @@ public class BankRawMessageController {
     public ApiResponse<BankDataRawMessageDetailResponse> detail(@PathVariable Long id,
                                                                 @AuthenticationPrincipal UserPrincipal principal) {
         return ApiResponse.success(service.detail(principal.getId(), id));
+    }
+
+    /**
+     * Replay: re-parse the stored verbatim bank response with the current mapping rules
+     * and diff it against the view captured at collection time. Exposes mapping drift
+     * (a dropped field, a shifted sign) without re-contacting the bank. Reads nothing
+     * and writes nothing, so the raw-view permission covers it.
+     */
+    @PostMapping("/bank-data-raw-messages/{id}/replay")
+    @PreAuthorize("hasAuthority('bankdata:raw:view')")
+    @Operation(summary = "Replay the stored bank response through the current mapping rules")
+    public ApiResponse<com.finance.system.bankdata.dto.BankRawReplayResponse> replay(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success(replayService.replay(principal.getId(), id));
     }
 }

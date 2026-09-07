@@ -106,13 +106,18 @@ public class RawMessageQueryService {
                 .eq(BankDataSyncTask::getId, raw.getTaskId())
                 .eq(BankDataSyncTask::getCompanyId, companyId));
         String payload = raw.getPayload() == null ? "" : raw.getPayload();
+        String responsePayload = raw.getResponsePayload();
         boolean realDirect = registry.realAdapterCodes().contains(raw.getAdapterCode());
         return new BankDataRawMessageDetailResponse(raw.getId(), raw.getTaskId(),
                 task == null ? null : task.getTaskNo(),
                 task == null ? null : task.getBankAccountId(),
                 raw.getAdapterCode(), raw.getBankRequestNo(), raw.getContentSha256(),
                 raw.getReceivedAt(), raw.getRetentionUntil(), raw.getPurgedAt(), realDirect,
-                payload, payload.getBytes(StandardCharsets.UTF_8).length);
+                payload, payload.getBytes(StandardCharsets.UTF_8).length,
+                responsePayload,
+                responsePayload == null ? 0 : responsePayload.getBytes(StandardCharsets.UTF_8).length,
+                raw.getRequestEvidence(),
+                responsePayload != null && !responsePayload.isBlank());
     }
 
     private BankDataRawMessageResponse toResponse(BankDataRawMessage raw,

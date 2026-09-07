@@ -1,12 +1,12 @@
 import { useCallback, useRef, useState } from 'react';
-import { Alert, Button, Card, DatePicker, Descriptions, Drawer, Empty, Input, Pagination, Space, Table, Tag, message, type TableColumnsType } from 'antd';
-import { CopyOutlined, DownloadOutlined, SearchOutlined } from '@ant-design/icons';
+import { Alert, Button, Card, DatePicker, Descriptions, Drawer, Empty, Input, Pagination, Space, Table, Tabs, Tag, message, type TableColumnsType } from 'antd';
+import { CopyOutlined, DownloadOutlined, SearchOutlined, SyncOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { bankPipelineApi } from '../../services/api';
 import { useRemote, ResourceFailure } from '../shared/components';
 import { dateTime, displayValue } from '../shared/format';
 import type { PageResponse } from '../shared/api';
-import type { BankRawMessage, BankRawMessageDetail } from './types';
+import type { BankRawMessage, BankRawMessageDetail, BankRawReplayResult } from './types';
 
 type RawFilters = {
   accountId: string;
@@ -30,6 +30,17 @@ const prettyPayload = (payload: string) => {
 };
 
 const shortDigest = (digest?: string) => (digest ? `${digest.slice(0, 12)}…` : '--');
+
+/** 请求要素是 JSON；解析视图也是 JSON；银行原文可能是 JSON（CMB）或 XML（CITIC）。 */
+const prettyEvidence = (evidence?: string | null) => (evidence ? prettyPayload(evidence) : '');
+
+/** 重放差异的简短说明（供 Results 面板渲染）。 */
+const replaySummary = (result: BankRawReplayResult) => {
+  if (!result.replayable) return result.differences[0] || '该报文不可重放';
+  return result.matches
+    ? `重放与当年入库视图一致（流水 ${result.replayedEntryCount} 条）`
+    : `发现 ${result.differences.length} 处差异（当前规则 vs 当年视图）`;
+};
 
 /**
  * Raw bank response browser.
@@ -66,6 +77,20 @@ export function RawMessagesPage() {
     : bankPipelineApi.getRawMessage(selectedId), [selectedId]);
   const { data: detail, loading: detailLoading } = useRemote<BankRawMessageDetail | undefined>(detailLoader, [detailLoader]);
 
+  const [replayResult, setReplayResult] = useState<BankRawReplayResult>();
+  const [replaying, setReplaying] = useState(false);
+  const runReplay = async (row: BankRawMessageDetail) => {
+    setReplaying(true);
+    setReplayResult(undefined);
+    try {
+      setReplayResult(await bankPipelineApi.replayRawMessage(row.id));
+    } catch (reason) {
+      message.error(reason instanceof Error ? reason.message : '重放失败，请稍后重试');
+    } finally {
+      setReplaying(false);
+    }
+  };
+
   const query = () => { setPage(1); setFilters(draft); setSubmitted(true); };
   const reset = () => { setPage(1); setDraft(emptyFilters); setFilters(emptyFilters); setSubmitted(false); };
   const setDateFilter = (key: 'from' | 'to', value?: string) =>
@@ -73,6 +98,7 @@ export function RawMessagesPage() {
 
   const openDetail = (row: BankRawMessage) => {
     focusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setReplayResult(undefined);
     setSelectedId(row.id);
   };
   const closeDetail = () => {
@@ -176,18 +202,61 @@ export function RawMessagesPage() {
           <Descriptions.Item label="适配器">{displayValue(detail.adapterCode)}</Descriptions.Item>
           <Descriptions.Item label="银行请求号"><span className="mono">{displayValue(detail.bankRequestNo)}</span></Descriptions.Item>
           <Descriptions.Item label="报文摘要 SHA256"><span className="mono">{displayValue(detail.contentSha256)}</span></Descriptions.Item>
-          <Descriptions.Item label="报文大小">{detail.payloadBytes} 字节</Descriptions.Item>
+          <Descriptions.Item label="报文大小">
+            {detail.payloadBytes} 字节
+            {detail.hasBankRaw && <>（银行原文 {detail.responsePayloadBytes} 字节）</>}
+          </Descriptions.Item>
+          <Descriptions.Item label="留存层级">
+            {detail.hasBankRaw
+              ? <Tag color="green">银行原文 + 解析视图（可重放）</Tag>
+              : <Tag>仅解析视图（V23 前旧报文或已清理）</Tag>}
+          </Descriptions.Item>
           <Descriptions.Item label="接收时间">{dateTime(detail.receivedAt)}</Descriptions.Item>
           <Descriptions.Item label="保留到期">{dateTime(detail.retentionUntil)}</Descriptions.Item>
           {detail.purgedAt && <Descriptions.Item label="清理时间">{dateTime(detail.purgedAt)}</Descriptions.Item>}
         </Descriptions>
         <div className="raw-payload-toolbar">
           <Space>
-            <Button icon={<CopyOutlined />} onClick={() => void copyPayload(detail.payload)}>复制报文</Button>
-            <Button icon={<DownloadOutlined />} onClick={() => downloadPayload(detail)}>下载 JSON</Button>
+            <Button icon={<SyncOutlined />} loading={replaying} disabled={!detail.hasBankRaw}
+              onClick={() => void runReplay(detail)}>
+              重放校验（当前规则 vs 当年视图）
+            </Button>
+            <Button icon={<CopyOutlined />} disabled={!detail.hasBankRaw}
+              onClick={() => void copyPayload(detail.responsePayload || '')}>复制银行原文</Button>
+            <Button icon={<DownloadOutlined />} onClick={() => downloadPayload(detail)}>下载解析视图</Button>
           </Space>
         </div>
-        <pre className="raw-payload">{detail.payload ? prettyPayload(detail.payload) : '（该报文体已按保留策略清理，仅剩元数据。）'}</pre>
+        {replayResult && (
+          <Alert
+            type={!replayResult.replayable ? 'warning' : replayResult.matches ? 'success' : 'error'}
+            showIcon
+            message={`重放结果：${replaySummary(replayResult)}`}
+            description={replayResult.replayable && !replayResult.matches && (
+              <pre className="raw-payload" style={{ maxHeight: 200 }}>{replayResult.differences.join('\n')}</pre>
+            )}
+          />
+        )}
+        <Tabs defaultActiveKey={detail.hasBankRaw ? 'raw' : 'view'} items={[
+          {
+            key: 'raw',
+            label: '银行原文',
+            children: detail.responsePayload
+              ? <pre className="raw-payload">{prettyPayload(detail.responsePayload)}</pre>
+              : <Empty description="该报文没有银行原文留存（V23 前旧报文或已按保留策略清理）。" />,
+          },
+          {
+            key: 'evidence',
+            label: '请求要素',
+            children: prettyEvidence(detail.requestEvidence)
+              ? <pre className="raw-payload">{prettyEvidence(detail.requestEvidence)}</pre>
+              : <Empty description="该报文没有请求侧留档（端点/明文请求/耗时），属 V23 前旧报文。" />,
+          },
+          {
+            key: 'view',
+            label: '解析视图',
+            children: <pre className="raw-payload">{detail.payload ? prettyPayload(detail.payload) : '（该报文体已按保留策略清理，仅剩元数据。）'}</pre>,
+          },
+        ]} />
       </>}
     </Drawer>
   </>;

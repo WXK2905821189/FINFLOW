@@ -33,6 +33,19 @@ public class BankDataSyncEvidenceService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public BankDataRawMessage persistRaw(BankDataSyncTask task, String bankRequestNo, String payload,
                                          String contentSha256, LocalDateTime receivedAt, String mappingVersion) {
+        return persistRaw(task, bankRequestNo, payload, contentSha256, receivedAt, mappingVersion, null, null);
+    }
+
+    /**
+     * Full-form persist: {@code payload} stays the parsed view (byte-compatible with
+     * pre-evidence rows), while {@code responsePayload} is the bank's decrypted response
+     * verbatim and {@code requestEvidence} the request-side facts JSON. Nulls are allowed
+     * and mean "not captured by this adapter", never "empty".
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public BankDataRawMessage persistRaw(BankDataSyncTask task, String bankRequestNo, String payload,
+                                         String contentSha256, LocalDateTime receivedAt, String mappingVersion,
+                                         String responsePayload, String requestEvidence) {
         BankDataRawMessage raw = new BankDataRawMessage();
         raw.setCompanyId(task.getCompanyId());
         raw.setTaskId(task.getId());
@@ -41,6 +54,8 @@ public class BankDataSyncEvidenceService {
         raw.setBankRequestNo(bankRequestNo);
         raw.setContentSha256(contentSha256);
         raw.setPayload(payload);
+        raw.setResponsePayload(responsePayload);
+        raw.setRequestEvidence(requestEvidence);
         raw.setReceivedAt(receivedAt);
         raw.setRetentionUntil(receivedAt.plusDays(30));
         rawMessageMapper.insert(raw);

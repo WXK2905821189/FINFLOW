@@ -24,6 +24,7 @@ const OperationLogs = lazy(() => import('./modules/bank-access/operations').then
 const OperationTasks = lazy(() => import('./modules/bank-access/operations').then((module) => ({ default: module.OperationTasks })));
 const BankDataQueryPage = lazy(() => import('./modules/bank-access/BankDataQueryPage').then((module) => ({ default: module.BankDataQueryPage })));
 const RawMessagesPage = lazy(() => import('./modules/bank-access/RawMessagesPage').then((module) => ({ default: module.RawMessagesPage })));
+const BankReconciliationPage = lazy(() => import('./modules/bank-access/BankReconciliationPage').then((module) => ({ default: module.BankReconciliationPage })));
 const FeishuCollaboration = lazy(() => import('./modules/feishu/pages').then((module) => ({ default: module.FeishuCollaboration })));
 const ClosingPage = lazy(() => import('./modules/closing/pages').then((module) => ({ default: module.ClosingPage })));
 const AuditCenterPage = lazy(() => import('./modules/audit/pages').then((module) => ({ default: module.AuditCenterPage })));
@@ -88,6 +89,9 @@ function AppRoutes() {
           </Route>
           <Route element={<PermissionGuard permissions={['bankdata:raw:view']} />}>
             <Route path="/bank-access/raw-messages" element={<RawMessagesPage />} />
+          </Route>
+          <Route element={<PermissionGuard permissions={['bankdata:view', 'bankdata:reconciliation:view']} />}>
+            <Route path="/bank-access/data/reconciliation" element={<BankReconciliationPage />} />
           </Route>
           {/* 已下线页面的旧路径统一重定向：接入配置两页并入银行账户，连接监控并入采集任务 */}
           <Route path="/bank-access/connections" element={<Navigate to="/bank-access/accounts" replace />} />

@@ -3,12 +3,14 @@ package com.finance.system.bankdata;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.finance.system.bankdata.aggregation.BankDataAggregationResult;
 import com.finance.system.bankdata.aggregation.BankDataAggregationService;
 import com.finance.system.bankdata.adapter.BankDataBalanceEntry;
 import com.finance.system.bankdata.adapter.BankDataCollection;
 import com.finance.system.bankdata.adapter.BankDataEntry;
 import com.finance.system.bankdata.adapter.BankDataSyncContext;
+import com.finance.system.bankdata.adapter.BankExchangeEvidence;
 import com.finance.system.bankdata.adapter.BankPageTotals;
 import com.finance.system.bankdata.adapter.VendorStatementFields;
 import com.finance.system.common.exception.BusinessException;
@@ -109,9 +111,15 @@ public class BankDataSyncExecutor {
                 BankDataAggregationResult aggregation = aggregationService.collect(context, task.getAdapterCode());
                 BankDataCollection collection = Objects.requireNonNull(aggregation.collection(), "Aggregation returned no collection");
                 String status = aggregation.status().name();
-                String rawPayload = serialize(collection);
+                // The payload stays the parsed view (byte-compatible with pre-evidence rows);
+                // the bank's decrypted response and the request-side facts land in their own
+                // ODS columns, where no parser defect can erase them.
+                String rawPayload = serialize(collection.withoutEvidence());
+                BankExchangeEvidence evidence = collection.evidence();
                 BankDataRawMessage raw = evidenceService.persistRaw(task, collection.bankRequestNo(), rawPayload,
-                        sha256(rawPayload), LocalDateTime.now(), aggregation.mappingVersion());
+                        sha256(rawPayload), LocalDateTime.now(), aggregation.mappingVersion(),
+                        evidence == null ? null : evidence.responseText(),
+                        evidence == null ? null : requestEvidenceJson(evidence));
                 lastBankRequestNo = collection.bankRequestNo();
                 log(task, "INFO", "BANK_PAGE_COLLECTED", status, collection.bankRequestNo(),
                         "Collected window " + window.start() + " to " + window.end() + ", page " + page);
@@ -473,6 +481,42 @@ public class BankDataSyncExecutor {
             return objectMapper.writeValueAsString(collection);
         } catch (JsonProcessingException exception) {
             throw new BusinessException(500, "Bank data payload cannot be serialized");
+        }
+    }
+
+    /**
+     * Request-side facts as JSON. Built field by field (not by serializing the record) so
+     * the response body stays out — it has its own column — and key material, which never
+     * enters the record in the first place, cannot leak by accident.
+     */
+    private String requestEvidenceJson(BankExchangeEvidence evidence) {
+        ObjectNode node = objectMapper.createObjectNode();
+        node.put("endpoint", evidence.endpoint());
+        node.put("funcode", evidence.funcode());
+        node.put("plainRequest", evidence.plainRequest());
+        if (evidence.durationMs() != null) {
+            node.put("durationMs", evidence.durationMs());
+        }
+        if (evidence.httpStatus() != null) {
+            node.put("httpStatus", evidence.httpStatus());
+        }
+        BankExchangeEvidence.AuxiliaryCall aux = evidence.auxiliary();
+        if (aux != null) {
+            ObjectNode auxNode = node.putObject("auxiliary");
+            auxNode.put("funcode", aux.funcode());
+            auxNode.put("plainRequest", aux.plainRequest());
+            auxNode.put("response", aux.responseText());
+            if (aux.durationMs() != null) {
+                auxNode.put("durationMs", aux.durationMs());
+            }
+            if (aux.httpStatus() != null) {
+                auxNode.put("httpStatus", aux.httpStatus());
+            }
+        }
+        try {
+            return objectMapper.writeValueAsString(node);
+        } catch (JsonProcessingException exception) {
+            throw new BusinessException(500, "Bank request evidence cannot be serialized");
         }
     }
 

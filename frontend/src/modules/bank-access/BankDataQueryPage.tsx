@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, Button, Card, DatePicker, Descriptions, Drawer, Empty, Input, Modal, Pagination, Space, Spin, Table, Tag, message, type TableColumnsType } from 'antd';
-import { CopyOutlined, DownloadOutlined, FileTextOutlined, PlayCircleOutlined, SearchOutlined } from '@ant-design/icons';
+import { Alert, Button, Card, DatePicker, Descriptions, Drawer, Empty, Input, Modal, Pagination, Space, Spin, Table, Tabs, Tag, message, type TableColumnsType } from 'antd';
+import { DownloadOutlined, FileTextOutlined, PlayCircleOutlined, SearchOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { Link } from 'react-router-dom';
 import { bankPipelineApi } from '../../services/api';
@@ -258,15 +258,6 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
       setRawMessageLoading(false);
     }
   };
-  const copyRawPayload = async () => {
-    if (!rawMessage?.payload) return;
-    try {
-      await navigator.clipboard.writeText(rawMessage.payload);
-      message.success('报文已复制');
-    } catch {
-      message.error('复制失败，请手动选择复制');
-    }
-  };
   // Where to return keyboard focus when the detail drawer closes. Kept in state rather
   // than a ref: writing a ref from a handler that flows through render-created column
   // callbacks trips the react-compiler refs rule, and state does the same job here.
@@ -446,20 +437,33 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
               <Descriptions.Item label="银行请求号"><span className="mono">{displayValue(rawMessage.bankRequestNo)}</span></Descriptions.Item>
               <Descriptions.Item label="接收时间">{dateTime(rawMessage.receivedAt)}</Descriptions.Item>
               <Descriptions.Item label="适配器">{displayValue(rawMessage.adapterCode)}</Descriptions.Item>
-              <Descriptions.Item label="报文大小">{rawMessage.payloadBytes} 字节</Descriptions.Item>
+              <Descriptions.Item label="报文大小">
+                {rawMessage.payloadBytes} 字节
+                {rawMessage.responsePayloadBytes ? <>（银行原文 {rawMessage.responsePayloadBytes} 字节）</> : null}
+              </Descriptions.Item>
               <Descriptions.Item label="报文摘要"><span className="mono">{displayValue(rawMessage.contentSha256)}</span></Descriptions.Item>
               <Descriptions.Item label="保留期限">{dateTime(rawMessage.retentionUntil)}</Descriptions.Item>
             </Descriptions>
-            <div className="raw-payload-toolbar">
-              <Space>
-                <Button size="small" icon={<CopyOutlined />} disabled={!rawMessage.payload} onClick={() => void copyRawPayload()}>复制报文</Button>
-              </Space>
-            </div>
-            <pre className="raw-payload">
-              {rawMessage.payload
-                ? prettyPayload(rawMessage.payload)
-                : '（该报文体已按保留策略清理，仅剩元数据。）'}
-            </pre>
+            <Tabs
+              defaultActiveKey={rawMessage.responsePayload ? 'raw' : 'view'}
+              items={[
+                ...(rawMessage.responsePayload ? [{
+                  key: 'raw',
+                  label: '银行原文',
+                  children: <pre className="raw-payload">{prettyPayload(rawMessage.responsePayload)}</pre>,
+                }] : []),
+                ...(rawMessage.requestEvidence ? [{
+                  key: 'evidence',
+                  label: '请求要素',
+                  children: <pre className="raw-payload">{prettyPayload(rawMessage.requestEvidence)}</pre>,
+                }] : []),
+                {
+                  key: 'view',
+                  label: '解析视图',
+                  children: <pre className="raw-payload">{rawMessage.payload ? prettyPayload(rawMessage.payload) : '（该报文体已按保留策略清理，仅剩元数据。）'}</pre>,
+                },
+              ]}
+            />
           </>
         )}
       </Drawer>

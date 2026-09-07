@@ -4,13 +4,12 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.finance.system.bankdata.adapter.citic.CiticAdapterProperties;
 import com.finance.system.bankdata.adapter.citic.CiticBalanceQuery;
 import com.finance.system.bankdata.adapter.citic.CiticBalanceResult;
-import com.finance.system.bankdata.adapter.citic.CiticBalanceRow;
 import com.finance.system.bankdata.adapter.citic.CiticEnvelopeCodec;
 import com.finance.system.bankdata.adapter.citic.CiticRequestXml;
 import com.finance.system.bankdata.adapter.citic.CiticResponseXml;
+import com.finance.system.bankdata.adapter.citic.CiticRowMapper;
 import com.finance.system.bankdata.adapter.citic.CiticStatementPage;
 import com.finance.system.bankdata.adapter.citic.CiticStatementQuery;
-import com.finance.system.bankdata.adapter.citic.CiticStatementRow;
 import com.finance.system.bankdata.adapter.citic.dlink.CiticDlinkSdk;
 import com.finance.system.common.exception.BusinessException;
 import com.finance.system.domain.entity.BankAccount;
@@ -18,15 +17,8 @@ import com.finance.system.domain.mapper.BankAccountMapper;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 /**
  * Authorized CITIC bank data adapter (DLBALQRY balance + DLTRNALL statement query).
@@ -44,10 +36,6 @@ import java.util.Locale;
 public class RealCiticBankDataAdapter implements BankDataAdapter {
 
     static final String ADAPTER_CODE = "CITIC";
-    private static final String SUCCESS = "AAAAAAA";
-    private static final String NO_TRANSACTION = "EEEEEEE";
-    private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("yyyyMMdd");
-    private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HHmmss");
 
     private final CiticAdapterProperties properties;
     private final CiticDlinkSdk sdk;
@@ -89,148 +77,110 @@ public class RealCiticBankDataAdapter implements BankDataAdapter {
         // Balance is a real-time snapshot: query it only on the first page of the window.
         int startRecord = startRecord(context, page);
         if (page == 1) {
-            CiticBalanceResult balance = queryBalance(accountNo, userName, requestId, page);
-            String balanceStatus = balance.status();
-            if (balanceStatus != null && !balanceStatus.isBlank() && !SUCCESS.equals(balanceStatus)) {
-                return failed(bankRequestNo, balanceStatus);
+            BalanceCall balance = queryBalance(accountNo, userName, requestId, page);
+            String balanceStatus = balance.page().status();
+            if (balanceStatus != null && !balanceStatus.isBlank() && !CiticRowMapper.SUCCESS.equals(balanceStatus)) {
+                return failed(bankRequestNo, balanceStatus, null, balance.auxiliary());
             }
-            List<BankDataBalanceEntry> balances = acceptedBalanceRows(balance.rows(), context.bankAccountId(),
-                    bankRequestNo);
-            CiticStatementPage statements = queryStatement(accountNo, userName, requestId, page,
+            List<BankDataBalanceEntry> balances = CiticRowMapper.acceptedBalanceRows(balance.page().rows(),
+                    context.bankAccountId(), bankRequestNo);
+            StatementCall statements = queryStatement(accountNo, userName, requestId, page,
                     context.windowStart().toLocalDate(), context.windowEnd().toLocalDate(),
                     startRecord, pageSize);
-            if (statements.status() == null) {
-                return failed(bankRequestNo, "UNKNOWN");
+            BankExchangeEvidence evidence = evidence(statements, balance.auxiliary());
+            if (statements.page().status() == null) {
+                return failed(bankRequestNo, "UNKNOWN", evidence, null);
             }
-            if (!SUCCESS.equals(statements.status()) && !NO_TRANSACTION.equals(statements.status())) {
-                return failed(bankRequestNo, statements.status());
+            if (!CiticRowMapper.SUCCESS.equals(statements.page().status())
+                    && !CiticRowMapper.NO_TRANSACTION.equals(statements.page().status())) {
+                return failed(bankRequestNo, statements.page().status(), evidence, null);
             }
-            List<BankDataEntry> entries = statementEntries(statements, context.bankAccountId(), bankRequestNo);
-            boolean noTransaction = NO_TRANSACTION.equals(statements.status());
-            boolean hasMore = !noTransaction && fullPage(statements, pageSize);
-            return page(bankRequestNo, entries, balances, hasMore, startRecord, pageSize);
+            List<BankDataEntry> entries = CiticRowMapper.toEntries(statements.page(), context.bankAccountId(),
+                    bankRequestNo);
+            boolean noTransaction = CiticRowMapper.NO_TRANSACTION.equals(statements.page().status());
+            boolean hasMore = !noTransaction && fullPage(statements.page(), pageSize);
+            return page(bankRequestNo, entries, balances, hasMore, startRecord, pageSize, evidence);
         }
 
-        CiticStatementPage statements = queryStatement(accountNo, userName, requestId, page,
+        StatementCall statements = queryStatement(accountNo, userName, requestId, page,
                 context.windowStart().toLocalDate(), context.windowEnd().toLocalDate(),
                 startRecord, pageSize);
-        if (statements.status() == null) {
-            return failed(bankRequestNo, "UNKNOWN");
+        BankExchangeEvidence evidence = evidence(statements, null);
+        if (statements.page().status() == null) {
+            return failed(bankRequestNo, "UNKNOWN", evidence, null);
         }
-        if (!SUCCESS.equals(statements.status()) && !NO_TRANSACTION.equals(statements.status())) {
-            return failed(bankRequestNo, statements.status());
+        if (!CiticRowMapper.SUCCESS.equals(statements.page().status())
+                && !CiticRowMapper.NO_TRANSACTION.equals(statements.page().status())) {
+            return failed(bankRequestNo, statements.page().status(), evidence, null);
         }
-        List<BankDataEntry> entries = statementEntries(statements, context.bankAccountId(), bankRequestNo);
-        boolean noTransaction = NO_TRANSACTION.equals(statements.status());
-        boolean hasMore = !noTransaction && fullPage(statements, pageSize);
-        return page(bankRequestNo, entries, List.of(), hasMore, startRecord, pageSize);
+        List<BankDataEntry> entries = CiticRowMapper.toEntries(statements.page(), context.bankAccountId(),
+                bankRequestNo);
+        boolean noTransaction = CiticRowMapper.NO_TRANSACTION.equals(statements.page().status());
+        boolean hasMore = !noTransaction && fullPage(statements.page(), pageSize);
+        return page(bankRequestNo, entries, List.of(), hasMore, startRecord, pageSize, evidence);
     }
 
-    private CiticBalanceResult queryBalance(String accountNo, String userName, String requestId, int page) {
+    /** One balance exchange plus its wire evidence (page-1 DLBALQRY snapshot). */
+    private record BalanceCall(CiticBalanceResult page, BankExchangeEvidence.AuxiliaryCall auxiliary) {
+    }
+
+    /** One statement exchange plus its wire facts. */
+    private record StatementCall(CiticStatementPage page, String responseXml, String businessXml, long durationMs) {
+    }
+
+    private BalanceCall queryBalance(String accountNo, String userName, String requestId, int page) {
         String businessXml = CiticRequestXml.buildBalanceQuery(userName,
                 new CiticBalanceQuery(List.of(accountNo)));
+        long start = System.nanoTime();
         String responseXml = sdk.exchange("DLBALQRY", businessXml, CiticEnvelopeCodec.clientId(requestId, page));
-        return CiticResponseXml.parseBalanceQuery(responseXml);
+        long durationMs = (System.nanoTime() - start) / 1_000_000L;
+        BankExchangeEvidence.AuxiliaryCall auxiliary = new BankExchangeEvidence.AuxiliaryCall("DLBALQRY",
+                businessXml, responseXml, durationMs, null);
+        return new BalanceCall(CiticResponseXml.parseBalanceQuery(responseXml), auxiliary);
     }
 
-    private CiticStatementPage queryStatement(String accountNo, String userName, String requestId, int page,
-                                              LocalDate windowStart, LocalDate windowEnd, int startRecord,
-                                              int pageSize) {
+    private StatementCall queryStatement(String accountNo, String userName, String requestId, int page,
+                                         LocalDate windowStart, LocalDate windowEnd, int startRecord,
+                                         int pageSize) {
         CiticStatementQuery query = new CiticStatementQuery(accountNo, windowStart, windowEnd, pageSize,
                 startRecord, properties.getControlFlag());
         String businessXml = CiticRequestXml.buildStatementQuery(userName, query);
+        long start = System.nanoTime();
         String responseXml = sdk.exchange("DLTRNALL", businessXml, CiticEnvelopeCodec.clientId(requestId, page));
-        return CiticResponseXml.parseStatementPage(responseXml);
+        long durationMs = (System.nanoTime() - start) / 1_000_000L;
+        return new StatementCall(CiticResponseXml.parseStatementPage(responseXml), responseXml, businessXml,
+                durationMs);
     }
 
-    /**
-     * DLTRNALL rows → FINFLOW entries, with the bank's own fields attached.
-     *
-     * <p>The vendor columns are shared with CMB, so each CITIC field is mapped onto the
-     * semantically equivalent one and the mapping is spelled out here rather than left
-     * implied. Two honest caveats:</p>
-     * <ul>
-     *   <li>CITIC reports {@code tranAmount} <strong>unsigned</strong> (88.00 with
-     *       creditDebitFlag=C, 12.00 with D) where CMB reports it signed. {@code signedAmount}
-     *       is therefore reconstructed from {@code creditDebitFlag} for CITIC, and is verbatim
-     *       for CMB — the column means "the bank's signed figure", not "the wire value".</li>
-     *   <li>Fields CITIC simply does not report (起息日, 票据号, 冲账标志, 信息标志, 母子公司…)
-     *       stay null. Nothing is invented to fill a column.</li>
-     * </ul>
-     */
-    private List<BankDataEntry> statementEntries(CiticStatementPage page, Long bankAccountId, String bankRequestNo) {
-        if (page.rows() == null || page.rows().isEmpty()) {
-            return List.of();
+    /** Assembles the ODS evidence for one collect call (primary statement exchange + optional balance). */
+    private BankExchangeEvidence evidence(StatementCall statements, BankExchangeEvidence.AuxiliaryCall auxiliary) {
+        String endpoint;
+        try {
+            endpoint = properties.getSdk().getUrl();
+        } catch (RuntimeException e) {
+            endpoint = null;
         }
-        String containerAccount = trim(page.accountNo());
-        List<BankDataEntry> entries = new ArrayList<>(page.rows().size());
-        for (CiticStatementRow row : page.rows()) {
-            LocalDateTime transactionTime = transactionTime(row.tranDate(), row.tranTime());
-            String direction = direction(row.creditDebitFlag());
-            String statementNo = firstNonBlank(row.tranNo(), row.sumTranNo(), row.oriNum());
-            entries.add(new BankDataEntry(bankRequestNo, statementNo, bankAccountId, transactionTime, direction,
-                    row.tranAmount(), null, trim(row.oppAccountName()), trim(row.oppAccountNo()),
-                    trim(row.summary()),
-                    new VendorStatementFields(containerAccount, null, trim(row.creditDebitFlag()),
-                            null, null, null, null, row.balance(),
-                            signedAmount(row.tranAmount(), row.creditDebitFlag()), null,
-                            trim(row.oppAccountNo()), trim(row.oppOpenBankName()), null,
-                            null, null, null, null, null, null, null,
-                            trim(row.sumTranNo()), trim(row.oriNum()), null, null, null, null,
-                            null)));
-        }
-        return List.copyOf(entries);
-    }
-
-    /**
-     * CITIC sends an unsigned amount plus a C/D flag; the shared column carries the signed
-     * figure, so the sign is re-applied here (D 借方 negative, C 贷方 positive).
-     */
-    private BigDecimal signedAmount(BigDecimal amount, String creditDebitFlag) {
-        if (amount == null) {
-            return null;
-        }
-        String flag = creditDebitFlag == null ? null : creditDebitFlag.trim().toUpperCase(Locale.ROOT);
-        return "D".equals(flag) ? amount.negate() : amount;
-    }
-
-    private List<BankDataBalanceEntry> acceptedBalanceRows(List<CiticBalanceRow> rows, Long bankAccountId,
-                                                           String bankRequestNo) {
-        if (rows == null || rows.isEmpty()) {
-            return List.of();
-        }
-        LocalDateTime asOf = LocalDateTime.now();
-        List<BankDataBalanceEntry> balances = new ArrayList<>(rows.size());
-        for (CiticBalanceRow row : rows) {
-            // Account-level status: only accept explicitly healthy or absent status rows.
-            String rowStatus = trim(row.status());
-            if (rowStatus != null && !SUCCESS.equals(rowStatus)) {
-                continue;
-            }
-            // DLBALQRY and NTQADINF report the same three figures under different names, so
-            // they land in the same columns: usableBalance=可用, balance=账面(联机),
-            // forzenAmt=冻结. CITIC reports no 上日余额 and no 科目/客户关系号/账户状态/
-            // 开户日/利率类型/存期/透支额度/利息码/年利率/到期日 (NTQADINF-specific fields) - left null.
-            balances.add(new BankDataBalanceEntry(bankRequestNo, bankAccountId, row.usableBalance(), null, asOf,
-                    row.balance(), row.forzenAmt(), null, trim(row.currencyId()), null,
-                    trim(row.accountNo()), trim(row.accountName()), null, null,
-                    null, null, null, null,
-                    null, null, null, null));
-        }
-        return List.copyOf(balances);
+        return new BankExchangeEvidence(endpoint, "DLTRNALL", statements.businessXml(),
+                statements.responseXml(), statements.durationMs(), null, auxiliary);
     }
 
     private BankDataCollection page(String bankRequestNo, List<BankDataEntry> entries,
                                     List<BankDataBalanceEntry> balances, boolean hasMore,
-                                    int startRecord, int pageSize) {
+                                    int startRecord, int pageSize, BankExchangeEvidence evidence) {
         String nextCursor = hasMore ? String.valueOf(startRecord + pageSize) : null;
         return new BankDataCollection(bankRequestNo, entries, balances, hasMore, nextCursor,
-                SUCCESS, SUCCESS);
+                CiticRowMapper.SUCCESS, CiticRowMapper.SUCCESS, null, evidence);
     }
 
-    private BankDataCollection failed(String bankRequestNo, String statusCode) {
+    private BankDataCollection failed(String bankRequestNo, String statusCode,
+                                      BankExchangeEvidence evidence,
+                                      BankExchangeEvidence.AuxiliaryCall auxiliary) {
+        BankExchangeEvidence effective = evidence;
+        if (effective == null && auxiliary != null) {
+            effective = new BankExchangeEvidence(null, null, null, null, null, null, auxiliary);
+        }
         return new BankDataCollection(bankRequestNo, List.of(), List.of(), false, null,
-                statusCode, statusCode);
+                statusCode, statusCode, null, effective);
     }
 
     private int startRecord(BankDataSyncContext context, int page) {
@@ -270,45 +220,5 @@ public class RealCiticBankDataAdapter implements BankDataAdapter {
             throw new BusinessException(400, "CITIC sdk user-name is required when the real adapter is enabled");
         }
         return userName.trim();
-    }
-
-    private LocalDateTime transactionTime(String tranDate, String tranTime) {
-        if (tranDate == null || tranDate.isBlank()) {
-            return null;
-        }
-        try {
-            LocalDate date = LocalDate.parse(tranDate.trim(), DAY);
-            if (tranTime == null || tranTime.isBlank()) {
-                return date.atStartOfDay();
-            }
-            return date.atTime(LocalTime.parse(tranTime.trim(), TIME));
-        } catch (DateTimeParseException exception) {
-            return null;
-        }
-    }
-
-    private String direction(String creditDebitFlag) {
-        if (creditDebitFlag == null) {
-            return null;
-        }
-        return switch (creditDebitFlag.trim().toUpperCase(Locale.ROOT)) {
-            case "C" -> "INCOME";
-            case "D" -> "EXPENSE";
-            default -> null;
-        };
-    }
-
-    private String firstNonBlank(String... values) {
-        for (String value : values) {
-            String trimmed = trim(value);
-            if (trimmed != null) {
-                return trimmed;
-            }
-        }
-        return null;
-    }
-
-    private String trim(String value) {
-        return value == null || value.isBlank() ? null : value.trim();
     }
 }

@@ -59,7 +59,25 @@ public class CmbHttpGateway {
      * @param document plain-text request document incl. signature.sigdat placeholder
      */
     public String exchange(String funcode, JsonObject document) {
+        return exchangeDetailed(funcode, document).responseText();
+    }
+
+    /** Wire facts of one completed exchange; {@code plainRequest} is the signed plaintext. */
+    public record CmbExchange(String responseText, String plainRequest, long durationMs,
+                              int httpStatus) {
+    }
+
+    /**
+     * Sign + encrypt + POST + decrypt + verify, returning the decrypted response JSON
+     * together with the request-side evidence (signed plaintext document, duration,
+     * HTTP status) for the ODS layer. The encrypted form is never logged here.
+     *
+     * @param funcode  interface code, must match document head.funcode (form FUNCODE)
+     * @param document plain-text request document incl. signature.sigdat placeholder
+     */
+    public CmbExchange exchangeDetailed(String funcode, JsonObject document) {
         requireConfigured();
+        long start = System.nanoTime();
         String uid = properties.getUid().trim();
         byte[] userId = CmbCryptoHelper.userId(uid);
         byte[] privateKey = B64_DECODER.decode(properties.getPrivateKey().trim());
@@ -83,7 +101,8 @@ public class CmbHttpGateway {
         form.put("ALG", "SM");
         form.put("DATA", URLEncoder.encode(B64_ENCODER.encodeToString(cipherText), StandardCharsets.UTF_8));
         form.put("FUNCODE", funcode);
-        String raw = httpPost(form);
+        CmbHttpGateway.HttpResult http = httpPost(form);
+        String raw = http.content();
 
         if (raw.startsWith("CDCServer:")) {
             throw new CmbCallException(CmbCallException.Kind.GATEWAY, raw);
@@ -99,7 +118,8 @@ public class CmbHttpGateway {
         }
         String responseText = new String(decrypted, StandardCharsets.UTF_8);
         verifyResponse(responseText, userId, publicKey);
-        return responseText;
+        long durationMs = (System.nanoTime() - start) / 1_000_000L;
+        return new CmbExchange(responseText, plain, durationMs, http.code());
     }
 
     /**
@@ -149,7 +169,11 @@ public class CmbHttpGateway {
                 "CMB response signature verification failed");
     }
 
-    private String httpPost(Map<String, String> form) {
+    /** Transport result of one form POST: the body plus the actual HTTP status code. */
+    record HttpResult(int code, String content) {
+    }
+
+    private HttpResult httpPost(Map<String, String> form) {
         HttpURLConnection connection = null;
         try {
             URL url = new URL(properties.getUrl());
@@ -178,7 +202,7 @@ public class CmbHttpGateway {
                 throw new CmbCallException(CmbCallException.Kind.TRANSPORT,
                         "CMB gateway HTTP " + code + (content.isEmpty() ? "" : ": " + content));
             }
-            return content;
+            return new HttpResult(code, content);
         } catch (CmbCallException e) {
             throw e;
         } catch (IOException e) {

@@ -227,4 +227,45 @@ export type BankRawMessage = {
 export type BankRawMessageDetail = BankRawMessage & {
   payload: string;
   payloadBytes: number;
+  /** 银行解密后原始响应 verbatim（V23 起留存；旧报文或已清理为 null）。 */
+  responsePayload?: string | null;
+  responsePayloadBytes?: number;
+  /** 请求要素 JSON：端点/功能码/加密前明文请求/耗时/HTTP 状态/附属交换（如首页余额快照）。 */
+  requestEvidence?: string | null;
+  /** 是否具备银行原文——重放接口的前置条件。 */
+  hasBankRaw?: boolean;
+};
+
+/** 重放结果：用当前解析规则重跑银行原文，与当年入库视图逐路径对比。 */
+export type BankRawReplayResult = {
+  rawMessageId: number;
+  adapterCode?: string;
+  mappingVersion?: string;
+  replayable: boolean;
+  matches: boolean;
+  storedEntryCount: number;
+  replayedEntryCount: number;
+  differences: string[];
+  replayedPayload?: string | null;
+  replayedAt?: string;
+};
+
+/** 任务级对账行：银行 Z1 口径合计 vs 平台入库口径。 */
+export type BankTaskReconciliationRow = {
+  taskId: number;
+  taskNo?: string;
+  adapterCode?: string;
+  status?: string;
+  windowStart?: string;
+  windowEnd?: string;
+  bankDebitNums?: number | null;
+  bankDebitAmount?: number | null;
+  bankCreditNums?: number | null;
+  bankCreditAmount?: number | null;
+  platformExpenseCount: number;
+  platformIncomeCount: number;
+  platformExpenseAmount: number;
+  platformIncomeAmount: number;
+  countConsistent?: boolean | null;
+  amountConsistent?: boolean | null;
 };

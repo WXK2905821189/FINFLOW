@@ -14,6 +14,8 @@ import type {
   BankDataProjectionPage,
   BankRawMessage,
   BankRawMessageDetail,
+  BankRawReplayResult,
+  BankTaskReconciliationRow,
   BankSyncJob,
   BankSyncJobDetail,
   BankSyncJobTrigger,
@@ -172,6 +174,11 @@ export const bankPipelineApi = {
   queryProjection: <T>(resource: string, params: BankDataQueryParams) => http.get<never, BankDataProjectionPage<T>>(`/bank-data/${resource}`, { params }),
   listRawMessages: (params: BankRawMessageListParams) => http.get<never, PageResponse<BankRawMessage>>('/bank-data-raw-messages', { params }),
   getRawMessage: (id: number) => http.get<never, BankRawMessageDetail>(`/bank-data-raw-messages/${id}`),
+  /** 用当前解析规则重放银行原文，与入库视图对比；仅读不写。 */
+  replayRawMessage: (id: number) => http.post<never, BankRawReplayResult>(`/bank-data-raw-messages/${id}/replay`),
+  /** 任务级对账：银行 Z1 合计 vs 平台入库。 */
+  taskReconciliation: (params: { page?: number; size?: number }) =>
+    http.get<never, PageResponse<BankTaskReconciliationRow>>('/bank-data/task-reconciliation', { params }),
   /**
    * CSV export in the bank's own column layout. The backend renders the file and
    * names it (filename* RFC5987 for the Chinese name); the client only carries

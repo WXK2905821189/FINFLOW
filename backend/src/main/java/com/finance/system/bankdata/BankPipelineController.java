@@ -155,6 +155,21 @@ public class BankPipelineController {
                 traceService.trace(principal.getId(), taskNo, requestId));
     }
 
+    /**
+     * Per-task reconciliation view: the bank's own Z1 totals versus what the platform
+     * normalized, straight from the statement table. Read-only, same family of
+     * permissions as the on-screen reconciliation query.
+     */
+    @GetMapping("/bank-data/task-reconciliation")
+    @PreAuthorize("hasAnyAuthority('bankdata:view', 'bankdata:reconciliation:view')")
+    @Operation(summary = "Compare bank-attested totals with platform-normalized rows, per sync task")
+    public ApiResponse<PageResponse<com.finance.system.bankdata.dto.BankTaskReconciliationResponse>> taskReconciliation(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success(queryService.taskReconciliation(principal.getId(), page, size));
+    }
+
     private String permissionFor(String resource) {
         return Map.of(
                 "balances", "bankdata:balance:view",

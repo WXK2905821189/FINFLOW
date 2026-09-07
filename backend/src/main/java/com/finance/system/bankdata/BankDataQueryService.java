@@ -1,6 +1,7 @@
 package com.finance.system.bankdata;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.finance.system.bankdata.adapter.BankAdapterExecutionMode;
 import com.finance.system.bankdata.adapter.BankDataAdapter;
@@ -16,6 +17,7 @@ import com.finance.system.bankdata.dto.BankDataSyncTaskResponse;
 import com.finance.system.bankdata.dto.BankSyncJobDetailResponse;
 import com.finance.system.bankdata.dto.BankSyncJobEventResponse;
 import com.finance.system.bankdata.dto.BankSyncJobResponse;
+import com.finance.system.bankdata.dto.BankTaskReconciliationResponse;
 import com.finance.system.common.api.PageResponse;
 import com.finance.system.common.exception.BusinessException;
 import com.finance.system.common.tenant.CompanyScopeService;
@@ -660,6 +662,132 @@ public class BankDataQueryService {
         return new BankDataReconciliationResponse(statements.size(), statements.size(), duplicates, invalid,
                 total.setScale(2), income.setScale(2), expense.setScale(2), tasks.size(),
                 tasks.stream().filter(task -> "FAILED".equals(task.getStatus())).count());
+    }
+
+    /**
+     * Per-task reconciliation: what the bank attested (Z1 totals on the task row) versus
+     * what the platform actually normalized, counted straight from the statement table.
+     * Null consistency flags mean the bank reported no totals for that window — they are
+     * neither a pass nor a failure.
+     */
+    public PageResponse<BankTaskReconciliationResponse> taskReconciliation(Long userId, int page, int size) {
+        long companyId = companyScope.companyIdForUser(userId);
+        Page<BankDataSyncTask> result = taskMapper.selectPage(new Page<>(Math.max(1, page), boundedSize(size)),
+                new LambdaQueryWrapper<BankDataSyncTask>()
+                        .eq(BankDataSyncTask::getCompanyId, companyId)
+                        .orderByDesc(BankDataSyncTask::getId));
+        List<BankDataSyncTask> tasks = result.getRecords();
+        Map<Long, StatementAggregate> aggregates = aggregatesByTask(companyId,
+                tasks.stream().map(BankDataSyncTask::getId).toList());
+        List<BankTaskReconciliationResponse> records = tasks.stream()
+                .map(task -> toReconciliation(task, aggregates.get(task.getId())))
+                .toList();
+        return new PageResponse<>(result.getCurrent(), result.getSize(), result.getTotal(), records);
+    }
+
+    private Map<Long, StatementAggregate> aggregatesByTask(long companyId, List<Long> taskIds) {
+        if (taskIds.isEmpty()) {
+            return Map.of();
+        }
+        List<Map<String, Object>> rows = statementMapper.selectMaps(new QueryWrapper<BankDataStatement>()
+                .select("task_id",
+                        "SUM(CASE WHEN direction = 'INCOME' THEN 1 ELSE 0 END) AS income_cnt",
+                        "SUM(CASE WHEN direction = 'EXPENSE' THEN 1 ELSE 0 END) AS expense_cnt",
+                        "SUM(CASE WHEN direction = 'INCOME' THEN amount ELSE 0 END) AS income_amount",
+                        "SUM(CASE WHEN direction = 'EXPENSE' THEN amount ELSE 0 END) AS expense_amount")
+                .eq("company_id", companyId)
+                .in("task_id", taskIds)
+                .groupBy("task_id"));
+        Map<Long, StatementAggregate> aggregates = new java.util.HashMap<>();
+        for (Map<String, Object> row : rows) {
+            Object taskId = column(row, "task_id");
+            if (taskId instanceof Number number) {
+                aggregates.put(number.longValue(), StatementAggregate.from(row));
+            }
+        }
+        return aggregates;
+    }
+
+    /**
+     * Case-insensitive column lookup: H2 upper-cases unquoted select aliases (TASK_ID)
+     * while MySQL keeps them as written, and the aggregate must read the same on both.
+     */
+    private static Object column(Map<String, Object> row, String name) {
+        Object exact = row.get(name);
+        if (exact != null) {
+            return exact;
+        }
+        for (Map.Entry<String, Object> entry : row.entrySet()) {
+            if (entry.getKey() != null && entry.getKey().equalsIgnoreCase(name)) {
+                return entry.getValue();
+            }
+        }
+        return null;
+    }
+
+    private BankTaskReconciliationResponse toReconciliation(BankDataSyncTask task, StatementAggregate aggregate) {
+        StatementAggregate agg = aggregate == null ? StatementAggregate.EMPTY : aggregate;
+        Integer debitNums = task.getDebitNums();
+        Integer creditNums = task.getCreditNums();
+        Boolean countConsistent = null;
+        if (debitNums != null || creditNums != null) {
+            countConsistent = num(debitNums) == agg.expenseCount && num(creditNums) == agg.incomeCount;
+        }
+        Boolean amountConsistent = null;
+        if (task.getDebitAmount() != null || task.getCreditAmount() != null) {
+            amountConsistent = amountMatches(task.getDebitAmount(), agg.expenseAmount)
+                    && amountMatches(task.getCreditAmount(), agg.incomeAmount);
+        }
+        return new BankTaskReconciliationResponse(task.getId(), task.getTaskNo(), task.getAdapterCode(),
+                task.getStatus(), task.getWindowStart(), task.getWindowEnd(),
+                debitNums, task.getDebitAmount(), creditNums, task.getCreditAmount(),
+                agg.expenseCount, agg.incomeCount,
+                agg.expenseAmount.setScale(2), agg.incomeAmount.setScale(2),
+                countConsistent, amountConsistent);
+    }
+
+    private static long num(Integer value) {
+        return value == null ? 0 : value;
+    }
+
+    private static boolean amountMatches(BigDecimal bankAmount, BigDecimal platformAmount) {
+        return bankAmount == null ? platformAmount.compareTo(BigDecimal.ZERO) == 0
+                : bankAmount.compareTo(platformAmount) == 0;
+    }
+
+    /** Aggregated statement figures for one task, straight from the normalized rows. */
+    private record StatementAggregate(long incomeCount, long expenseCount,
+                                      BigDecimal incomeAmount, BigDecimal expenseAmount) {
+
+        static final StatementAggregate EMPTY =
+                new StatementAggregate(0, 0, BigDecimal.ZERO, BigDecimal.ZERO);
+
+        static StatementAggregate from(Map<String, Object> row) {
+            return new StatementAggregate(
+                    longValue(columnValue(row, "income_cnt")), longValue(columnValue(row, "expense_cnt")),
+                    decimalValue(columnValue(row, "income_amount")), decimalValue(columnValue(row, "expense_amount")));
+        }
+
+        private static Object columnValue(Map<String, Object> row, String name) {
+            Object exact = row.get(name);
+            if (exact != null) {
+                return exact;
+            }
+            for (Map.Entry<String, Object> entry : row.entrySet()) {
+                if (entry.getKey() != null && entry.getKey().equalsIgnoreCase(name)) {
+                    return entry.getValue();
+                }
+            }
+            return null;
+        }
+
+        private static long longValue(Object value) {
+            return value instanceof Number number ? number.longValue() : 0;
+        }
+
+        private static BigDecimal decimalValue(Object value) {
+            return value instanceof Number number ? new BigDecimal(number.toString()) : BigDecimal.ZERO;
+        }
     }
 
     private String normalize(String value, String defaultValue) {

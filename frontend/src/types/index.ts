@@ -18,6 +18,8 @@ export type {
   BankDataProjectionPage,
   BankRawMessage,
   BankRawMessageDetail,
+  BankRawReplayResult,
+  BankTaskReconciliationRow,
 } from '../modules/bank-access/types';
 export type {
   StatementRecordInput,

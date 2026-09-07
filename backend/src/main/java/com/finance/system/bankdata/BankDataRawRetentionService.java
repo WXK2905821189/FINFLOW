@@ -52,6 +52,8 @@ public class BankDataRawRetentionService {
                     .eq(BankDataRawMessage::getId, raw.getId())
                     .isNull(BankDataRawMessage::getPurgedAt)
                     .set(BankDataRawMessage::getPayload, marker)
+                    .set(BankDataRawMessage::getResponsePayload, null)
+                    .set(BankDataRawMessage::getRequestEvidence, null)
                     .set(BankDataRawMessage::getPurgedAt, now));
             if (updated > 0) {
                 purged++;
