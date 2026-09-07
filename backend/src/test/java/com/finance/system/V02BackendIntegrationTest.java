@@ -20,7 +20,6 @@ import com.finance.system.domain.entity.BankDataStatement;
 import com.finance.system.domain.entity.BankDataSyncLog;
 import com.finance.system.domain.entity.BankDataSyncTask;
 import com.finance.system.domain.entity.Company;
-import com.finance.system.domain.entity.ConnectionProfile;
 import com.finance.system.domain.entity.SysUser;
 import com.finance.system.domain.entity.SysUserRole;
 import com.finance.system.domain.entity.SysRole;
@@ -32,7 +31,6 @@ import com.finance.system.domain.mapper.BankDataStatementMapper;
 import com.finance.system.domain.mapper.BankDataSyncLogMapper;
 import com.finance.system.domain.mapper.BankDataSyncTaskMapper;
 import com.finance.system.domain.mapper.CompanyMapper;
-import com.finance.system.domain.mapper.ConnectionProfileMapper;
 import com.finance.system.domain.mapper.SysUserMapper;
 import com.finance.system.domain.mapper.SysUserRoleMapper;
 import com.finance.system.domain.mapper.SysRoleMapper;
@@ -101,8 +99,6 @@ class V02BackendIntegrationTest {
     private BankDataStatementMapper bankDataStatementMapper;
     @Autowired
     private BankDataBalanceMapper bankDataBalanceMapper;
-    @Autowired
-    private ConnectionProfileMapper connectionProfileMapper;
     @Autowired
     private BankDataSyncService bankDataSyncService;
     @Autowired
@@ -504,25 +500,31 @@ class V02BackendIntegrationTest {
     }
 
     @Test
-    void scheduledBankDataSyncReusesRequestIdentityForSameWindow() {
-        ConnectionProfile profile = new ConnectionProfile();
-        profile.setCompanyId(companyB.getId());
-        profile.setConnectionCode("QA-PHASE2-" + UUID.randomUUID().toString().replace("-", "").substring(0, 8));
-        profile.setDisplayName("QA phase2 connection");
-        // Scheduled scans route by the profile's provider; point it at this context's test double
-        // (the generic MOCK adapter was removed, so "MOCK" would now fail closed).
-        profile.setProviderType("MOCK_PHASE2");
-        profile.setEnabled(true);
-        profile.setStatus("SIMULATED");
-        connectionProfileMapper.insert(profile);
-
+    void scheduledScanFailsClosedWithoutRealAdapter() {
+        // 2026-09-07 account-driven scan: routing is by bank_account.bank_code and ONLY banks
+        // whose REAL adapter is wired are auto-pulled. This context registers no REAL adapter,
+        // so every ACTIVE fixture account (CITIC etc.) must produce zero SCHEDULED tasks —
+        // the scan must never fabricate simulated pulls.
         bankDataSyncService.triggerScheduledSyncs();
         bankDataSyncService.triggerScheduledSyncs();
 
-        assertEquals(1, syncTaskMapper.selectCount(new LambdaQueryWrapper<BankDataSyncTask>()
+        assertEquals(0, syncTaskMapper.selectCount(new LambdaQueryWrapper<BankDataSyncTask>()
                 .eq(BankDataSyncTask::getCompanyId, companyB.getId())
-                .eq(BankDataSyncTask::getConnectionId, profile.getId())
                 .eq(BankDataSyncTask::getTriggerType, "SCHEDULED")));
+    }
+
+    @Test
+    void manualSyncWithoutExplicitAdapterFailsClosedForUnregisteredBank() {
+        // UI-triggered syncs send neither adapterCode nor connectionCode: resolution falls back
+        // to the account's own bank code. CITIC is not registered in this context, so the
+        // fallback must still fail closed (no simulated fallback) with an adapter error.
+        BusinessException rejected = assertThrows(BusinessException.class,
+                () -> bankDataSyncService.triggerForCompany(companyB.getId(), userB.getId(),
+                        new BankDataSyncRequest(null, accountB.getId(), null,
+                                LocalDateTime.parse("2026-08-26T00:00:00"),
+                                LocalDateTime.parse("2026-08-26T23:59:59")),
+                        "qa-bankcode-fallback-" + UUID.randomUUID(), "MANUAL"));
+        assertTrue(rejected.getMessage().contains("adapter"));
     }
 
     @TestConfiguration(proxyBeanMethods = false)

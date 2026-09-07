@@ -8,6 +8,7 @@ public record CurrentUserResponse(
         String email,
         String phone,
         String status,
+        String companyName,
         List<String> roles,
         List<String> permissions
 ) {

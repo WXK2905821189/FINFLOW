@@ -85,8 +85,10 @@ bankdata:
       connect-timeout-ms: 15000
       read-timeout-ms: 60000
   sync:
-    schedule-enabled: false
-    fixed-delay-ms: 600000
+    # Daily T-1 auto-pull (per ACTIVE bank account, REAL-adapter banks only). Off by default;
+    # production turns it on via BANKDATA_SYNC_SCHEDULE_ENABLED=true.
+    schedule-enabled: ${BANKDATA_SYNC_SCHEDULE_ENABLED:false}
+    fixed-delay-ms: ${BANKDATA_SYNC_FIXED_DELAY_MS:600000}
   retention:
     cleanup-enabled: false
     cleanup-fixed-delay-ms: 3600000

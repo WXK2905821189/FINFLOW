@@ -1,13 +1,13 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, Button, Card, DatePicker, Descriptions, Drawer, Empty, Input, Modal, Pagination, Space, Spin, Table, Tabs, Tag, message, type TableColumnsType } from 'antd';
+import { Alert, Button, Card, DatePicker, Descriptions, Drawer, Empty, Input, Modal, Pagination, Select, Space, Spin, Table, Tabs, Tag, message, type TableColumnsType } from 'antd';
 import { DownloadOutlined, FileTextOutlined, PlayCircleOutlined, SearchOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { Link } from 'react-router-dom';
-import { bankPipelineApi } from '../../services/api';
+import { bankPipelineApi, bankApi } from '../../services/api';
 import { useAuthStore } from '../../store/auth';
 import { useRemote, ResourceFailure, StatusTag } from '../shared/components';
 import { dateTime, displayValue, cleanText, money, dateOnly, maskAccountDisplay, isUnavailableStatus, isFailedStatus } from '../shared/format';
-import type { BankDataBalanceRow, BankDataProjectionPage, BankDataStatementRow, BankRawMessageDetail } from '../../types';
+import type { BankAccount, BankDataBalanceRow, BankDataProjectionPage, BankDataStatementRow, BankRawMessageDetail } from '../../types';
 
 export const bankDataResources = {
   balances: { title: '余额查询', permission: 'bankdata:balance:view' },
@@ -46,6 +46,8 @@ const INFO_FLAG_TEXT: Record<string, string> = {
   '2': '收方账号 / 母公司',
   '3': '原收方账号 / 子公司',
 };
+/** 银行代码显示名（仅展示层映射；未收录代码原样显示）。 */
+const BANK_NAME_TEXT: Record<string, string> = { CMB: '招商银行' };
 
 /** Pretty-print the bank payload; fall back to the raw text when it is not JSON. */
 const prettyPayload = (payload: string) => {
@@ -232,6 +234,7 @@ function BalanceDetail({ row }: { row: BankDataBalanceRow }) {
 
 export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDataResources }) {
   const hasPermission = useAuthStore((state) => state.hasPermission);
+  const companyName = useAuthStore((state) => state.user?.companyName);
   const canTriggerSync = hasPermission('bankdata:sync:trigger');
   const canViewRawMessage = hasPermission('bankdata:raw:view');
   const [page, setPage] = useState(1);
@@ -263,6 +266,26 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
   // callbacks trips the react-compiler refs rule, and state does the same job here.
   const [focusReturn, setFocusReturn] = useState<HTMLElement | null>(null);
   const isStatement = resource === 'statements';
+  // 账户筛选数据源：当前企业授权的银行账户（后端按公司隔离返回）。按银行分组展示，
+  // 选项值仍是内部账户 ID —— 查询接口本身无需改动。
+  const accountsLoader = useCallback(() => bankApi.accounts(), []);
+  const { data: accounts } = useRemote<BankAccount[]>(accountsLoader, [accountsLoader]);
+  const accountOptions = useMemo(() => {
+    const groups = new Map<string, BankAccount[]>();
+    (accounts || []).forEach((account) => {
+      const list = groups.get(account.bankCode) || [];
+      list.push(account);
+      groups.set(account.bankCode, list);
+    });
+    return Array.from(groups.entries()).map(([bankCode, list]) => ({
+      label: BANK_NAME_TEXT[bankCode] || bankCode,
+      title: bankCode,
+      options: list.map((account) => ({
+        value: String(account.id),
+        label: `${account.accountName}（${account.maskedAccountNumber}）`,
+      })),
+    }));
+  }, [accounts]);
   const loader = useCallback(() => submitted ? bankPipelineApi.queryProjection<BankQueryRow>(resource, { page, size, keyword: filters.keyword || undefined, accountId: filters.accountId || undefined, status: filters.status || undefined, from: filters.from || undefined, to: filters.to || undefined, sourceSystem: filters.sourceSystem || undefined, syncJobNo: filters.syncJobNo || undefined, requestId: filters.requestId || undefined }) : Promise.resolve<BankDataProjectionPage<BankQueryRow>>({ page, size, total: 0, records: [] }), [resource, page, size, filters, submitted]);
   const { data, loading, error, reload } = useRemote<BankDataProjectionPage<BankQueryRow>>(loader, [loader]);
   const query = () => { setPage(1); setFilters(draft); setSubmitted(true); };
@@ -296,12 +319,12 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
   const triggerSyncFromFilters = () => {
     const accountId = Number(draft.accountId || filters.accountId);
     if (!Number.isSafeInteger(accountId) || accountId <= 0) {
-      message.warning('请先填写企业内授权账户 ID，再创建同步任务');
+      message.warning('请先在「账户」下拉中选择要同步的银行账户');
       return;
     }
     Modal.confirm({
       title: '确认创建同步任务',
-      content: '将按当前账户与时间范围向 FINFLOW 服务端创建同步任务；浏览器不会直接连接银行，任务结果以服务端幂等状态为准。',
+      content: '将按所选账户与时间范围向 FINFLOW 服务端创建同步任务；浏览器不会直接连接银行，任务结果以服务端幂等状态为准。',
       okText: '确认创建',
       cancelText: '取消',
       onOk: async () => {
@@ -338,17 +361,25 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
     <>
       <div className="page-heading">
         <div>
-          <span className="section-kicker">银行接入 / 数据查询</span>
+          <span className="section-kicker">银行接入 / 数据查询{companyName ? ` · ${companyName}` : ''}</span>
           <h2>{definition.title}</h2>
-          <p className="muted">直出银行返回的原始字段（招行 trsQryByBreakPoint / NTQADINF），不做业务投影翻译；本方账号脱敏，完整报文体在「原始报文」模块查看。</p>
+          <p className="muted">数据按登录公司主体隔离展示；直出银行返回的原始字段（招行 trsQryByBreakPoint / NTQADINF），不做业务投影翻译；本方账号脱敏，完整报文体在「原始报文」模块查看。</p>
         </div>
         {submitted && <Button icon={<DownloadOutlined />} loading={exporting} onClick={exportCsv}>导出 CSV</Button>}
-        {canTriggerSync && <Button icon={<PlayCircleOutlined />} loading={syncTriggering} onClick={triggerSyncFromFilters}>按筛选创建同步任务</Button>}
+        {canTriggerSync && <Button icon={<PlayCircleOutlined />} loading={syncTriggering} onClick={triggerSyncFromFilters}>按所选账户创建同步任务</Button>}
       </div>
       <Card className="filter-card">
         <div className="bank-query-grid">
           <Input value={draft.keyword} placeholder="关键字：流水号/摘要/收付方/参考号" onChange={(event) => setDraft((current) => ({ ...current, keyword: event.target.value }))} />
-          <Input value={draft.accountId} placeholder="账户标识" onChange={(event) => setDraft((current) => ({ ...current, accountId: event.target.value }))} />
+          <Select
+            allowClear
+            showSearch
+            placeholder="账户（按银行分组）"
+            value={draft.accountId || undefined}
+            options={accountOptions}
+            notFoundContent={accounts === undefined ? <Spin size="small" /> : <Empty description="当前企业暂无授权账户" />}
+            onChange={(value) => setDraft((current) => ({ ...current, accountId: value || '' }))}
+          />
           <Input value={draft.status} placeholder="状态" onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value }))} />
           <Input value={draft.sourceSystem} placeholder="来源（真实数据为 BANKDATA）" onChange={(event) => setDraft((current) => ({ ...current, sourceSystem: event.target.value }))} />
           <Input value={draft.syncJobNo} placeholder="任务号" onChange={(event) => setDraft((current) => ({ ...current, syncJobNo: event.target.value }))} />

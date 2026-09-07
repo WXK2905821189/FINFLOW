@@ -4,6 +4,8 @@ export type User = {
   email: string;
   phone?: string;
   status: string;
+  /** 所属公司主体名（/auth/me 返回；数据查询页用于展示当前主体）。 */
+  companyName?: string;
   roles: string[];
   permissions: string[];
 };

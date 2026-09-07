@@ -6,7 +6,9 @@ import com.finance.system.auth.dto.CurrentUserResponse;
 import com.finance.system.auth.dto.LoginRequest;
 import com.finance.system.auth.dto.RegisterRequest;
 import com.finance.system.common.exception.BusinessException;
+import com.finance.system.domain.entity.Company;
 import com.finance.system.domain.entity.SysUser;
+import com.finance.system.domain.mapper.CompanyMapper;
 import com.finance.system.rbac.RbacService;
 import com.finance.system.user.SysUserService;
 import com.finance.system.security.JwtService;
@@ -28,6 +30,7 @@ public class AuthService {
     private final AuthSessionService authSessionService;
     private final LoginThrottleService throttleService;
     private final SystemAuditService auditService;
+    private final CompanyMapper companyMapper;
 
     public AuthService(AuthenticationManager authenticationManager,
                        JwtService jwtService,
@@ -35,7 +38,8 @@ public class AuthService {
                        RbacService rbacService,
                        AuthSessionService authSessionService,
                        LoginThrottleService throttleService,
-                       SystemAuditService auditService) {
+                       SystemAuditService auditService,
+                       CompanyMapper companyMapper) {
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
         this.userService = userService;
@@ -43,6 +47,7 @@ public class AuthService {
         this.authSessionService = authSessionService;
         this.throttleService = throttleService;
         this.auditService = auditService;
+        this.companyMapper = companyMapper;
     }
 
     public AuthTokenResponse login(LoginRequest request, String clientIp) {
@@ -81,8 +86,10 @@ public class AuthService {
     }
 
     public CurrentUserResponse currentUser(SysUser user) {
+        Company company = user.getCompanyId() == null ? null : companyMapper.selectById(user.getCompanyId());
         return new CurrentUserResponse(
                 user.getId(), user.getUsername(), user.getEmail(), user.getPhone(), user.getStatus(),
+                company == null ? null : company.getName(),
                 rbacService.roleCodesForUser(user.getId()),
                 rbacService.permissionCodesForUser(user.getId())
         );

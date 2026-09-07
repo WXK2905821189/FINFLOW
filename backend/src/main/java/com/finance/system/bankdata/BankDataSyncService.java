@@ -140,8 +140,12 @@ public class BankDataSyncService {
             if (connection == null) throw new BusinessException(404, "Connection not found in the current company");
             connectionId = connection.getId();
         }
+        // Adapter resolution order: explicit request → connection profile's provider → the
+        // account's own bank code. The last step is what makes a UI-triggered sync work without
+        // the user having to know adapter codes (2026-09-07: the page trigger used to fail with a
+        // bare "adapter is not available" when neither source nor connection was filled in).
         String adapterCode = aggregationService.resolveAdapterCode(request.adapterCode(),
-                connection == null ? null : connection.getProviderType());
+                connection == null ? account.getBankCode() : connection.getProviderType());
         String requestedRequestId = requestId == null || requestId.isBlank()
                 ? UUID.randomUUID().toString() : requestId.trim();
         String safeRequestId = requestedRequestId.length() > 64 ? requestedRequestId.substring(0, 64) : requestedRequestId;
