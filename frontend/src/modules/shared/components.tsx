@@ -3,9 +3,11 @@ import { Alert, Button, Card, Skeleton, Tag, Tooltip } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import { ApiRequestError } from '../../services/http';
 import { dateTime, directStatusText, statusColor } from './format';
+import { statusTagText } from './dict';
 
 export function StatusTag({ status }: { status?: string }) {
-  return <Tag color={statusColor(status)}>{status || '--'}</Tag>;
+  // WP3 中文化：系统枚举走统一字典；未收录值兜底显示原文（银行新增状态不被吞）。
+  return <Tag color={statusColor(status)}>{statusTagText(status) || '--'}</Tag>;
 }
 
 /**

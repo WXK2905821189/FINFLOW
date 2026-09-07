@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import { bankPipelineApi, bankApi } from '../../services/api';
 import { useAuthStore } from '../../store/auth';
 import { useRemote, ResourceFailure, StatusTag } from '../shared/components';
+import { syncStatusOptions } from '../shared/dict';
 import { dateTime, displayValue, cleanText, money, dateOnly, maskAccountDisplay, isUnavailableStatus, isFailedStatus } from '../shared/format';
 import type { BankAccount, BankDataBalanceRow, BankDataProjectionPage, BankDataStatementRow, BankRawMessageDetail } from '../../types';
 
@@ -380,7 +381,7 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
             notFoundContent={accounts === undefined ? <Spin size="small" /> : <Empty description="当前企业暂无授权账户" />}
             onChange={(value) => setDraft((current) => ({ ...current, accountId: value || '' }))}
           />
-          <Input value={draft.status} placeholder="状态" onChange={(event) => setDraft((current) => ({ ...current, status: event.target.value }))} />
+          <Select value={draft.status || undefined} allowClear placeholder="任务状态" style={{ minWidth: 130 }} options={syncStatusOptions} onChange={(value) => setDraft((current) => ({ ...current, status: value || '' }))} />
           <Input value={draft.sourceSystem} placeholder="来源（真实数据为 BANKDATA）" onChange={(event) => setDraft((current) => ({ ...current, sourceSystem: event.target.value }))} />
           <Input value={draft.syncJobNo} placeholder="任务号" onChange={(event) => setDraft((current) => ({ ...current, syncJobNo: event.target.value }))} />
           <Input value={draft.requestId} placeholder="请求编号" onChange={(event) => setDraft((current) => ({ ...current, requestId: event.target.value }))} />
