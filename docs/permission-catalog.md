@@ -11,7 +11,7 @@
 - resource：域内资源（balance / statement / receipt / reconciliation / payroll / sync / log / monitor）
 - action：view / manage / create / review / import / push / trigger / notify / retry / query
 
-## 有效权限清单（31 项）
+## 有效权限清单（现行 32 项 = V14 基线 31 + V16 增补 raw:view）
 
 | 编码 | 名称 | 授予角色 | 引用位置 |
 |---|---|---|---|
@@ -40,6 +40,7 @@
 | validation:view / validation:manage | 规则查看/管理 | 全部 / ADMIN | 规则与映射页 |
 | closing:view / closing:manage | 结账查看/管理 | 全部 / ADMIN+FINANCE_MANAGER | 结账管理页 |
 | audit:view | 审计中心 | ADMIN, FINANCE_MANAGER, VIEWER | 审计中心页 |
+| bankdata:raw:view | 原始报文查看（全系统唯一返回完整银行响应体的接口） | ADMIN, FINANCE_STAFF | RawMessagesPage、BankRawMessageController（V16 引入，2026-09-07 补登） |
 
 ## 已收敛的别名（禁止再引用）
 
@@ -61,5 +62,6 @@
 
 ## 变更记录
 
+- 2026-09-07 补登：V16（2026-09-05）引入的 bankdata:raw:view(id=39) 当时未登记本文（文档漂移），现补登为正式行；现行总数 31 → **32 项**。
 - 2026-09-01 V14：删除 transaction:view(2)、transfer:create(6)、transfer:approve(7)、transfer:execute(8)；legacy `/api/transfers`(7 端点)、`/api/banks`、`/api/bank-data/*`(8 端点)、`/api/operations/tasks` 一并移除，前端"采集设置"入口并入签约准备页。
 - 2026-09-01 V13：删除 bankdata:sync(21)、bank-sync:trigger(23)、bankdata:payment:view(27)；触发同步统一为 bankdata:sync:trigger(29)；控制器（BankPipelineController / BankDataController）与前端（operations.tsx / BankDataQueryPage.tsx）同步收敛。

@@ -329,7 +329,7 @@ function RolesTab() {
     <>
       <Card>
         <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-          <span className="muted">权限编码基线见 docs/permission-catalog.md（31 项）；权限变更即时生效并写入审计。</span>
+          <span className="muted">权限编码基线见 docs/permission-catalog.md（共 {data?.permissions?.length ?? '…'} 项）；权限变更即时生效并写入审计。</span>
           <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>新建角色</Button>
         </Space>
       </Card>
