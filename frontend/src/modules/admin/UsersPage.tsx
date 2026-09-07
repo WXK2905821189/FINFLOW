@@ -298,7 +298,10 @@ function RolesTab() {
 
   const columns: TableColumnsType<SysRole> = [
     { title: '角色编码', dataIndex: 'code', width: 180, render: (code) => <span className="mono">{code}</span> },
-    { title: '名称', dataIndex: 'name', width: 160, render: (name, record) => roleLabel(record.code) === record.code ? name : `${roleLabel(record.code)} / ${name}` },
+    { title: '名称', dataIndex: 'name', width: 160, render: (name, record) => {
+      const label = roleLabel(record.code);
+      return label === name ? name : `${label} / ${name}`;
+    } },
     { title: '描述', dataIndex: 'description', ellipsis: true },
     {
       title: '类型',

@@ -277,7 +277,9 @@ public class BankDataSyncExecutor {
         task.setCompletedAt(LocalDateTime.now());
         taskMapper.updateById(task);
         log(task, "INFO", "SYNC_COMPLETED", task.getStatus(), lastBankRequestNo,
-                "Bank data synchronization completed without external network calls");
+                // FIX-004: neutral wording — the old "without external network calls" was a
+                // mock-era leftover and misled operators during real (CMB) sync triage.
+                "Bank data synchronization completed");
         return task;
     }
 

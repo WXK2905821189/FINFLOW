@@ -97,3 +97,12 @@
 - **方向**：非 v0.2 必需（测试用户申请表未开通）。若 M2/M3 阶段对账需要历史余额锚点，再按文档实现（接口简单：单账户 + 日期 → 一行余额）。
 
 
+
+## FIX-004（P3 · 文案误导，非阻塞）2026-09-04 登记 · **2026-09-07 已修复（commit 随下次部署生效，见文末）**（来源：用户问询采集数据口径时发现）
+
+- **位置**：`backend/.../bankdata/BankDataSyncExecutor.java:280`
+- **现象**：同步完成日志 `SYNC_COMPLETED` 的 message 是写死的 "Bank data synchronization completed without external network calls"——模拟数据时代的遗留文案。真实银行调用成功（task 5/6，reqid 均为真实招行 reqid）也打印这句，采集失败日志页会误导运维以为"没走外网"。
+- **方向**：改为中性文案（如 "Bank data synchronization completed"）或带上真实调用计数；随手可改，随下一次构建携带，无需单独部署。
+- **附带说明**：任务计数口径——raw/normalized 计数**含余额快照**（STATEMENT 拉取每窗口附 1 条 NTQADINF 余额），所以 raw=10=9 流水+1 余额；重复判定键为 company_id+bank_account_id+statement_no+transaction_time+amount 五元组。前端任务详情"服务端摘要"如需易读可一并展示该口径。
+
+> **FIX-004 处置记录（2026-09-07）**：`BankDataSyncExecutor.java` SYNC_COMPLETED 文案已改为中性 "Bank data synchronization completed"（含注释溯源）。无测试断言该文案，改动零波及。已提交 master；按既定判断不单独部署，随下一次构建自然生效。
