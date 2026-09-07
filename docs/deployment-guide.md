@@ -25,6 +25,10 @@
 | `JWT_EXPIRATION` | 否 | JWT 有效期，默认 `2h`。 |
 | `STATEMENT_COLLECTION_MODE` | 是 | 一期设为 `file` 或 `mock`，控制标准化流水的受控采集来源；不得配置真实银行连接。 |
 | `KINGDEE_MOCK_MODE` | 是 | 一期固定为 `true`，仅生成可追溯的模拟凭证号，不向真实金蝶发送请求。 |
+| `KINGDEE_REAL_ENABLED` | 否 | 默认 `false`。真实金蝶网关（官方 K3Cloud WebAPI SDK v8.2.0，`kingdee-sdk` Maven profile）总开关；须同时满足：SDK jar 已装入构建机 `~/.m2`、`KINGDEE_MOCK_MODE=false`、本开关为 `true` 且凭据齐全，三者缺一网关即 fail-closed（501/FAILED）。 |
+| `KINGDEE_SERVER_URL` / `KINGDEE_ACCT_ID` / `KINGDEE_APP_ID` / `KINGDEE_APP_SEC` / `KINGDEE_USER_NAME` / `KINGDEE_LCID` | 仅 real 模式必填 | 对应 SDK X-KDApi-ServerUrl/AcctID/AppID/AppSec/UserName/LCID（第三方登录授权八项头）。只经环境变量注入，不得提交（CI release-contract 拒绝明文凭据）；配套 `KINGDEE_ORG_NUMBER`（组织，演示环境为 100）、`KINGDEE_PAY_BILL_FORM_ID`（默认 AP_PAYBILL）、`KINGDEE_RECEIVE_BILL_FORM_ID`（默认 AR_RECEIVEBILL）。 |
+| `KINGDEE_AUTO_CREATE_COUNTERPARTY` | 否 | 默认 `true`。对手方基础资料自动建档：流水对手方名称在金蝶 BD_Supplier/BD_Customer 查询未命中时自动创建（FNumber=前缀+名称 SHA-256 前 10 位，重复建档报「组织内唯一」视为已存在并复用）。置 `false` 则未命中直接 FAILED。 |
+| `KINGDEE_AUTO_AUDIT` | 否 | 默认 `false`。保存成功后自动 Submit+Audit 收付款单（2026-09-07 演示环境已验证 Submit；审核请求契约已确认，完成须真实环境）。金蝶侧审批流是否可绕过属业务决策，9/11 联调拍板后方可开启；审核失败不改变推送状态（单据已建成，避免重推重复），仅在结果 message 中标注。 |
 | `CITIC_MOCK_MODE` | 否 | 现有支付/调拨演示适配器的开关；自动入账一期不依赖此配置，生产不得配置真实中信连接信息。 |
 | `SERVER_PORT` | 否 | 监听端口；未设置时为 `8080`。 |
 
@@ -47,7 +51,7 @@ test "$SPRING_PROFILES_ACTIVE" = prod
 银行接入模块一期只管理连接档案、受控采集任务、五类只读查询及操作日志，用于展示和审计模拟或文件导入流程。它不接入真实银行，也不是生产密钥存储服务：
 
 - 真实银行 SDK、银行 API 调用、定时拉取流水和生产银行密钥均未启用，发布包不得开启或绕过这一边界。
-- 自动入账保持 `STATEMENT_COLLECTION_MODE=file` 或 `mock`，并保持 `KINGDEE_MOCK_MODE=true`；模拟金蝶只返回可追溯的模拟凭证号。
+- 自动入账保持 `STATEMENT_COLLECTION_MODE=file` 或 `mock`，并保持 `KINGDEE_MOCK_MODE=true`；模拟金蝶只返回可追溯的模拟凭证号。真实金蝶网关骨架已于 2026-09-04 就位（vendor SDK 走 `kingdee-sdk` Maven profile，推送落点为出纳收付款单 AP_PAYBILL/AR_RECEIVEBILL），但默认关闭；开启需三项条件同时满足并经审批，收付款单 payload 中的结算类型/用途/账户映射字段须在 9/11 联调时用 OpenAPI 在线测试校准后方可放行。
 - 连接档案、任务参数、运行日志、CI 变量和应用日志不得记录账号密码、访问令牌、私钥或任何银行/金蝶生产凭据。此类机密只能在未来已批准的适配器接入中通过 KMS 或密钥管理服务短期注入。
 - CI 的 `Release contract` 会拒绝提交明确命名的银行或金蝶生产凭据，并检查公共迁移 V1-V6、V8、V9 及按数据库选择的厂商 V7。该检查不能替代人工密钥审查。
 

@@ -44,6 +44,29 @@ statement:
 
 kingdee:
   mock-mode: ${KINGDEE_MOCK_MODE:true}
+  # Real gateway (official K3Cloud WebAPI SDK v8.2.0, kingdee-sdk Maven profile).
+  # Activation requires ALL of: SDK jar in local ~/.m2 (kingdee-sdk profile active),
+  # KINGDEE_REAL_ENABLED=true, and the credential block below filled via env vars.
+  # Credentials are never committed (CI release-contract enforces this).
+  real-enabled: ${KINGDEE_REAL_ENABLED:false}
+  server-url: ${KINGDEE_SERVER_URL:}
+  acct-id: ${KINGDEE_ACCT_ID:}
+  app-id: ${KINGDEE_APP_ID:}
+  app-sec: ${KINGDEE_APP_SEC:}
+  user-name: ${KINGDEE_USER_NAME:}
+  lcid: ${KINGDEE_LCID:2052}
+  org-number: ${KINGDEE_ORG_NUMBER:100}
+  currency-number: ${KINGDEE_CURRENCY_NUMBER:PRE001}
+  settle-type-number: ${KINGDEE_SETTLE_TYPE_NUMBER:JSFS04_SYS}
+  # Counterparty auto-provisioning (calibrated 2026-09-07: minimal BD_Supplier/BD_Customer
+  # save works; duplicate number rejection is the idempotency signal).
+  auto-create-counterparty: ${KINGDEE_AUTO_CREATE_COUNTERPARTY:true}
+  counterparty-number-prefix: ${KINGDEE_COUNTERPARTY_NUMBER_PREFIX:FINFLW}
+  customer-type-number: ${KINGDEE_CUSTOMER_TYPE_NUMBER:KHLB001_SYS}
+  # Optional submit+audit after save (default off; business decision at 9/11 joint test).
+  auto-audit: ${KINGDEE_AUTO_AUDIT:false}
+  pay-bill-form-id: ${KINGDEE_PAY_BILL_FORM_ID:AP_PAYBILL}
+  receive-bill-form-id: ${KINGDEE_RECEIVE_BILL_FORM_ID:AR_RECEIVEBILL}
 
 bankdata:
   adapter:

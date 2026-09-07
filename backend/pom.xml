@@ -228,5 +228,69 @@
                 </plugins>
             </build>
         </profile>
+        <!--
+          Kingdee K3Cloud WebAPI SDK integration (statement.kingdee real mode).
+
+          Same pattern as citic-sdk: the vendor jar is installed into the local ~/.m2
+          only (mvn install:install-file, source: openapi.open.kingdee.com/ApiSdkCenter
+          SDK_JDK11_V8.2.0.zip), never committed. The profile auto-activates via
+          file-exists activation; machines without the jar build the fail-closed
+          UnavailableKingdeeVoucherGateway. Real gateway additionally requires
+          kingdee.mock-mode=false AND kingdee.real-enabled=true at runtime.
+          Decision 2026-09-04: cashier-bill landing point (AP_PAYBILL / AR_RECEIVEBILL).
+        -->
+        <profile>
+            <id>kingdee-sdk</id>
+            <activation>
+                <file>
+                    <exists>${user.home}/.m2/repository/com/kingdee/k3cloud-webapi-sdk-java11/8.2.0/k3cloud-webapi-sdk-java11-8.2.0.jar</exists>
+                </file>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>com.kingdee</groupId>
+                    <artifactId>k3cloud-webapi-sdk-java11</artifactId>
+                    <version>8.2.0</version>
+                </dependency>
+                <!-- gson is already on the main classpath (Spring Boot BOM managed,
+                     required by CMB adapter with newer API than the SDK demo's 2.8.0);
+                     the vendor SDK works with it, do NOT pin the demo's old version. -->
+            </dependencies>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>build-helper-maven-plugin</artifactId>
+                        <version>3.6.0</version>
+                        <executions>
+                            <execution>
+                                <id>add-kingdee-sdk-source</id>
+                                <phase>generate-sources</phase>
+                                <goals>
+                                    <goal>add-source</goal>
+                                </goals>
+                                <configuration>
+                                    <sources>
+                                        <source>src/kingdee-sdk/java</source>
+                                    </sources>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>add-kingdee-sdk-test-source</id>
+                                <phase>generate-test-sources</phase>
+                                <goals>
+                                    <goal>add-test-source</goal>
+                                </goals>
+                                <configuration>
+                                    <sources>
+                                        <source>src/kingdee-sdk/test</source>
+                                    </sources>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
     </profiles>
 </project>
