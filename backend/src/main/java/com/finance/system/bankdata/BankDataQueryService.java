@@ -571,6 +571,36 @@ public class BankDataQueryService {
                 .stream().map(company -> new CompanyOptionResponse(company.getId(), company.getName())).toList();
     }
 
+    /**
+     * 运行日志数据源：bank_data_sync_log（真实同步作业事件流：报文留存/页面采集/去重/完成等）。
+     * 旧 /operations/logs 读的 connection_operation_log 已无写入方（0 行），页面永远为空——
+     * 本方法就是替代数据源；公司范围与投影查询一致（跨公司权限者看全部，否则本公司）。
+     */
+    public PageResponse<BankDataSyncLogResponse> listSyncLogs(Long userId, int page, int size,
+                                                              String status, String requestId, String level) {
+        List<Long> companyIds = projectionScope(userId, null);
+        LambdaQueryWrapper<BankDataSyncLog> query = new LambdaQueryWrapper<BankDataSyncLog>()
+                .in(BankDataSyncLog::getCompanyId, companyIds)
+                .orderByDesc(BankDataSyncLog::getCreatedAt)
+                .orderByDesc(BankDataSyncLog::getId);
+        // 与 ConnectionOperationsService.logs 同款坑：条件实参先于 condition 求值，先判空再挂条件。
+        if (status != null && !status.isBlank()) {
+            query.eq(BankDataSyncLog::getResult, status.trim().toUpperCase(Locale.ROOT));
+        }
+        if (level != null && !level.isBlank()) {
+            query.eq(BankDataSyncLog::getLevel, level.trim().toUpperCase(Locale.ROOT));
+        }
+        if (requestId != null && !requestId.isBlank()) {
+            query.eq(BankDataSyncLog::getRequestId, requestId.trim());
+        }
+        Page<BankDataSyncLog> result = logMapper.selectPage(
+                new Page<>(Math.max(1, page), boundedSize(size)), query);
+        List<BankDataSyncLogResponse> records = result.getRecords().stream()
+                .map(responseAssembler::log)
+                .toList();
+        return new PageResponse<>(result.getCurrent(), result.getSize(), result.getTotal(), records);
+    }
+
     private String taskNo(BankDataSyncTask task) {
         return task == null ? null : task.getTaskNo();
     }

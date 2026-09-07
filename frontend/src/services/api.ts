@@ -17,6 +17,7 @@ import type {
   BankRawReplayResult,
   BankTaskReconciliationRow,
   CompanyOption,
+  BankSyncLogRow,
   BankSyncJob,
   BankSyncJobDetail,
   BankSyncJobTrigger,
@@ -177,6 +178,9 @@ export const bankPipelineApi = {
   queryProjection: <T>(resource: string, params: BankDataQueryParams) => http.get<never, BankDataProjectionPage<T>>(`/bank-data/${resource}`, { params }),
   /** 公司主体下拉数据源：跨公司权限者返回全部 ACTIVE 公司，否则仅本公司。 */
   companyOptions: () => http.get<never, CompanyOption[]>('/bank-data/company-options'),
+  /** 运行日志：真实同步作业事件流（bank_data_sync_log），替代空的 connection_operation_log。 */
+  syncLogs: (params: { page?: number; size?: number; status?: string; level?: string; requestId?: string }) =>
+    http.get<never, PageResponse<BankSyncLogRow>>('/bank-data/sync-logs', { params }),
   listRawMessages: (params: BankRawMessageListParams) => http.get<never, PageResponse<BankRawMessage>>('/bank-data-raw-messages', { params }),
   getRawMessage: (id: number) => http.get<never, BankRawMessageDetail>(`/bank-data-raw-messages/${id}`),
   /** 用当前解析规则重放银行原文，与入库视图对比；仅读不写。 */

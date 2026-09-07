@@ -40,6 +40,18 @@ export type OperationLog = {
   occurredAt: string;
 };
 
+/** 运行日志行：/bank-data/sync-logs（bank_data_sync_log 真实同步作业事件流）。 */
+export type BankSyncLogRow = {
+  id: number;
+  level: string;
+  eventType: string;
+  result: string;
+  requestId?: string;
+  bankRequestNo?: string;
+  message?: string;
+  createdAt: string;
+};
+
 export type DataQueryCapability = {
   capability: string;
   enabled: boolean;

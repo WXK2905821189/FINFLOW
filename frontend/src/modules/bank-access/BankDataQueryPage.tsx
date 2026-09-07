@@ -304,8 +304,16 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
   const loader = useCallback(() => submitted ? bankPipelineApi.queryProjection<BankQueryRow>(resource, { page, size, keyword: filters.keyword || undefined, accountId: filters.accountId || undefined, status: filters.status || undefined, from: filters.from || undefined, to: filters.to || undefined, sourceSystem: filters.sourceSystem || undefined, syncJobNo: filters.syncJobNo || undefined, requestId: filters.requestId || undefined, companyId: filters.companyId ? Number(filters.companyId) : undefined }) : Promise.resolve<BankDataProjectionPage<BankQueryRow>>({ page, size, total: 0, records: [] }), [resource, page, size, filters, submitted]);
   const { data, loading, error, reload } = useRemote<BankDataProjectionPage<BankQueryRow>>(loader, [loader]);
   const query = () => { setPage(1); setFilters(draft); setSubmitted(true); };
+  // 离散筛选（账户/公司/状态/日期）「即选即查」：不必再点查询按钮。输入框仍走按钮/回车，
+  // 避免逐字符触发请求。
+  const applyFilter = (patch: Partial<BankQueryFilters>) => {
+    setPage(1);
+    setDraft((current) => ({ ...current, ...patch }));
+    setFilters((current) => ({ ...current, ...patch }));
+    setSubmitted(true);
+  };
   const reset = () => { setPage(1); setDraft(emptyBankQueryFilters); setFilters(emptyBankQueryFilters); setSubmitted(false); };
-  const setDateFilter = (key: 'from' | 'to', value?: string) => setDraft((current) => ({ ...current, [key]: value || '' }));
+  const setDateFilter = (key: 'from' | 'to', value?: string) => applyFilter({ [key]: value || '' });
   const openDetail = useCallback((row: BankQueryRow) => {
     setFocusReturn(document.activeElement instanceof HTMLElement ? document.activeElement : null);
     setSelected(row);
@@ -383,14 +391,14 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
         <div>
           <span className="section-kicker">银行数据 / 数据查询{companyName ? ` · ${companyName}` : ''}</span>
           <h2>{definition.title}</h2>
-          <p className="muted">{canCrossCompany ? '可跨公司主体查看全部 ACTIVE 公司的银行数据，行内标注归属公司；' : '数据按登录公司主体隔离展示；'}直出银行返回的原始字段（招行 trsQryByBreakPoint / NTQADINF），不做业务投影翻译；本方账号脱敏，完整报文体在「原始报文」模块查看。</p>
+          <p className="muted">{canCrossCompany ? '可跨公司主体查看全部 ACTIVE 公司的银行数据，行内标注归属公司；' : '数据按登录公司主体隔离展示；'}查询读取的是已同步落库的银行数据（不实时请求银行，新数据由每晚自动同步任务或手动补拉获取）；「公司主体」为本系统银行账户档案的归属公司——银行报文只含账号与户名，账户归属由贵司在「银行账户」中维护，新增分公司/子公司账户后即可在此分开查看。直出银行原始字段，本方账号脱敏，完整报文体在「原始报文」模块查看。</p>
         </div>
         {submitted && <Button icon={<DownloadOutlined />} loading={exporting} onClick={exportCsv}>导出 CSV</Button>}
         {canTriggerSync && <Button icon={<PlayCircleOutlined />} loading={syncTriggering} onClick={triggerSyncFromFilters}>按所选账户创建同步任务</Button>}
       </div>
       <Card className="filter-card">
         <div className="bank-query-grid">
-          <Input value={draft.keyword} placeholder="关键字：流水号/摘要/收付方/参考号" onChange={(event) => setDraft((current) => ({ ...current, keyword: event.target.value }))} />
+          <Input value={draft.keyword} placeholder="关键字：流水号/摘要/收付方/参考号" onPressEnter={query} onChange={(event) => setDraft((current) => ({ ...current, keyword: event.target.value }))} />
           <Select
             allowClear
             showSearch
@@ -398,7 +406,7 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
             value={draft.accountId || undefined}
             options={accountOptions}
             notFoundContent={accounts === undefined ? <Spin size="small" /> : <Empty description="当前企业暂无授权账户" />}
-            onChange={(value) => setDraft((current) => ({ ...current, accountId: value || '' }))}
+            onChange={(value) => applyFilter({ accountId: value || '' })}
           />
           {canCrossCompany && (
             <Select
@@ -409,13 +417,13 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
               value={draft.companyId || undefined}
               options={companyOptions}
               notFoundContent={<Spin size="small" />}
-              onChange={(value) => setDraft((current) => ({ ...current, companyId: value ? String(value) : '' }))}
+              onChange={(value) => applyFilter({ companyId: value ? String(value) : '' })}
             />
           )}
-          <Select value={draft.status || undefined} allowClear placeholder="任务状态" style={{ minWidth: 130 }} options={syncStatusOptions} onChange={(value) => setDraft((current) => ({ ...current, status: value || '' }))} />
-          <Input value={draft.sourceSystem} placeholder="来源（真实数据为 BANKDATA）" onChange={(event) => setDraft((current) => ({ ...current, sourceSystem: event.target.value }))} />
-          <Input value={draft.syncJobNo} placeholder="任务号" onChange={(event) => setDraft((current) => ({ ...current, syncJobNo: event.target.value }))} />
-          <Input value={draft.requestId} placeholder="请求编号" onChange={(event) => setDraft((current) => ({ ...current, requestId: event.target.value }))} />
+          <Select value={draft.status || undefined} allowClear placeholder="任务状态" style={{ minWidth: 130 }} options={syncStatusOptions} onChange={(value) => applyFilter({ status: value || '' })} />
+          <Input value={draft.sourceSystem} placeholder="来源（真实数据为 BANKDATA）" onPressEnter={query} onChange={(event) => setDraft((current) => ({ ...current, sourceSystem: event.target.value }))} />
+          <Input value={draft.syncJobNo} placeholder="任务号" onPressEnter={query} onChange={(event) => setDraft((current) => ({ ...current, syncJobNo: event.target.value }))} />
+          <Input value={draft.requestId} placeholder="请求编号" onPressEnter={query} onChange={(event) => setDraft((current) => ({ ...current, requestId: event.target.value }))} />
           <DatePicker showTime placeholder="开始时间" value={draft.from ? dayjs(draft.from) : undefined} onChange={(value) => setDateFilter('from', value?.toISOString())} />
           <DatePicker showTime placeholder="结束时间" value={draft.to ? dayjs(draft.to) : undefined} onChange={(value) => setDateFilter('to', value?.toISOString())} />
           <Space className="bank-query-actions">

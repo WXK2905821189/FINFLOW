@@ -21,6 +21,7 @@ export type {
   BankRawReplayResult,
   BankTaskReconciliationRow,
   CompanyOption,
+  BankSyncLogRow,
 } from '../modules/bank-access/types';
 export type {
   StatementRecordInput,

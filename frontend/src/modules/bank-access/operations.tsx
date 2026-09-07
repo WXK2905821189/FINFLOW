@@ -25,9 +25,9 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { bankApi, bankPipelineApi, operationsApi } from '../../services/api';
 import { useAuthStore } from '../../store/auth';
 import { useRemote, ResourceFailure, StatusTag, PhaseOneNotice } from '../shared/components';
-import { jobTypeOptions, syncStatusOptions, jobTypeText, triggerTypeText } from '../shared/dict';
+import { jobTypeOptions, syncStatusOptions, jobTypeText, triggerTypeText, logEventText, LOG_LEVEL_TEXT, LOG_RESULT_EXTENDED_TEXT } from '../shared/dict';
 import { dateTime, displayValue, cleanText, statusColor } from '../shared/format';
-import type { PageResponse, BankSyncJob, BankSyncJobDetail, BankSyncJobTrigger, OperationLog, ConnectionOverview, BankAccount } from '../../types';
+import type { PageResponse, BankSyncJob, BankSyncJobDetail, BankSyncJobTrigger, BankSyncLogRow, ConnectionOverview, BankAccount } from '../../types';
 
 export function SyncJobDrawer({ job, onClose }: { job?: BankSyncJob; onClose: () => void }) {
   const loader = useCallback(() => job ? bankPipelineApi.getJob(job.id) : Promise.resolve<BankSyncJobDetail | undefined>(undefined), [job]);
@@ -102,17 +102,28 @@ export function OperationTasks() {
 export function OperationLogs() {
   const [searchParams] = useSearchParams();
   const [page, setPage] = useState(1);
-  const initialFilters = { requestId: searchParams.get('requestId') || '', connectionCode: '', status: '' };
+  const initialFilters = { requestId: searchParams.get('requestId') || '', level: '', status: '' };
   const [filters, setFilters] = useState(initialFilters);
   const [draftFilters, setDraftFilters] = useState(initialFilters);
-  const [submitted, setSubmitted] = useState(Boolean(initialFilters.requestId));
-  const loader = useCallback(() => submitted ? operationsApi.logs({ page, size: 20, requestId: filters.requestId || undefined, connectionCode: filters.connectionCode || undefined, status: filters.status || undefined }) : Promise.resolve<PageResponse<OperationLog>>({ page, size: 20, total: 0, records: [] }), [page, filters, submitted]);
-  const { data, loading, error, reload } = useRemote<PageResponse<OperationLog>>(loader, [loader]);
+  // 打开页面即加载最新日志（此前默认空白且文案承诺「默认检索最近 24 小时」与行为不符）。
+  const [submitted, setSubmitted] = useState(true);
+  const loader = useCallback(() => submitted ? bankPipelineApi.syncLogs({ page, size: 20, requestId: filters.requestId || undefined, level: filters.level || undefined, status: filters.status || undefined }) : Promise.resolve<PageResponse<BankSyncLogRow>>({ page, size: 20, total: 0, records: [] }), [page, filters, submitted]);
+  const { data, loading, error, reload } = useRemote<PageResponse<BankSyncLogRow>>(loader, [loader]);
   const updateFilter = (key: keyof typeof filters, value: string) => {
     setDraftFilters((current) => ({ ...current, [key]: value }));
   };
   const submitLogFilter = () => { setPage(1); setFilters(draftFilters); setSubmitted(true); };
-  const resetLogFilter = () => { setPage(1); setDraftFilters({ requestId: '', connectionCode: '', status: '' }); setFilters({ requestId: '', connectionCode: '', status: '' }); setSubmitted(false); };
-  const columns: TableColumnsType<OperationLog> = [{ title: '时间', dataIndex: 'occurredAt', render: (value) => dateTime(value) }, { title: '级别', dataIndex: 'level', render: (value) => <StatusTag status={value} /> }, { title: '事件', dataIndex: 'eventType' }, { title: '结果', dataIndex: 'result', render: (value) => <StatusTag status={value} /> }, { title: '请求编号', dataIndex: 'requestId', render: (value) => value ? <span className="mono">{value}</span> : '--' }, { title: '安全摘要', dataIndex: 'message', ellipsis: true, render: (value) => value || '--' }];
-  return <><div className="page-heading"><div><span className="section-kicker">银行数据 / 运行日志</span><h2>运行日志</h2><p className="muted">默认检索最近 24 小时的作业日志；仅显示服务端脱敏摘要，不回显密钥、令牌、私钥、完整账号或堆栈。</p></div></div><Card className="filter-card"><div className="filter-toolbar"><div className="filter-fields"><Input value={draftFilters.requestId} allowClear placeholder="请求编号" onChange={(event) => updateFilter('requestId', event.target.value)} /><Input value={draftFilters.connectionCode} allowClear placeholder="连接标识" onChange={(event) => updateFilter('connectionCode', event.target.value)} /><Input value={draftFilters.status} allowClear placeholder="状态/结果" onChange={(event) => updateFilter('status', event.target.value)} /></div><Space><Button type="primary" icon={<SearchOutlined />} onClick={submitLogFilter}>查询</Button><Button onClick={resetLogFilter}>重置</Button></Space></div></Card><Card>{error ? <ResourceFailure error={error} onRetry={reload} /> : !submitted ? <Empty description="默认范围为最近 24 小时；点击查询后加载服务端日志。" /> : <><PhaseOneNotice /><Table rowKey={(row) => `${row.taskId || '--'}-${row.occurredAt}-${row.eventType}-${row.requestId || '--'}`} loading={loading} columns={columns} dataSource={data?.records || []} pagination={false} locale={{ emptyText: <Empty description="当前筛选没有日志" /> }} scroll={{ x: 920 }} />{data && data.total > data.size && <Pagination className="table-pagination" current={data.page} pageSize={data.size} total={data.total} showSizeChanger={false} onChange={setPage} />}</>}</Card></>;
+  const resetLogFilter = () => { setPage(1); setDraftFilters({ requestId: '', level: '', status: '' }); setFilters({ requestId: '', level: '', status: '' }); setSubmitted(true); };
+  const levelOptions = Object.entries(LOG_LEVEL_TEXT).map(([value, label]) => ({ value, label }));
+  const statusOptions = Object.entries(LOG_RESULT_EXTENDED_TEXT).map(([value, label]) => ({ value, label }));
+  const columns: TableColumnsType<BankSyncLogRow> = [
+    { title: '时间', dataIndex: 'createdAt', width: 160, render: (value) => dateTime(value) },
+    { title: '级别', dataIndex: 'level', width: 90, render: (value) => <StatusTag status={value} /> },
+    { title: '事件', dataIndex: 'eventType', width: 150, render: (value) => logEventText(value) },
+    { title: '结果', dataIndex: 'result', width: 110, render: (value) => <StatusTag status={value} /> },
+    { title: '请求编号', dataIndex: 'requestId', width: 170, render: (value) => value ? <span className="mono">{value}</span> : '--' },
+    { title: '银行请求号', dataIndex: 'bankRequestNo', width: 170, render: (value) => value ? <span className="mono">{value}</span> : '--' },
+    { title: '安全摘要', dataIndex: 'message', ellipsis: true, render: (value) => value || '--' },
+  ];
+  return <><div className="page-heading"><div><span className="section-kicker">银行数据 / 运行日志</span><h2>运行日志</h2><p className="muted">展示每次银行数据同步的作业事件流（任务创建/报文留存/数据入库/去重/完成）；仅显示服务端脱敏摘要，不回显密钥、令牌、私钥、完整账号或堆栈。</p></div></div><Card className="filter-card"><div className="filter-toolbar"><div className="filter-fields"><Input value={draftFilters.requestId} allowClear placeholder="请求编号" onPressEnter={submitLogFilter} onChange={(event) => updateFilter('requestId', event.target.value)} /><Select value={draftFilters.level || undefined} allowClear placeholder="级别" style={{ minWidth: 120 }} options={levelOptions} onChange={(value) => updateFilter('level', value || '')} /><Select value={draftFilters.status || undefined} allowClear placeholder="结果" style={{ minWidth: 130 }} options={statusOptions} onChange={(value) => updateFilter('status', value || '')} /></div><Space><Button type="primary" icon={<SearchOutlined />} onClick={submitLogFilter}>查询</Button><Button onClick={resetLogFilter}>重置</Button></Space></div></Card><Card>{error ? <ResourceFailure error={error} onRetry={reload} /> : <><Table rowKey={(row) => `${row.id}-${row.eventType}-${row.createdAt}`} loading={loading} columns={columns} dataSource={data?.records || []} pagination={false} locale={{ emptyText: <Empty description="还没有同步作业日志；发起一次同步（自动调度或手动补拉）后这里会出现记录" /> }} scroll={{ x: 1100 }} />{data && data.total > data.size && <Pagination className="table-pagination" current={data.page} pageSize={data.size} total={data.total} showSizeChanger={false} onChange={setPage} />}</>}</Card></>;
 }

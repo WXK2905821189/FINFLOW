@@ -2,6 +2,7 @@ package com.finance.system.bankdata;
 
 import com.finance.system.bankdata.dto.BankDataProjectionResponse;
 import com.finance.system.bankdata.dto.BankDataProjectionPageResponse;
+import com.finance.system.bankdata.dto.BankDataSyncLogResponse;
 import com.finance.system.bankdata.dto.BankDataTraceResponse;
 import com.finance.system.bankdata.dto.BankSyncJobDetailResponse;
 import com.finance.system.bankdata.dto.BankSyncJobResponse;
@@ -91,6 +92,19 @@ public class BankPipelineController {
     @Operation(summary = "Company options for the bank-data projection filters")
     public ApiResponse<List<CompanyOptionResponse>> companyOptions(@AuthenticationPrincipal UserPrincipal principal) {
         return ApiResponse.success(queryService.companyOptions(principal.getId()));
+    }
+
+    @GetMapping("/bank-data/sync-logs")
+    @PreAuthorize("hasAnyAuthority('operation:log:view', 'bankdata:view')")
+    @Operation(summary = "List sanitized bank sync job logs")
+    public ApiResponse<PageResponse<BankDataSyncLogResponse>> syncLogs(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String level,
+            @RequestParam(required = false) String requestId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success(queryService.listSyncLogs(principal.getId(), page, size, status, level, requestId));
     }
 
     @GetMapping("/bank-data/{resource}")
