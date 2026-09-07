@@ -65,7 +65,6 @@ function AccountsTab() {
   const { data, loading, error, reload } = useRemote<PageResponse<User>>(usersLoader, [usersLoader]);
 
   const roleIdByCode = useMemo(() => new Map((roles || []).map((role) => [role.code, role.id])), [roles]);
-  const roleCodeById = useMemo(() => new Map((roles || []).map((role) => [role.id, role.code])), [roles]);
 
   const openCreate = () => {
     form.resetFields();
@@ -188,7 +187,7 @@ function AccountsTab() {
 
       <Modal
         title={isCreate ? '新增账号' : `编辑账号：${editing?.username}`}
-        open={isCreate || editing != null}
+        open={creating || editing != null}
         onCancel={() => { setCreating(false); setEditing(null); }}
         onOk={submit}
         confirmLoading={confirmLoading}
@@ -414,7 +413,7 @@ function RolesTab() {
                     {permissions.map((permission) => (
                       <Checkbox key={permission.id} value={permission.id}>
                         <span className="mono">{permission.code}</span>
-                        <span className="muted">　{permission.name}</span>
+                        <span className="muted" style={{ marginLeft: 8 }}>{permission.name}</span>
                       </Checkbox>
                     ))}
                   </Checkbox.Group>
