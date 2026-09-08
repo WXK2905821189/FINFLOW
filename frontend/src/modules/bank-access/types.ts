@@ -337,3 +337,10 @@ export type CompanyArchiveView = {
   companies: CompanyArchiveCompany[];
   accounts: CompanyArchiveAccount[];
 };
+
+/** 定时同步计划行（V25）：到点触发一轮全账户 T-1 同步。 */
+export type BankSyncScheduleRow = {
+  id: number;
+  executeHhmm: string;
+  enabled: boolean;
+};

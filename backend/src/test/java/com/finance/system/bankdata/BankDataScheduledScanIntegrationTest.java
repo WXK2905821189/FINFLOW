@@ -74,6 +74,8 @@ class BankDataScheduledScanIntegrationTest {
     private BankDataQueryService bankDataQueryService;
     @Autowired
     private com.finance.system.statement.StatementService statementService;
+    @Autowired
+    private BankSyncScheduleService bankSyncScheduleService;
 
     @Test
     void scheduledScanIsAccountDrivenAndDedupesPerWindow() {
@@ -187,6 +189,28 @@ class BankDataScheduledScanIntegrationTest {
         assertTrue(rows.stream()
                 .filter(row -> row.statementNo().equals(fresh.getStatementNo()))
                 .noneMatch(BankDataStatementResponse::transferred), "未转入行不应被标记");
+    }
+
+    /**
+     * 心跳命中端到端（V25 / D1=A1）：计划时刻=当前分钟 → fireIfDue 触发一轮同步，
+     * 同 T-1 窗口幂等（重复心跳仍只有一个 SCHEDULED 任务）。
+     */
+    @Test
+    void heartbeatFiresWhenMinuteMatchesAndStaysIdempotent() {
+        Company company = insertCompany("QA-HB");
+        insertRealQaAccount(company.getId(), "QA heartbeat account");
+        String now = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+        com.finance.system.domain.entity.BankSyncSchedule schedule =
+                bankSyncScheduleService.create(now, insertUser(company.getId(), "qa-hb-admin", 1L));
+
+        bankSyncScheduleService.fireIfDue();
+        bankSyncScheduleService.fireIfDue();
+
+        assertEquals(1, taskMapper.selectCount(new LambdaQueryWrapper<BankDataSyncTask>()
+                .eq(BankDataSyncTask::getCompanyId, company.getId())
+                .eq(BankDataSyncTask::getTriggerType, "SCHEDULED")),
+                "命中时刻触发一轮同步，且同窗口幂等不重复建任务");
+        bankSyncScheduleService.delete(schedule.getId(), 1L);
     }
 
     private Long insertUser(Long companyId, String username, Long roleId) {

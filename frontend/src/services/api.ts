@@ -11,6 +11,7 @@ import type {
   DataQueryCapability,
   OperationLog,
   BankAccount,
+  BankSyncScheduleRow,
   BankDataProjectionPage,
   BankRawMessage,
   BankRawMessageDetail,
@@ -204,6 +205,14 @@ export const bankPipelineApi = {
   /** 银行流水一键转入标准流水（流水与入账）；服务端按银行流水行的公司归属落批次。 */
   transferFromBankdata: (data: { statementIds: number[] }) =>
     http.post<never, StatementTransferResult>('/statements/transfer-from-bankdata', data),
+  /** 定时同步计划（V25）：读取全部计划时刻（查看权限即可读）。 */
+  listSchedules: () => http.get<never, BankSyncScheduleRow[]>('/bank-sync-schedules'),
+  /** 新建计划时刻（HH:mm，禁整点/半点；bank:manage）。 */
+  createSchedule: (executeHhmm: string) => http.post<never, BankSyncScheduleRow>('/bank-sync-schedules', { executeHhmm }),
+  /** 启用/停用计划（bank:manage）。 */
+  updateScheduleEnabled: (id: number, enabled: boolean) => http.put<never, void>(`/bank-sync-schedules/${id}/enabled/${enabled}`),
+  /** 删除计划（bank:manage）。 */
+  deleteSchedule: (id: number) => http.delete<never, void>(`/bank-sync-schedules/${id}`),
   /** 公司主体下拉数据源：跨公司权限者返回全部 ACTIVE 公司，否则仅本公司。 */
   companyOptions: () => http.get<never, CompanyOption[]>('/bank-data/company-options'),
   /** 运行日志：真实同步作业事件流（bank_data_sync_log），替代空的 connection_operation_log。 */

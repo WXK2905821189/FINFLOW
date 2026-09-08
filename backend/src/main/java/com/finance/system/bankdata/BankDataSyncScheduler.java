@@ -4,22 +4,26 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+/**
+ * 心跳调度器（V25 / 方案 D1=A1，2026-09-08）：
+ * 旧版 fixedDelay 10 分钟网格每天产生 ~144 次幂等探测且首轮真实拉取时间不可控；
+ * 新版每分钟扫描一次 {@code bank_sync_schedule}（V25），命中管理员配置的时刻
+ * （默认种子 02:10，银行低谷期）才触发一轮全账户 T-1 同步。幂等 requestId 保证
+ * 同窗口重复触发安全；错峰护栏（禁整点/半点）在计划 API 层强制。
+ */
 @Component
 @ConditionalOnProperty(prefix = "bankdata.sync", name = "schedule-enabled", havingValue = "true")
 public class BankDataSyncScheduler {
 
-    private final BankDataScheduledSyncService service;
+    private final BankSyncScheduleService scheduleService;
 
-    public BankDataSyncScheduler(BankDataScheduledSyncService service) {
-        this.service = service;
+    public BankDataSyncScheduler(BankSyncScheduleService scheduleService) {
+        this.scheduleService = scheduleService;
     }
 
-    // CMB 账务查询规范：账务查询与支付/代发共享 20 并发，且整点/半点并发量大、响应耗时明显增加，
-    // 官方建议查询错开整点半点发起。10 分钟扫描网格默认从启动后第 7 分钟开始（:07/:17/:27/...），
-    // 落点天然避开 :00/:30；需要对齐银行窗口时可调 initial-delay-ms。
-    @Scheduled(fixedDelayString = "${bankdata.sync.fixed-delay-ms:600000}",
-            initialDelayString = "${bankdata.sync.initial-delay-ms:420000}")
-    public void triggerScheduledSyncs() {
-        service.triggerScheduledSyncs();
+    @Scheduled(fixedDelayString = "${bankdata.sync.heartbeat-delay-ms:60000}",
+            initialDelayString = "${bankdata.sync.heartbeat-initial-delay-ms:30000}")
+    public void heartbeat() {
+        scheduleService.fireIfDue();
     }
 }

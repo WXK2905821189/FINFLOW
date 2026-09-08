@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   Button,
@@ -15,11 +15,13 @@ import {
   Skeleton,
   Space,
   Table,
+  Tag,
+  TimePicker,
   Timeline,
   message,
   type TableColumnsType,
 } from 'antd';
-import { PlayCircleOutlined, SearchOutlined } from '@ant-design/icons';
+import { ClockCircleOutlined, PlayCircleOutlined, SearchOutlined } from '@ant-design/icons';
 import dayjs, { type Dayjs } from 'dayjs';
 import { Link, useSearchParams } from 'react-router-dom';
 import { bankApi, bankPipelineApi, operationsApi } from '../../services/api';
@@ -27,7 +29,113 @@ import { useAuthStore } from '../../store/auth';
 import { useRemote, ResourceFailure, StatusTag, PhaseOneNotice } from '../shared/components';
 import { jobTypeOptions, syncStatusOptions, jobTypeText, triggerTypeText, logEventText, LOG_LEVEL_TEXT, LOG_RESULT_EXTENDED_TEXT } from '../shared/dict';
 import { dateTime, displayValue, cleanText, statusColor } from '../shared/format';
-import type { PageResponse, BankSyncJob, BankSyncJobDetail, BankSyncJobTrigger, BankSyncLogRow, ConnectionOverview, BankAccount } from '../../types';
+import type { PageResponse, BankSyncJob, BankSyncJobDetail, BankSyncJobTrigger, BankSyncLogRow, BankSyncScheduleRow, ConnectionOverview, BankAccount } from '../../types';
+
+/**
+ * 定时同步计划卡片（V25 / D1=A1）：展示管理员配置的执行时刻；ADMIN（bank:manage）
+ * 可增删/启停。到点由服务端心跳触发一轮全账户 T-1 同步，幂等由任务 requestId 兜底。
+ */
+function SyncScheduleCard() {
+  const hasPermission = useAuthStore((state) => state.hasPermission);
+  const canManage = hasPermission('bank:manage');
+  const loader = useCallback(() => bankPipelineApi.listSchedules(), []);
+  const { data: schedules, loading, error, reload } = useRemote<BankSyncScheduleRow[]>(loader, [loader]);
+  const [newTime, setNewTime] = useState<Dayjs | undefined>();
+  const [creating, setCreating] = useState(false);
+  const [mutating, setMutating] = useState(false);
+  const create = async () => {
+    if (!newTime) {
+      message.warning('请先选择执行时刻');
+      return;
+    }
+    const hhmm = newTime.format('HH:mm');
+    if (newTime.minute() === 0 || newTime.minute() === 30) {
+      message.error('不能选择整点/半点（银行高峰期），请错峰设置，如 02:10');
+      return;
+    }
+    setCreating(true);
+    try {
+      await bankPipelineApi.createSchedule(hhmm);
+      message.success(`同步计划已添加：每天 ${hhmm}`);
+      setNewTime(undefined);
+      reload();
+    } catch (reason) {
+      message.error(reason instanceof Error ? reason.message : '添加失败，请稍后重试');
+    } finally {
+      setCreating(false);
+    }
+  };
+  const toggle = async (row: BankSyncScheduleRow) => {
+    setMutating(true);
+    try {
+      await bankPipelineApi.updateScheduleEnabled(row.id, !row.enabled);
+      reload();
+    } catch (reason) {
+      message.error(reason instanceof Error ? reason.message : '操作失败，请稍后重试');
+    } finally {
+      setMutating(false);
+    }
+  };
+  const remove = async (row: BankSyncScheduleRow) => {
+    setMutating(true);
+    try {
+      await bankPipelineApi.deleteSchedule(row.id);
+      message.success(`已删除 ${row.executeHhmm}`);
+      reload();
+    } catch (reason) {
+      message.error(reason instanceof Error ? reason.message : '删除失败，请稍后重试');
+    } finally {
+      setMutating(false);
+    }
+  };
+  const nextFire = useMemo(() => {
+    const times = (schedules || []).filter((row) => row.enabled).map((row) => row.executeHhmm).sort();
+    if (!times.length) return undefined;
+    const now = dayjs();
+    for (const time of times) {
+      const [h, m] = time.split(':').map(Number);
+      const candidate = now.hour(h).minute(m).second(0);
+      if (candidate.isAfter(now)) return candidate;
+    }
+    const [h, m] = times[0].split(':').map(Number);
+    return now.add(1, 'day').hour(h).minute(m).second(0);
+  }, [schedules]);
+  return (
+    <Card
+      title={<Space size={8}><ClockCircleOutlined />定时同步计划</Space>}
+      extra={nextFire && <span className="muted-inline">下次执行：{nextFire.format('MM-DD HH:mm')}</span>}
+    >
+      {error ? <ResourceFailure error={error} onRetry={reload} /> : loading ? <Skeleton active paragraph={{ rows: 1 }} /> : (
+        <Space size={8} wrap>
+          {(schedules || []).map((row) => (
+            <Tag
+              key={row.id}
+              color={row.enabled ? 'green' : 'default'}
+              closable={canManage}
+              onClose={(event) => { event.preventDefault(); void remove(row); }}
+              style={{ marginInlineEnd: 0 }}
+            >
+              {canManage && row.enabled && (
+                <Button type="link" size="small" style={{ padding: 0 }} disabled={mutating} onClick={() => void toggle(row)}>停用</Button>
+              )}
+              {canManage && !row.enabled && (
+                <Button type="link" size="small" style={{ padding: 0 }} disabled={mutating} onClick={() => void toggle(row)}>启用</Button>
+              )}
+              每天 {row.executeHhmm}{row.enabled ? '' : '（已停用）'}
+            </Tag>
+          ))}
+          {canManage && (
+            <Space.Compact>
+              <TimePicker format="HH:mm" minuteStep={5} value={newTime} placeholder="新增时刻" onChange={(value) => setNewTime(value)} allowClear />
+              <Button type="primary" ghost loading={creating} onClick={() => void create()}>添加</Button>
+            </Space.Compact>
+          )}
+          {!canManage && !(schedules || []).length && <Empty description="暂无定时同步计划" />}
+        </Space>
+      )}
+    </Card>
+  );
+}
 
 export function SyncJobDrawer({ job, onClose }: { job?: BankSyncJob; onClose: () => void }) {
   const loader = useCallback(() => job ? bankPipelineApi.getJob(job.id) : Promise.resolve<BankSyncJobDetail | undefined>(undefined), [job]);
@@ -96,7 +204,7 @@ export function OperationTasks() {
   const submitTaskFilter = () => { setPage(1); setTaskFilters(draftFilters); setSubmitted(true); };
   const resetTaskFilter = () => { setPage(1); setDraftFilters({ status: '', jobType: '', connectionCode: '', requestId: '' }); setTaskFilters({ status: '', jobType: '', connectionCode: '', requestId: '' }); setSubmitted(false); };
   const columns: TableColumnsType<BankSyncJob> = [{ title: '任务编号', dataIndex: 'jobNo', render: (value) => <span className="mono">{value}</span> }, { title: '任务类型', dataIndex: 'jobType', render: (value) => jobTypeText(value) }, { title: '触发方式', dataIndex: 'triggerType', render: (value) => triggerTypeText(value) }, { title: '连接标识', dataIndex: 'connectionCode', render: (value) => displayValue(value) }, { title: '状态', dataIndex: 'status', render: (value) => <StatusTag status={value} /> }, { title: '请求编号', dataIndex: 'requestId', render: (value) => value ? <span className="mono">{value}</span> : '--' }, { title: '创建时间', dataIndex: 'createdAt', render: (value) => dateTime(value) }, { title: '计划动作', render: () => <span className="muted-inline">只读</span> }, { title: '操作', fixed: 'right', render: (_, row) => <Button type="link" onClick={() => setSelected(row)}>详情</Button> }];
-  return <><div className="page-heading"><div><span className="section-kicker">银行数据 / 同步任务</span><h2>同步任务</h2><p className="muted">任务由服务端持久化、幂等与审计；浏览器只提交受控触发请求并查看安全摘要。</p></div>{canTriggerSync && <Button type="primary" icon={<PlayCircleOutlined />} onClick={() => setTriggerOpen(true)}>补拉历史数据</Button>}</div>{!canTriggerSync && <Alert className="resource-alert" type="info" showIcon message="手动同步入口未显示" description="当前角色没有同步触发权限；任务列表仍可按已有查看权限只读展示。" />}<Card className="filter-card"><div className="filter-toolbar"><div className="filter-fields"><Select value={draftFilters.jobType || undefined} allowClear placeholder="任务类型" style={{ minWidth: 160 }} options={jobTypeOptions} onChange={(value) => updateTaskFilter('jobType', value || '')} /><Input value={draftFilters.connectionCode} allowClear placeholder="连接标识" onChange={(event) => updateTaskFilter('connectionCode', event.target.value)} /><Select value={draftFilters.status || undefined} allowClear placeholder="任务状态" style={{ minWidth: 130 }} options={syncStatusOptions} onChange={(value) => updateTaskFilter('status', value || '')} /><Input value={draftFilters.requestId} allowClear placeholder="请求编号" onChange={(event) => updateTaskFilter('requestId', event.target.value)} /></div><Space><Button type="primary" icon={<SearchOutlined />} onClick={submitTaskFilter}>查询</Button><Button onClick={resetTaskFilter}>重置</Button></Space></div></Card><Card>{error ? <ResourceFailure error={error} onRetry={reload} /> : !submitted ? <Empty description="设置筛选条件后点击查询；页面打开不会创建或查询同步任务。" /> : <><PhaseOneNotice status={overview?.status} message={overview?.message} /><Table rowKey={(row) => row.jobNo || String(row.id)} loading={loading} columns={columns} dataSource={data?.records || []} pagination={false} locale={{ emptyText: <Empty description="当前筛选没有同步任务" /> }} scroll={{ x: 1180 }} />{data && data.total > data.size && <Pagination className="table-pagination" current={data.page} pageSize={data.size} total={data.total} showSizeChanger={false} onChange={setPage} />}</>}</Card><Modal title="补拉历史数据" open={triggerOpen} onCancel={() => { setTriggerOpen(false); form.resetFields(); }} onOk={() => void trigger()} okText="创建补拉任务" confirmLoading={triggering} destroyOnClose><Alert type="info" showIcon message="什么时候需要手动补拉？" description="日常数据每晚自动同步，无需手动操作。仅当银行补发了历史数据、或需要立即重拉指定日期时使用本功能；作业类型为「流水拉取」，自动附带当日余额快照。" style={{ marginBottom: 16 }} /><Form form={form} layout="vertical" initialValues={{ range: [dayjs().subtract(1, 'day'), dayjs().subtract(1, 'day')] }} className="sync-job-form"><Form.Item label="银行账户" name="bankAccountId" rules={[{ required: true, message: '请选择要补拉的银行账户' }]}><Select placeholder="选择银行账户" options={accountOptions} showSearch optionFilterProp="label" /></Form.Item><Form.Item label="补拉日期区间" name="range" rules={[{ required: true, message: '请选择要补拉的日期区间' }, { validator: (_rule, value: [Dayjs, Dayjs] | undefined) => value && value[1].diff(value[0], 'day') > 90 ? Promise.reject(new Error('单次最多补拉 90 天，窗口过长会被银行拒绝')) : Promise.resolve() }]}><DatePicker.RangePicker style={{ width: '100%' }} allowClear={false} /></Form.Item></Form></Modal><SyncJobDrawer job={selected} onClose={() => setSelected(undefined)} /></>;
+  return <><div className="page-heading"><div><span className="section-kicker">银行数据 / 同步任务</span><h2>同步任务</h2><p className="muted">任务由服务端持久化、幂等与审计；浏览器只提交受控触发请求并查看安全摘要。日常数据由「定时同步计划」到点自动拉取（默认凌晨 02:10），无需手动操作。</p></div>{canTriggerSync && <Button type="primary" icon={<PlayCircleOutlined />} onClick={() => setTriggerOpen(true)}>补拉历史数据</Button>}</div><SyncScheduleCard />{!canTriggerSync && <Alert className="resource-alert" type="info" showIcon message="手动同步入口未显示" description="当前角色没有同步触发权限；任务列表仍可按已有查看权限只读展示。" />}<Card className="filter-card"><div className="filter-toolbar"><div className="filter-fields"><Select value={draftFilters.jobType || undefined} allowClear placeholder="任务类型" style={{ minWidth: 160 }} options={jobTypeOptions} onChange={(value) => updateTaskFilter('jobType', value || '')} /><Input value={draftFilters.connectionCode} allowClear placeholder="连接标识" onChange={(event) => updateTaskFilter('connectionCode', event.target.value)} /><Select value={draftFilters.status || undefined} allowClear placeholder="任务状态" style={{ minWidth: 130 }} options={syncStatusOptions} onChange={(value) => updateTaskFilter('status', value || '')} /><Input value={draftFilters.requestId} allowClear placeholder="请求编号" onChange={(event) => updateTaskFilter('requestId', event.target.value)} /></div><Space><Button type="primary" icon={<SearchOutlined />} onClick={submitTaskFilter}>查询</Button><Button onClick={resetTaskFilter}>重置</Button></Space></div></Card><Card>{error ? <ResourceFailure error={error} onRetry={reload} /> : !submitted ? <Empty description="设置筛选条件后点击查询；页面打开不会创建或查询同步任务。" /> : <><PhaseOneNotice status={overview?.status} message={overview?.message} /><Table rowKey={(row) => row.jobNo || String(row.id)} loading={loading} columns={columns} dataSource={data?.records || []} pagination={false} locale={{ emptyText: <Empty description="当前筛选没有同步任务" /> }} scroll={{ x: 1180 }} />{data && data.total > data.size && <Pagination className="table-pagination" current={data.page} pageSize={data.size} total={data.total} showSizeChanger={false} onChange={setPage} />}</>}</Card><Modal title="补拉历史数据" open={triggerOpen} onCancel={() => { setTriggerOpen(false); form.resetFields(); }} onOk={() => void trigger()} okText="创建补拉任务" confirmLoading={triggering} destroyOnClose><Alert type="info" showIcon message="什么时候需要手动补拉？" description="日常数据每晚自动同步，无需手动操作。仅当银行补发了历史数据、或需要立即重拉指定日期时使用本功能；作业类型为「流水拉取」，自动附带当日余额快照。" style={{ marginBottom: 16 }} /><Form form={form} layout="vertical" initialValues={{ range: [dayjs().subtract(1, 'day'), dayjs().subtract(1, 'day')] }} className="sync-job-form"><Form.Item label="银行账户" name="bankAccountId" rules={[{ required: true, message: '请选择要补拉的银行账户' }]}><Select placeholder="选择银行账户" options={accountOptions} showSearch optionFilterProp="label" /></Form.Item><Form.Item label="补拉日期区间" name="range" rules={[{ required: true, message: '请选择要补拉的日期区间' }, { validator: (_rule, value: [Dayjs, Dayjs] | undefined) => value && value[1].diff(value[0], 'day') > 90 ? Promise.reject(new Error('单次最多补拉 90 天，窗口过长会被银行拒绝')) : Promise.resolve() }]}><DatePicker.RangePicker style={{ width: '100%' }} allowClear={false} /></Form.Item></Form></Modal><SyncJobDrawer job={selected} onClose={() => setSelected(undefined)} /></>;
 }
 
 export function OperationLogs() {
