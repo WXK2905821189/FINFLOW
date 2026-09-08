@@ -115,7 +115,7 @@ public class BankPipelineController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String status,
-            @RequestParam(required = false) Long accountId,
+            @RequestParam(required = false) List<Long> accountIds,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
@@ -129,7 +129,7 @@ public class BankPipelineController {
             throw new org.springframework.security.access.AccessDeniedException("Bank data projection permission is required");
         }
         return ApiResponse.success(queryService.queryProjection(principal.getId(), resource, page, size, status,
-                accountId, keyword, from, to, sourceSystem, syncJobNo, requestId, companyId));
+                accountIds, keyword, from, to, sourceSystem, syncJobNo, requestId, companyId));
     }
 
     /**
@@ -143,7 +143,7 @@ public class BankPipelineController {
     public ResponseEntity<String> export(
             @PathVariable String resource,
             @RequestParam(required = false) String status,
-            @RequestParam(required = false) Long accountId,
+            @RequestParam(required = false) List<Long> accountIds,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
@@ -156,7 +156,7 @@ public class BankPipelineController {
             throw new org.springframework.security.access.AccessDeniedException("Bank data projection permission is required");
         }
         BankDataQueryService.BankDataExport export = queryService.export(principal.getId(), resource, status,
-                accountId, keyword, from, to, syncJobNo, requestId, companyId);
+                accountIds, keyword, from, to, syncJobNo, requestId, companyId);
         // RFC 6266 / RFC 5987: the ASCII fallback keeps old clients working, filename* carries
         // the Chinese name Excel actually shows.
         String encoded = URLEncoder.encode(export.filename(), StandardCharsets.UTF_8).replace("+", "%20");
