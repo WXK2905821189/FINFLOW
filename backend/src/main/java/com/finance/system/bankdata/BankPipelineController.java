@@ -44,12 +44,14 @@ public class BankPipelineController {
 
     private final BankDataSyncService service;
     private final BankDataQueryService queryService;
+    private final BankDataExportService exportService;
     private final BankDataTraceService traceService;
 
     public BankPipelineController(BankDataSyncService service, BankDataQueryService queryService,
-                                  BankDataTraceService traceService) {
+                                  BankDataExportService exportService, BankDataTraceService traceService) {
         this.service = service;
         this.queryService = queryService;
+        this.exportService = exportService;
         this.traceService = traceService;
     }
 
@@ -155,7 +157,7 @@ public class BankPipelineController {
                 && !principal.getAuthorities().stream().anyMatch(authority -> authority.getAuthority().equals(permissionFor(resource)))) {
             throw new org.springframework.security.access.AccessDeniedException("Bank data projection permission is required");
         }
-        BankDataQueryService.BankDataExport export = queryService.export(principal.getId(), resource, status,
+        BankDataExportService.BankDataExport export = exportService.export(principal.getId(), resource, status,
                 accountIds, keyword, from, to, syncJobNo, requestId, companyId);
         // RFC 6266 / RFC 5987: the ASCII fallback keeps old clients working, filename* carries
         // the Chinese name Excel actually shows.

@@ -47,3 +47,7 @@ frontend/_tmp_*
 # Kingdee openapi session (never commit)
 docs/kingdee-openapi/articles/openapi-storage-state.json
 docs/kingdee-openapi/articles/kd-tk.txt
+
+# Deploy artifacts belong in tmp/deploy-artifacts/, never in repo root
+/finflow-web-dist-*.tar.gz
+/finflow-backend-*.jar
