@@ -44,3 +44,8 @@ export type {
 } from '../modules/feishu/types';
 export type { ClosingPeriod } from '../modules/closing/types';
 export type { SystemAuditEvent } from '../modules/audit/types';
+export type {
+  CompanyArchiveCompany,
+  CompanyArchiveAccount,
+  CompanyArchiveView,
+} from '../modules/bank-access/types';

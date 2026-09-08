@@ -291,3 +291,30 @@ export type CompanyOption = {
   id: number;
   name: string;
 };
+
+/** 档案管理：公司档案行（/bank-account-archive，bank:manage）。 */
+export type CompanyArchiveCompany = {
+  id: number;
+  code: string;
+  name: string;
+  status: string;
+  accountCount: number;
+};
+
+/** 档案管理：银行账户行（跨公司全量，账号脱敏）。 */
+export type CompanyArchiveAccount = {
+  id: number;
+  accountName: string;
+  maskedAccountNumber: string;
+  bankCode: string;
+  currency: string;
+  status: string;
+  companyId: number | null;
+  directStatus?: string;
+};
+
+/** 档案管理视图：一次拉取公司档案与全部账户。 */
+export type CompanyArchiveView = {
+  companies: CompanyArchiveCompany[];
+  accounts: CompanyArchiveAccount[];
+};

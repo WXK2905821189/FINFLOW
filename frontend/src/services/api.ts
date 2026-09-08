@@ -33,6 +33,9 @@ import type {
   ClosingPeriod,
   SystemAuditEvent,
   User,
+  CompanyArchiveView,
+  CompanyArchiveCompany,
+  CompanyArchiveAccount,
 } from '../types';
 import type {
   SysPermission,
@@ -53,6 +56,12 @@ export const authApi = {
 
 export const bankApi = {
   accounts: () => http.get<never, BankAccount[]>('/bank-accounts'),
+  /** 档案管理：一次拉取全部公司档案与跨公司账户（bank:manage）。 */
+  archive: () => http.get<never, CompanyArchiveView>('/bank-account-archive'),
+  createArchiveCompany: (name: string) => http.post<never, CompanyArchiveCompany>('/bank-account-archive/companies', { name }),
+  renameArchiveCompany: (id: number, name: string) => http.put<never, CompanyArchiveCompany>(`/bank-account-archive/companies/${id}`, { name }),
+  /** 归类：账户改挂公司档案，历史流水/余额一并迁移。 */
+  assignArchiveAccount: (id: number, companyId: number) => http.put<never, CompanyArchiveAccount>(`/bank-account-archive/accounts/${id}/company`, { companyId }),
 };
 
 export const userApi = {
