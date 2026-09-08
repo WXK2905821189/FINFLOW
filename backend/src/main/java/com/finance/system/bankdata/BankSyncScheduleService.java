@@ -78,7 +78,7 @@ public class BankSyncScheduleService {
 
     /** 心跳入口：当前分钟命中任一启用计划时触发一轮同步。同一分钟内只触发一次。 */
     public void fireIfDue() {
-        String now = LocalDateTime.now().format(HHMM);
+        String now = currentTime().format(HHMM);
         Set<String> due = list().stream()
                 .filter(s -> Boolean.TRUE.equals(s.getEnabled()))
                 .map(BankSyncSchedule::getExecuteHhmm)
@@ -87,6 +87,11 @@ public class BankSyncScheduleService {
             log.info("bank sync schedule fired at {}", now);
             scheduledSyncService.triggerScheduledSyncs();
         }
+    }
+
+    /** 可覆写的时钟：测试注入固定时刻，避免「计划建在当前分钟、触发前翻页」的竞态。 */
+    protected LocalDateTime currentTime() {
+        return LocalDateTime.now();
     }
 
     private String normalize(String executeHhmm) {

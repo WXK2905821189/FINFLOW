@@ -76,6 +76,10 @@ class BankDataScheduledScanIntegrationTest {
     private com.finance.system.statement.StatementService statementService;
     @Autowired
     private BankSyncScheduleService bankSyncScheduleService;
+    @Autowired
+    private BankDataScheduledSyncService scheduledSyncService;
+    @Autowired
+    private com.finance.system.domain.mapper.BankSyncScheduleMapper scheduleMapper;
 
     @Test
     void scheduledScanIsAccountDrivenAndDedupesPerWindow() {
@@ -192,19 +196,24 @@ class BankDataScheduledScanIntegrationTest {
     }
 
     /**
-     * 心跳命中端到端（V25 / D1=A1）：计划时刻=当前分钟 → fireIfDue 触发一轮同步，
-     * 同 T-1 窗口幂等（重复心跳仍只有一个 SCHEDULED 任务）。
+     * 心跳命中端到端（V25 / D1=A1）：固定时钟（覆写 currentTime）避免「建计划在当前分钟、
+     * fireIfDue 前翻页」的竞态（CI runner 慢时必炸）；命中触发一轮同步，同 T-1 窗口幂等。
      */
     @Test
     void heartbeatFiresWhenMinuteMatchesAndStaysIdempotent() {
         Company company = insertCompany("QA-HB");
         insertRealQaAccount(company.getId(), "QA heartbeat account");
-        String now = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+        Long adminId = insertUser(company.getId(), "qa-hb-admin", 1L);
         com.finance.system.domain.entity.BankSyncSchedule schedule =
-                bankSyncScheduleService.create(now, insertUser(company.getId(), "qa-hb-admin", 1L));
+                bankSyncScheduleService.create("23:58", adminId);
+        BankSyncScheduleService fixedClock = new BankSyncScheduleService(scheduleMapper, scheduledSyncService) {
+            @Override protected java.time.LocalDateTime currentTime() {
+                return java.time.LocalDateTime.parse("2026-09-08T23:58:00");
+            }
+        };
 
-        bankSyncScheduleService.fireIfDue();
-        bankSyncScheduleService.fireIfDue();
+        fixedClock.fireIfDue();
+        fixedClock.fireIfDue();
 
         assertEquals(1, taskMapper.selectCount(new LambdaQueryWrapper<BankDataSyncTask>()
                 .eq(BankDataSyncTask::getCompanyId, company.getId())
