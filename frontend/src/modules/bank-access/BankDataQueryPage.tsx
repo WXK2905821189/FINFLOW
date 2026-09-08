@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, type Key } from 'react';
 import { Alert, Button, Card, DatePicker, Descriptions, Drawer, Empty, Input, Modal, Pagination, Select, Space, Spin, Table, Tabs, Tag, message, type TableColumnsType } from 'antd';
-import { DownloadOutlined, FileTextOutlined, PlayCircleOutlined, SearchOutlined } from '@ant-design/icons';
+import { DownloadOutlined, FileTextOutlined, PlayCircleOutlined, SearchOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { Link } from 'react-router-dom';
 import { bankPipelineApi, bankApi } from '../../services/api';
@@ -17,7 +17,8 @@ export const bankDataResources = {
 
 export type BankQueryFilters = {
   keyword: string;
-  accountId: string;
+  /** 多选账户（空数组=全部可见账户）；即选即查。 */
+  accountIds: string[];
   status: string;
   sourceSystem: string;
   syncJobNo: string;
@@ -27,7 +28,7 @@ export type BankQueryFilters = {
   companyId: string;
 };
 
-export const emptyBankQueryFilters: BankQueryFilters = { keyword: '', accountId: '', status: '', sourceSystem: '', syncJobNo: '', requestId: '', from: '', to: '', companyId: '' };
+export const emptyBankQueryFilters: BankQueryFilters = { keyword: '', accountIds: [], status: '', sourceSystem: '', syncJobNo: '', requestId: '', from: '', to: '', companyId: '' };
 
 type BankQueryRow = BankDataStatementRow | BankDataBalanceRow;
 
@@ -281,6 +282,8 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
   // callbacks trips the react-compiler refs rule, and state does the same job here.
   const [focusReturn, setFocusReturn] = useState<HTMLElement | null>(null);
   const isStatement = resource === 'statements';
+  // 一键转入（C1）：流水 tab 专属，权限与「导入流水」一致（statement:import）。
+  const canTransferStatement = isStatement && hasPermission('statement:import');
   // 账户筛选数据源：当前企业授权的银行账户（后端按公司隔离返回）。按银行分组展示，
   // 选项值仍是内部账户 ID —— 查询接口本身无需改动。
   const accountsLoader = useCallback(() => bankApi.accounts(), []);
@@ -301,7 +304,7 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
       })),
     }));
   }, [accounts]);
-  const loader = useCallback(() => submitted ? bankPipelineApi.queryProjection<BankQueryRow>(resource, { page, size, keyword: filters.keyword || undefined, accountId: filters.accountId || undefined, status: filters.status || undefined, from: filters.from || undefined, to: filters.to || undefined, sourceSystem: filters.sourceSystem || undefined, syncJobNo: filters.syncJobNo || undefined, requestId: filters.requestId || undefined, companyId: filters.companyId ? Number(filters.companyId) : undefined }) : Promise.resolve<BankDataProjectionPage<BankQueryRow>>({ page, size, total: 0, records: [] }), [resource, page, size, filters, submitted]);
+  const loader = useCallback(() => submitted ? bankPipelineApi.queryProjection<BankQueryRow>(resource, { page, size, keyword: filters.keyword || undefined, accountIds: filters.accountIds.map(Number).filter((id) => Number.isSafeInteger(id) && id > 0), status: filters.status || undefined, from: filters.from || undefined, to: filters.to || undefined, sourceSystem: filters.sourceSystem || undefined, syncJobNo: filters.syncJobNo || undefined, requestId: filters.requestId || undefined, companyId: filters.companyId ? Number(filters.companyId) : undefined }) : Promise.resolve<BankDataProjectionPage<BankQueryRow>>({ page, size, total: 0, records: [] }), [resource, page, size, filters, submitted]);
   const { data, loading, error, reload } = useRemote<BankDataProjectionPage<BankQueryRow>>(loader, [loader]);
   const query = () => { setPage(1); setFilters(draft); setSubmitted(true); };
   // 离散筛选（账户/公司/状态/日期）「即选即查」：不必再点查询按钮。输入框仍走按钮/回车，
@@ -323,11 +326,44 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
     window.setTimeout(() => focusReturn?.focus(), 0);
   };
   const [exporting, setExporting] = useState(false);
+  // 一键转入（C1）：行多选 → 转入标准流水；已转入行禁选（服务端幂等键=同公司同银行流水号）。
+  const [selectedStatementIds, setSelectedStatementIds] = useState<number[]>([]);
+  const [transferring, setTransferring] = useState(false);
+  const transferSelected = () => {
+    if (!selectedStatementIds.length) {
+      message.warning('请先勾选要转入的银行流水行');
+      return;
+    }
+    Modal.confirm({
+      title: `确认转入 ${selectedStatementIds.length} 条银行流水`,
+      content: '转入后在「流水与入账」生成标准流水（保留人工复核与制证闸门）；重复转入会被服务端自动去重。',
+      okText: '确认转入',
+      cancelText: '取消',
+      onOk: async () => {
+        setTransferring(true);
+        try {
+          const result = await bankPipelineApi.transferFromBankdata({ statementIds: selectedStatementIds });
+          message.success(`转入完成：新增 ${result.importedCount ?? 0} 条，重复跳过 ${result.duplicateCount ?? 0} 条（批次 ${result.batchNo}）`);
+          setSelectedStatementIds([]);
+          reload();
+        } catch (reason) {
+          message.error(reason instanceof Error ? reason.message : '转入失败，请稍后重试');
+        } finally {
+          setTransferring(false);
+        }
+      },
+    });
+  };
+  const rowSelection = canTransferStatement ? {
+    selectedRowKeys: selectedStatementIds,
+    onChange: (keys: Key[]) => setSelectedStatementIds(keys.map(Number)),
+    getCheckboxProps: (row: BankQueryRow) => ({ disabled: Boolean((row as BankDataStatementRow).transferred) }),
+  } : undefined;
   const exportCsv = async () => {
     setExporting(true);
     try {
       await bankPipelineApi.exportCsv(resource, {
-        keyword: filters.keyword || undefined, accountId: filters.accountId || undefined,
+        keyword: filters.keyword || undefined, accountIds: filters.accountIds.map(Number).filter((id) => Number.isSafeInteger(id) && id > 0),
         status: filters.status || undefined, from: filters.from || undefined, to: filters.to || undefined,
         sourceSystem: filters.sourceSystem || undefined, syncJobNo: filters.syncJobNo || undefined,
         requestId: filters.requestId || undefined,
@@ -341,7 +377,8 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
     }
   };
   const triggerSyncFromFilters = () => {
-    const accountId = Number(draft.accountId || filters.accountId);
+    // 手动同步仍是单账户语义：多选中取第一个；多账户补拉请用「同步任务 → 补拉历史数据」。
+    const accountId = Number(draft.accountIds[0] || filters.accountIds[0]);
     if (!Number.isSafeInteger(accountId) || accountId <= 0) {
       message.warning('请先在「账户」下拉中选择要同步的银行账户');
       return;
@@ -402,11 +439,14 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
           <Select
             allowClear
             showSearch
-            placeholder="账户（按银行分组）"
-            value={draft.accountId || undefined}
+            mode="multiple"
+            maxTagCount={2}
+            placeholder="账户（不选=全部；跨公司视图按公司分组）"
+            value={draft.accountIds.length ? draft.accountIds : undefined}
             options={accountOptions}
-            notFoundContent={accounts === undefined ? <Spin size="small" /> : <Empty description="当前企业暂无授权账户" />}
-            onChange={(value) => applyFilter({ accountId: value || '' })}
+            notFoundContent={accounts === undefined ? <Spin size="small" /> : <Empty description={draft.companyId ? '该公司主体下暂无账户' : '当前企业暂无授权账户'} />}
+            onChange={(values) => applyFilter({ accountIds: values || [] })}
+            onClear={() => applyFilter({ accountIds: [] })}
           />
           {canCrossCompany && (
             <Select
@@ -432,7 +472,11 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
           </Space>
         </div>
       </Card>
-      <Card title="查询结果">
+      <Card
+        title={canTransferStatement && submitted
+          ? <Space wrap><span>查询结果</span><Button size="small" type="primary" ghost icon={<ThunderboltOutlined />} disabled={!selectedStatementIds.length} loading={transferring} onClick={transferSelected}>转入流水与入账{selectedStatementIds.length ? `（${selectedStatementIds.length}）` : ''}</Button><span className="muted">已转入行不可再选；转入后保留人工复核与制证闸门</span></Space>
+          : '查询结果'}
+      >
         {error ? <ResourceFailure error={error} onRetry={reload} /> : !submitted && !loading ? <Empty description="设置筛选条件后点击查询；没有默认或浏览器生成的数据。" /> : (
           <>
             <BankProjectionState data={data} />
@@ -443,6 +487,7 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
               columns={columns}
               dataSource={data?.records || []}
               pagination={false}
+              rowSelection={rowSelection}
               locale={{ emptyText: <Empty description={emptyDescription} /> }}
               scroll={{ x: isStatement ? 1900 : 1900 }}
             />

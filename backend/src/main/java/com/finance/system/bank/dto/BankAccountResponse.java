@@ -22,6 +22,10 @@ public record BankAccountResponse(
         /** DIRECT_CONNECTED | ONBOARDED | NOT_CONNECTED */
         String directStatus,
         /** ISO timestamp of the latest successful real-adapter sync for this account, nullable. */
-        String lastRealSyncAt
+        String lastRealSyncAt,
+        /** 账户归属公司 id：跨公司用户用于「公司主体 → 账户」两级分组筛选。 */
+        Long companyId,
+        /** 账户归属公司名称；与 companyId 同源，仅展示用。 */
+        String companyName
 ) {
 }

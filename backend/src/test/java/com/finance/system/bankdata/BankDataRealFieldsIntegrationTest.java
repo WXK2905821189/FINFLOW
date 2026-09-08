@@ -155,7 +155,7 @@ class BankDataRealFieldsIntegrationTest {
         triggerSync(adminToken, accountId);
 
         var response = mockMvc.perform(get("/api/bank-data/statements/export")
-                        .param("accountId", String.valueOf(accountId))
+                        .param("accountIds", String.valueOf(accountId))
                         .header("Authorization", bearer(adminToken)))
                 .andExpect(status().isOk())
                 .andReturn().getResponse();
@@ -186,7 +186,7 @@ class BankDataRealFieldsIntegrationTest {
         triggerSync(adminToken, accountId);
 
         String csv = mockMvc.perform(get("/api/bank-data/balances/export")
-                        .param("accountId", String.valueOf(accountId))
+                        .param("accountIds", String.valueOf(accountId))
                         .header("Authorization", bearer(adminToken)))
                 .andExpect(status().isOk())
                 .andReturn().getResponse()
@@ -205,7 +205,7 @@ class BankDataRealFieldsIntegrationTest {
 
     private JsonNode query(String token, String resource, long accountId) throws Exception {
         String body = mockMvc.perform(get("/api/bank-data/" + resource)
-                        .param("accountId", String.valueOf(accountId))
+                        .param("accountIds", String.valueOf(accountId))
                         .header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);

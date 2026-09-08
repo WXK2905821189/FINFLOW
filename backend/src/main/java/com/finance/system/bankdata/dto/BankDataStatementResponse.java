@@ -80,7 +80,9 @@ public record BankDataStatementResponse(
         /** 产出该行的同步任务状态（SUCCEEDED / UNKNOWN / ...）；仅投影查询填充。 */
         String taskStatus,
         /** 行所属公司主体名称；仅投影查询填充（跨公司权限用户可见，单公司用户恒为本公司）。 */
-        String companyName
+        String companyName,
+        /** 该行是否已转入「流水与入账」标准流水（同公司同银行流水号已存在）；仅投影查询填充。 */
+        Boolean transferred
 ) {
 
     /**
@@ -97,7 +99,7 @@ public record BankDataStatementResponse(
                 ctpBankName, ctpBankAddress, fatOrSonAccount, fatOrSonCompanyName, fatOrSonBankName,
                 fatOrSonBankAddress, infoFlag, businessName, businessText, requestNbr, yurRef, virtualNbr,
                 mchOrderNbr, transCardNbr, reserve, vendorCurrencyCode, taskNo, taskRequestId, taskStatus,
-                null);
+                null, null);
     }
 
     /** Attaches the owning company's display name; chained after {@link #withLineage} in the projection query. */
@@ -110,6 +112,19 @@ public record BankDataStatementResponse(
                 ctpBankName, ctpBankAddress, fatOrSonAccount, fatOrSonCompanyName, fatOrSonBankName,
                 fatOrSonBankAddress, infoFlag, businessName, businessText, requestNbr, yurRef, virtualNbr,
                 mchOrderNbr, transCardNbr, reserve, vendorCurrencyCode, taskNo, taskRequestId, taskStatus,
-                companyName);
+                companyName, null);
+    }
+
+    /** Attaches whether the row has already been transferred into the standard statement ledger. */
+    public BankDataStatementResponse withTransferred(Boolean transferred) {
+        return new BankDataStatementResponse(id, taskId, rawMessageId, contentSha256, retentionUntil,
+                bankAccountId, bankRequestNo, statementNo, transactionTime, direction, amount, currency,
+                counterpartyName, counterpartyAccountMasked, summary, validationStatus, validationMessage,
+                createdAt, accountMasked, accountName, bankAccountNo, valueDate, loanCode, signedAmount, textCode,
+                billNumber, remarkTextClt, reversalFlag, acctOnlineBal, extendedRemark, ctpAcctNbr,
+                ctpBankName, ctpBankAddress, fatOrSonAccount, fatOrSonCompanyName, fatOrSonBankName,
+                fatOrSonBankAddress, infoFlag, businessName, businessText, requestNbr, yurRef, virtualNbr,
+                mchOrderNbr, transCardNbr, reserve, vendorCurrencyCode, taskNo, taskRequestId, taskStatus,
+                companyName, transferred);
     }
 }

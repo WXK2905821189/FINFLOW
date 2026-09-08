@@ -22,6 +22,7 @@ export type {
   BankTaskReconciliationRow,
   CompanyOption,
   BankSyncLogRow,
+  StatementTransferResult,
 } from '../modules/bank-access/types';
 export type {
   StatementRecordInput,

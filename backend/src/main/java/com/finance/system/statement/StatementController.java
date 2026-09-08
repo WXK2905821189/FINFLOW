@@ -9,6 +9,7 @@ import com.finance.system.statement.dto.StatementImportBatchResponse;
 import com.finance.system.statement.dto.StatementImportRequest;
 import com.finance.system.statement.dto.StatementResponse;
 import com.finance.system.statement.dto.StatementReviewRequest;
+import com.finance.system.statement.dto.StatementTransferRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
@@ -39,6 +40,15 @@ public class StatementController {
     public ApiResponse<StatementImportBatchResponse> importBatch(@Valid @RequestBody StatementImportRequest request,
                                                                   @AuthenticationPrincipal UserPrincipal principal) {
         return ApiResponse.success("Statement import completed", statementService.importBatch(request, principal.getId()));
+    }
+
+    @PostMapping("/statements/transfer-from-bankdata")
+    @PreAuthorize("hasAuthority('statement:import')")
+    @Operation(summary = "Transfer selected bank-data statement rows into the standard statement ledger")
+    public ApiResponse<StatementImportBatchResponse> transferFromBankData(
+            @Valid @RequestBody StatementTransferRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success("银行流水转入完成", statementService.transferFromBankData(request, principal.getId()));
     }
 
     @GetMapping("/statement-imports")

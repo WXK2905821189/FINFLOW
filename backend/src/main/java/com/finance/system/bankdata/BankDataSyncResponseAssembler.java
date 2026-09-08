@@ -119,7 +119,7 @@ public class BankDataSyncResponseAssembler {
                 statement.getYurRef(), statement.getVirtualNbr(), statement.getMchOrderNbr(),
                 statement.getTransCardNbr(), statement.getReserve(),
                 statement.getVendorCurrencyCode(),
-                null, null, null, null);
+                null, null, null, null, null);
     }
 
     public BankDataBalanceResponse balance(BankDataBalance balance, long companyId) {

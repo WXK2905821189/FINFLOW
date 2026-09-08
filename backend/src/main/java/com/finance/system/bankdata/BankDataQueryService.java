@@ -29,6 +29,7 @@ import com.finance.system.domain.entity.BankDataSyncLog;
 import com.finance.system.domain.entity.BankDataSyncTask;
 import com.finance.system.domain.entity.Company;
 import com.finance.system.domain.entity.ConnectionProfile;
+import com.finance.system.domain.entity.StatementRecord;
 import com.finance.system.domain.mapper.BankAccountMapper;
 import com.finance.system.domain.mapper.BankDataBalanceMapper;
 import com.finance.system.domain.mapper.BankDataStatementMapper;
@@ -36,6 +37,7 @@ import com.finance.system.domain.mapper.BankDataSyncLogMapper;
 import com.finance.system.domain.mapper.BankDataSyncTaskMapper;
 import com.finance.system.domain.mapper.CompanyMapper;
 import com.finance.system.domain.mapper.ConnectionProfileMapper;
+import com.finance.system.domain.mapper.StatementRecordMapper;
 import com.finance.system.rbac.RbacService;
 import org.springframework.stereotype.Service;
 
@@ -47,6 +49,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -71,6 +74,7 @@ public class BankDataQueryService {
     private final BankDataSyncResponseAssembler responseAssembler;
     private final CompanyMapper companyMapper;
     private final RbacService rbacService;
+    private final StatementRecordMapper statementRecordMapper;
     /** True when at least one REAL (non-simulated) bank adapter bean is active in this deployment. */
     private final boolean realDirectConnected;
     /** Adapter codes of the active REAL adapters (e.g. CMB); empty when直联未连接. */
@@ -86,6 +90,7 @@ public class BankDataQueryService {
                                 BankDataSyncResponseAssembler responseAssembler,
                                 CompanyMapper companyMapper,
                                 RbacService rbacService,
+                                StatementRecordMapper statementRecordMapper,
                                 List<BankDataAdapter> bankDataAdapters) {
         this.companyScope = companyScope;
         this.taskMapper = taskMapper;
@@ -97,6 +102,7 @@ public class BankDataQueryService {
         this.responseAssembler = responseAssembler;
         this.companyMapper = companyMapper;
         this.rbacService = rbacService;
+        this.statementRecordMapper = statementRecordMapper;
         List<BankDataAdapter> realAdapters = bankDataAdapters == null ? List.of() : bankDataAdapters.stream()
                 .filter(adapter -> adapter.executionMode() == BankAdapterExecutionMode.REAL)
                 .toList();
@@ -130,7 +136,7 @@ public class BankDataQueryService {
 
     public BankDataProjectionPageResponse<?> queryProjection(Long userId, String resource,
                                                              int page, int size, String status,
-                                                             Long bankAccountId, String keyword,
+                                                             List<Long> bankAccountIds, String keyword,
                                                              LocalDateTime from, LocalDateTime to,
                                                              String sourceSystem, String syncJobNo,
                                                              String requestId, Long companyIdFilter) {
@@ -158,7 +164,7 @@ public class BankDataQueryService {
             return emptyProjectionPage(page, size, "指定任务不是真实银行直联的同步任务，或没有匹配记录");
         }
         if ("balances".equals(normalized)) {
-            PageResponse<BankDataBalanceResponse> balances = listBalances(companyIds, page, size, bankAccountId,
+            PageResponse<BankDataBalanceResponse> balances = listBalances(companyIds, page, size, bankAccountIds,
                     status, from, to, taskIds);
             Map<Long, BankDataSyncTask> tasksById = tasksById(companyIds,
                     balances.records().stream().map(BankDataBalanceResponse::taskId).toList());
@@ -176,7 +182,7 @@ public class BankDataQueryService {
         }
         LambdaQueryWrapper<BankDataStatement> query = new LambdaQueryWrapper<BankDataStatement>()
                 .in(BankDataStatement::getCompanyId, companyIds)
-                .eq(bankAccountId != null, BankDataStatement::getBankAccountId, bankAccountId)
+                .in(bankAccountIds != null && !bankAccountIds.isEmpty(), BankDataStatement::getBankAccountId, bankAccountIds)
                 .in(BankDataStatement::getTaskId, taskIds)
                 .eq(status != null && !status.isBlank(), BankDataStatement::getValidationStatus,
                         status == null ? null : status.trim().toUpperCase(Locale.ROOT))
@@ -200,7 +206,9 @@ public class BankDataQueryService {
         Map<Long, AccountLabel> accountLabels = accountLabels(companyIds,
                 result.getRecords().stream().map(BankDataStatement::getBankAccountId).toList());
         Map<Long, String> companyNames = companyNames(companyIds);
-        List<BankDataStatementResponse> records = responseAssembler.statements(result.getRecords(), companyIds)
+        List<BankDataStatement> rawRows = result.getRecords();
+        Set<String> transferredKeys = transferredKeys(rawRows);
+        List<BankDataStatementResponse> assembled = responseAssembler.statements(rawRows, companyIds)
                 .stream()
                 .map(statement -> {
                     BankDataSyncTask task = tasksById.get(statement.taskId());
@@ -209,6 +217,14 @@ public class BankDataQueryService {
                             label == null ? null : label.maskedNumber(),
                             label == null ? null : label.name())
                             .withCompanyName(companyNames.get(task == null ? null : task.getCompanyId()));
+                })
+                .toList();
+        List<BankDataStatementResponse> records = java.util.stream.IntStream.range(0, assembled.size())
+                .mapToObj(i -> {
+                    BankDataStatementResponse dto = assembled.get(i);
+                    BankDataStatement row = rawRows.get(i);
+                    return dto.withTransferred(dto.statementNo() != null
+                            && transferredKeys.contains(row.getCompanyId() + ":" + dto.statementNo()));
                 })
                 .toList();
         return projectionPage(result.getCurrent(), result.getSize(), result.getTotal(), records,
@@ -268,7 +284,7 @@ public class BankDataQueryService {
      * though storage keeps one signed figure — the bank's file carries two unsigned columns,
      * and 借贷 is derived from {@code signedAmount} falling back to {@code loanCode}.</p>
      */
-    public BankDataExport export(Long userId, String resource, String status, Long bankAccountId,
+    public BankDataExport export(Long userId, String resource, String status, List<Long> bankAccountIds,
                                  String keyword, LocalDateTime from, LocalDateTime to,
                                  String syncJobNo, String requestId, Long companyIdFilter) {
         String normalized = resource == null ? "" : resource.trim().toLowerCase(Locale.ROOT);
@@ -294,7 +310,7 @@ public class BankDataQueryService {
         if ("balances".equals(normalized)) {
             List<BankDataBalance> rows = exportRows(new LambdaQueryWrapper<BankDataBalance>()
                     .eq(BankDataBalance::getCompanyId, companyId)
-                    .eq(bankAccountId != null, BankDataBalance::getBankAccountId, bankAccountId)
+                    .in(bankAccountIds != null && !bankAccountIds.isEmpty(), BankDataBalance::getBankAccountId, bankAccountIds)
                     .in(BankDataBalance::getTaskId, taskIds)
                     .eq(status != null && !status.isBlank(), BankDataBalance::getValidationStatus,
                             status == null ? null : status.trim().toUpperCase(Locale.ROOT))
@@ -321,7 +337,7 @@ public class BankDataQueryService {
         }
         List<BankDataStatement> rows = exportRows(new LambdaQueryWrapper<BankDataStatement>()
                 .eq(BankDataStatement::getCompanyId, companyId)
-                .eq(bankAccountId != null, BankDataStatement::getBankAccountId, bankAccountId)
+                .in(bankAccountIds != null && !bankAccountIds.isEmpty(), BankDataStatement::getBankAccountId, bankAccountIds)
                 .in(BankDataStatement::getTaskId, taskIds)
                 .eq(status != null && !status.isBlank(), BankDataStatement::getValidationStatus,
                         status == null ? null : status.trim().toUpperCase(Locale.ROOT))
@@ -458,12 +474,12 @@ public class BankDataQueryService {
     }
 
     public PageResponse<BankDataBalanceResponse> listBalances(Long userId, int page, int size,
-                                                               Long bankAccountId, LocalDateTime from, LocalDateTime to) {
-        return listBalances(userId, page, size, bankAccountId, from, to, null, null);
+                                                               List<Long> bankAccountIds, LocalDateTime from, LocalDateTime to) {
+        return listBalances(userId, page, size, bankAccountIds, from, to, null, null);
     }
 
     public PageResponse<BankDataBalanceResponse> listBalances(Long userId, int page, int size,
-                                                               Long bankAccountId, LocalDateTime from, LocalDateTime to,
+                                                               List<Long> bankAccountIds, LocalDateTime from, LocalDateTime to,
                                                                String taskNo, String requestId) {
         long companyId = companyScope.companyIdForUser(userId);
         List<Long> taskIds = scopedTaskIds(List.of(companyId), taskNo, requestId);
@@ -471,16 +487,16 @@ public class BankDataQueryService {
                 && taskIds.isEmpty()) {
             return new PageResponse<>(Math.max(1, page), boundedSize(size), 0, List.of());
         }
-        return listBalances(List.of(companyId), page, size, bankAccountId, null, from, to, taskIds);
+        return listBalances(List.of(companyId), page, size, bankAccountIds, null, from, to, taskIds);
     }
 
     private PageResponse<BankDataBalanceResponse> listBalances(Collection<Long> companyIds, int page, int size,
-                                                                Long bankAccountId, String validationStatus,
+                                                                List<Long> bankAccountIds, String validationStatus,
                                                                 LocalDateTime from, LocalDateTime to,
                                                                 List<Long> taskIds) {
         LambdaQueryWrapper<BankDataBalance> query = new LambdaQueryWrapper<BankDataBalance>()
                 .in(BankDataBalance::getCompanyId, companyIds)
-                .eq(bankAccountId != null, BankDataBalance::getBankAccountId, bankAccountId)
+                .in(bankAccountIds != null && !bankAccountIds.isEmpty(), BankDataBalance::getBankAccountId, bankAccountIds)
                 .in(taskIds != null && !taskIds.isEmpty(), BankDataBalance::getTaskId, taskIds)
                 .eq(validationStatus != null && !validationStatus.isBlank(), BankDataBalance::getValidationStatus,
                         validationStatus == null ? null : validationStatus.trim().toUpperCase(Locale.ROOT))
@@ -555,6 +571,24 @@ public class BankDataQueryService {
 
     private boolean hasCrossCompanyPermission(Long userId) {
         return rbacService.permissionCodesForUser(userId).contains(CROSS_COMPANY_PERMISSION);
+    }
+
+    /**
+     * 该批银行流水中已转入标准流水（同公司同银行流水号在 statement_record 已存在）的 key 集合，
+     * 供流水投影页禁选「已转入」行；key 形如 {@code companyId:statementNo}。
+     */
+    private Set<String> transferredKeys(List<BankDataStatement> rows) {
+        List<String> statementNos = rows.stream()
+                .map(BankDataStatement::getStatementNo)
+                .filter(no -> no != null && !no.isBlank())
+                .distinct()
+                .toList();
+        if (statementNos.isEmpty()) return Set.of();
+        return statementRecordMapper.selectList(new LambdaQueryWrapper<StatementRecord>()
+                        .in(StatementRecord::getStatementNo, statementNos))
+                .stream()
+                .map(r -> r.getCompanyId() + ":" + r.getStatementNo())
+                .collect(Collectors.toSet());
     }
 
     /** 公司下拉数据源：跨公司权限者返回全部 ACTIVE 公司；否则仅本公司。 */

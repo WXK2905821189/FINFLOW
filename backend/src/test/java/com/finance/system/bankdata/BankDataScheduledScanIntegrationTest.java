@@ -72,6 +72,8 @@ class BankDataScheduledScanIntegrationTest {
     private BankDataSyncService bankDataSyncService;
     @Autowired
     private BankDataQueryService bankDataQueryService;
+    @Autowired
+    private com.finance.system.statement.StatementService statementService;
 
     @Test
     void scheduledScanIsAccountDrivenAndDedupesPerWindow() {
@@ -155,6 +157,38 @@ class BankDataScheduledScanIntegrationTest {
         assertEquals(404, missing.getCode());
     }
 
+    /**
+     * 一键转入标记（C1，2026-09-08）：转入后的银行流水行在投影查询里带 transferred=true，
+     * 前端据此禁选已转入行。放在 REAL 上下文：投影页在无 REAL 适配器时直接返回未连接空页。
+     */
+    @Test
+    void projectionMarksTransferredRows() {
+        Company company = insertCompany("QA-MARK");
+        BankAccount account = insertRealQaAccount(company.getId(), "QA transfer mark account");
+        com.finance.system.domain.entity.BankDataStatement fresh = insertRealQaStatement(company.getId(), account.getId());
+        com.finance.system.domain.entity.BankDataStatement transferredRow = insertRealQaStatement(company.getId(), account.getId());
+        Long adminId = insertUser(company.getId(), "qa-mark-admin", 1L);
+
+        com.finance.system.statement.dto.StatementImportBatchResponse response = statementService.transferFromBankData(
+                new com.finance.system.statement.dto.StatementTransferRequest(List.of(transferredRow.getId())), adminId);
+        assertEquals(1, response.importedCount());
+
+        BankDataProjectionPageResponse<?> page = bankDataQueryService.queryProjection(
+                adminId, "statements", 1, 20, null, null, null, null, null, null, null, null, company.getId());
+        List<BankDataStatementResponse> rows = page.records().stream()
+                .map(row -> (BankDataStatementResponse) row)
+                .filter(row -> row.statementNo().equals(fresh.getStatementNo())
+                        || row.statementNo().equals(transferredRow.getStatementNo()))
+                .toList();
+        assertEquals(2, rows.size());
+        assertTrue(rows.stream()
+                .filter(row -> row.statementNo().equals(transferredRow.getStatementNo()))
+                .allMatch(BankDataStatementResponse::transferred));
+        assertTrue(rows.stream()
+                .filter(row -> row.statementNo().equals(fresh.getStatementNo()))
+                .noneMatch(BankDataStatementResponse::transferred), "未转入行不应被标记");
+    }
+
     private Long insertUser(Long companyId, String username, Long roleId) {
         SysUser user = new SysUser();
         user.setCompanyId(companyId);
@@ -173,7 +207,7 @@ class BankDataScheduledScanIntegrationTest {
     }
 
     /** 在 REAL_QA 上下文中造一条真实链路数据：任务 + 原始报文 + 流水行，供投影查询断言。 */
-    private void insertRealQaStatement(Long companyId, Long bankAccountId) {
+    private BankDataStatement insertRealQaStatement(Long companyId, Long bankAccountId) {
         BankDataSyncTask task = new BankDataSyncTask();
         task.setCompanyId(companyId);
         task.setTaskNo("BDST-XC-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12));
@@ -206,6 +240,7 @@ class BankDataScheduledScanIntegrationTest {
         statement.setAmount(new BigDecimal("123.45"));
         statement.setValidationStatus("PENDING");
         statementMapper.insert(statement);
+        return statement;
     }
 
     private Company insertCompany(String prefix) {

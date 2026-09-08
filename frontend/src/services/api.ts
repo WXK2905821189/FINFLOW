@@ -25,6 +25,7 @@ import type {
   StatementDashboard,
   StatementDetail,
   StatementImportBatch,
+  StatementTransferResult,
   StatementImportRequest,
   StatementRecord,
   StatementReviewRequest,
@@ -160,7 +161,8 @@ type BankDataQueryParams = {
   page?: number;
   size?: number;
   status?: string;
-  accountId?: string;
+  /** 多选账户：重复键序列化（accountIds=1&accountIds=2），Spring @RequestParam List 原生识别。 */
+  accountIds?: number[];
   keyword?: string;
   from?: string;
   to?: string;
@@ -169,6 +171,17 @@ type BankDataQueryParams = {
   requestId?: string;
   /** 跨公司权限用户可选定公司主体；不传=全部可见公司，无权限用户传值会被服务端 403。 */
   companyId?: number;
+};
+
+/** axios 默认把数组序列化成 `key[]=1`（Spring 不识别）；数组改重复键拼 URL，其余走 axios params。 */
+const splitArrayQuery = (params: BankDataQueryParams): { path: string; rest: Omit<BankDataQueryParams, 'accountIds'> } => {
+  const rest = { ...params } as Record<string, unknown>;
+  const accountIds = rest.accountIds as number[] | undefined;
+  delete rest.accountIds;
+  const search = new URLSearchParams();
+  (accountIds || []).filter((id) => Number.isSafeInteger(id) && id > 0).forEach((id) => search.append('accountIds', String(id)));
+  const query = search.toString();
+  return { path: query ? `?${query}` : '', rest: rest as Omit<BankDataQueryParams, 'accountIds'> };
 };
 
 // v0.2 exposed only internal job resources and business projections, and the client
@@ -184,7 +197,13 @@ export const bankPipelineApi = {
    * Returns the bank's own row shape for the resource (BankDataStatementRow for statements,
    * BankDataBalanceRow for balances) rather than a generic business projection.
    */
-  queryProjection: <T>(resource: string, params: BankDataQueryParams) => http.get<never, BankDataProjectionPage<T>>(`/bank-data/${resource}`, { params }),
+  queryProjection: <T>(resource: string, params: BankDataQueryParams) => {
+    const { path, rest } = splitArrayQuery(params);
+    return http.get<never, BankDataProjectionPage<T>>(`/bank-data/${resource}${path}`, { params: rest });
+  },
+  /** 银行流水一键转入标准流水（流水与入账）；服务端按银行流水行的公司归属落批次。 */
+  transferFromBankdata: (data: { statementIds: number[] }) =>
+    http.post<never, StatementTransferResult>('/statements/transfer-from-bankdata', data),
   /** 公司主体下拉数据源：跨公司权限者返回全部 ACTIVE 公司，否则仅本公司。 */
   companyOptions: () => http.get<never, CompanyOption[]>('/bank-data/company-options'),
   /** 运行日志：真实同步作业事件流（bank_data_sync_log），替代空的 connection_operation_log。 */
@@ -204,7 +223,8 @@ export const bankPipelineApi = {
    * authorized data as queryProjection in another shape, so it grants no new access.
    */
   exportCsv: async (resource: 'balances' | 'statements', params: Omit<BankDataQueryParams, 'page' | 'size'>): Promise<void> => {
-    const response = await http.get<never, AxiosResponse<Blob>>(`/bank-data/${resource}/export`, { params, responseType: 'blob' });
+    const { path, rest } = splitArrayQuery(params as BankDataQueryParams);
+    const response = await http.get<never, AxiosResponse<Blob>>(`/bank-data/${resource}/export${path}`, { params: rest, responseType: 'blob' });
     const disposition = String(response.headers?.['content-disposition'] ?? '');
     const utf8Name = /filename\*=UTF-8''([^;]+)/i.exec(disposition)?.[1];
     const asciiName = /filename="([^"]+)"/i.exec(disposition)?.[1];

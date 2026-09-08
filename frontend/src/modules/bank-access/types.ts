@@ -12,6 +12,23 @@ export type BankAccount = {
   directStatus?: string;
   /** ISO timestamp of the latest successful real-adapter sync for this account. */
   lastRealSyncAt?: string;
+  /** 账户归属公司 id：跨公司用户用于「公司主体 → 账户」分组联动。 */
+  companyId?: number;
+  /** 账户归属公司名称。 */
+  companyName?: string;
+};
+
+/** 银行流水一键转入标准流水的服务端结果（复用导入批次响应形态）。 */
+export type StatementTransferResult = {
+  batchNo: string;
+  sourceType?: string;
+  sourceName?: string;
+  status?: string;
+  totalCount?: number;
+  importedCount?: number;
+  duplicateCount?: number;
+  invalidCount?: number;
+  errorMessage?: string;
 };
 
 export type ConnectionSummary = {
@@ -158,6 +175,8 @@ export type BankDataStatementRow = {
   taskStatus?: string;
   /** 行所属公司主体（跨公司权限用户可见；单公司用户恒为本公司）。 */
   companyName?: string;
+  /** 该行是否已转入「流水与入账」标准流水（同公司同银行流水号已存在）；仅投影查询填充。 */
+  transferred?: boolean;
 };
 
 /** 银行返回的余额字段（CMB NTQADINF ntqadinfz）。四余额口径不可互相替代，故全部直出。 */

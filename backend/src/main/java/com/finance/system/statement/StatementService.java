@@ -10,14 +10,17 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.finance.system.common.api.PageResponse;
 import com.finance.system.common.exception.BusinessException;
 import com.finance.system.domain.entity.BankAccount;
+import com.finance.system.domain.entity.BankDataStatement;
 import com.finance.system.domain.entity.StatementAuditEvent;
 import com.finance.system.domain.entity.StatementImportBatch;
 import com.finance.system.domain.entity.StatementRecord;
 import com.finance.system.domain.mapper.BankAccountMapper;
+import com.finance.system.domain.mapper.BankDataStatementMapper;
 import com.finance.system.domain.mapper.StatementAuditEventMapper;
 import com.finance.system.domain.mapper.StatementImportBatchMapper;
 import com.finance.system.domain.mapper.StatementRecordMapper;
 import com.finance.system.common.tenant.CompanyScopeService;
+import com.finance.system.rbac.RbacService;
 import com.finance.system.statement.collector.StatementCollection;
 import com.finance.system.statement.collector.StatementCollector;
 import com.finance.system.statement.dto.StatementAuditEventResponse;
@@ -28,6 +31,7 @@ import com.finance.system.statement.dto.StatementImportRequest;
 import com.finance.system.statement.dto.StatementRecordInput;
 import com.finance.system.statement.dto.StatementResponse;
 import com.finance.system.statement.dto.StatementReviewRequest;
+import com.finance.system.statement.dto.StatementTransferRequest;
 import com.finance.system.statement.kingdee.KingdeeVoucherGateway;
 import com.finance.system.statement.kingdee.KingdeeVoucherResult;
 import org.springframework.stereotype.Service;
@@ -62,6 +66,11 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
     private final ObjectMapper objectMapper;
     private final KingdeeVoucherGateway kingdeeGateway;
     private final CompanyScopeService companyScope;
+    private final BankDataStatementMapper bankDataStatementMapper;
+    private final RbacService rbacService;
+
+    /** 与 bankdata 侧 BankDataQueryService 的跨公司权限码一致；转入他公司银行流水时要求。 */
+    private static final String CROSS_COMPANY_PERMISSION = "bankdata:cross-company:view";
 
     public StatementService(StatementCollector collector,
                             StatementImportBatchMapper batchMapper,
@@ -69,7 +78,9 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
                             BankAccountMapper bankAccountMapper,
                             ObjectMapper objectMapper,
                             KingdeeVoucherGateway kingdeeGateway,
-                            CompanyScopeService companyScope) {
+                            CompanyScopeService companyScope,
+                            BankDataStatementMapper bankDataStatementMapper,
+                            RbacService rbacService) {
         this.collector = collector;
         this.batchMapper = batchMapper;
         this.auditMapper = auditMapper;
@@ -77,6 +88,8 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
         this.objectMapper = objectMapper;
         this.kingdeeGateway = kingdeeGateway;
         this.companyScope = companyScope;
+        this.bankDataStatementMapper = bankDataStatementMapper;
+        this.rbacService = rbacService;
     }
 
     @Transactional
@@ -96,11 +109,99 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
         batch.setCreatedBy(operatorId);
         batchMapper.insert(batch);
 
+        int[] counters = processRecords(batch, collection.records(), companyId, operatorId);
+
+        batch.setImportedCount(counters[0]);
+        batch.setDuplicateCount(counters[1]);
+        batch.setInvalidCount(counters[2]);
+        batch.setStatus(counters[2] == 0 ? "COMPLETED" : "PARTIAL");
+        batch.setCompletedAt(LocalDateTime.now());
+        batchMapper.updateById(batch);
+        return toBatchResponse(batch);
+    }
+
+    /**
+     * 银行流水一键转入标准流水（银行数据模块 → 流水与入账）。
+     *
+     * <p>批次与标准流水按<b>银行流水行自身的公司归属</b>落库（而非操作者本公司），
+     * 跨公司用户转入他公司流水时要求 {@code bankdata:cross-company:view}；单公司用户只能转入本公司流水。
+     * 幂等：银行流水号（statementNo）作为标准流水的自然去重键，既有导入链路会自动计为 duplicate。</p>
+     */
+    @Transactional
+    public StatementImportBatchResponse transferFromBankData(StatementTransferRequest request, Long operatorId) {
+        List<Long> ids = request.statementIds().stream().filter(java.util.Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) {
+            throw new BusinessException(400, "请选择要转入的银行流水");
+        }
+        List<BankDataStatement> rows = bankDataStatementMapper.selectBatchIds(ids);
+        if (rows.size() != ids.size()) {
+            throw new BusinessException(404, "部分银行流水不存在或已被清理，请刷新后重试");
+        }
+        long ownCompanyId = companyScope.companyIdForUser(operatorId);
+        Set<Long> rowCompanies = rows.stream().map(BankDataStatement::getCompanyId).collect(java.util.stream.Collectors.toSet());
+        if (rowCompanies.size() > 1) {
+            throw new BusinessException(400, "一次只能转入同一公司主体下的银行流水，请按公司分批选择");
+        }
+        long companyId = rowCompanies.iterator().next();
+        if (companyId != ownCompanyId && !rbacService.permissionCodesForUser(operatorId).contains(CROSS_COMPANY_PERMISSION)) {
+            throw new BusinessException(403, "没有转入其他公司主体流水的权限");
+        }
+
+        StatementImportBatch batch = new StatementImportBatch();
+        batch.setCompanyId(companyId);
+        batch.setBatchNo("STB-" + UUID.randomUUID().toString().replace("-", "").substring(0, 20).toUpperCase(Locale.ROOT));
+        batch.setSourceType("BANKDATA");
+        batch.setSourceName("银行流水转入 " + LocalDateTime.now().toLocalDate());
+        batch.setStatus("IMPORTING");
+        batch.setTotalCount(rows.size());
+        batch.setImportedCount(0);
+        batch.setDuplicateCount(0);
+        batch.setInvalidCount(0);
+        batch.setCreatedBy(operatorId);
+        batchMapper.insert(batch);
+
+        List<StatementRecordInput> inputs = rows.stream().map(this::mapToInput).toList();
+        int[] counters = processRecords(batch, inputs, companyId, operatorId);
+
+        batch.setImportedCount(counters[0]);
+        batch.setDuplicateCount(counters[1]);
+        batch.setInvalidCount(counters[2]);
+        batch.setStatus(counters[2] == 0 ? "COMPLETED" : "PARTIAL");
+        batch.setCompletedAt(LocalDateTime.now());
+        batchMapper.updateById(batch);
+        return toBatchResponse(batch);
+    }
+
+    /**
+     * 银行流水行 → 标准流水输入。对手方名称与摘要为标准流水的必填字段，按银行原生字段链兜底
+     * （业务名称 / 你方摘要 / 扩展摘要 / 网银摘要）；对手方账号使用脱敏值，完整账号始终只在原始报文留存。
+     */
+    private StatementRecordInput mapToInput(BankDataStatement row) {
+        String counterpartyName = firstNonBlank(row.getCounterpartyName(), row.getBusinessName(), "银行交易");
+        String summary = firstNonBlank(row.getSummary(), row.getRemarkTextClt(), row.getExtendedRemark(),
+                row.getBusinessText(), row.getBusinessName(), "银行流水 " + row.getStatementNo());
+        String statementNo = firstNonBlank(row.getStatementNo(), "BKD-" + row.getId());
+        return new StatementRecordInput(statementNo, row.getBankAccountId(), row.getTransactionTime(),
+                row.getDirection(), row.getAmount(), row.getCurrency(),
+                counterpartyName, row.getCounterpartyAccountMasked(), summary);
+    }
+
+    private String firstNonBlank(String... candidates) {
+        for (String candidate : candidates) {
+            if (candidate != null && !candidate.isBlank()) {
+                return candidate.trim();
+            }
+        }
+        return null;
+    }
+
+    /** 导入/转入共用的落库循环：返回 {imported, duplicates, invalid}。 */
+    private int[] processRecords(StatementImportBatch batch, List<StatementRecordInput> records, long companyId, Long operatorId) {
         int imported = 0;
         int duplicates = 0;
         int invalid = 0;
         Set<String> batchStatementNumbers = new HashSet<>();
-        for (StatementRecordInput input : collection.records()) {
+        for (StatementRecordInput input : records) {
             String statementNo = normalizeStatementNo(input.statementNo());
             if (!batchStatementNumbers.add(statementNo)
                     || baseMapper.selectCount(new LambdaQueryWrapper<StatementRecord>()
@@ -120,14 +221,7 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
             audit(statement, "IMPORT", "SUCCESS", null,
                     statement.getValidationStatus(), operatorId, validationMessage);
         }
-
-        batch.setImportedCount(imported);
-        batch.setDuplicateCount(duplicates);
-        batch.setInvalidCount(invalid);
-        batch.setStatus(invalid == 0 ? "COMPLETED" : "PARTIAL");
-        batch.setCompletedAt(LocalDateTime.now());
-        batchMapper.updateById(batch);
-        return toBatchResponse(batch);
+        return new int[]{imported, duplicates, invalid};
     }
 
     public PageResponse<StatementResponse> pageStatements(int page, int size, String validationStatus,
