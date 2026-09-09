@@ -1,0 +1,92 @@
+{
+ "info": {
+  "id": "916017087373821956",
+  "type": "stan",
+  "domainId": "T60",
+  "subSystemId": "S6002",
+  "formId": "CN_BANKACNT",
+  "number": "QueryBusinessInfo",
+  "name": "元数据查询",
+  "url": null,
+  "seq": 17,
+  "description": null,
+  "isInWhiteList": false,
+  "isInBlackList": false,
+  "additionalInfo": null,
+  "releaseDate": "2022-11-10 00:00:00",
+  "createUser": null,
+  "updateUser": null,
+  "createDate": null,
+  "updateDate": null,
+  "requestParamField": {
+   "id": "1535498384060332090",
+   "apiInfoId": "916017087373821956",
+   "type": "req",
+   "name": "data",
+   "description": "JSON格式数据（详情参考JSON格式数据）（必录）",
+   "fieldType": "Object",
+   "defaultValue": null,
+   "isMust": true,
+   "seq": 1,
+   "parentName": "0",
+   "level": null,
+   "children": [
+    {
+     "id": "1535498384060332091",
+     "apiInfoId": "916017087373821956",
+     "type": "req",
+     "name": "FormId",
+     "description": "业务对象表单Id（必录）",
+     "fieldType": "String",
+     "defaultValue": "CN_BANKACNT",
+     "isMust": true,
+     "seq": 2,
+     "parentName": "data",
+     "level": null,
+     "children": null
+    }
+   ]
+  },
+  "responseParamField": null,
+  "domainName": null,
+  "subSystemName": null,
+  "formName": "银行账号",
+  "createUserName": null,
+  "updateUserName": null,
+  "version": "8.1.0.20221110"
+ },
+ "reqField": [
+  {
+   "id": "1535498384060332090",
+   "apiInfoId": "916017087373821956",
+   "type": "req",
+   "name": "data",
+   "description": "JSON格式数据（详情参考JSON格式数据）（必录）",
+   "fieldType": "Object",
+   "defaultValue": null,
+   "isMust": true,
+   "seq": 1,
+   "parentName": "0",
+   "level": null,
+   "children": [
+    {
+     "id": "1535498384060332091",
+     "apiInfoId": "916017087373821956",
+     "type": "req",
+     "name": "FormId",
+     "description": "业务对象表单Id（必录）",
+     "fieldType": "String",
+     "defaultValue": "CN_BANKACNT",
+     "isMust": true,
+     "seq": 2,
+     "parentName": "data",
+     "level": null,
+     "children": null
+    }
+   ]
+  }
+ ],
+ "resField": null,
+ "requestJson": "{\"FormId\":\"\"}",
+ "responseJson": "{\"Result\":{\"ResponseStatus\":\"\",\"NeedReturnData\":\"{}\"}}"
+}

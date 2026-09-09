@@ -1,0 +1,92 @@
+{
+ "info": {
+  "id": "916017087373821958",
+  "type": "stan",
+  "domainId": "T60",
+  "subSystemId": "S6002",
+  "formId": "CN_BANKACNT",
+  "number": "SwitchOrg",
+  "name": "切换组织",
+  "url": null,
+  "seq": 19,
+  "description": null,
+  "isInWhiteList": false,
+  "isInBlackList": false,
+  "additionalInfo": null,
+  "releaseDate": "2022-11-10 00:00:00",
+  "createUser": null,
+  "updateUser": null,
+  "createDate": null,
+  "updateDate": null,
+  "requestParamField": {
+   "id": "1535498384060332105",
+   "apiInfoId": "916017087373821958",
+   "type": "req",
+   "name": "data",
+   "description": "JSON格式数据（详情参考JSON格式数据）（必录）",
+   "fieldType": "Object",
+   "defaultValue": null,
+   "isMust": true,
+   "seq": 1,
+   "parentName": "0",
+   "level": null,
+   "children": [
+    {
+     "id": "1535498384060332106",
+     "apiInfoId": "916017087373821958",
+     "type": "req",
+     "name": "OrgNumber",
+     "description": "组织机构编码，字符串类型，（必录）",
+     "fieldType": "String",
+     "defaultValue": "",
+     "isMust": false,
+     "seq": 2,
+     "parentName": "data",
+     "level": null,
+     "children": null
+    }
+   ]
+  },
+  "responseParamField": null,
+  "domainName": null,
+  "subSystemName": null,
+  "formName": "银行账号",
+  "createUserName": null,
+  "updateUserName": null,
+  "version": "8.1.0.20221110"
+ },
+ "reqField": [
+  {
+   "id": "1535498384060332105",
+   "apiInfoId": "916017087373821958",
+   "type": "req",
+   "name": "data",
+   "description": "JSON格式数据（详情参考JSON格式数据）（必录）",
+   "fieldType": "Object",
+   "defaultValue": null,
+   "isMust": true,
+   "seq": 1,
+   "parentName": "0",
+   "level": null,
+   "children": [
+    {
+     "id": "1535498384060332106",
+     "apiInfoId": "916017087373821958",
+     "type": "req",
+     "name": "OrgNumber",
+     "description": "组织机构编码，字符串类型，（必录）",
+     "fieldType": "String",
+     "defaultValue": "",
+     "isMust": false,
+     "seq": 2,
+     "parentName": "data",
+     "level": null,
+     "children": null
+    }
+   ]
+  }
+ ],
+ "resField": null,
+ "requestJson": "{\"OrgNumber\":\"\"}",
+ "responseJson": "{\"Result\":{\"ResponseStatus\":{\"ErrorCode\":\"\",\"IsSuccess\":\"false\",\"Errors\":[{\"FieldName\":\"\",\"Message\":\"\",\"DIndex\":0}],\"SuccessEntitys\":[{\"Id\":\"\",\"Number\":\"\",\"DIndex\":0}],\"SuccessMessages\":[{\"FieldName\":\"\",\"Message\":\"\",\"DIndex\":0}],\"MsgCode\":\"\"}}}"
+}
