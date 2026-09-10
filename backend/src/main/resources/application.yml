@@ -88,10 +88,13 @@ bankdata:
         url: ${CITIC_SDK_URL:}
         org-code: ${CITIC_ORG_CODE:}
         user-name: ${CITIC_USER_NAME:}
-        cash-flag: 0
+        # 0=single customer, 1=group/cluster customer (bank-issued; TSEA joint-testing account is 1)
+        cash-flag: ${CITIC_CASH_FLAG:0}
         cert-path: ${CITIC_CERT_PATH:}
         download-code: ${CITIC_DOWNLOAD_CODE:}
         host-ip: ${CITIC_HOST_IP:}
+        # Optional fixed MAC for the SDK identity check; empty = probe the runtime NIC.
+        mac-address: ${CITIC_MAC_ADDRESS:}
         open-comm-custom: true
         log-path: ${CITIC_SDK_LOG_PATH:}
         token: ${CITIC_TOKEN:}

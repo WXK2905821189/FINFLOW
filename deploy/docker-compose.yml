@@ -28,11 +28,25 @@ services:
       # 每日 T-1 自动拉数（bankdata.sync.schedule-enabled），账户驱动、仅 REAL 适配器银行
       BANKDATA_SYNC_SCHEDULE_ENABLED: ${BANKDATA_SYNC_SCHEDULE_ENABLED:-false}
       BANKDATA_SYNC_FIXED_DELAY_MS: ${BANKDATA_SYNC_FIXED_DELAY_MS:-600000}
+      # CITIC 银企直联 SDK 直连（TSEA 联调 2026-09-10）；证书下载码用后作废，token 定稿后不可改
+      BANKDATA_CITIC_REAL_ENABLED: ${BANKDATA_CITIC_REAL_ENABLED:-false}
+      CITIC_SDK_URL: ${CITIC_SDK_URL:-}
+      CITIC_ORG_CODE: ${CITIC_ORG_CODE:-}
+      CITIC_USER_NAME: ${CITIC_USER_NAME:-}
+      CITIC_CASH_FLAG: ${CITIC_CASH_FLAG:-0}
+      CITIC_CERT_PATH: ${CITIC_CERT_PATH:-}
+      CITIC_DOWNLOAD_CODE: ${CITIC_DOWNLOAD_CODE:-}
+      CITIC_TOKEN: ${CITIC_TOKEN:-}
+      CITIC_MAC_ADDRESS: ${CITIC_MAC_ADDRESS:-}
+      CITIC_HOST_IP: ${CITIC_HOST_IP:-}
+      CITIC_SDK_LOG_PATH: ${CITIC_SDK_LOG_PATH:-}
     # 不向宿主机暴露 8080，仅由 nginx 内网转发
     expose:
       - "8080"
     volumes:
       - ./logs:/app/logs
+      # CITIC 云证书持久化：下载码一次性，容器重建不能丢证书
+      - ./citic-cert:/app/citic-cert
     # 健康检查：探测 8080 端口。temurin 镜像无 curl/wget，用 bash /dev/tcp
     # nginx 的 depends_on: service_healthy 依赖此检查，缺了它 web 永远不会启动
     healthcheck:

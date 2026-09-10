@@ -87,6 +87,8 @@ public class CiticAdapterProperties {
         private boolean openCommCustom = true;
         private String logPath;
         private String token;
+        /** Optional fixed MAC sent to the SDK identity check; empty = probe the runtime NIC. */
+        private String macAddress;
 
         public String getUrl() { return url; }
         public void setUrl(String url) { this.url = url; }
@@ -108,5 +110,7 @@ public class CiticAdapterProperties {
         public void setLogPath(String logPath) { this.logPath = logPath; }
         public String getToken() { return token; }
         public void setToken(String token) { this.token = token; }
+        public String getMacAddress() { return macAddress; }
+        public void setMacAddress(String macAddress) { this.macAddress = macAddress; }
     }
 }

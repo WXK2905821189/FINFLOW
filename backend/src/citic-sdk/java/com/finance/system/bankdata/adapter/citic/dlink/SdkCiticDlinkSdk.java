@@ -122,7 +122,7 @@ public class SdkCiticDlinkSdk implements CiticDlinkSdk {
         try {
             OpenCommunication created;
             if (cfg.isOpenCommCustom()) {
-                created = new CiticTokenCommunication(cfg.getToken());
+                created = new CiticTokenCommunication(cfg.getToken(), cfg.getMacAddress());
             } else {
                 created = new DefaultOpenCommunication();
             }
@@ -178,10 +178,12 @@ public class SdkCiticDlinkSdk implements CiticDlinkSdk {
     static final class CiticTokenCommunication extends OpenCommunication {
 
         private final String token;
+        private final String macOverride;
 
-        CiticTokenCommunication(String token) throws DLinkSdkException {
+        CiticTokenCommunication(String token, String macOverride) throws DLinkSdkException {
             super();
             this.token = token;
+            this.macOverride = macOverride == null || macOverride.isBlank() ? null : macOverride.trim();
         }
 
         @Override
@@ -195,6 +197,12 @@ public class SdkCiticDlinkSdk implements CiticDlinkSdk {
 
         @Override
         public String macAddressCustom() {
+            // The bank-side identity check compares against a MAC maintained at the branch.
+            // Containers get a fresh MAC on every recreate, so ops can pin one via
+            // CITIC_MAC_ADDRESS; probing remains the fallback for VM/bare-metal runs.
+            if (macOverride != null) {
+                return macOverride;
+            }
             return detectMacAddress();
         }
     }
