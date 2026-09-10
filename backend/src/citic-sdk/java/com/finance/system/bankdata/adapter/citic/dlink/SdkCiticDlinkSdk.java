@@ -132,7 +132,13 @@ public class SdkCiticDlinkSdk implements CiticDlinkSdk {
         try {
             OpenCommunication created;
             if (cfg.isOpenCommCustom()) {
-                created = new CiticTokenCommunication(cfg.getToken(), cfg.getMacAddress());
+                // Vendor bytecode note (verified 2026-09-10): the OpenCommunication
+                // constructor invokes tokenCustom()/macAddressCustom() while super() is
+                // still running (before subclass field assignment), and only collects
+                // them when the CITICBANK.OpenCommunicationCustom System property is
+                // "true" — setCfgPropertiesByte does NOT set it, so set it explicitly.
+                System.setProperty("CITICBANK.OpenCommunicationCustom", "true");
+                created = new CiticTokenCommunication();
             } else {
                 created = new DefaultOpenCommunication();
             }
@@ -140,8 +146,10 @@ public class SdkCiticDlinkSdk implements CiticDlinkSdk {
                     cfg.isOpenCommCustom() ? "custom-token" : "default", url);
             return created;
         } catch (DLinkSdkException exception) {
-            throw new BusinessException(502, "CITIC DLink SDK initialization failed: "
-                    + exception.getMessage());
+            // The vendor wraps boundary failures (incl. tokenCustom() errors thrown during
+            // super()) into ETSK-coded exceptions with terse messages — describe() keeps
+            // the nested cause visible in the API response.
+            throw new BusinessException(502, "CITIC DLink SDK initialization failed: " + describe(exception));
         }
     }
 
@@ -216,21 +224,22 @@ public class SdkCiticDlinkSdk implements CiticDlinkSdk {
      * stable binding (docker MAC changes on every recreate). The token is customer-chosen,
      * must be identical between certificate download and every send, and is issued from
      * {@code bankdata.adapter.citic.sdk.token} (CITIC_TOKEN).
+     *
+     * <p>Deliberately a non-static inner class reading the outer {@code cfg} live: the vendor
+     * constructor calls {@code tokenCustom()}/{@code macAddressCustom()} during {@code super()},
+     * before any subclass field assignment — constructor-parameter capture structurally
+     * cannot work (2026-09-10 TSEA joint-test root cause).</p>
      */
-    static final class CiticTokenCommunication extends OpenCommunication {
+    final class CiticTokenCommunication extends OpenCommunication {
 
-        private final String token;
-        private final String macOverride;
-
-        CiticTokenCommunication(String token, String macOverride) throws DLinkSdkException {
+        CiticTokenCommunication() throws DLinkSdkException {
             super();
-            this.token = token;
-            this.macOverride = macOverride == null || macOverride.isBlank() ? null : macOverride.trim();
         }
 
         @Override
         public String tokenCustom() {
-            if (token == null || token.isBlank()) {
+            String token = blankToNull(cfg.getToken());
+            if (token == null) {
                 throw new IllegalStateException("bankdata.adapter.citic.sdk.token (CITIC_TOKEN) is required "
                         + "when open-comm-custom=true; the certificate download must use the same token");
             }
@@ -242,6 +251,7 @@ public class SdkCiticDlinkSdk implements CiticDlinkSdk {
             // The bank-side identity check compares against a MAC maintained at the branch.
             // Containers get a fresh MAC on every recreate, so ops can pin one via
             // CITIC_MAC_ADDRESS; probing remains the fallback for VM/bare-metal runs.
+            String macOverride = blankToNull(cfg.getMacAddress());
             if (macOverride != null) {
                 return macOverride;
             }
