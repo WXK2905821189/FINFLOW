@@ -52,34 +52,44 @@ public class SdkCiticDlinkSdk implements CiticDlinkSdk {
 
     @Override
     public String exchange(String action, String businessXml, String clientId) {
-        OpenCommunication comm = communication();
-        String outerXml = CiticEnvelopeCodec.buildOuterRequest(
-                requireConfigured(cfg.getUserName(), "user-name (CITIC_USER_NAME)"),
-                businessXml,
-                cfg.getCashFlag(),
-                clientId);
-        String outerResponse = sendOuter(comm, outerXml);
-        CiticEnvelopeResponse envelope = CiticEnvelopeCodec.parseOuterResponse(outerResponse);
-        if (!OK_STATUS.equals(envelope.status())) {
-            throw new BusinessException(502, "CITIC transport rejected: status=" + envelope.status()
-                    + (envelope.statusText() == null || envelope.statusText().isBlank() ? ""
-                    : " text=" + envelope.statusText()));
+        try {
+            OpenCommunication comm = communication();
+            String outerXml = CiticEnvelopeCodec.buildOuterRequest(
+                    requireConfigured(cfg.getUserName(), "user-name (CITIC_USER_NAME)"),
+                    businessXml,
+                    cfg.getCashFlag(),
+                    clientId);
+            String outerResponse = sendOuter(comm, outerXml);
+            CiticEnvelopeResponse envelope = CiticEnvelopeCodec.parseOuterResponse(outerResponse);
+            if (!OK_STATUS.equals(envelope.status())) {
+                throw new BusinessException(502, "CITIC transport rejected: status=" + envelope.status()
+                        + (envelope.statusText() == null || envelope.statusText().isBlank() ? ""
+                        : " text=" + envelope.statusText()));
+            }
+            if (envelope.businessXml() == null) {
+                throw new BusinessException(502, "CITIC transport accepted but outer response carries no business content");
+            }
+            return envelope.businessXml();
+        } catch (BusinessException exception) {
+            throw exception;
+        } catch (Throwable throwable) {
+            // The vendor SDK surfaces init/native/log-binding failures as Errors; converting
+            // them here keeps the root cause visible in the API response instead of a bare 500.
+            throw new BusinessException(502, describe(throwable));
         }
-        if (envelope.businessXml() == null) {
-            throw new BusinessException(502, "CITIC transport accepted but outer response carries no business content");
-        }
-        return envelope.businessXml();
     }
 
     @Override
     public String downloadCertificate(String downloadCode, String orgCode, String certPath) {
-        OpenCommunication comm = communication();
         try {
+            OpenCommunication comm = communication();
             String statusXml = comm.cerMNG(downloadCode, orgCode, certPath);
             log.info("CITIC certificate download returned: {}", statusXml);
             return statusXml;
-        } catch (Exception exception) {
-            throw new BusinessException(502, "CITIC certificate download failed: " + exception.getMessage());
+        } catch (BusinessException exception) {
+            throw exception;
+        } catch (Throwable throwable) {
+            throw new BusinessException(502, describe(throwable));
         }
     }
 
@@ -87,8 +97,8 @@ public class SdkCiticDlinkSdk implements CiticDlinkSdk {
     protected String sendOuter(OpenCommunication comm, String outerXml) {
         try {
             return comm.send(OUTER_ACTION, outerXml, cfg.getCertPath());
-        } catch (RuntimeException exception) {
-            throw new BusinessException(502, "CITIC transport send failed: " + exception.getMessage());
+        } catch (Throwable throwable) {
+            throw new BusinessException(502, describe(throwable));
         }
     }
 
@@ -167,6 +177,38 @@ public class SdkCiticDlinkSdk implements CiticDlinkSdk {
 
     private static String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    /**
+     * Renders a vendor-SDK boundary failure with its class name, message and up to three
+     * nested causes, so the API response itself reveals the root cause. The 2026-09-10
+     * joint-test 500 (bare "Internal server error", stack only in container logs that were
+     * unreachable mid-incident) motivated this: diagnosis must survive losing SSH access.
+     */
+    private static String describe(Throwable throwable) {
+        StringBuilder text = new StringBuilder("CITIC SDK boundary failure: ")
+                .append(throwable.getClass().getName());
+        if (throwable.getMessage() != null && !throwable.getMessage().isBlank()) {
+            text.append(": ").append(throwable.getMessage());
+        }
+        Throwable cause = throwable.getCause();
+        int depth = 0;
+        while (cause != null && depth < 3) {
+            text.append(" | caused by ").append(cause.getClass().getName());
+            if (cause.getMessage() != null && !cause.getMessage().isBlank()) {
+                text.append(": ").append(cause.getMessage());
+            }
+            cause = cause.getCause();
+            depth++;
+        }
+        for (StackTraceElement frame : throwable.getStackTrace()) {
+            String className = frame.getClassName();
+            if (className.startsWith("com.citicbank") || className.startsWith("com.finance")) {
+                text.append(" | at ").append(frame);
+                break;
+            }
+        }
+        return text.toString();
     }
 
     /**
