@@ -40,6 +40,13 @@ services:
       CITIC_MAC_ADDRESS: ${CITIC_MAC_ADDRESS:-}
       CITIC_HOST_IP: ${CITIC_HOST_IP:-}
       CITIC_SDK_LOG_PATH: ${CITIC_SDK_LOG_PATH:-}
+      # AI 能力（V27/V28）：默认全关；启用走 AI 设置页（DB 在线配置）或以下 env（DB 优先）
+      AI_ENABLED: ${AI_ENABLED:-false}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      AI_MODEL: ${AI_MODEL:-}
+      AI_CAPABILITY_SELF_TEST: ${AI_CAPABILITY_SELF_TEST:-false}
+      AI_CAPABILITY_ACCOUNTING_SUGGESTION: ${AI_CAPABILITY_ACCOUNTING_SUGGESTION:-false}
     # 不向宿主机暴露 8080，仅由 nginx 内网转发
     expose:
       - "8080"

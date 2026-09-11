@@ -30,6 +30,7 @@ const ClosingPage = lazy(() => import('./modules/closing/pages').then((module) =
 const AuditCenterPage = lazy(() => import('./modules/audit/pages').then((module) => ({ default: module.AuditCenterPage })));
 const UserAdminPage = lazy(() => import('./modules/admin/UsersPage').then((module) => ({ default: module.UserAdminPage })));
 const DictionaryPage = lazy(() => import('./modules/admin/DictionaryPage').then((module) => ({ default: module.DictionaryPage })));
+const AiSettingsPage = lazy(() => import('./modules/admin/AiSettingsPage').then((module) => ({ default: module.AiSettingsPage })));
 const AiStatusPage = lazy(() => import('./modules/admin/AiStatusPage').then((module) => ({ default: module.AiStatusPage })));
 
 function AppRoutes() {
@@ -49,6 +50,9 @@ function AppRoutes() {
           </Route>
           <Route element={<PermissionGuard permissions={['system:dict:manage']} />}>
             <Route path="/system/dicts" element={<DictionaryPage />} />
+          </Route>
+          <Route element={<PermissionGuard permissions={['ai:config']} />}>
+            <Route path="/system/ai-settings" element={<AiSettingsPage />} />
           </Route>
           <Route element={<PermissionGuard permissions={['ai:use']} />}>
             <Route path="/system/ai" element={<AiStatusPage />} />

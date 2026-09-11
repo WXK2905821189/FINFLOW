@@ -176,6 +176,66 @@ export const aiApi = {
   status: () => http.get<never, AiStatus>('/ai/status'),
   selfTest: () => http.post<never, AiSelfTest>('/ai/self-test'),
   callLogs: (limit = 50) => http.get<never, AiCallLogRow[]>(`/ai/call-logs?limit=${limit}`),
+  getConfig: () => http.get<never, AiConfigView>('/ai/config'),
+  updateConfig: (data: AiConfigPayload) => http.put<never, AiConfigView>('/ai/config', data),
+  testConfig: (data: AiConfigTestPayload) => http.post<never, AiSelfTest>('/ai/config/test', data),
+  accountingSuggestion: (statementId: number) =>
+    http.post<never, AiAccountingSuggestion>('/ai/accounting-suggestion', { statementId }),
+};
+
+// ---- V28 AI 在线配置（设置页）----
+
+export type AiConfigPayload = {
+  enabled?: boolean;
+  baseUrl?: string;
+  /** null/undefined = 保持现有密钥不变；空字符串 = 清除 */
+  apiKey?: string | null;
+  model?: string;
+  timeoutMillis?: number;
+  maxRetries?: number;
+  dailyLimitPerUser?: number;
+  capabilities?: Record<string, boolean>;
+};
+
+export type AiConfigTestPayload = {
+  baseUrl?: string;
+  apiKey?: string;
+  model?: string;
+};
+
+export type AiConfigDbView = {
+  enabled: boolean | null;
+  baseUrl: string | null;
+  model: string | null;
+  apiKeyHint: string | null;
+  apiKeyConfigured: boolean;
+  timeoutMillis: number | null;
+  maxRetries: number | null;
+  dailyLimitPerUser: number | null;
+  capabilities: Record<string, boolean> | null;
+  updatedAt: string | null;
+  updatedBy: number | null;
+};
+
+export type AiConfigView = {
+  db: AiConfigDbView | null;
+  effective: AiStatus & { configSource: string };
+};
+
+// ---- A1 智能入账建议（AI 只建议，不执行）----
+
+export type AiAccountingSuggestion = {
+  statementId: number;
+  businessCategory: string | null;
+  suggestedSummary: string | null;
+  counterpartyType: 'CUSTOMER' | 'SUPPLIER' | 'EMPLOYEE' | 'OTHER' | null;
+  settlementMethod: string | null;
+  suggestedSubject: string | null;
+  riskNotes: string | null;
+  confidence: number | null;
+  rationale: string | null;
+  model: string;
+  durationMillis: number;
 };
 
 type StatementListParams = {

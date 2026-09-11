@@ -37,6 +37,7 @@ export const pageTitles: Record<string, string> = {
   '/users': '用户管理',
   '/system/dicts': '字典中心',
   '/system/ai': 'AI 状态',
+  '/system/ai-settings': 'AI 设置',
   '/audit': '审计中心',
   '/feishu': '飞书协同',
 };
@@ -85,6 +86,7 @@ export function buildProductNavigation(hasPermission: HasPermission): MenuProps[
     ...(hasPermission('audit:view') ? [{ key: '/audit', icon: <AuditOutlined />, label: <Link to="/audit">审计中心</Link> }] : []),
     ...(hasPermission('system:dict:manage') ? [{ key: '/system/dicts', icon: <DatabaseOutlined />, label: <Link to="/system/dicts">字典中心</Link> }] : []),
     ...(hasPermission('ai:use') ? [{ key: '/system/ai', icon: <RobotOutlined />, label: <Link to="/system/ai">AI 状态</Link> }] : []),
+    ...(hasPermission('ai:config') ? [{ key: '/system/ai-settings', icon: <SettingOutlined />, label: <Link to="/system/ai-settings">AI 设置</Link> }] : []),
     ...(canViewClosing ? [{ key: '/closing', label: <Link to="/closing">账期结账</Link> }] : []),
     ...(hasPermission('reconciliation:view') ? [{ key: '/reconciliation/dashboard', label: <Link to="/reconciliation/dashboard">三方对账</Link> }] : []),
     ...(canViewFeishu ? [{ key: '/feishu', icon: <NotificationOutlined />, label: <Link to="/feishu">飞书配置</Link> }] : []),

@@ -3,9 +3,6 @@ package com.finance.system.ai;
 import com.finance.system.common.exception.BusinessException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.annotation.PostConstruct;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
@@ -16,53 +13,37 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * OpenAI 兼容 LLM 客户端（P0 地基，~200 行量级，不上 Spring AI）。
  *
- * <p>协议：POST {base-url}/chat/completions，Bearer 密钥（环境变量注入）。
- * 策略：连接/读超时独立配置；5xx 与网络异常按 {@code maxRetries} 短退避重试；
+ * <p>协议：POST {base-url}/chat/completions，Bearer 密钥。V28 起配置来自调用方传入的
+ * {@link AiEffectiveConfig}（DB 在线配置覆盖 env），保存即生效；RestClient 按超时值
+ * 缓存复用（超时改了才重建）。策略：5xx 与网络异常按 {@code maxRetries} 短退避重试；
  * 4xx 视为调用方错误不重试。所有异常统一翻译为 {@link BusinessException}(502)，
  * 消息带异常类名与 HTTP 状态（诊断不依赖容器日志），但<b>永不携带密钥</b>。</p>
  */
 @Component
 public class OpenAiCompatibleLlmGateway implements LlmGateway {
 
-    private static final Logger log = LoggerFactory.getLogger(OpenAiCompatibleLlmGateway.class);
-
     private final AiProperties properties;
     private final ObjectMapper objectMapper;
-    private final RestClient restClient;
+    private final ConcurrentHashMap<Integer, RestClient> clientsByTimeout = new ConcurrentHashMap<>();
 
     public OpenAiCompatibleLlmGateway(AiProperties properties, ObjectMapper objectMapper) {
         this.properties = properties;
         this.objectMapper = objectMapper;
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(properties.getTimeoutMillis());
-        factory.setReadTimeout(properties.getTimeoutMillis());
-        this.restClient = RestClient.builder()
-                .requestFactory(factory)
-                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                .build();
-    }
-
-    /** fail-fast：总开关打开但密钥缺失时拒绝启动（密钥只能来自环境变量）。 */
-    @PostConstruct
-    void validateConfiguration() {
-        if (properties.isEnabled() && (properties.getApiKey() == null || properties.getApiKey().isBlank())) {
-            throw new IllegalStateException(
-                    "ai.enabled=true 但 ai.api-key 为空：请通过环境变量 AI_API_KEY 注入密钥（拒绝把密钥写进配置文件）");
-        }
     }
 
     @Override
-    public LlmChatResult chat(LlmChatRequest request) {
+    public LlmChatResult chat(LlmChatRequest request, AiEffectiveConfig config) {
         long startedAt = System.currentTimeMillis();
-        int attempts = Math.max(0, properties.getMaxRetries()) + 1;
+        int attempts = Math.max(0, config.maxRetries()) + 1;
         Exception lastFailure = null;
         for (int attempt = 1; attempt <= attempts; attempt++) {
             try {
-                return doChat(request, startedAt);
+                return doChat(request, config, startedAt);
             } catch (RestClientResponseException e) {
                 lastFailure = e;
                 if (e.getStatusCode().is5xxServerError() && attempt < attempts) {
@@ -82,26 +63,39 @@ public class OpenAiCompatibleLlmGateway implements LlmGateway {
         throw translate(lastFailure);
     }
 
-    private LlmChatResult doChat(LlmChatRequest request, long startedAt) {
+    private LlmChatResult doChat(LlmChatRequest request, AiEffectiveConfig config, long startedAt) {
         Map<String, Object> body = Map.of(
-                "model", properties.getModel(),
+                "model", config.model(),
                 "messages", new Object[]{
                         Map.of("role", "system", "content", nullSafe(request.systemPrompt())),
                         Map.of("role", "user", "content", nullSafe(request.userPrompt()))
                 },
                 "temperature", request.temperature() == null ? 0.2 : request.temperature(),
                 "max_tokens", request.maxTokens() == null ? 1024 : request.maxTokens());
-        String responseBody = restClient.post()
-                .uri(properties.getBaseUrl() + "/chat/completions")
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + properties.getApiKey())
+        String responseBody = client(config.timeoutMillis()).post()
+                .uri(config.baseUrl() + "/chat/completions")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + config.apiKey())
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(body)
                 .retrieve()
                 .body(String.class);
-        return parse(responseBody, startedAt);
+        return parse(responseBody, config, startedAt);
     }
 
-    private LlmChatResult parse(String responseBody, long startedAt) {
+    /** 按超时值缓存 RestClient（超时配置变更时才重建底层工厂）。 */
+    private RestClient client(int timeoutMillis) {
+        return clientsByTimeout.computeIfAbsent(timeoutMillis, timeout -> {
+            SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+            factory.setConnectTimeout(timeout);
+            factory.setReadTimeout(timeout);
+            return RestClient.builder()
+                    .requestFactory(factory)
+                    .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                    .build();
+        });
+    }
+
+    private LlmChatResult parse(String responseBody, AiEffectiveConfig config, long startedAt) {
         try {
             JsonNode root = objectMapper.readTree(responseBody == null ? "" : responseBody);
             JsonNode choices = root.path("choices");
@@ -115,7 +109,7 @@ public class OpenAiCompatibleLlmGateway implements LlmGateway {
             JsonNode usage = root.path("usage");
             return new LlmChatResult(
                     content,
-                    root.path("model").asText(properties.getModel()),
+                    root.path("model").asText(config.model()),
                     usage.path("prompt_tokens").isInt() ? usage.path("prompt_tokens").asInt() : null,
                     usage.path("completion_tokens").isInt() ? usage.path("completion_tokens").asInt() : null,
                     System.currentTimeMillis() - startedAt);
@@ -141,7 +135,7 @@ public class OpenAiCompatibleLlmGateway implements LlmGateway {
         }
         if (failure instanceof ResourceAccessException e) {
             return new BusinessException(502, "LLM 网络异常（" + e.getClass().getSimpleName()
-                    + "）：接入点不可达或超时，请检查 ai.base-url 与出网白名单");
+                    + "）：接入点不可达或超时，请检查 AI 设置页的接入点地址与出网白名单");
         }
         return new BusinessException(502, "LLM 调用异常（" + failure.getClass().getSimpleName() + "）");
     }

@@ -17,14 +17,16 @@ import {
   Space,
   Statistic,
   Table,
+  Tag,
   Timeline,
   Upload,
   message,
   type TableColumnsType,
 } from 'antd';
-import { FileAddOutlined } from '@ant-design/icons';
+import { FileAddOutlined, RobotOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
-import { statementApi } from '../../services/api';
+import { aiApi, statementApi } from '../../services/api';
+import type { AiAccountingSuggestion } from '../../services/api';
 import { useRemote, ResourceFailure, StatusTag } from '../shared/components';
 import { dateTime, money } from '../shared/format';
 import type {
@@ -99,8 +101,30 @@ export function ReviewStatements() {
   const [trace, setTrace] = useState<StatementRecord>();
   const [form] = Form.useForm<StatementReviewRequest>();
   const [submitting, setSubmitting] = useState(false);
+  const [suggestion, setSuggestion] = useState<AiAccountingSuggestion | null>(null);
+  const [suggestionLoading, setSuggestionLoading] = useState(false);
   const loader = useCallback(() => statementApi.list({ page, size: 20, reviewStatus: 'PENDING' }), [page]);
   const { data, loading, error, reload } = useRemote<PageResponse<StatementRecord>>(loader, [loader]);
+  const openReview = (row: StatementRecord) => {
+    setSuggestion(null);
+    setSelected(row);
+  };
+  const loadSuggestion = async () => {
+    if (!selected || suggestionLoading) return;
+    setSuggestionLoading(true);
+    try {
+      setSuggestion(await aiApi.accountingSuggestion(selected.id));
+    } catch (reason) {
+      message.error(reason instanceof Error ? reason.message : 'AI 建议请求未能完成');
+    } finally {
+      setSuggestionLoading(false);
+    }
+  };
+  const applySuggestionSummary = () => {
+    if (suggestion?.suggestedSummary) {
+      form.setFieldValue('comment', suggestion.suggestedSummary);
+    }
+  };
   const review = async () => {
     if (submitting) return;
     const values = await form.validateFields();
@@ -118,16 +142,30 @@ export function ReviewStatements() {
       setSubmitting(false);
     }
   };
-  const columns: TableColumnsType<StatementRecord> = [{ title: '流水号', dataIndex: 'statementNo', render: (value) => <span className="mono">{value}</span> }, { title: '交易时间', dataIndex: 'transactionTime', render: (value) => dateTime(value) }, { title: '对方', render: (_, row) => <>{row.counterpartyName || '--'}<span className="table-sub">{row.maskedCounterpartyAccount || '--'}</span></> }, { title: '金额', dataIndex: 'amount', align: 'right', render: (value) => <strong>{money(value)}</strong> }, { title: '校验', dataIndex: 'validationStatus', render: (value, row) => <><StatusTag status={value} />{row.validationMessage && <span className="table-sub">{row.validationMessage}</span>}</> }, { title: '操作', fixed: 'right', render: (_, row) => <Space><Button type="link" onClick={() => setSelected(row)}>复核</Button><Button type="link" onClick={() => setTrace(row)}>追溯</Button></Space> }];
-  return <><div className="page-heading"><div><span className="section-kicker">自动入账 / 控制点</span><h2>人工复核</h2><p className="muted">仅展示服务端标记为待复核的流水，不在前端预判校验或复核结果。</p></div></div><Card>{error ? <ResourceFailure error={error} onRetry={reload} /> : <><Table rowKey="id" loading={loading} columns={columns} dataSource={data?.records || []} pagination={false} locale={{ emptyText: <Empty description="当前没有待复核流水" /> }} scroll={{ x: 900 }} />{data && data.total > data.size && <Pagination className="table-pagination" current={data.page} pageSize={data.size} total={data.total} showSizeChanger={false} onChange={setPage} />}</>}</Card><Modal title={selected ? `复核流水 ${selected.statementNo}` : '复核流水'} open={Boolean(selected)} onCancel={() => { setSelected(undefined); form.resetFields(); }} onOk={() => void review()} okText="提交复核" confirmLoading={submitting} destroyOnClose><Form form={form} layout="vertical" initialValues={{ action: 'APPROVE' }}><Form.Item label="复核结论" name="action" rules={[{ required: true }]}><Radio.Group options={[{ value: 'APPROVE', label: '通过' }, { value: 'REJECT', label: '驳回' }]} /></Form.Item><Form.Item noStyle shouldUpdate={(previous, current) => previous.action !== current.action}>{({ getFieldValue }) => <Form.Item label="复核说明" name="comment" rules={getFieldValue('action') === 'REJECT' ? [{ required: true, message: '驳回时必须填写说明' }] : []}><Input.TextArea rows={4} maxLength={500} placeholder="填写服务端可审计的复核说明" /></Form.Item>}</Form.Item></Form></Modal><AuditDrawer statement={trace} onClose={() => setTrace(undefined)} /></>;
+  const columns: TableColumnsType<StatementRecord> = [{ title: '流水号', dataIndex: 'statementNo', render: (value) => <span className="mono">{value}</span> }, { title: '交易时间', dataIndex: 'transactionTime', render: (value) => dateTime(value) }, { title: '对方', render: (_, row) => <>{row.counterpartyName || '--'}<span className="table-sub">{row.maskedCounterpartyAccount || '--'}</span></> }, { title: '金额', dataIndex: 'amount', align: 'right', render: (value) => <strong>{money(value)}</strong> }, { title: '校验', dataIndex: 'validationStatus', render: (value, row) => <><StatusTag status={value} />{row.validationMessage && <span className="table-sub">{row.validationMessage}</span>}</> }, { title: '操作', fixed: 'right', render: (_, row) => <Space><Button type="link" onClick={() => openReview(row)}>复核</Button><Button type="link" onClick={() => setTrace(row)}>追溯</Button></Space> }];
+  return <><div className="page-heading"><div><span className="section-kicker">自动入账 / 控制点</span><h2>人工复核</h2><p className="muted">仅展示服务端标记为待复核的流水，不在前端预判校验或复核结果。</p></div></div><Card>{error ? <ResourceFailure error={error} onRetry={reload} /> : <><Table rowKey="id" loading={loading} columns={columns} dataSource={data?.records || []} pagination={false} locale={{ emptyText: <Empty description="当前没有待复核流水" /> }} scroll={{ x: 900 }} />{data && data.total > data.size && <Pagination className="table-pagination" current={data.page} pageSize={data.size} total={data.total} showSizeChanger={false} onChange={setPage} />}</>}</Card><Modal title={selected ? `复核流水 ${selected.statementNo}` : '复核流水'} open={Boolean(selected)} onCancel={() => { setSelected(undefined); form.resetFields(); }} onOk={() => void review()} okText="提交复核" confirmLoading={submitting} destroyOnClose><Space style={{ marginBottom: 12, width: '100%', justifyContent: 'space-between' }}><Button size="small" icon={<RobotOutlined />} loading={suggestionLoading} onClick={() => void loadSuggestion()}>AI 入账建议</Button>{suggestion && <Button size="small" onClick={applySuggestionSummary}>采纳摘要到复核说明</Button>}</Space>{suggestion && <Alert style={{ marginBottom: 12 }} type="info" showIcon message="AI 建议仅供参考，结论以人工复核为准" description={<Descriptions size="small" column={1}><Descriptions.Item label="业务类别">{suggestion.businessCategory || '--'}{suggestion.counterpartyType && <Tag style={{ marginLeft: 8 }}>{suggestion.counterpartyType}</Tag>}{suggestion.confidence != null && <Tag style={{ marginLeft: 4 }}>置信度 {Math.round(suggestion.confidence * 100)}%</Tag>}</Descriptions.Item><Descriptions.Item label="建议摘要">{suggestion.suggestedSummary || '--'}</Descriptions.Item><Descriptions.Item label="建议科目">{suggestion.suggestedSubject || '--'}{suggestion.settlementMethod && ` · ${suggestion.settlementMethod}`}</Descriptions.Item>{suggestion.riskNotes && suggestion.riskNotes !== '无' && <Descriptions.Item label="风险提示">{suggestion.riskNotes}</Descriptions.Item>}{suggestion.rationale && <Descriptions.Item label="判断依据">{suggestion.rationale}</Descriptions.Item>}</Descriptions>} />}<Form form={form} layout="vertical" initialValues={{ action: 'APPROVE' }}><Form.Item label="复核结论" name="action" rules={[{ required: true }]}><Radio.Group options={[{ value: 'APPROVE', label: '通过' }, { value: 'REJECT', label: '驳回' }]} /></Form.Item><Form.Item noStyle shouldUpdate={(previous, current) => previous.action !== current.action}>{({ getFieldValue }) => <Form.Item label="复核说明" name="comment" rules={getFieldValue('action') === 'REJECT' ? [{ required: true, message: '驳回时必须填写说明' }] : []}><Input.TextArea rows={4} maxLength={500} placeholder="填写服务端可审计的复核说明" /></Form.Item>}</Form.Item></Form></Modal><AuditDrawer statement={trace} onClose={() => setTrace(undefined)} /></>;
 }
 
 export function VoucherStatements() {
   const [page, setPage] = useState(1);
   const [trace, setTrace] = useState<StatementRecord>();
   const [pushingId, setPushingId] = useState<number>();
+  const [pinging, setPinging] = useState(false);
+  const [ping, setPing] = useState<{ connected: boolean; mode: string; message: string }>();
   const loader = useCallback(() => statementApi.list({ page, size: 20 }), [page]);
   const { data, loading, error, reload } = useRemote<PageResponse<StatementRecord>>(loader, [loader]);
+  const runPing = async () => {
+    if (pinging) return;
+    setPinging(true);
+    try {
+      const result = await statementApi.pingKingdee();
+      setPing(result);
+    } catch (reason) {
+      setPing({ connected: false, mode: 'ERROR', message: reason instanceof Error ? reason.message : '连接测试请求未能完成' });
+    } finally {
+      setPinging(false);
+    }
+  };
   const push = async (record: StatementRecord) => {
     if (pushingId !== undefined) return;
     setPushingId(record.id);
@@ -142,7 +180,7 @@ export function VoucherStatements() {
     }
   };
   const columns: TableColumnsType<StatementRecord> = [{ title: '流水号', dataIndex: 'statementNo', render: (value) => <span className="mono">{value}</span> }, { title: '复核状态', dataIndex: 'reviewStatus', render: (value) => <StatusTag status={value} /> }, { title: '金额', dataIndex: 'amount', align: 'right', render: (value) => money(value) }, { title: '制证状态', dataIndex: 'pushStatus', render: (value, row) => <><StatusTag status={value} />{row.pushMessage && <span className="table-sub">{row.pushMessage}</span>}</> }, { title: '金蝶凭证号', dataIndex: 'voucherNo', render: (value) => value ? <span className="mono">{value}</span> : '--' }, { title: '操作', fixed: 'right', render: (_, row) => <Space>{row.reviewStatus === 'APPROVED' && row.pushStatus !== 'PUSHED' && <Button type="link" loading={pushingId === row.id} onClick={() => void push(row)}>请求制证</Button>}<Button type="link" onClick={() => setTrace(row)}>追溯</Button></Space> }];
-  return <><div className="page-heading"><div><span className="section-kicker">自动入账 / 外部结果</span><h2>金蝶制证</h2><p className="muted">制证状态、凭证号和服务端说明均以接口响应为准。</p></div></div><Card>{error ? <ResourceFailure error={error} onRetry={reload} /> : <><Table rowKey="id" loading={loading} columns={columns} dataSource={data?.records || []} pagination={false} locale={{ emptyText: <Empty description="暂无可追溯的制证记录" /> }} scroll={{ x: 880 }} />{data && data.total > data.size && <Pagination className="table-pagination" current={data.page} pageSize={data.size} total={data.total} showSizeChanger={false} onChange={setPage} />}</>}</Card><AuditDrawer statement={trace} onClose={() => setTrace(undefined)} /></>;
+  return <><div className="page-heading"><div><span className="section-kicker">自动入账 / 外部结果</span><h2>金蝶制证</h2><p className="muted">制证状态、凭证号和服务端说明均以接口响应为准。</p></div><Space><Button onClick={() => void runPing()} loading={pinging}>连接测试</Button></Space></div>{ping && <Alert style={{ marginBottom: 16 }} showIcon type={ping.connected ? 'success' : 'warning'} message={ping.connected ? `金蝶连接正常（${ping.mode}）` : `金蝶连接未建立（${ping.mode}）`} description={ping.message} />}<Card>{error ? <ResourceFailure error={error} onRetry={reload} /> : <><Table rowKey="id" loading={loading} columns={columns} dataSource={data?.records || []} pagination={false} locale={{ emptyText: <Empty description="暂无可追溯的制证记录" /> }} scroll={{ x: 880 }} />{data && data.total > data.size && <Pagination className="table-pagination" current={data.page} pageSize={data.size} total={data.total} showSizeChanger={false} onChange={setPage} />}</>}</Card><AuditDrawer statement={trace} onClose={() => setTrace(undefined)} /></>;
 }
 
 export function Reconciliation() {
