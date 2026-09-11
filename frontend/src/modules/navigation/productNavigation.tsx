@@ -7,6 +7,7 @@ import {
   FileSearchOutlined,
   NotificationOutlined,
   RadarChartOutlined,
+  RobotOutlined,
   SearchOutlined,
   SendOutlined,
   SettingOutlined,
@@ -35,6 +36,7 @@ export const pageTitles: Record<string, string> = {
   '/closing': '结账管理',
   '/users': '用户管理',
   '/system/dicts': '字典中心',
+  '/system/ai': 'AI 状态',
   '/audit': '审计中心',
   '/feishu': '飞书协同',
 };
@@ -81,6 +83,8 @@ export function buildProductNavigation(hasPermission: HasPermission): MenuProps[
   const systemChildren = [
     ...(hasPermission('user:manage') ? [{ key: '/users', icon: <TeamOutlined />, label: <Link to="/users">用户与角色</Link> }] : []),
     ...(hasPermission('audit:view') ? [{ key: '/audit', icon: <AuditOutlined />, label: <Link to="/audit">审计中心</Link> }] : []),
+    ...(hasPermission('system:dict:manage') ? [{ key: '/system/dicts', icon: <DatabaseOutlined />, label: <Link to="/system/dicts">字典中心</Link> }] : []),
+    ...(hasPermission('ai:use') ? [{ key: '/system/ai', icon: <RobotOutlined />, label: <Link to="/system/ai">AI 状态</Link> }] : []),
     ...(canViewClosing ? [{ key: '/closing', label: <Link to="/closing">账期结账</Link> }] : []),
     ...(hasPermission('reconciliation:view') ? [{ key: '/reconciliation/dashboard', label: <Link to="/reconciliation/dashboard">三方对账</Link> }] : []),
     ...(canViewFeishu ? [{ key: '/feishu', icon: <NotificationOutlined />, label: <Link to="/feishu">飞书配置</Link> }] : []),

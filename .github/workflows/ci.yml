@@ -37,7 +37,7 @@ jobs:
            test -f "$migration_dir/V14__retire_dead_transfer_permissions.sql"
            test -f backend/src/main/resources/db/vendor-migration/h2/V7__drop_legacy_statement_number_uniqueness.sql
            test -f backend/src/main/resources/db/vendor-migration/mysql/V7__drop_legacy_statement_number_uniqueness.sql
-           expected_versions=(V1 V2 V3 V4 V5 V6 V8 V9 V10 V11 V12 V13 V14 V15 V16 V17 V18 V19 V20 V21 V22 V23 V24 V25 V26)
+           expected_versions=(V1 V2 V3 V4 V5 V6 V8 V9 V10 V11 V12 V13 V14 V15 V16 V17 V18 V19 V20 V21 V22 V23 V24 V25 V26 V27)
           actual_versions=()
           while IFS= read -r migration; do
             version="${migration##*/}"
@@ -51,6 +51,9 @@ jobs:
           grep -q 'INSERT INTO sys_role_permission' "$migration_dir/V24__bankdata_cross_company_permission.sql"
           grep -q 'system:dict:manage' "$migration_dir/V26__system_dict_center.sql"
           grep -q 'CREATE TABLE sys_dict_type' "$migration_dir/V26__system_dict_center.sql"
+          test -f "$migration_dir/V27__ai_gateway_foundation.sql"
+          grep -q 'CREATE TABLE ai_call_log' "$migration_dir/V27__ai_gateway_foundation.sql"
+          grep -q 'ai:config' "$migration_dir/V27__ai_gateway_foundation.sql"
           grep -q 'CREATE TABLE bank_data_raw_message' "$migration_dir/V4__bank_data_access_foundation.sql"
           grep -q 'retention_until TIMESTAMP NOT NULL' "$migration_dir/V4__bank_data_access_foundation.sql"
           grep -q 'raw.setRetentionUntil(receivedAt.plusDays(30))' backend/src/main/java/com/finance/system/bankdata/BankDataSyncEvidenceService.java
@@ -170,7 +173,7 @@ jobs:
           app_pid=$!
           trap 'kill "$app_pid" 2>/dev/null || true; wait "$app_pid" 2>/dev/null || true' EXIT
           wait_for_health "$first_log"
-          grep -q 'Successfully applied 26 migrations' "$first_log"
+          grep -q 'Successfully applied 27 migrations' "$first_log"
           kill "$app_pid"
           wait "$app_pid" || true
           app_pid=""
@@ -182,7 +185,7 @@ jobs:
             > "$repeat_log" 2>&1 &
           app_pid=$!
           wait_for_health "$repeat_log"
-          grep -q 'Successfully validated 26 migrations' "$repeat_log"
+          grep -q 'Successfully validated 27 migrations' "$repeat_log"
           ! grep -q 'Migrating schema' "$repeat_log"
           kill "$app_pid"
           wait "$app_pid" || true
@@ -305,7 +308,8 @@ jobs:
           grep -q 'Migrating schema.*version "24' "$incremental_log"
           grep -q 'Migrating schema.*version "25' "$incremental_log"
           grep -q 'Migrating schema.*version "26' "$incremental_log"
-          grep -q 'Successfully applied 21 migrations' "$incremental_log"
+          grep -q 'Migrating schema.*version "27' "$incremental_log"
+          grep -q 'Successfully applied 22 migrations' "$incremental_log"
           kill "$app_pid"
           wait "$app_pid" || true
           app_pid=""
@@ -316,7 +320,7 @@ jobs:
             > "$repeat_log" 2>&1 &
           app_pid=$!
           wait_for_health "$repeat_log"
-          grep -q 'Successfully validated 26 migrations' "$repeat_log"
+          grep -q 'Successfully validated 27 migrations' "$repeat_log"
           ! grep -q 'Migrating schema' "$repeat_log"
           kill "$app_pid"
           wait "$app_pid" || true

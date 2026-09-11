@@ -132,6 +132,52 @@ export const dictApi = {
   deleteItem: (id: number) => http.delete<never, void>(`/system/dicts/items/${id}`),
 };
 
+// ---- AI 能力地基（V27）：网关状态/自检/审计 ----
+
+export type AiStatus = {
+  enabled: boolean;
+  provider: string;
+  model: string;
+  baseUrl: string;
+  apiKeyConfigured: boolean;
+  dailyLimitPerUser: number;
+  capabilities: Record<string, boolean>;
+};
+
+export type AiSelfTest = {
+  reply: string;
+  model: string;
+  durationMillis: number;
+  promptTokens: number | null;
+  completionTokens: number | null;
+};
+
+export type AiCallLogRow = {
+  id: number;
+  capability: string;
+  userId: number;
+  companyId: number | null;
+  provider: string;
+  model: string;
+  status: string;
+  promptHash: string | null;
+  promptSummary: string | null;
+  responseHash: string | null;
+  responseSummary: string | null;
+  errorMessage: string | null;
+  durationMs: number | null;
+  promptTokens: number | null;
+  completionTokens: number | null;
+  totalTokens: number | null;
+  createdAt: string | null;
+};
+
+export const aiApi = {
+  status: () => http.get<never, AiStatus>('/ai/status'),
+  selfTest: () => http.post<never, AiSelfTest>('/ai/self-test'),
+  callLogs: (limit = 50) => http.get<never, AiCallLogRow[]>(`/ai/call-logs?limit=${limit}`),
+};
+
 type StatementListParams = {
   page?: number;
   size?: number;

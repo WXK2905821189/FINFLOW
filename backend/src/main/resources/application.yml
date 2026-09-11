@@ -38,6 +38,24 @@ bank:
     base-url: ${CITIC_BASE_URL:https://api.example.invalid/citic}
     app-id: ${CITIC_APP_ID:}
 
+ai:
+  # AI 能力地基（V27）：默认全关（fail-closed）。启用步骤：
+  #   1. AI_ENABLED=true + AI_API_KEY=<密钥经环境变量，禁止写进仓库>
+  #   2. 显式开启所需能力（ai.capabilities.<name>.enabled），未登记能力一律 403
+  # OpenAI 兼容协议：DeepSeek(https://api.deepseek.com, deepseek-chat) / 通义兼容模式 /
+  # 本地 vLLM，换供应商只改 base-url + model，零代码改动。
+  enabled: ${AI_ENABLED:false}
+  base-url: ${AI_BASE_URL:https://api.deepseek.com}
+  api-key: ${AI_API_KEY:}
+  model: ${AI_MODEL:deepseek-chat}
+  timeout-millis: ${AI_TIMEOUT_MILLIS:30000}
+  max-retries: ${AI_MAX_RETRIES:1}
+  daily-limit-per-user: ${AI_DAILY_LIMIT_PER_USER:20}
+  provider: openai-compatible
+  capabilities:
+    # 连通性自检（POST /api/ai/self-test，ai:config 权限）——生产建议开启以便验收网关
+    self-test: ${AI_CAPABILITY_SELF_TEST:false}
+
 statement:
   collection:
     mode: ${STATEMENT_COLLECTION_MODE:file}

@@ -11,7 +11,7 @@
 - resource：域内资源（balance / statement / receipt / reconciliation / payroll / sync / log / monitor）
 - action：view / manage / create / review / import / push / trigger / notify / retry / query
 
-## 有效权限清单（现行 33 项 = V14 基线 31 + V16 raw:view + V24 cross-company）
+## 有效权限清单（现行 36 项 = V14 基线 31 + V16 raw:view + V24 cross-company + V26 dict:manage + V27 ai:use/ai:config）
 
 | 编码 | 名称 | 授予角色 | 引用位置 |
 |---|---|---|---|
@@ -42,6 +42,9 @@
 | audit:view | 审计中心 | ADMIN, FINANCE_MANAGER, VIEWER | 审计中心页 |
 | bankdata:raw:view | 原始报文查看（全系统唯一返回完整银行响应体的接口） | ADMIN, FINANCE_STAFF | RawMessagesPage、BankRawMessageController（V16 引入，2026-09-07 补登） |
 | bankdata:cross-company:view | 跨公司银行数据查看（余额/流水投影可见全部 ACTIVE 公司，行带公司列） | ADMIN, FINANCE_MANAGER | BankDataQueryService 投影/导出 companyId 过滤 + /bank-data/company-options（V24 引入，2026-09-07） |
+| system:dict:manage | 管理字典中心（系统管理 → 字典中心，页面维护字段值） | ADMIN, FINANCE_STAFF | DictController 管理端点、/system/dicts 路由守卫（V26 引入，2026-09-11 补登） |
+| ai:use | 使用 AI 能力（各 AI 能力端点，能力开关另需在 ai.capabilities 显式开启） | ADMIN, FINANCE_STAFF, FINANCE_MANAGER | AiController /api/ai/*（V27 引入，2026-09-11） |
+| ai:config | 管理 AI 网关（状态查看/连通性自检/调用审计日志） | ADMIN, FINANCE_STAFF | AiController self-test + call-logs（V27 引入，2026-09-11） |
 
 ## 已收敛的别名（禁止再引用）
 
@@ -63,6 +66,7 @@
 
 ## 变更记录
 
+- 2026-09-11 新增：V27（AI 能力地基）引入 ai:use(42)/ai:config(43)；同日补登 V26（2026-09-10）引入的 system:dict:manage(id=41)（文档漂移）；现行总数 33 → **36 项**。
 - 2026-09-07 新增：V24 引入 bankdata:cross-company:view(id=40)，授权 ADMIN+FINANCE_MANAGER（默认授权，角色管理页可调整）；现行总数 32 → **33 项**。
 
 - 2026-09-07 补登：V16（2026-09-05）引入的 bankdata:raw:view(id=39) 当时未登记本文（文档漂移），现补登为正式行；现行总数 31 → **32 项**。
