@@ -37,7 +37,7 @@ jobs:
            test -f "$migration_dir/V14__retire_dead_transfer_permissions.sql"
            test -f backend/src/main/resources/db/vendor-migration/h2/V7__drop_legacy_statement_number_uniqueness.sql
            test -f backend/src/main/resources/db/vendor-migration/mysql/V7__drop_legacy_statement_number_uniqueness.sql
-           expected_versions=(V1 V2 V3 V4 V5 V6 V8 V9 V10 V11 V12 V13 V14 V15 V16 V17 V18 V19 V20 V21 V22 V23 V24 V25)
+           expected_versions=(V1 V2 V3 V4 V5 V6 V8 V9 V10 V11 V12 V13 V14 V15 V16 V17 V18 V19 V20 V21 V22 V23 V24 V25 V26)
           actual_versions=()
           while IFS= read -r migration; do
             version="${migration##*/}"
