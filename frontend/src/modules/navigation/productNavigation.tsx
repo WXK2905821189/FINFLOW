@@ -34,6 +34,7 @@ export const pageTitles: Record<string, string> = {
   '/reconciliation/dashboard': '三方对账',
   '/closing': '结账管理',
   '/users': '用户管理',
+  '/system/dicts': '字典中心',
   '/audit': '审计中心',
   '/feishu': '飞书协同',
 };

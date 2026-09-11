@@ -29,6 +29,7 @@ const FeishuCollaboration = lazy(() => import('./modules/feishu/pages').then((mo
 const ClosingPage = lazy(() => import('./modules/closing/pages').then((module) => ({ default: module.ClosingPage })));
 const AuditCenterPage = lazy(() => import('./modules/audit/pages').then((module) => ({ default: module.AuditCenterPage })));
 const UserAdminPage = lazy(() => import('./modules/admin/UsersPage').then((module) => ({ default: module.UserAdminPage })));
+const DictionaryPage = lazy(() => import('./modules/admin/DictionaryPage').then((module) => ({ default: module.DictionaryPage })));
 
 function AppRoutes() {
   const hydrate = useAuthStore((state) => state.hydrate);
@@ -44,6 +45,9 @@ function AppRoutes() {
           </Route>
           <Route element={<PermissionGuard permissions={['user:manage']} />}>
             <Route path="/users" element={<UserAdminPage />} />
+          </Route>
+          <Route element={<PermissionGuard permissions={['system:dict:manage']} />}>
+            <Route path="/system/dicts" element={<DictionaryPage />} />
           </Route>
           <Route element={<PermissionGuard permissions={['audit:view']} />}>
             <Route path="/audit" element={<AuditCenterPage />} />

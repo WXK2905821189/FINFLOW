@@ -43,6 +43,7 @@ const DOMAIN_LABELS: Record<string, string> = {
   validation: '校验规则',
   closing: '结账',
   audit: '审计',
+  system: '系统',
 };
 
 /** 密码安全口径（模块文档 §5.3）：任何角色都看不到明文密码，管理员只能重置。 */

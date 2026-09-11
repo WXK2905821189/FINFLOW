@@ -49,6 +49,8 @@ jobs:
           grep -q 'ADD COLUMN request_evidence' "$migration_dir/V23__bank_raw_message_true_evidence.sql"
           grep -q "bankdata:cross-company:view" "$migration_dir/V24__bankdata_cross_company_permission.sql"
           grep -q 'INSERT INTO sys_role_permission' "$migration_dir/V24__bankdata_cross_company_permission.sql"
+          grep -q 'system:dict:manage' "$migration_dir/V26__system_dict_center.sql"
+          grep -q 'CREATE TABLE sys_dict_type' "$migration_dir/V26__system_dict_center.sql"
           grep -q 'CREATE TABLE bank_data_raw_message' "$migration_dir/V4__bank_data_access_foundation.sql"
           grep -q 'retention_until TIMESTAMP NOT NULL' "$migration_dir/V4__bank_data_access_foundation.sql"
           grep -q 'raw.setRetentionUntil(receivedAt.plusDays(30))' backend/src/main/java/com/finance/system/bankdata/BankDataSyncEvidenceService.java
@@ -302,7 +304,8 @@ jobs:
           grep -q 'Migrating schema.*version "23' "$incremental_log"
           grep -q 'Migrating schema.*version "24' "$incremental_log"
           grep -q 'Migrating schema.*version "25' "$incremental_log"
-          grep -q 'Successfully applied 20 migrations' "$incremental_log"
+          grep -q 'Migrating schema.*version "26' "$incremental_log"
+          grep -q 'Successfully applied 21 migrations' "$incremental_log"
           kill "$app_pid"
           wait "$app_pid" || true
           app_pid=""

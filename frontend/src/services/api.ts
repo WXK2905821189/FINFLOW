@@ -84,6 +84,54 @@ export const rbacApi = {
   updateRole: (id: number, data: RoleUpdatePayload) => http.put<never, SysRole>(`/rbac/roles/${id}`, data),
 };
 
+export type DictTypeRow = {
+  id: number;
+  typeCode: string;
+  name: string;
+  description: string | null;
+  status: string;
+  itemCount: number;
+  createdAt: string | null;
+};
+
+export type DictItemRow = {
+  id: number;
+  typeId: number;
+  itemCode: string;
+  label: string;
+  extraJson: string | null;
+  sortNo: number;
+  status: string;
+  remark: string | null;
+};
+
+export type DictTypePayload = {
+  typeCode?: string;
+  name: string;
+  description?: string | null;
+  status?: string;
+};
+
+export type DictItemPayload = {
+  itemCode: string;
+  label: string;
+  extraJson?: string | null;
+  sortNo?: number;
+  status?: string;
+  remark?: string | null;
+};
+
+export const dictApi = {
+  listTypes: () => http.get<never, DictTypeRow[]>('/system/dicts/types'),
+  createType: (data: DictTypePayload) => http.post<never, DictTypeRow>('/system/dicts/types', data),
+  updateType: (id: number, data: DictTypePayload) => http.put<never, DictTypeRow>(`/system/dicts/types/${id}`, data),
+  deleteType: (id: number, force = false) => http.delete<never, void>(`/system/dicts/types/${id}?force=${force}`),
+  listItems: (typeId: number) => http.get<never, DictItemRow[]>(`/system/dicts/types/${typeId}/items`),
+  createItem: (typeId: number, data: DictItemPayload) => http.post<never, DictItemRow>(`/system/dicts/types/${typeId}/items`, data),
+  updateItem: (id: number, data: DictItemPayload) => http.put<never, DictItemRow>(`/system/dicts/items/${id}`, data),
+  deleteItem: (id: number) => http.delete<never, void>(`/system/dicts/items/${id}`),
+};
+
 type StatementListParams = {
   page?: number;
   size?: number;
@@ -105,6 +153,7 @@ export const statementApi = {
   get: (id: number) => http.get<never, StatementDetail>(`/statements/${id}`),
   review: (id: number, data: StatementReviewRequest) => http.post<never, StatementRecord>(`/statements/${id}/review`, data),
   pushVoucher: (id: number) => http.post<never, StatementRecord>(`/statements/${id}/voucher-push`),
+  pingKingdee: () => http.get<never, { connected: boolean; mode: string; message: string }>('/statements/kingdee/ping'),
 };
 
 type OperationListParams = { page?: number; size?: number; connectionCode?: string; status?: string; requestId?: string };
