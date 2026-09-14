@@ -116,6 +116,16 @@ class AiConfigAndSuggestionIntegrationTest {
                     "content":"PONG"},"finish_reason":"stop"}],\
                     "usage":{"prompt_tokens":21,"completion_tokens":2,"total_tokens":23}}""");
         });
+        mockLlm.createContext("/models", exchange -> {
+            String auth = exchange.getRequestHeaders().getFirst("Authorization");
+            if (!("Bearer " + API_KEY).equals(auth)) {
+                respond(exchange, 401, "{\"error\":{\"message\":\"bad key\"}}");
+                return;
+            }
+            respond(exchange, 200, """
+                    {"object":"list","data":[{"id":"mock-model","object":"model"},\
+                    {"id":"mock-model-pro","object":"model"},{"id":"mock-embed","object":"model"}]}""");
+        });
         mockLlm.start();
         mockPort = mockLlm.getAddress().getPort();
     }
@@ -135,7 +145,7 @@ class AiConfigAndSuggestionIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"enabled":true,"baseUrl":"http://127.0.0.1:%d","apiKey":"%s",\
-                                "model":"mock-model","dailyLimitPerUser":9,\
+                                "model":"mock-model",\
                                 "capabilities":{"self-test":true,"accounting-suggestion":true}}"""
                                 .formatted(mockPort, API_KEY)))
                 .andExpect(status().isOk())
@@ -159,6 +169,32 @@ class AiConfigAndSuggestionIntegrationTest {
         assertTrue(viewBody.contains("\"apiKeyHint\":\"****-456\""), "hint shows last 4 chars");
         assertTrue(viewBody.contains("\"configSource\":\"在线配置\""));
         assertTrue(!viewBody.contains(API_KEY));
+    }
+
+    @Test
+    void configModelsEndpointFetchesProviderModelList() throws Exception {
+        startMockIfAbsent();
+        String token = login("admin", "Admin@123");
+
+        // 密钥缺失（env 无密钥 + 表单未填）→ 400 护栏
+        mockMvc.perform(post("/api/ai/config/models")
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"baseUrl\":\"http://127.0.0.1:%d\"}".formatted(mockPort)))
+                .andExpect(status().isBadRequest());
+
+        // 表单当前值（未保存）也能拉模型列表——OpenAI 兼容 GET /models
+        MvcResult result = mockMvc.perform(post("/api/ai/config/models")
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"baseUrl\":\"http://127.0.0.1:%d\",\"apiKey\":\"%s\"}"
+                                .formatted(mockPort, API_KEY)))
+                .andExpect(status().isOk())
+                .andReturn();
+        String body = result.getResponse().getContentAsString(StandardCharsets.UTF_8);
+        assertTrue(body.contains("\"mock-model\""), "provider model list is returned");
+        assertTrue(body.contains("\"mock-model-pro\""), "all provider models are returned");
+        assertTrue(!body.contains(API_KEY), "the API key never appears in responses");
     }
 
     @Test
@@ -269,7 +305,7 @@ class AiConfigAndSuggestionIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"enabled":true,"baseUrl":"http://127.0.0.1:%d","apiKey":"%s",\
-                                "model":"mock-model","dailyLimitPerUser":50,\
+                                "model":"mock-model",\
                                 "capabilities":{"self-test":true,"accounting-suggestion":true}}"""
                                 .formatted(mockPort, API_KEY)))
                 .andExpect(status().isOk());

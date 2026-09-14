@@ -50,13 +50,16 @@ public class AiController {
     private final AiCallLogService callLogService;
     private final AiConfigService configService;
     private final AccountingSuggestionService accountingSuggestionService;
+    private final LlmGateway llmGateway;
 
     public AiController(AiGatewayService gatewayService, AiCallLogService callLogService,
-                        AiConfigService configService, AccountingSuggestionService accountingSuggestionService) {
+                        AiConfigService configService, AccountingSuggestionService accountingSuggestionService,
+                        LlmGateway llmGateway) {
         this.gatewayService = gatewayService;
         this.callLogService = callLogService;
         this.configService = configService;
         this.accountingSuggestionService = accountingSuggestionService;
+        this.llmGateway = llmGateway;
     }
 
     @GetMapping("/status")
@@ -96,6 +99,20 @@ public class AiController {
                 "ping", 0.0, 16);
         return ApiResponse.success("连接成功", toSelfTestResponse(
                 gatewayService.auditedChat(AiGatewayService.SELF_TEST, principal.getId(), base, chat)));
+    }
+
+    @PostMapping("/config/models")
+    @PreAuthorize("hasAuthority('ai:config')")
+    @Operation(summary = "Fetch available models from the provider (OpenAI-compatible GET /models, pending form values)")
+    public ApiResponse<List<String>> models(@Valid @RequestBody AiConfigTestRequest request) {
+        AiEffectiveConfig config = configService.effective(request.baseUrl(), request.apiKey(), null);
+        if (config.baseUrl() == null || config.baseUrl().isBlank()) {
+            throw new BusinessException(400, "请先填写接入点 Base URL");
+        }
+        if (!config.apiKeyConfigured()) {
+            throw new BusinessException(400, "请先填写 API 密钥（表单或已保存配置）");
+        }
+        return ApiResponse.success("模型列表已获取", llmGateway.listModels(config));
     }
 
     @PostMapping("/self-test")

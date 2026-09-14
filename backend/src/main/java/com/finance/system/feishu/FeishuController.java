@@ -2,6 +2,9 @@ package com.finance.system.feishu;
 
 import com.finance.system.common.api.ApiResponse;
 import com.finance.system.common.api.PageResponse;
+import com.finance.system.feishu.dto.FeishuAppConfigResponse;
+import com.finance.system.feishu.dto.FeishuAppConfigUpsertRequest;
+import com.finance.system.feishu.dto.FeishuAppConfigVerifyRequest;
 import com.finance.system.feishu.dto.FeishuConnectionRequest;
 import com.finance.system.feishu.dto.FeishuDestinationRequest;
 import com.finance.system.feishu.dto.FeishuOverviewResponse;
@@ -22,6 +25,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -30,7 +34,35 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Feishu collaboration", description = "Controlled Feishu mock collaboration API")
 public class FeishuController {
     private final FeishuService service;
-    public FeishuController(FeishuService service) { this.service = service; }
+    private final FeishuAppConfigService appConfigService;
+
+    public FeishuController(FeishuService service, FeishuAppConfigService appConfigService) {
+        this.service = service;
+        this.appConfigService = appConfigService;
+    }
+
+    @GetMapping("/app-config")
+    @PreAuthorize("hasAuthority('feishu:view')")
+    @Operation(summary = "Read sanitized Feishu app credential config (secret never returned, hint only)")
+    public ApiResponse<FeishuAppConfigResponse> appConfig() {
+        return ApiResponse.success(appConfigService.view());
+    }
+
+    @PutMapping("/app-config")
+    @PreAuthorize("hasAuthority('feishu:manage')")
+    @Operation(summary = "Save Feishu app credentials (secret encrypted at rest; null=keep / \"\"=clear / non-empty=rotate)")
+    public ApiResponse<FeishuAppConfigResponse> saveAppConfig(@Valid @RequestBody FeishuAppConfigUpsertRequest request,
+                                                              @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success("飞书应用凭证已保存", appConfigService.upsert(principal.getId(), request));
+    }
+
+    @PostMapping("/app-config/verify")
+    @PreAuthorize("hasAuthority('feishu:manage')")
+    @Operation(summary = "Verify Feishu app credentials against tenant_access_token/internal (pending form values allowed)")
+    public ApiResponse<FeishuAppConfigResponse> verifyAppConfig(@Valid @RequestBody FeishuAppConfigVerifyRequest request,
+                                                                @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success("飞书连接验证通过", appConfigService.verify(principal.getId(), request));
+    }
 
     @GetMapping("/overview")
     @PreAuthorize("hasAuthority('feishu:view')")

@@ -23,7 +23,6 @@ public record AiConfigUpsertRequest(
         @Max(value = 300_000, message = "超时不能超过 5 分钟")
         Integer timeoutMillis,
         @Min(0) @Max(5) Integer maxRetries,
-        @Min(1) @Max(10000) Integer dailyLimitPerUser,
         Map<String, Boolean> capabilities
 ) {
 }

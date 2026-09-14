@@ -12,6 +12,8 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -93,6 +95,39 @@ public class OpenAiCompatibleLlmGateway implements LlmGateway {
                     .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                     .build();
         });
+    }
+
+    @Override
+    public List<String> listModels(AiEffectiveConfig config) {
+        try {
+            String responseBody = client(config.timeoutMillis()).get()
+                    .uri(config.baseUrl() + "/models")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + config.apiKey())
+                    .retrieve()
+                    .body(String.class);
+            JsonNode data = objectMapper.readTree(responseBody == null ? "" : responseBody).path("data");
+            if (!data.isArray()) {
+                throw new BusinessException(502, "模型列表响应缺少 data 字段（OpenAI 兼容协议 GET /models）");
+            }
+            List<String> models = new ArrayList<>();
+            for (JsonNode item : data) {
+                String id = item.path("id").asText(null);
+                if (id != null && !id.isBlank()) {
+                    models.add(id);
+                }
+            }
+            if (models.isEmpty()) {
+                throw new BusinessException(502, "接入点返回了空模型列表（请确认 Base URL 与密钥有效）");
+            }
+            return models;
+        } catch (RestClientResponseException | ResourceAccessException e) {
+            throw translate(e);
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new BusinessException(502, "模型列表解析失败：" + e.getClass().getSimpleName()
+                    + "（响应非 OpenAI 兼容 JSON）");
+        }
     }
 
     private LlmChatResult parse(String responseBody, AiEffectiveConfig config, long startedAt) {

@@ -124,7 +124,6 @@ export function AiStatusPage() {
               <Descriptions.Item label="提供方">{status.provider}</Descriptions.Item>
               <Descriptions.Item label="模型">{status.model}</Descriptions.Item>
               <Descriptions.Item label="接入点">{status.baseUrl}</Descriptions.Item>
-              <Descriptions.Item label="日限频">{status.dailyLimitPerUser} 次/用户/能力</Descriptions.Item>
             </Descriptions>
             <div style={{ marginTop: 12 }}>
               <Typography.Text strong>能力开关（未列出的能力一律关闭）</Typography.Text>

@@ -15,7 +15,6 @@ public record AiEffectiveConfig(
         String model,
         int timeoutMillis,
         int maxRetries,
-        int dailyLimitPerUser,
         Map<String, Boolean> capabilities,
         String provider,
         String configSource) {

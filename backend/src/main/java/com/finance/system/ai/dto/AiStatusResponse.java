@@ -7,6 +7,5 @@ import java.util.Map;
  */
 public record AiStatusResponse(boolean enabled, String provider, String model,
                                String baseUrl, boolean apiKeyConfigured,
-                               int dailyLimitPerUser,
                                Map<String, Boolean> capabilities) {
 }

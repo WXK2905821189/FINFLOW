@@ -50,7 +50,6 @@ ai:
   model: ${AI_MODEL:deepseek-chat}
   timeout-millis: ${AI_TIMEOUT_MILLIS:30000}
   max-retries: ${AI_MAX_RETRIES:1}
-  daily-limit-per-user: ${AI_DAILY_LIMIT_PER_USER:20}
   provider: openai-compatible
   capabilities:
     # 连通性自检（POST /api/ai/self-test，ai:config 权限）——生产建议开启以便验收网关

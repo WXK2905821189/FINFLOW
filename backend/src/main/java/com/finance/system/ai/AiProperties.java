@@ -38,9 +38,6 @@ public class AiProperties {
     /** 5xx/网络异常时的额外重试次数（0=不重试）。 */
     private int maxRetries = 1;
 
-    /** 每用户每能力每日调用上限（失败调用也计入，防滥用）。 */
-    private int dailyLimitPerUser = 20;
-
     /** 能力开关：capability 名 → 是否开放，未登记的一律关闭。 */
     private Map<String, Boolean> capabilities = new HashMap<>();
 
@@ -59,8 +56,6 @@ public class AiProperties {
     public void setTimeoutMillis(int timeoutMillis) { this.timeoutMillis = timeoutMillis; }
     public int getMaxRetries() { return maxRetries; }
     public void setMaxRetries(int maxRetries) { this.maxRetries = maxRetries; }
-    public int getDailyLimitPerUser() { return dailyLimitPerUser; }
-    public void setDailyLimitPerUser(int dailyLimitPerUser) { this.dailyLimitPerUser = dailyLimitPerUser; }
     public Map<String, Boolean> getCapabilities() { return capabilities; }
     public void setCapabilities(Map<String, Boolean> capabilities) { this.capabilities = capabilities; }
     public String getProvider() { return provider; }

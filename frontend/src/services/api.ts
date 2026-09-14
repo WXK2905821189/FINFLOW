@@ -7,6 +7,8 @@ import type {
   FeishuConnectionItem,
   FeishuDestinationItem,
   FeishuPolicyItem,
+  FeishuAppConfigView,
+  FeishuAppConfigPayload,
   NotificationDelivery,
   DataQueryCapability,
   OperationLog,
@@ -140,7 +142,6 @@ export type AiStatus = {
   model: string;
   baseUrl: string;
   apiKeyConfigured: boolean;
-  dailyLimitPerUser: number;
   capabilities: Record<string, boolean>;
 };
 
@@ -179,6 +180,8 @@ export const aiApi = {
   getConfig: () => http.get<never, AiConfigView>('/ai/config'),
   updateConfig: (data: AiConfigPayload) => http.put<never, AiConfigView>('/ai/config', data),
   testConfig: (data: AiConfigTestPayload) => http.post<never, AiSelfTest>('/ai/config/test', data),
+  /** 用表单当前值（baseUrl+密钥）拉取供应商可用模型列表（OpenAI 兼容 GET /models） */
+  listModels: (data: AiConfigTestPayload) => http.post<never, string[]>('/ai/config/models', data),
   accountingSuggestion: (statementId: number) =>
     http.post<never, AiAccountingSuggestion>('/ai/accounting-suggestion', { statementId }),
 };
@@ -193,7 +196,6 @@ export type AiConfigPayload = {
   model?: string;
   timeoutMillis?: number;
   maxRetries?: number;
-  dailyLimitPerUser?: number;
   capabilities?: Record<string, boolean>;
 };
 
@@ -211,7 +213,6 @@ export type AiConfigDbView = {
   apiKeyConfigured: boolean;
   timeoutMillis: number | null;
   maxRetries: number | null;
-  dailyLimitPerUser: number | null;
   capabilities: Record<string, boolean> | null;
   updatedAt: string | null;
   updatedBy: number | null;
@@ -274,6 +275,10 @@ export const operationsApi = {
 
 export const feishuApi = {
   overview: () => http.get<never, FeishuOverview>('/feishu/overview'),
+  getAppConfig: () => http.get<never, FeishuAppConfigView>('/feishu/app-config'),
+  updateAppConfig: (data: FeishuAppConfigPayload) => http.put<never, FeishuAppConfigView>('/feishu/app-config', data),
+  verifyAppConfig: (data: { appId?: string; appSecret?: string }) =>
+    http.post<never, FeishuAppConfigView>('/feishu/app-config/verify', data),
   createConnection: (data: { displayName: string; tenantAlias?: string }) => http.post<never, FeishuConnectionItem>('/feishu/connections', data),
   createDestination: (data: { connectionId: number; destinationType: string; destinationKey: string; displayName: string }) => http.post<never, FeishuDestinationItem>('/feishu/destinations', data),
   savePolicy: (data: { eventType: string; destinationId: number; enabled: boolean }) => http.post<never, FeishuPolicyItem>('/feishu/policies', data),

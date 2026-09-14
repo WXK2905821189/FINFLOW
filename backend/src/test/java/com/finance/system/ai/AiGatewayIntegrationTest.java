@@ -41,8 +41,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * <ul>
  *   <li>自检走 网关 → 审计 全链路，成功/失败都落 ai_call_log（SUCCEEDED/FAILED）；</li>
  *   <li>密钥经环境位注入并随请求以 Bearer 头送达（mock 校验 401 护栏）；</li>
- *   <li>密钥与完整上下文不出现在 status 响应与审计行（哈希+摘要口径）；</li>
- *   <li>每用户每能力日限频，失败调用也计数，超限 429。</li>
+ *   <li>密钥与完整上下文不出现在 status 响应与审计行（哈希+摘要口径）。</li>
  * </ul>
  */
 @SpringBootTest
@@ -106,7 +105,6 @@ class AiGatewayIntegrationTest {
         registry.add("ai.api-key", API_KEY::toString);
         registry.add("ai.model", () -> "mock-model");
         registry.add("ai.capabilities.self-test", () -> "true");
-        registry.add("ai.daily-limit-per-user", () -> "3");
     }
 
     @AfterAll
@@ -162,32 +160,6 @@ class AiGatewayIntegrationTest {
                         .orderByDesc(AiCallLog::getId))
                 .get(0);
         assertTrue(failedRow.getErrorMessage().contains("500"), "failure diagnosis carries the provider status");
-    }
-
-    @Test
-    void dailyLimitCountsFailuresAndRejectsWith429() throws Exception {
-        // Dedicated ADMIN user so the quota starts at 0 regardless of test order
-        // (the shared admin already spent quota in the round-trip test above).
-        String username = "noquota_" + suffix();
-        createUserWithRole(username, 1L);
-        String token = login(username, PASSWORD);
-        // daily-limit-per-user=3; both success and failure calls consume quota.
-        int rejected = 0;
-        int okOrDownstream = 0;
-        for (int i = 0; i < 8; i++) {
-            MvcResult result = mockMvc.perform(post("/api/ai/self-test")
-                            .header("Authorization", bearer(token)))
-                    .andReturn();
-            int actual = result.getResponse().getStatus();
-            if (actual == 429) {
-                rejected++;
-            } else {
-                okOrDownstream++;
-                assertEquals(200, actual, "non-rejected calls must succeed (no FAIL_ME flags set)");
-            }
-        }
-        assertTrue(rejected >= 1, "quota must eventually reject with 429");
-        assertEquals(3, okOrDownstream, "exactly the quota allowance is served before rejection");
     }
 
     @Test

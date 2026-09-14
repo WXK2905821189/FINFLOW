@@ -62,8 +62,6 @@ public class AiConfigService {
                 row == null ? null : row.getModel(), properties.getModel());
         int timeout = row != null && row.getTimeoutMillis() != null ? row.getTimeoutMillis() : properties.getTimeoutMillis();
         int retries = row != null && row.getMaxRetries() != null ? row.getMaxRetries() : properties.getMaxRetries();
-        int limit = row != null && row.getDailyLimitPerUser() != null
-                ? row.getDailyLimitPerUser() : properties.getDailyLimitPerUser();
         Map<String, Boolean> capabilities = new LinkedHashMap<>(properties.getCapabilities());
         if (row != null && row.getCapabilitiesJson() != null && !row.getCapabilitiesJson().isBlank()) {
             try {
@@ -74,7 +72,7 @@ public class AiConfigService {
             }
         }
         String source = row == null ? "环境变量" : "在线配置";
-        return new AiEffectiveConfig(enabled, baseUrl, apiKey, model, timeout, retries, limit,
+        return new AiEffectiveConfig(enabled, baseUrl, apiKey, model, timeout, retries,
                 capabilities, properties.getProvider(), source);
     }
 
@@ -84,12 +82,12 @@ public class AiConfigService {
         AiConfigResponse.DbView db = row == null ? null : new AiConfigResponse.DbView(
                 row.getEnabled(), row.getBaseUrl(), row.getModel(), row.getApiKeyHint(),
                 row.getApiKeyCipher() != null && !row.getApiKeyCipher().isBlank(),
-                row.getTimeoutMillis(), row.getMaxRetries(), row.getDailyLimitPerUser(),
+                row.getTimeoutMillis(), row.getMaxRetries(),
                 parseCapabilities(row), row.getUpdatedAt(), row.getUpdatedBy());
         AiEffectiveConfig effective = effective();
         AiConfigResponse.EffectiveView effectiveView = new AiConfigResponse.EffectiveView(
                 effective.enabled(), effective.provider(), effective.model(), effective.baseUrl(),
-                effective.apiKeyConfigured(), effective.dailyLimitPerUser(), effective.capabilities(),
+                effective.apiKeyConfigured(), effective.capabilities(),
                 effective.configSource());
         return new AiConfigResponse(db, effectiveView);
     }
@@ -139,9 +137,6 @@ public class AiConfigService {
         }
         if (request.maxRetries() != null) {
             row.setMaxRetries(request.maxRetries());
-        }
-        if (request.dailyLimitPerUser() != null) {
-            row.setDailyLimitPerUser(request.dailyLimitPerUser());
         }
         if (request.capabilities() != null) {
             row.setCapabilitiesJson(writeCapabilities(request.capabilities()));

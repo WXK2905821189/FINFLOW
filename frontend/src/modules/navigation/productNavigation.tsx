@@ -1,10 +1,15 @@
 import {
   ApartmentOutlined,
   AuditOutlined,
+  CalendarOutlined,
+  CodeOutlined,
   DashboardOutlined,
   DatabaseOutlined,
+  DiffOutlined,
   FileAddOutlined,
+  FileDoneOutlined,
   FileSearchOutlined,
+  FileTextOutlined,
   NotificationOutlined,
   RadarChartOutlined,
   RobotOutlined,
@@ -12,6 +17,8 @@ import {
   SendOutlined,
   SettingOutlined,
   TeamOutlined,
+  TransactionOutlined,
+  WalletOutlined,
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { Link } from 'react-router-dom';
@@ -63,14 +70,14 @@ export function buildProductNavigation(hasPermission: HasPermission): MenuProps[
   const canViewClosing = hasPermission('closing:view') || hasPermission('closing:manage');
 
   const bankDataChildren = [
-    ...(canViewBankData ? [{ key: '/bank-access/data/balances', label: <Link to="/bank-access/data/balances">余额查询</Link> }] : []),
-    ...(canViewBankData ? [{ key: '/bank-access/data/statements', label: <Link to="/bank-access/data/statements">流水查询</Link> }] : []),
-    ...(canViewBankReconciliation ? [{ key: '/bank-access/data/reconciliation', label: <Link to="/bank-access/data/reconciliation">对账核对</Link> }] : []),
+    ...(canViewBankData ? [{ key: '/bank-access/data/balances', icon: <WalletOutlined />, label: <Link to="/bank-access/data/balances">余额查询</Link> }] : []),
+    ...(canViewBankData ? [{ key: '/bank-access/data/statements', icon: <TransactionOutlined />, label: <Link to="/bank-access/data/statements">流水查询</Link> }] : []),
+    ...(canViewBankReconciliation ? [{ key: '/bank-access/data/reconciliation', icon: <FileDoneOutlined />, label: <Link to="/bank-access/data/reconciliation">对账核对</Link> }] : []),
     ...(canViewTasks ? [{ key: '/bank-access/tasks', icon: <RadarChartOutlined />, label: <Link to="/bank-access/tasks">同步任务</Link> }] : []),
-    ...(hasPermission('operation:log:view') ? [{ key: '/bank-access/logs', label: <Link to="/bank-access/logs">运行日志</Link> }] : []),
+    ...(hasPermission('operation:log:view') ? [{ key: '/bank-access/logs', icon: <FileTextOutlined />, label: <Link to="/bank-access/logs">运行日志</Link> }] : []),
     // Standalone entry: this is the only surface that shows a bank response in full,
     // so it is deliberately not nested under 数据查询 (which only shows projections).
-    ...(canViewRawMessages ? [{ key: '/bank-access/raw-messages', label: <Link to="/bank-access/raw-messages">原始报文</Link> }] : []),
+    ...(canViewRawMessages ? [{ key: '/bank-access/raw-messages', icon: <CodeOutlined />, label: <Link to="/bank-access/raw-messages">原始报文</Link> }] : []),
   ];
 
   const statementChildren = [
@@ -87,8 +94,8 @@ export function buildProductNavigation(hasPermission: HasPermission): MenuProps[
     ...(hasPermission('system:dict:manage') ? [{ key: '/system/dicts', icon: <DatabaseOutlined />, label: <Link to="/system/dicts">字典中心</Link> }] : []),
     ...(hasPermission('ai:use') ? [{ key: '/system/ai', icon: <RobotOutlined />, label: <Link to="/system/ai">AI 状态</Link> }] : []),
     ...(hasPermission('ai:config') ? [{ key: '/system/ai-settings', icon: <SettingOutlined />, label: <Link to="/system/ai-settings">AI 设置</Link> }] : []),
-    ...(canViewClosing ? [{ key: '/closing', label: <Link to="/closing">账期结账</Link> }] : []),
-    ...(hasPermission('reconciliation:view') ? [{ key: '/reconciliation/dashboard', label: <Link to="/reconciliation/dashboard">三方对账</Link> }] : []),
+    ...(canViewClosing ? [{ key: '/closing', icon: <CalendarOutlined />, label: <Link to="/closing">账期结账</Link> }] : []),
+    ...(hasPermission('reconciliation:view') ? [{ key: '/reconciliation/dashboard', icon: <DiffOutlined />, label: <Link to="/reconciliation/dashboard">三方对账</Link> }] : []),
     ...(canViewFeishu ? [{ key: '/feishu', icon: <NotificationOutlined />, label: <Link to="/feishu">飞书配置</Link> }] : []),
   ];
 

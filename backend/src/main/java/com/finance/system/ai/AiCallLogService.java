@@ -10,7 +10,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HexFormat;
@@ -61,15 +60,6 @@ public class AiCallLogService {
         log.setCreatedBy(userId);
         log.setCreatedAt(LocalDateTime.now());
         mapper.insert(log);
-    }
-
-    /** 今日某用户某能力已调用次数（含失败）——限频依据。 */
-    public long countToday(String capability, Long userId) {
-        LocalDateTime dayStart = LocalDate.now().atStartOfDay();
-        return mapper.selectCount(new LambdaQueryWrapper<AiCallLog>()
-                .eq(AiCallLog::getCapability, capability)
-                .eq(AiCallLog::getUserId, userId)
-                .ge(AiCallLog::getCreatedAt, dayStart));
     }
 
     /** 最近调用（审计查看，倒序）。 */

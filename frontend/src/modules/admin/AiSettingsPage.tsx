@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
+  AutoComplete,
   Button,
   Card,
   Descriptions,
@@ -21,7 +22,9 @@ import { dateTime } from '../shared/format';
 
 /**
  * AI 设置（V28，系统管理）：页面上配置 LLM 供应商——接入点 / API 密钥 / 模型 /
- * 限频 / 能力开关，保存即时生效（DB 在线配置覆盖环境变量，无需重启）。
+ * 能力开关，保存即时生效（DB 在线配置覆盖环境变量，无需重启）。
+ * 模型选择：Base URL + 密钥就绪后可自动/手动拉取 OpenAI 兼容 GET /models 列表，
+ * 也允许自由输入（部分网关不暴露 /models）。
  * 密钥安全红线：只写不读——已配置的密钥不回显（仅显示尾 4 位 hint），
  * 留空提交 = 保持不变。
  */
@@ -30,6 +33,8 @@ export function AiSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<string | null>(null);
+  const [models, setModels] = useState<string[]>([]);
+  const [loadingModels, setLoadingModels] = useState(false);
 
   const loader = useCallback(() => aiApi.getConfig(), []);
   const { data, loading, error, reload } = useRemote<AiConfigView>(loader, [loader]);
@@ -43,7 +48,6 @@ export function AiSettingsPage() {
       model: data.db?.model ?? data.effective.model,
       timeoutMillis: data.db?.timeoutMillis ?? undefined,
       maxRetries: data.db?.maxRetries ?? undefined,
-      dailyLimitPerUser: data.db?.dailyLimitPerUser ?? data.effective.dailyLimitPerUser,
       capabilitiesSelfTest: data.effective.capabilities['self-test'] === true,
       capabilitiesAccountingSuggestion: data.effective.capabilities['accounting-suggestion'] === true,
     });
@@ -58,7 +62,6 @@ export function AiSettingsPage() {
     model: values.model,
     timeoutMillis: values.timeoutMillis ?? undefined,
     maxRetries: values.maxRetries ?? undefined,
-    dailyLimitPerUser: values.dailyLimitPerUser,
     capabilities: {
       'self-test': values.capabilitiesSelfTest === true,
       'accounting-suggestion': values.capabilitiesAccountingSuggestion === true,
@@ -79,6 +82,32 @@ export function AiSettingsPage() {
       message.error(reason instanceof Error ? reason.message : '保存未能完成');
     } finally {
       setSaving(false);
+    }
+  };
+
+  // 拉模型：用表单当前的 baseUrl + 密钥（密钥留空则用已保存密钥），可未保存
+  const fetchModels = async (silent = false) => {
+    if (loadingModels) return;
+    const baseUrl = form.getFieldValue('baseUrl') as string | undefined;
+    const apiKey = form.getFieldValue('apiKey') as string | undefined;
+    if (!baseUrl || !baseUrl.trim()) {
+      if (!silent) message.warning('请先填写接入点 Base URL');
+      return;
+    }
+    setLoadingModels(true);
+    try {
+      const list = await aiApi.listModels({
+        baseUrl: baseUrl.trim(),
+        ...(apiKey && apiKey.trim() ? { apiKey: apiKey.trim() } : {}),
+      });
+      setModels(list);
+      if (!silent) message.success(`已拉取 ${list.length} 个模型`);
+    } catch (reason) {
+      if (!silent) {
+        message.error(reason instanceof Error ? reason.message : '模型拉取失败');
+      }
+    } finally {
+      setLoadingModels(false);
     }
   };
 
@@ -137,7 +166,6 @@ export function AiSettingsPage() {
                 <Descriptions.Item label="配置来源">{effective.configSource}</Descriptions.Item>
                 <Descriptions.Item label="接入点">{effective.baseUrl}</Descriptions.Item>
                 <Descriptions.Item label="模型">{effective.model}</Descriptions.Item>
-                <Descriptions.Item label="日限频">{effective.dailyLimitPerUser} 次/用户/能力</Descriptions.Item>
                 {db?.updatedAt && (
                   <Descriptions.Item label="最近保存">{dateTime(db.updatedAt)}（操作人 {db.updatedBy ?? '-'}）</Descriptions.Item>
                 )}
@@ -156,7 +184,16 @@ export function AiSettingsPage() {
                 rules={[{ required: true, message: '请填写接入点' }]}
                 extra="DeepSeek：https://api.deepseek.com；通义兼容模式 / 本地 vLLM 同理，改这里即换供应商。"
               >
-                <Input placeholder="https://api.deepseek.com" />
+                <Input
+                  placeholder="https://api.deepseek.com"
+                  onBlur={() => {
+                    // 接入点填完失焦：密钥已就绪（表单输入或已保存）则自动拉取模型
+                    const apiKey = form.getFieldValue('apiKey') as string | undefined;
+                    if ((apiKey && apiKey.trim()) || db?.apiKeyConfigured) {
+                      void fetchModels(true);
+                    }
+                  }}
+                />
               </Form.Item>
               <Form.Item
                 label="API 密钥"
@@ -170,20 +207,46 @@ export function AiSettingsPage() {
                 <Input.Password
                   placeholder={db?.apiKeyConfigured ? '留空保持现有密钥不变' : 'sk-...'}
                   autoComplete="new-password"
+                  onBlur={() => {
+                    // 密钥填完失焦：接入点已就绪则自动拉取模型
+                    const baseUrl = form.getFieldValue('baseUrl') as string | undefined;
+                    const apiKey = form.getFieldValue('apiKey') as string | undefined;
+                    if (baseUrl && baseUrl.trim() && apiKey && apiKey.trim()) {
+                      void fetchModels(true);
+                    }
+                  }}
                 />
               </Form.Item>
               <Form.Item
                 label="模型"
-                name="model"
-                rules={[{ required: true, message: '请填写模型名' }]}
-                extra="DeepSeek：deepseek-chat"
+                required
+                extra="填写 Base URL 与密钥后自动拉取模型列表供选择；也可直接输入任意模型名（部分网关不提供 /models）。"
               >
-                <Input placeholder="deepseek-chat" />
+                <Space.Compact style={{ width: '100%' }}>
+                  <Form.Item
+                    name="model"
+                    rules={[{ required: true, message: '请选择或填写模型名' }]}
+                    noStyle
+                  >
+                    <AutoComplete
+                      style={{ width: '100%' }}
+                      placeholder="deepseek-chat"
+                      options={models.map((m) => ({ value: m }))}
+                      filterOption={(input, option) =>
+                        (option?.value as string).toLowerCase().includes(input.toLowerCase())
+                      }
+                    />
+                  </Form.Item>
+                  <Button
+                    icon={<ApiOutlined />}
+                    loading={loadingModels}
+                    onClick={() => void fetchModels(false)}
+                  >
+                    拉取模型
+                  </Button>
+                </Space.Compact>
               </Form.Item>
               <Space size="large" wrap>
-                <Form.Item label="日限频（次/用户/能力）" name="dailyLimitPerUser" rules={[{ required: true }]}>
-                  <InputNumber min={1} max={10000} style={{ width: 160 }} />
-                </Form.Item>
                 <Form.Item label="超时（毫秒，留空用默认 30000）" name="timeoutMillis">
                   <InputNumber min={1000} max={300000} step={1000} style={{ width: 200 }} />
                 </Form.Item>
@@ -236,7 +299,6 @@ type FormValues = {
   model?: string;
   timeoutMillis?: number | null;
   maxRetries?: number | null;
-  dailyLimitPerUser?: number;
   capabilitiesSelfTest?: boolean;
   capabilitiesAccountingSuggestion?: boolean;
 };

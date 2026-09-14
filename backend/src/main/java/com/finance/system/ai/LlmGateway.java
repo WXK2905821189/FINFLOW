@@ -1,5 +1,7 @@
 package com.finance.system.ai;
 
+import java.util.List;
+
 /**
  * LLM 网关端口：AI 能力唯一出海口。
  *
@@ -12,4 +14,11 @@ package com.finance.system.ai;
 public interface LlmGateway {
 
     LlmChatResult chat(LlmChatRequest request, AiEffectiveConfig config);
+
+    /**
+     * 拉取供应商可用模型列表（OpenAI 兼容协议 GET {base-url}/models，Bearer 密钥），
+     * 供 AI 设置页在填入接入点与密钥后让用户直接选择模型。配置面查询，
+     * 不做审计、不消耗能力调用。
+     */
+    List<String> listModels(AiEffectiveConfig config);
 }

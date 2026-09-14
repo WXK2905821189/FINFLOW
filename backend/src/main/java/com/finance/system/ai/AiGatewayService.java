@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 
 /**
  * AI 能力守卫与编排（P0 地基 + V28 在线配置）：所有 AI 端点统一走 {@link #guard}——
- * 总开关 → 密钥 → 能力开关 → 限频，任一不过即 403/429（fail-closed）。
+ * 总开关 → 密钥 → 能力开关，任一不过即 403（fail-closed）。
  * 配置一律来自 {@link AiConfigService#effective()}（DB 在线配置覆盖 env，保存即生效）。
  *
  * <p>审计在网关调用外层统一做：成功记 SUCCEEDED、任何异常记 FAILED 后原样
@@ -42,7 +42,6 @@ public class AiGatewayService {
                 config.model(),
                 config.baseUrl(),
                 config.apiKeyConfigured(),
-                config.dailyLimitPerUser(),
                 config.capabilities());
     }
 
@@ -58,7 +57,7 @@ public class AiGatewayService {
     }
 
     /**
-     * 统一入口：守卫（总开关→密钥→能力开关→限频）→ LLM 往返 → 审计（成功/失败都落库）。
+     * 统一入口：守卫（总开关→密钥→能力开关）→ LLM 往返 → 审计（成功/失败都落库）。
      * 能力服务（A1 入账建议等）只调本方法，不自行触网关、不自行写审计。
      */
     public LlmChatResult auditedChat(String capability, Long userId, AiEffectiveConfig config,
@@ -87,7 +86,7 @@ public class AiGatewayService {
         return configService.effective();
     }
 
-    /** 统一守卫：总开关 → 密钥 → 能力开关 → 每用户每能力日限频（失败调用也计入）。 */
+    /** 统一守卫：总开关 → 密钥 → 能力开关（不做调用次数限制）。 */
     void guard(String capability, Long userId) {
         AiEffectiveConfig config = configService.effective();
         if (!config.enabled()) {
@@ -98,11 +97,6 @@ public class AiGatewayService {
         }
         if (!config.isCapabilityEnabled(capability)) {
             throw new BusinessException(403, "AI 能力未开放：" + capability + "（在 AI 设置页能力开关中显式开启）");
-        }
-        long used = callLogService.countToday(capability, userId);
-        if (used >= config.dailyLimitPerUser()) {
-            throw new BusinessException(429, "今日「" + capability + "」调用已达上限（"
-                    + config.dailyLimitPerUser() + " 次/日），明天再试或联系管理员调整");
         }
     }
 

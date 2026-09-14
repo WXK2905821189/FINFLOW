@@ -42,6 +42,8 @@ export type {
   FeishuDestinationItem,
   FeishuPolicyItem,
   FeishuOverview,
+  FeishuAppConfigView,
+  FeishuAppConfigPayload,
   NotificationDelivery,
 } from '../modules/feishu/types';
 export type { ClosingPeriod } from '../modules/closing/types';

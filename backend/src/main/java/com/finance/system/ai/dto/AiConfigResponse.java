@@ -21,7 +21,6 @@ public record AiConfigResponse(DbView db, EffectiveView effective) {
             boolean apiKeyConfigured,
             Integer timeoutMillis,
             Integer maxRetries,
-            Integer dailyLimitPerUser,
             Map<String, Boolean> capabilities,
             LocalDateTime updatedAt,
             Long updatedBy) {
@@ -34,7 +33,6 @@ public record AiConfigResponse(DbView db, EffectiveView effective) {
             String model,
             String baseUrl,
             boolean apiKeyConfigured,
-            int dailyLimitPerUser,
             Map<String, Boolean> capabilities,
             String configSource) {
     }
