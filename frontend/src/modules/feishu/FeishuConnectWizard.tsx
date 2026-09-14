@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   Button,
@@ -20,6 +20,7 @@ import {
 } from '@ant-design/icons';
 import { feishuApi } from '../../services/api';
 import { useAuthStore } from '../../store/auth';
+import { useRemote } from '../shared/components';
 import type { FeishuAppConfigView } from '../../types';
 
 const AI_PROMPT = [
@@ -42,25 +43,19 @@ export function FeishuConnectWizard({ onChanged }: { onChanged?: () => void }) {
   const { hasPermission } = useAuthStore();
   const canManage = hasPermission('feishu:manage');
   const [form] = Form.useForm<{ appId?: string; appSecret?: string }>();
-  const [config, setConfig] = useState<FeishuAppConfigView | null>(null);
+  // 复用仓库样板 useRemote 拉配置（其内部已处理 effect 加载的 lint 豁免）
+  const { data: loaded, reload } = useRemote<FeishuAppConfigView>(() => feishuApi.getAppConfig(), []);
+  // 保存/验证成功后服务端即时回包，先落 override 展示（下次 reload 后与 loaded 汇合）
+  const [override, setOverride] = useState<FeishuAppConfigView | null>(null);
   const [saving, setSaving] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const config = override ?? loaded ?? null;
 
-  const load = useCallback(async () => {
-    try {
-      const view = await feishuApi.getAppConfig();
-      setConfig(view);
-      if (view.appId) {
-        form.setFieldValue('appId', view.appId);
-      }
-    } catch {
-      // 未配置时接口也返回空视图；仅吞加载错误，不阻塞页面
-    }
-  }, [form]);
-
+  // 首次加载后把 DB 现状铺进表单（Secret 永不回显，不铺）
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (!loaded?.appId) return;
+    form.setFieldValue('appId', loaded.appId);
+  }, [loaded, form]);
 
   const buildPayload = (values: { appId?: string; appSecret?: string }) => ({
     appId: values.appId?.trim(),
@@ -73,7 +68,8 @@ export function FeishuConnectWizard({ onChanged }: { onChanged?: () => void }) {
     setSaving(true);
     try {
       const view = await feishuApi.updateAppConfig(buildPayload(values));
-      setConfig(view);
+      setOverride(view);
+      void reload();
       message.success('凭证已保存（加密存储，明文不回显）');
       form.setFieldValue('appSecret', undefined);
       onChanged?.();
@@ -93,7 +89,8 @@ export function FeishuConnectWizard({ onChanged }: { onChanged?: () => void }) {
         appId: values.appId?.trim(),
         ...(values.appSecret && values.appSecret.trim() ? { appSecret: values.appSecret.trim() } : {}),
       });
-      setConfig(view);
+      setOverride(view);
+      void reload();
       message.success('飞书连接验证通过 ✓');
       form.setFieldValue('appSecret', undefined);
       onChanged?.();
