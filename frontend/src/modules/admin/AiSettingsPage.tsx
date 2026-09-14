@@ -75,7 +75,13 @@ export function AiSettingsPage() {
     setTestResult(null);
     try {
       await aiApi.updateConfig(buildPayload(values));
-      message.success('已保存并即时生效（无需重启）');
+      // 就绪结论即时判断（reload 数据异步，不依赖它）
+      const willBeReady = values.enabled === true
+        && (Boolean(values.apiKey && values.apiKey.trim()) || Boolean(db?.apiKeyConfigured))
+        && Boolean(values.model && String(values.model).trim());
+      message.success(willBeReady
+        ? '已保存并即时生效（无需重启）'
+        : '已保存。注意：总开关 / 密钥 / 模型尚未全部就绪，AI 调用仍会被拒绝（403）');
       form.setFieldValue('apiKey', undefined);
       await reload();
     } catch (reason) {
@@ -133,6 +139,14 @@ export function AiSettingsPage() {
 
   const db = data?.db;
   const effective = data?.effective;
+  // 就绪判定（后端 guard fail-closed 同口径）：总开关 + 密钥 + 模型缺一，能力开关开了也不生效
+  const readyGaps: string[] = effective
+    ? [
+        ...(!effective.enabled ? ['AI 总开关未启用'] : []),
+        ...(!effective.apiKeyConfigured ? ['API 密钥未配置'] : []),
+        ...(!effective.model ? ['模型未选择'] : []),
+      ]
+    : [];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -256,6 +270,15 @@ export function AiSettingsPage() {
               </Space>
               <Form.Item label="能力开关（未开启的能力一律 403）">
                 <Space direction="vertical">
+                  {effective && readyGaps.length > 0 && (
+                    <Alert
+                      type="warning"
+                      showIcon
+                      style={{ marginBottom: 4 }}
+                      message="能力开关暂不生效"
+                      description={`AI 调用需同时满足：总开关启用、密钥已配置、模型已选。当前缺少：${readyGaps.join('、')}——即使打开下方开关，调用仍会被拒绝。`}
+                    />
+                  )}
                   <Form.Item name="capabilitiesSelfTest" valuePropName="checked" noStyle>
                     <Switch checkedChildren="开" unCheckedChildren="关" /> <Typography.Text>连通性自检（self-test）</Typography.Text>
                   </Form.Item>

@@ -51,8 +51,9 @@ export function AiStatusPage() {
       setSelfTestResult(result);
       message.success(`自检成功：${result.durationMillis}ms`);
       reloadLogs();
-    } catch {
-      message.error('自检失败：详见调用日志中的错误信息');
+    } catch (reason) {
+      // 透出后端具体原因（403 提示哪一关未过 / 502 网关错误），不再笼统指向日志页
+      message.error(reason instanceof Error ? reason.message : '自检失败：详见调用日志中的错误信息');
       reloadLogs();
     } finally {
       setSelfTesting(false);
@@ -103,9 +104,11 @@ export function AiStatusPage() {
         extra={
           <Space>
             {canConfig && (
-              <Button type="primary" icon={<ApiOutlined />} loading={selfTesting} onClick={runSelfTest} disabled={!status?.enabled}>
-                连通性自检
-              </Button>
+              <Tooltip title={status?.enabled ? undefined : 'AI 总开关未启用——请先到 AI 设置页开启'}>
+                <Button type="primary" icon={<ApiOutlined />} loading={selfTesting} onClick={runSelfTest} disabled={!status?.enabled}>
+                  连通性自检
+                </Button>
+              </Tooltip>
             )}
             <Button icon={<ReloadOutlined />} onClick={() => { reloadStatus(); reloadLogs(); }}>
               刷新
@@ -143,11 +146,11 @@ export function AiStatusPage() {
                 type="info"
                 showIcon
                 message="AI 能力未启用"
-                description="启用步骤：环境变量 AI_ENABLED=true + AI_API_KEY=密钥，并在 ai.capabilities 中显式开启所需能力。所有 AI 端点在未启用时一律 403。"
+                description="启用步骤：到 系统管理 → AI 设置 打开 AI 总开关并配置密钥（在线配置即时生效，无需环境变量），再开启所需能力开关。所有 AI 端点在未就绪时一律 403。"
               />
             )}
             {status.enabled && !status.apiKeyConfigured && (
-              <Alert style={{ marginTop: 12 }} type="error" showIcon message="缺少密钥：AI_ENABLED=true 时 AI_API_KEY 必须注入，否则后端拒绝启动" />
+              <Alert style={{ marginTop: 12 }} type="error" showIcon message="缺少密钥：总开关已启用但未配置 API 密钥，所有 AI 调用仍会被拒绝——请到 系统管理 → AI 设置 填写密钥" />
             )}
             {selfTestResult && (
               <Alert

@@ -38,13 +38,8 @@ export type {
   AccountingMapping,
 } from '../modules/statements/types';
 export type {
-  FeishuConnectionItem,
-  FeishuDestinationItem,
-  FeishuPolicyItem,
-  FeishuOverview,
   FeishuAppConfigView,
   FeishuAppConfigPayload,
-  NotificationDelivery,
 } from '../modules/feishu/types';
 export type { ClosingPeriod } from '../modules/closing/types';
 export type { SystemAuditEvent } from '../modules/audit/types';

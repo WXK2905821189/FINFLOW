@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState, type Key } from 'react';
-import { Alert, Button, Card, DatePicker, Descriptions, Drawer, Empty, Input, Modal, Pagination, Select, Space, Spin, Table, Tabs, message, type TableColumnsType } from 'antd';
+import { Alert, Button, Card, DatePicker, Descriptions, Drawer, Empty, Input, Modal, Pagination, Select, Space, Spin, Table, Tabs, Tooltip, message, type TableColumnsType } from 'antd';
 import { DownloadOutlined, FileTextOutlined, PlayCircleOutlined, SearchOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { Link } from 'react-router-dom';
@@ -247,6 +247,11 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
               notFoundContent={<Spin size="small" />}
               onChange={(value) => applyFilter({ companyId: value ? String(value) : '' })}
             />
+          )}
+          {!canCrossCompany && (
+            <Tooltip title="跨公司查看需「跨公司银行数据查看」权限，当前仅显示本公司数据；公司主体的增删在「银行数据 → 账户与主体归档」维护（字典中心的公司主体不参与业务下拉）。">
+              <Select disabled placeholder="公司主体（仅本公司）" style={{ minWidth: 160 }} options={[]} />
+            </Tooltip>
           )}
           <Select value={draft.status || undefined} allowClear placeholder="任务状态" style={{ minWidth: 130 }} options={syncStatusOptions} onChange={(value) => applyFilter({ status: value || '' })} />
           <Input value={draft.sourceSystem} placeholder="来源（真实数据为 BANKDATA）" onPressEnter={query} onChange={(event) => setDraft((current) => ({ ...current, sourceSystem: event.target.value }))} />

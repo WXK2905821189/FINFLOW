@@ -3,13 +3,8 @@ import { http } from './http';
 import type {
   AuthTokenResponse,
   ConnectionOverview,
-  FeishuOverview,
-  FeishuConnectionItem,
-  FeishuDestinationItem,
-  FeishuPolicyItem,
   FeishuAppConfigView,
   FeishuAppConfigPayload,
-  NotificationDelivery,
   DataQueryCapability,
   OperationLog,
   BankAccount,
@@ -274,17 +269,10 @@ export const operationsApi = {
 };
 
 export const feishuApi = {
-  overview: () => http.get<never, FeishuOverview>('/feishu/overview'),
   getAppConfig: () => http.get<never, FeishuAppConfigView>('/feishu/app-config'),
   updateAppConfig: (data: FeishuAppConfigPayload) => http.put<never, FeishuAppConfigView>('/feishu/app-config', data),
   verifyAppConfig: (data: { appId?: string; appSecret?: string }) =>
     http.post<never, FeishuAppConfigView>('/feishu/app-config/verify', data),
-  createConnection: (data: { displayName: string; tenantAlias?: string }) => http.post<never, FeishuConnectionItem>('/feishu/connections', data),
-  createDestination: (data: { connectionId: number; destinationType: string; destinationKey: string; displayName: string }) => http.post<never, FeishuDestinationItem>('/feishu/destinations', data),
-  savePolicy: (data: { eventType: string; destinationId: number; enabled: boolean }) => http.post<never, FeishuPolicyItem>('/feishu/policies', data),
-  notify: (data: { eventId?: string; eventType: string; referenceNo?: string; severity: string; summary: string; destinationId?: number }) => http.post<never, NotificationDelivery>('/feishu/notifications', data),
-  deliveries: (params: { page?: number; size?: number; status?: string }) => http.get<never, PageResponse<NotificationDelivery>>('/feishu/deliveries', { params }),
-  retry: (eventId: string) => http.post<never, NotificationDelivery>(`/feishu/notifications/${encodeURIComponent(eventId)}/retry`),
 };
 
 export const validationApi = {
