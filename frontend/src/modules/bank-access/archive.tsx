@@ -3,6 +3,7 @@ import { Alert, Badge, Button, Drawer, Empty, Input, Modal, Space, Tag, message 
 import { EditOutlined, FolderAddOutlined } from '@ant-design/icons';
 import { bankApi } from '../../services/api';
 import { useRemote, ResourceFailure } from '../shared/components';
+import { BANK_NAME_TEXT } from './bankQueryTexts';
 import type { CompanyArchiveAccount, CompanyArchiveCompany, CompanyArchiveView } from '../../types';
 
 /**
@@ -128,7 +129,7 @@ function ArchiveBoard() {
     >
       <div style={{ fontWeight: 500 }}>{account.accountName}</div>
       <div style={{ color: '#888', fontSize: 12 }}>
-        <span className="mono">{account.maskedAccountNumber}</span> · {account.bankCode} · {account.currency}
+        <span className="mono">{account.maskedAccountNumber}</span> · {BANK_NAME_TEXT[account.bankCode] || account.bankCode} · {account.currency}
         {account.directStatus === 'DIRECT_CONNECTED' && <Tag color="green" style={{ marginLeft: 6, fontSize: 11 }}>直联</Tag>}
       </div>
     </div>

@@ -34,7 +34,14 @@ import java.util.Locale;
 public final class CiticRowMapper {
 
     public static final String SUCCESS = "AAAAAAA";
+    /** DLTRNALL 交易未产生（TSEA 语义：该窗口无交易，非故障）。 */
     public static final String NO_TRANSACTION = "EEEEEEE";
+    /**
+     * DLTRNALL 没有符合条件的记录。TSEA 实测（2026-09-15 心跳）：窗口内无任何交易时银行
+     * 返回 PBRA001 + statusText「没有符合条件的记录。」而非空列表——空窗口语义，与
+     * {@link #NO_TRANSACTION} 同样按空页处理，否则每个无交易日都会把任务打成 UNKNOWN。
+     */
+    public static final String NO_RECORDS = "PBRA001";
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("yyyyMMdd");
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HHmmss");
 
@@ -53,12 +60,12 @@ public final class CiticRowMapper {
             return new BankDataCollection(bankRequestNo, List.of(), List.of(), false, null,
                     "UNKNOWN", "UNKNOWN");
         }
-        if (!SUCCESS.equals(page.status()) && !NO_TRANSACTION.equals(page.status())) {
+        if (!isAcceptableStatus(page.status())) {
             return new BankDataCollection(bankRequestNo, List.of(), List.of(), false, null,
                     page.status(), page.status());
         }
         List<BankDataEntry> entries = toEntries(page, bankAccountId, bankRequestNo);
-        boolean noTransaction = NO_TRANSACTION.equals(page.status());
+        boolean noTransaction = isEmptyOutcome(page.status());
         boolean hasMore = !noTransaction && fullPage(page);
         String nextCursor = hasMore ? "REPLAY" : null;
         return new BankDataCollection(bankRequestNo, entries, List.of(), hasMore, nextCursor,
@@ -120,6 +127,16 @@ public final class CiticRowMapper {
                     null, null, null, null));
         }
         return List.copyOf(balances);
+    }
+
+    /** 容器级 status 是否可作为正常返回（成功 / 交易未产生 / 无符合条件的记录）。 */
+    public static boolean isAcceptableStatus(String status) {
+        return SUCCESS.equals(status) || isEmptyOutcome(status);
+    }
+
+    /** 空窗口类结果：交易未产生（EEEEEEE）或没有符合条件的记录（PBRA001），按空页处理。 */
+    public static boolean isEmptyOutcome(String status) {
+        return NO_TRANSACTION.equals(status) || NO_RECORDS.equals(status);
     }
 
     /**

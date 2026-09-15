@@ -5,6 +5,7 @@ import { bankApi, operationsApi } from '../../services/api';
 import { useAuthStore } from '../../store/auth';
 import { useRemote, ResourceFailure, StatusTag, DirectStatusTag } from '../shared/components';
 import { CompanyArchiveDrawer } from './archive';
+import { BANK_NAME_TEXT } from './bankQueryTexts';
 import type { BankAccount, ConnectionOverview } from '../../types';
 
 export function BankAccountPage() {

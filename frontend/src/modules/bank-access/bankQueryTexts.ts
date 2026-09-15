@@ -21,7 +21,7 @@ export const INFO_FLAG_TEXT: Record<string, string> = {
   '3': '原收方账号 / 子公司',
 };
 /** 银行代码显示名（仅展示层映射；未收录代码原样显示）。 */
-export const BANK_NAME_TEXT: Record<string, string> = { CMB: '招商银行' };
+export const BANK_NAME_TEXT: Record<string, string> = { CMB: '招商银行', CITIC: '中信银行' };
 
 /** Pretty-print the bank payload; fall back to the raw text when it is not JSON. */
 export const prettyPayload = (payload: string) => {

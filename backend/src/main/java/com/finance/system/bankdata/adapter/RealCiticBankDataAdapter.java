@@ -91,13 +91,12 @@ public class RealCiticBankDataAdapter implements BankDataAdapter {
             if (statements.page().status() == null) {
                 return failed(bankRequestNo, "UNKNOWN", evidence, null);
             }
-            if (!CiticRowMapper.SUCCESS.equals(statements.page().status())
-                    && !CiticRowMapper.NO_TRANSACTION.equals(statements.page().status())) {
+            if (!CiticRowMapper.isAcceptableStatus(statements.page().status())) {
                 return failed(bankRequestNo, statements.page().status(), evidence, null);
             }
             List<BankDataEntry> entries = CiticRowMapper.toEntries(statements.page(), context.bankAccountId(),
                     bankRequestNo);
-            boolean noTransaction = CiticRowMapper.NO_TRANSACTION.equals(statements.page().status());
+            boolean noTransaction = CiticRowMapper.isEmptyOutcome(statements.page().status());
             boolean hasMore = !noTransaction && fullPage(statements.page(), pageSize);
             return page(bankRequestNo, entries, balances, hasMore, startRecord, pageSize, evidence);
         }
@@ -109,13 +108,12 @@ public class RealCiticBankDataAdapter implements BankDataAdapter {
         if (statements.page().status() == null) {
             return failed(bankRequestNo, "UNKNOWN", evidence, null);
         }
-        if (!CiticRowMapper.SUCCESS.equals(statements.page().status())
-                && !CiticRowMapper.NO_TRANSACTION.equals(statements.page().status())) {
+        if (!CiticRowMapper.isAcceptableStatus(statements.page().status())) {
             return failed(bankRequestNo, statements.page().status(), evidence, null);
         }
         List<BankDataEntry> entries = CiticRowMapper.toEntries(statements.page(), context.bankAccountId(),
                 bankRequestNo);
-        boolean noTransaction = CiticRowMapper.NO_TRANSACTION.equals(statements.page().status());
+        boolean noTransaction = CiticRowMapper.isEmptyOutcome(statements.page().status());
         boolean hasMore = !noTransaction && fullPage(statements.page(), pageSize);
         return page(bankRequestNo, entries, List.of(), hasMore, startRecord, pageSize, evidence);
     }

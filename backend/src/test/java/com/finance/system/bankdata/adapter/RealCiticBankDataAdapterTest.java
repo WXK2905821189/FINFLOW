@@ -203,6 +203,26 @@ class RealCiticBankDataAdapterTest {
         assertEquals("AAAAAAA", collection.status());
     }
 
+    /**
+     * TSEA 实测（2026-09-15 心跳）：窗口内无交易时银行返回 PBRA001「没有符合条件的记录。」
+     * 而非空列表。若按故障处理，每个无交易日的任务都会打成 UNKNOWN——余额快照被连带丢弃、
+     * 账户直联状态永远回不到 DIRECT_CONNECTED。与 EEEEEEE 同样按空页处理。
+     */
+    @Test
+    void treatsNoRecordsCodeAsEmptyPageWithBalance() {
+        sdk.respondBalance(successBalanceXml());
+        sdk.respondStatement("<stream><status>PBRA001</status><statusText>没有符合条件的记录。</statusText>"
+                + "<returnRecords>0</returnRecords><list name=\"userDataList\"/></stream>");
+
+        BankDataCollection collection = adapter.collect(context(1, "2026-09-01T00:00:00", "2026-09-02T00:00:00", null));
+
+        assertTrue(collection.entries().isEmpty());
+        assertEquals(1, collection.balances().size(), "PBRA001 空窗口仍保留 DLBALQRY 余额快照");
+        assertFalse(collection.hasMore());
+        assertNull(collection.nextCursor());
+        assertEquals("AAAAAAA", collection.status());
+    }
+
     @Test
     void skipsAccountsWithFailedBalanceStatusButKeepsHealthyRows() {
         String xml = "<stream><status>AAAAAAA</status><list name=\"userDataList\">"
