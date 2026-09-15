@@ -20,7 +20,7 @@ export function BankAccountPage() {
   // account itself (directStatus), so a connected bank never turns other banks' rows green.
   const connected = overview?.status === 'REAL';
   const columns: TableColumnsType<BankAccount> = [
-    { title: '银行', dataIndex: 'bankCode', render: (value) => <span className="mono">{value}</span> },
+    { title: '银行', dataIndex: 'bankCode', render: (value) => BANK_NAME_TEXT[value] || <span className="mono">{value}</span> },
     { title: '账户名称', dataIndex: 'accountName' },
     { title: '账号', dataIndex: 'maskedAccountNumber', render: (value) => <span className="mono">{value}</span> },
     { title: '币种', dataIndex: 'currency' },
