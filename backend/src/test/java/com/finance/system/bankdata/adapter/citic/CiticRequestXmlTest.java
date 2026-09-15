@@ -44,6 +44,10 @@ class CiticRequestXmlTest {
 
         assertTrue(xml.contains("<action>DLTRNALL</action>"));
         assertTrue(xml.contains("<accountNo>8110710000000000001</accountNo>"));
+        // TSEA gateway rejects amount bounds as missing (ED01016) even though the vendor spec
+        // marks them optional; the widest decimal(15,2) range must always be present.
+        assertTrue(xml.contains("<lowAmount>0.00</lowAmount>"));
+        assertTrue(xml.contains("<upAmount>9999999999999.99</upAmount>"));
         assertTrue(xml.contains("<startDate>20260901</startDate>"));
         assertTrue(xml.contains("<endDate>20260902</endDate>"));
         assertTrue(xml.contains("<pageNumber>20</pageNumber>"));

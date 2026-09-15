@@ -54,3 +54,6 @@ docs/kingdee-openapi/articles/kd-demoenv.json
 # Deploy artifacts belong in tmp/deploy-artifacts/, never in repo root
 /finflow-web-dist-*.tar.gz
 /finflow-backend-*.jar
+
+# CITIC bank certificate backup (SM2 private key, never commit)
+/citic-cert-backup/

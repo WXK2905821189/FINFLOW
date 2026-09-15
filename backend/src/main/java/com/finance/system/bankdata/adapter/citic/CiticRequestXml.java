@@ -31,6 +31,11 @@ public final class CiticRequestXml {
     /**
      * DLTRNALL business XML. controlFlag=2 requests oriNum (raw serial number).
      *
+     * <p>lowAmount/upAmount are documented as optional in the vendor interface spec, but the
+     * TSEA test gateway rejects requests without them (ED01016 "输入的最小金额为空",
+     * verified 2026-09-15). FINFLOW never filters statements by amount, so the widest
+     * representable decimal(15,2) range is sent: 0.00 to 9999999999999.99.</p>
+     *
      * @param userName vendor login name varchar(30)
      * @param query    statement query model
      */
@@ -39,6 +44,8 @@ public final class CiticRequestXml {
                 .append("<action>DLTRNALL</action>")
                 .append("<userName>").append(escape(userName)).append("</userName>")
                 .append("<accountNo>").append(escape(query.accountNo())).append("</accountNo>")
+                .append("<lowAmount>0.00</lowAmount>")
+                .append("<upAmount>9999999999999.99</upAmount>")
                 .append("<startDate>").append(query.startDateText()).append("</startDate>")
                 .append("<endDate>").append(query.endDateText()).append("</endDate>")
                 .append("<pageNumber>").append(query.pageNumber()).append("</pageNumber>")
