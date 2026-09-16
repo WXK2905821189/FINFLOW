@@ -62,4 +62,17 @@ public class BankController {
                                                           @AuthenticationPrincipal UserPrincipal principal) {
         return ApiResponse.success("Bank account updated", bankAccountService.updateAccount(principal.getId(), id, request));
     }
+
+    /**
+     * Read-only connectivity probe behind the archive page "测试连接" button. The mapping
+     * was missing from the original feature commit (only the service injection landed),
+     * so the button 404'd and surfaced as an internal server error.
+     */
+    @PostMapping("/bank-accounts/{id}/test-connection")
+    @PreAuthorize("hasAuthority('bank:manage') or hasAuthority('bankdata:sync:trigger')")
+    @Operation(summary = "Probe real bank connectivity for one account (read-only)")
+    public ApiResponse<BankConnectionTestResponse> testConnection(@PathVariable Long id,
+                                                                  @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success("连接测试完成", connectionTestService.test(principal.getId(), id));
+    }
 }
