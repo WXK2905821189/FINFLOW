@@ -6,9 +6,7 @@ import {
   DashboardOutlined,
   DatabaseOutlined,
   DiffOutlined,
-  FileAddOutlined,
   FileDoneOutlined,
-  FileSearchOutlined,
   FileTextOutlined,
   NotificationOutlined,
   RadarChartOutlined,
@@ -34,9 +32,6 @@ export const pageTitles: Record<string, string> = {
   '/bank-access/data/statements': '流水查询',
   '/bank-access/data/reconciliation': '对账核对',
   '/bank-access/raw-messages': '原始报文',
-  '/statements/import': '导入流水',
-  '/statements/batches': '标准流水',
-  '/statements/review': '人工复核',
   '/validation': '科目与往来规则',
   '/statements/vouchers': '金蝶制证',
   '/reconciliation/dashboard': '三方对账',
@@ -80,10 +75,10 @@ export function buildProductNavigation(hasPermission: HasPermission): MenuProps[
     ...(canViewRawMessages ? [{ key: '/bank-access/raw-messages', icon: <CodeOutlined />, label: <Link to="/bank-access/raw-messages">原始报文</Link> }] : []),
   ];
 
+  // 2026-09-16 流程精简：导入流水/标准流水/人工复核三页下线，制证链路收敛为
+  // 流水查询页「AI 制证推送」一键入口（转入 → AI 建议 → 推送金蝶，复核在金蝶侧人工完成）。
+  // 本组保留：科目与往来规则（制证预填规则）+ 凭证草稿与制证（推送状态跟踪）。
   const statementChildren = [
-    ...(hasPermission('statement:import') ? [{ key: '/statements/import', icon: <FileAddOutlined />, label: <Link to="/statements/import">导入流水</Link> }] : []),
-    ...(hasPermission('statement:view') ? [{ key: '/statements/batches', icon: <DatabaseOutlined />, label: <Link to="/statements/batches">标准流水</Link> }] : []),
-    ...(hasPermission('statement:review') ? [{ key: '/statements/review', icon: <FileSearchOutlined />, label: <Link to="/statements/review">人工复核</Link> }] : []),
     ...(canViewValidation ? [{ key: '/validation', icon: <SettingOutlined />, label: <Link to="/validation">科目与往来规则</Link> }] : []),
     ...(hasPermission('voucher:push') ? [{ key: '/statements/vouchers', icon: <SendOutlined />, label: <Link to="/statements/vouchers">凭证草稿与制证</Link> }] : []),
   ];

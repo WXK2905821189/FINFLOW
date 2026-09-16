@@ -19,6 +19,8 @@ public class BankAccount {
     private String currency;
     private BigDecimal availableBalance;
     private String status;
+    /** 制证模式（V31）：KINGDEE_AUTO=可走 AI 制证推送金蝶链路；MANUAL=纯人工制证，数据仅留系统。 */
+    private String accountingMode;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -38,6 +40,8 @@ public class BankAccount {
     public void setAvailableBalance(BigDecimal availableBalance) { this.availableBalance = availableBalance; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+    public String getAccountingMode() { return accountingMode; }
+    public void setAccountingMode(String accountingMode) { this.accountingMode = accountingMode; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }

@@ -37,6 +37,7 @@ import type {
   CompanyArchiveAccount,
   BankConnectionTestResult,
   BankAccountCreatePayload,
+  AiVoucherBatchResult,
 } from '../types';
 import type {
   SysPermission,
@@ -359,6 +360,9 @@ export const bankPipelineApi = {
   /** 银行流水一键转入标准流水（流水与入账）；服务端按银行流水行的公司归属落批次。 */
   transferFromBankdata: (data: { statementIds: number[] }) =>
     http.post<never, StatementTransferResult>('/statements/transfer-from-bankdata', data),
+  /** 一键 AI 制证（2026-09-16）：转入 → AI 建议 → 推送金蝶；audit 由人工在金蝶侧完成。 */
+  aiVoucher: (data: { statementIds: number[] }) =>
+    http.post<never, AiVoucherBatchResult>('/bank-data/statements/ai-voucher', data),
   /** 定时同步计划（V25）：读取全部计划时刻（查看权限即可读）。 */
   listSchedules: () => http.get<never, BankSyncScheduleRow[]>('/bank-sync-schedules'),
   /** 新建计划时刻（HH:mm，禁整点/半点；bank:manage）。 */

@@ -93,6 +93,9 @@ public class BankAccountService extends ServiceImpl<BankAccountMapper, BankAccou
         account.setCurrency(request.currency().trim().toUpperCase());
         account.setAvailableBalance(request.availableBalance());
         account.setStatus(request.status().trim().toUpperCase());
+        // V31 制证模式：null 保持默认（KINGDEE_AUTO），显式 MANUAL 才落纯人工制证。
+        account.setAccountingMode(request.accountingMode() == null ? "KINGDEE_AUTO"
+                : request.accountingMode().trim().toUpperCase());
     }
 
     private BankAccountResponse toResponse(BankAccount account, AccountDirectStatusService.DirectStatusView direct,
@@ -103,7 +106,8 @@ public class BankAccountService extends ServiceImpl<BankAccountMapper, BankAccou
         return new BankAccountResponse(account.getId(), account.getBankCode(), account.getAccountName(),
                 maskAccountNumber(account.getAccountNumber()), account.getCurrency(), account.getAvailableBalance(),
                 account.getStatus(), view.status(), view.lastRealSyncAt(),
-                account.getCompanyId(), company == null ? null : company.getName());
+                account.getCompanyId(), company == null ? null : company.getName(),
+                account.getAccountingMode() == null ? "KINGDEE_AUTO" : account.getAccountingMode());
     }
 
     private String maskAccountNumber(String accountNumber) {

@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState, type Key } from 'react';
-import { Alert, Button, Card, DatePicker, Descriptions, Drawer, Empty, Input, Modal, Pagination, Select, Space, Spin, Table, Tabs, Tooltip, message, type TableColumnsType } from 'antd';
-import { DownloadOutlined, FileTextOutlined, PlayCircleOutlined, SearchOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { Alert, Button, Card, DatePicker, Descriptions, Drawer, Empty, Input, Modal, Pagination, Select, Space, Spin, Table, Tabs, Tag, Tooltip, message, type TableColumnsType } from 'antd';
+import { DownloadOutlined, FileTextOutlined, PlayCircleOutlined, RobotOutlined, SearchOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { Link } from 'react-router-dom';
 import { bankPipelineApi, bankApi } from '../../services/api';
@@ -10,7 +10,7 @@ import { syncStatusOptions } from '../shared/dict';
 import { dateTime, displayValue, isUnavailableStatus, isFailedStatus } from '../shared/format';
 import { BankProjectionState, COMPANY_COLUMN, statementColumns, balanceColumns, StatementDetail, BalanceDetail, type BankQueryRow } from './BankDataQueryColumns';
 import { BANK_NAME_TEXT, prettyPayload } from './bankQueryTexts';
-import type { BankAccount, CompanyOption, BankDataBalanceRow, BankDataProjectionPage, BankDataStatementRow, BankRawMessageDetail } from '../../types';
+import type { BankAccount, CompanyOption, BankDataBalanceRow, BankDataProjectionPage, BankDataStatementRow, BankRawMessageDetail, AiVoucherBatchResult, AiVoucherRowResult } from '../../types';
 
 export const bankDataResources = {
   balances: { title: '余额查询', permission: 'bankdata:balance:view' },
@@ -70,8 +70,8 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
   // callbacks trips the react-compiler refs rule, and state does the same job here.
   const [focusReturn, setFocusReturn] = useState<HTMLElement | null>(null);
   const isStatement = resource === 'statements';
-  // 一键转入（C1）：流水 tab 专属，权限与「导入流水」一致（statement:import）。
-  const canTransferStatement = isStatement && hasPermission('statement:import');
+  // 一键 AI 制证（2026-09-16）：流水 tab 专属，终局闸门 voucher:push（复核已内化进服务端并留审计）。
+  const canAiVoucher = isStatement && hasPermission('voucher:push');
   // 账户筛选数据源：当前企业授权的银行账户（后端按公司隔离返回）。按银行分组展示，
   // 选项值仍是内部账户 ID —— 查询接口本身无需改动。
   const accountsLoader = useCallback(() => bankApi.accounts(), []);
@@ -114,38 +114,45 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
     window.setTimeout(() => focusReturn?.focus(), 0);
   };
   const [exporting, setExporting] = useState(false);
-  // 一键转入（C1）：行多选 → 转入标准流水；已转入行禁选（服务端幂等键=同公司同银行流水号）。
+  // 一键 AI 制证（2026-09-16）：行多选 → AI 建议 → 推送金蝶；MANUAL 制证模式账户的行禁选；
+  // 已推送行禁选（服务端幂等键=同公司同银行流水号）。
+  const manualAccountIds = useMemo(() => new Set(
+    (accounts || []).filter((account) => account.accountingMode === 'MANUAL').map((account) => account.id),
+  ), [accounts]);
   const [selectedStatementIds, setSelectedStatementIds] = useState<number[]>([]);
-  const [transferring, setTransferring] = useState(false);
-  const transferSelected = () => {
+  const [aiVoucherRunning, setAiVoucherRunning] = useState(false);
+  const [aiVoucherResult, setAiVoucherResult] = useState<AiVoucherBatchResult>();
+  const aiVoucherSelected = () => {
     if (!selectedStatementIds.length) {
-      message.warning('请先勾选要转入的银行流水行');
+      message.warning('请先勾选要制证的银行流水行');
       return;
     }
     Modal.confirm({
-      title: `确认转入 ${selectedStatementIds.length} 条银行流水`,
-      content: '转入后在「流水与入账」生成标准流水（保留人工复核与制证闸门）；重复转入会被服务端自动去重。',
-      okText: '确认转入',
+      title: `确认对 ${selectedStatementIds.length} 条银行流水 AI 制证并推送`,
+      content: '流程：转入标准流水（幂等）→ AI 生成入账建议 → 推送金蝶（出纳收付款单，提交不审核）。审核请在金蝶侧人工完成；AI 建议不可用时将直接推送原文摘要并标注。',
+      okText: '确认制证推送',
       cancelText: '取消',
       onOk: async () => {
-        setTransferring(true);
+        setAiVoucherRunning(true);
         try {
-          const result = await bankPipelineApi.transferFromBankdata({ statementIds: selectedStatementIds });
-          message.success(`转入完成：新增 ${result.importedCount ?? 0} 条，重复跳过 ${result.duplicateCount ?? 0} 条（批次 ${result.batchNo}）`);
+          const result = await bankPipelineApi.aiVoucher({ statementIds: selectedStatementIds });
+          setAiVoucherResult(result);
           setSelectedStatementIds([]);
           reload();
         } catch (reason) {
-          message.error(reason instanceof Error ? reason.message : '转入失败，请稍后重试');
+          message.error(reason instanceof Error ? reason.message : 'AI 制证请求未能完成');
         } finally {
-          setTransferring(false);
+          setAiVoucherRunning(false);
         }
       },
     });
   };
-  const rowSelection = canTransferStatement ? {
+  const rowSelection = canAiVoucher ? {
     selectedRowKeys: selectedStatementIds,
     onChange: (keys: Key[]) => setSelectedStatementIds(keys.map(Number)),
-    getCheckboxProps: (row: BankQueryRow) => ({ disabled: Boolean((row as BankDataStatementRow).transferred) }),
+    getCheckboxProps: (row: BankQueryRow) => ({
+      disabled: Boolean((row as BankDataStatementRow).transferred) || manualAccountIds.has(Number((row as BankDataStatementRow).bankAccountId)),
+    }),
   } : undefined;
   const exportCsv = async () => {
     setExporting(true);
@@ -266,8 +273,8 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
         </div>
       </Card>
       <Card
-        title={canTransferStatement && submitted
-          ? <Space wrap><span>查询结果</span><Button size="small" type="primary" ghost icon={<ThunderboltOutlined />} disabled={!selectedStatementIds.length} loading={transferring} onClick={transferSelected}>转入流水与入账{selectedStatementIds.length ? `（${selectedStatementIds.length}）` : ''}</Button><span className="muted">已转入行不可再选；转入后保留人工复核与制证闸门</span></Space>
+        title={canAiVoucher && submitted
+          ? <Space wrap><span>查询结果</span><Button size="small" type="primary" ghost icon={<RobotOutlined />} disabled={!selectedStatementIds.length} loading={aiVoucherRunning} onClick={aiVoucherSelected}>AI 制证推送{selectedStatementIds.length ? `（${selectedStatementIds.length}）` : ''}</Button><span className="muted">已推送行与纯人工制证账户不可选；AI 建议 → 推送金蝶 → 人工在金蝶审核</span></Space>
           : '查询结果'}
       >
         {error ? <ResourceFailure error={error} onRetry={reload} /> : !submitted && !loading ? <Empty description="设置筛选条件后点击查询；没有默认或浏览器生成的数据。" /> : (
@@ -288,6 +295,41 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
           </>
         )}
       </Card>
+      <Modal
+        title={`AI 制证结果 · 推送 ${aiVoucherResult?.pushedCount ?? 0} / 幂等跳过 ${aiVoucherResult?.alreadyCount ?? 0} / 跳过 ${aiVoucherResult?.skippedCount ?? 0} / 失败 ${aiVoucherResult?.failedCount ?? 0}`}
+        open={Boolean(aiVoucherResult)}
+        onCancel={() => setAiVoucherResult(undefined)}
+        footer={<Button type="primary" onClick={() => setAiVoucherResult(undefined)}>知道了</Button>}
+        width={720}
+      >
+        {aiVoucherResult && (
+          <Table<AiVoucherRowResult>
+            rowKey="bankDataStatementId"
+            size="small"
+            pagination={false}
+            dataSource={aiVoucherResult.rows}
+            columns={[
+              { title: '流水号', dataIndex: 'statementNo', render: (value: string) => <span className="mono">{value}</span> },
+              {
+                title: '结果', dataIndex: 'outcome', width: 110,
+                render: (value: AiVoucherRowResult['outcome']) => (
+                  <Tag color={value === 'PUSHED' ? 'green' : value === 'ALREADY_PUSHED' ? 'blue' : value.startsWith('SKIPPED') ? 'orange' : 'red'}>
+                    {value === 'PUSHED' ? '已推送' : value === 'ALREADY_PUSHED' ? '幂等跳过' : value === 'SKIPPED_MANUAL' ? '人工制证' : value === 'SKIPPED_REJECTED' ? '已驳回' : '失败'}
+                  </Tag>
+                ),
+              },
+              {
+                title: 'AI 建议', dataIndex: 'aiSuggestedSummary', ellipsis: true,
+                render: (value: string | null, row: AiVoucherRowResult) => row.aiStatus === 'OK'
+                  ? (value || '--')
+                  : <Tooltip title={row.message}><Tag>AI 不可用</Tag></Tooltip>,
+              },
+              { title: '金蝶单号', dataIndex: 'voucherNo', render: (value: string | null) => value ? <span className="mono">{value}</span> : '--' },
+              { title: '说明', dataIndex: 'message', ellipsis: true, render: (value: string | null) => value || '--' },
+            ] satisfies TableColumnsType<AiVoucherRowResult>}
+          />
+        )}
+      </Modal>
       <Drawer title={detailTitle} width={560} open={Boolean(selected)} onClose={closeDetail}>
         {selected && (
           <>

@@ -49,4 +49,6 @@ export type {
   CompanyArchiveView,
   BankConnectionTestResult,
   BankAccountCreatePayload,
+  AiVoucherRowResult,
+  AiVoucherBatchResult,
 } from '../modules/bank-access/types';

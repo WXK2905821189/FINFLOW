@@ -26,6 +26,8 @@ public record BankAccountResponse(
         /** 账户归属公司 id：跨公司用户用于「公司主体 → 账户」两级分组筛选。 */
         Long companyId,
         /** 账户归属公司名称；与 companyId 同源，仅展示用。 */
-        String companyName
+        String companyName,
+        /** 制证模式（V31）：KINGDEE_AUTO | MANUAL（纯人工制证，不进 AI 制证推送链路）。 */
+        String accountingMode
 ) {
 }

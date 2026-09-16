@@ -16,6 +16,34 @@ export type BankAccount = {
   companyId?: number;
   /** 账户归属公司名称。 */
   companyName?: string;
+  /** 制证模式（V31）：KINGDEE_AUTO=AI 制证推送金蝶；MANUAL=纯人工制证，数据仅留系统。 */
+  accountingMode?: string;
+};
+
+/** 一键 AI 制证逐行结果（/bank-data/statements/ai-voucher）。 */
+export type AiVoucherRowResult = {
+  bankDataStatementId: number;
+  statementNo: string;
+  outcome: 'PUSHED' | 'ALREADY_PUSHED' | 'SKIPPED_MANUAL' | 'SKIPPED_REJECTED' | 'FAILED_VALIDATION' | 'FAILED';
+  aiStatus?: 'OK' | 'UNAVAILABLE';
+  aiBusinessCategory?: string | null;
+  aiSuggestedSummary?: string | null;
+  aiSuggestedSubject?: string | null;
+  aiConfidence?: number | null;
+  voucherNo?: string | null;
+  pushStatus?: string | null;
+  message?: string | null;
+};
+
+/** 一键 AI 制证批次结果。 */
+export type AiVoucherBatchResult = {
+  batchNo?: string | null;
+  totalCount: number;
+  pushedCount: number;
+  alreadyCount: number;
+  skippedCount: number;
+  failedCount: number;
+  rows: AiVoucherRowResult[];
 };
 
 /** 银行流水一键转入标准流水的服务端结果（复用导入批次响应形态）。 */

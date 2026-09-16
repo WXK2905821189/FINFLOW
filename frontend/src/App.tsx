@@ -13,10 +13,7 @@ const Login = lazy(() => import('./modules/auth/LoginPage').then((module) => ({ 
 const Forbidden = lazy(() => import('./modules/auth/ForbiddenPage').then((module) => ({ default: module.Forbidden })));
 
 const Dashboard = lazy(() => import('./modules/dashboard/pages').then((module) => ({ default: module.Dashboard })));
-const BatchList = lazy(() => import('./modules/statements/pages').then((module) => ({ default: module.BatchList })));
-const ImportStatements = lazy(() => import('./modules/statements/pages').then((module) => ({ default: module.ImportStatements })));
 const Reconciliation = lazy(() => import('./modules/statements/pages').then((module) => ({ default: module.Reconciliation })));
-const ReviewStatements = lazy(() => import('./modules/statements/pages').then((module) => ({ default: module.ReviewStatements })));
 const VoucherStatements = lazy(() => import('./modules/statements/pages').then((module) => ({ default: module.VoucherStatements })));
 const ValidationPage = lazy(() => import('./modules/statements/ValidationPage').then((module) => ({ default: module.ValidationPage })));
 const BankAccountPage = lazy(() => import('./modules/bank-access/pages').then((module) => ({ default: module.BankAccountPage })));
@@ -69,18 +66,14 @@ function AppRoutes() {
           <Route element={<PermissionGuard permissions={['feishu:view', 'feishu:manage']} />}>
             <Route path="/feishu" element={<FeishuCollaboration />} />
           </Route>
-          <Route element={<PermissionGuard permissions={['statement:import']} />}>
-            <Route path="/statements/import" element={<ImportStatements />} />
-          </Route>
-          <Route element={<PermissionGuard permissions={['statement:view']} />}>
-            <Route path="/statements/batches" element={<BatchList />} />
-          </Route>
-          <Route element={<PermissionGuard permissions={['statement:review']} />}>
-            <Route path="/statements/review" element={<ReviewStatements />} />
-          </Route>
           <Route element={<PermissionGuard permissions={['voucher:push']} />}>
             <Route path="/statements/vouchers" element={<VoucherStatements />} />
           </Route>
+          {/* 已下线页面（2026-09-16 流程精简）：导入流水/标准流水/人工复核三页删除，
+              制证链路收敛为流水查询页「AI 制证推送」一键入口；复核职责转移到金蝶侧人工审核。 */}
+          <Route path="/statements/import" element={<Navigate to="/bank-access/data/statements" replace />} />
+          <Route path="/statements/batches" element={<Navigate to="/statements/vouchers" replace />} />
+          <Route path="/statements/review" element={<Navigate to="/bank-access/data/statements" replace />} />
           <Route element={<PermissionGuard permissions={['reconciliation:view']} />}>
             <Route path="/reconciliation/dashboard" element={<Reconciliation />} />
           </Route>
