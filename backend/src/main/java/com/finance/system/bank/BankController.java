@@ -2,6 +2,8 @@ package com.finance.system.bank;
 
 import com.finance.system.bank.dto.BankAccountRequest;
 import com.finance.system.bank.dto.BankAccountResponse;
+import com.finance.system.bank.dto.BankConnectionTestResponse;
+import com.finance.system.bankdata.aggregation.BankConnectionTestService;
 import com.finance.system.common.api.ApiResponse;
 import com.finance.system.security.UserPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
@@ -30,9 +32,12 @@ import java.util.List;
 public class BankController {
 
     private final BankAccountService bankAccountService;
+    private final BankConnectionTestService connectionTestService;
 
-    public BankController(BankAccountService bankAccountService) {
+    public BankController(BankAccountService bankAccountService,
+                          BankConnectionTestService connectionTestService) {
         this.bankAccountService = bankAccountService;
+        this.connectionTestService = connectionTestService;
     }
 
     @GetMapping("/bank-accounts")

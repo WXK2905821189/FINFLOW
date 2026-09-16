@@ -35,6 +35,8 @@ import type {
   CompanyArchiveView,
   CompanyArchiveCompany,
   CompanyArchiveAccount,
+  BankConnectionTestResult,
+  BankAccountCreatePayload,
 } from '../types';
 import type {
   SysPermission,
@@ -61,6 +63,10 @@ export const bankApi = {
   renameArchiveCompany: (id: number, name: string) => http.put<never, CompanyArchiveCompany>(`/bank-account-archive/companies/${id}`, { name }),
   /** 归类：账户改挂公司档案，历史流水/余额一并迁移。 */
   assignArchiveAccount: (id: number, companyId: number) => http.put<never, CompanyArchiveAccount>(`/bank-account-archive/accounts/${id}/company`, { companyId }),
+  /** 新增银行账户（bank:manage）；创建后归属当前用户公司，可在档案板拖拽归类。 */
+  createAccount: (data: BankAccountCreatePayload) => http.post<never, BankAccount>('/bank-accounts', data),
+  /** 连通性探测（bank:manage 或 bankdata:sync:trigger）：服务端对适配器发起一次只读调用，不落库。 */
+  testConnection: (id: number) => http.post<never, BankConnectionTestResult>(`/bank-accounts/${id}/test-connection`),
 };
 
 export const userApi = {

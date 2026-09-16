@@ -344,3 +344,27 @@ export type BankSyncScheduleRow = {
   executeHhmm: string;
   enabled: boolean;
 };
+
+/** 银行账户连通性探测结果（只读，不落库）。 */
+export type BankConnectionTestResult = {
+  result: 'CONNECTED' | 'FAILED' | 'DISABLED' | 'TIMEOUT' | 'PENDING';
+  message: string;
+  bankRequestNo: string | null;
+  operation: string | null;
+  durationMs: number | null;
+  endpoint: string | null;
+  availableBalance: string | null;
+  currency: string | null;
+  statementRows: number | null;
+  testedAt: string;
+};
+
+/** 新增银行账户请求体（bank:manage）。 */
+export type BankAccountCreatePayload = {
+  bankCode: string;
+  accountName: string;
+  accountNumber: string;
+  currency: string;
+  availableBalance: number;
+  status: string;
+};

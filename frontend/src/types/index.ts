@@ -47,4 +47,6 @@ export type {
   CompanyArchiveCompany,
   CompanyArchiveAccount,
   CompanyArchiveView,
+  BankConnectionTestResult,
+  BankAccountCreatePayload,
 } from '../modules/bank-access/types';
