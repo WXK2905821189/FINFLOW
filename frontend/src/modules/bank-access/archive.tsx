@@ -395,8 +395,8 @@ function ArchiveBoard() {
         {testResult && (
           <Descriptions column={1} size="small" bordered>
             <Descriptions.Item label="结果">
-              <Tag color={testResult.result === 'CONNECTED' ? 'green' : 'red'}>
-                {CONNECTION_RESULT_TEXT[testResult.result] || testResult.result}
+              <Tag color={testResult.result.result === 'CONNECTED' ? 'green' : 'red'}>
+                {CONNECTION_RESULT_TEXT[testResult.result.result] || testResult.result.result}
               </Tag>
             </Descriptions.Item>
             <Descriptions.Item label="说明">{testResult.result.message}</Descriptions.Item>
