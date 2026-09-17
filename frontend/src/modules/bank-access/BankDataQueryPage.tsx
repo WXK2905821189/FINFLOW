@@ -1,14 +1,14 @@
 import { useCallback, useMemo, useState, type Key } from 'react';
-import { Alert, Button, Card, DatePicker, Descriptions, Drawer, Empty, Input, Modal, Pagination, Select, Space, Spin, Table, Tabs, Tag, Tooltip, message, type TableColumnsType } from 'antd';
+import { Alert, Button, Card, DatePicker, Descriptions, Drawer, Empty, Input, Modal, Pagination, Select, Space, Spin, Table, Tabs, Tag, Tooltip, Tree, message, type TableColumnsType } from 'antd';
 import { DownloadOutlined, FileTextOutlined, PlayCircleOutlined, RobotOutlined, SearchOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { Link } from 'react-router-dom';
 import { bankPipelineApi, bankApi } from '../../services/api';
 import { useAuthStore } from '../../store/auth';
 import { useRemote, ResourceFailure, StatusTag } from '../shared/components';
-import { syncStatusOptions } from '../shared/dict';
 import { dateTime, displayValue, isUnavailableStatus, isFailedStatus } from '../shared/format';
-import { BankProjectionState, COMPANY_COLUMN, statementColumns, balanceColumns, StatementDetail, BalanceDetail, type BankQueryRow } from './BankDataQueryColumns';
+import { BankProjectionState, COMPANY_COLUMN, statementColumns, balanceColumns, StatementDetail, BalanceDetail, BALANCE_COLUMN_OPTIONS, BALANCE_DEFAULT_HIDDEN, type BankQueryRow, type ColumnFilterPatch } from './BankDataQueryColumns';
+import { ColumnSettings } from './ColumnSettings';
 import { BANK_NAME_TEXT, prettyPayload } from './bankQueryTexts';
 import type { BankAccount, CompanyOption, BankDataBalanceRow, BankDataProjectionPage, BankDataStatementRow, BankRawMessageDetail, AiVoucherBatchResult, AiVoucherRowResult } from '../../types';
 
@@ -28,9 +28,23 @@ export type BankQueryFilters = {
   from: string;
   to: string;
   companyId: string;
+  /** WP-C Excel 式逐列筛选（服务端参数；表头漏斗与筛选区共用）。 */
+  accountNoSuffix: string;
+  currency: string;
+  loanCode: string;
+  counterparty: string;
+  statementNo: string;
+  minAmount: string;
+  maxAmount: string;
 };
 
-export const emptyBankQueryFilters: BankQueryFilters = { keyword: '', accountIds: [], status: '', sourceSystem: '', syncJobNo: '', requestId: '', from: '', to: '', companyId: '' };
+export const emptyBankQueryFilters: BankQueryFilters = {
+  keyword: '', accountIds: [], status: '', sourceSystem: '', syncJobNo: '', requestId: '', from: '', to: '', companyId: '',
+  accountNoSuffix: '', currency: '', loanCode: '', counterparty: '', statementNo: '', minAmount: '', maxAmount: '',
+};
+
+/** 币种下拉（WP-C）：后端把 CNY 展开命中 {CNY,10,01}，银行码/ISO 全覆盖。 */
+const CURRENCY_OPTIONS = [{ value: 'CNY', label: '人民币' }];
 
 export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDataResources }) {
   const hasPermission = useAuthStore((state) => state.hasPermission);
@@ -94,7 +108,69 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
       })),
     }));
   }, [accounts]);
-  const loader = useCallback(() => submitted ? bankPipelineApi.queryProjection<BankQueryRow>(resource, { page, size, keyword: filters.keyword || undefined, accountIds: filters.accountIds.map(Number).filter((id) => Number.isSafeInteger(id) && id > 0), status: filters.status || undefined, from: filters.from || undefined, to: filters.to || undefined, sourceSystem: filters.sourceSystem || undefined, syncJobNo: filters.syncJobNo || undefined, requestId: filters.requestId || undefined, companyId: filters.companyId ? Number(filters.companyId) : undefined }) : Promise.resolve<BankDataProjectionPage<BankQueryRow>>({ page, size, total: 0, records: [] }), [resource, page, size, filters, submitted]);
+  // WP-C（2026-09-17）流水查询左侧主体树：公司主体 → 账户，点选即联动 accountIds/companyId。
+  const subjectTreeData = useMemo(() => {
+    const companyNameById = new Map<number, string>();
+    (companyOptionRows || []).forEach((option) => companyNameById.set(option.id, option.name));
+    const groups = new Map<string, BankAccount[]>();
+    (accounts || []).forEach((account) => {
+      const key = account.companyId != null ? String(account.companyId) : 'unassigned';
+      const list = groups.get(key) || [];
+      list.push(account);
+      groups.set(key, list);
+    });
+    return Array.from(groups.entries()).map(([companyKey, list]) => {
+      const first = list[0];
+      const name = (first?.companyId != null && companyNameById.get(first.companyId))
+        || first?.companyName || companyName || '本公司主体';
+      return {
+        key: `company:${companyKey}`,
+        title: <span>{name}<span className="table-sub">（{list.length} 户）</span></span>,
+        children: list.map((account) => ({
+          key: `account:${account.id}`,
+          title: `${account.accountName}（${account.maskedAccountNumber}）`,
+        })),
+      };
+    });
+  }, [accounts, companyOptionRows, companyName]);
+  const treeSelectedKeys = useMemo(() => [
+    ...filters.accountIds.map((id) => `account:${id}`),
+    ...(filters.companyId && filters.accountIds.length === 0 ? [`company:${filters.companyId}`] : []),
+  ], [filters.accountIds, filters.companyId]);
+  const onTreeSelect = (keys: readonly Key[]) => {
+    const active = keys[keys.length - 1];
+    if (typeof active !== 'string') {
+      applyFilter({ accountIds: [] });
+      return;
+    }
+    if (active.startsWith('account:')) {
+      applyFilter({ accountIds: [active.slice('account:'.length)] });
+    } else if (active.startsWith('company:')) {
+      const company = active.slice('company:'.length);
+      applyFilter({ companyId: company === 'unassigned' ? '' : company, accountIds: [] });
+    }
+  };
+  // WP-C 余额列设置：勾选存 localStorage（组件在 balances/statements 两条路由间复用，
+  // 用 version 触发重读而不是依赖 useState 初始化只执行一次）。
+  const [hiddenVersion, setHiddenVersion] = useState(0);
+  const hiddenColumns = useMemo(() => {
+    if (isStatement) return [];
+    try {
+      const raw = localStorage.getItem('finflow.bankdata.hidden-columns.balances');
+      if (raw) return JSON.parse(raw) as string[];
+    } catch { /* 损坏则回默认 */ }
+    return BALANCE_DEFAULT_HIDDEN;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isStatement, hiddenVersion]);
+  const setHiddenColumns = (next: string[]) => {
+    try {
+      localStorage.setItem('finflow.bankdata.hidden-columns.balances', JSON.stringify(next));
+    } catch { /* 隐私模式等场景忽略持久化失败 */ }
+    setHiddenVersion((value) => value + 1);
+  };
+  // WP-C 表头漏斗筛选：提交值直接并入 filters（即选即查），金额区间为字符串需转数值。
+  const onColumnFilter = (patch: ColumnFilterPatch) => applyFilter(patch as Partial<BankQueryFilters>);
+  const loader = useCallback(() => submitted ? bankPipelineApi.queryProjection<BankQueryRow>(resource, { page, size, keyword: filters.keyword || undefined, accountIds: filters.accountIds.map(Number).filter((id) => Number.isSafeInteger(id) && id > 0), status: filters.status || undefined, from: filters.from || undefined, to: filters.to || undefined, sourceSystem: filters.sourceSystem || undefined, syncJobNo: filters.syncJobNo || undefined, requestId: filters.requestId || undefined, companyId: filters.companyId ? Number(filters.companyId) : undefined, accountNoSuffix: filters.accountNoSuffix || undefined, currency: filters.currency || undefined, loanCode: filters.loanCode || undefined, counterparty: filters.counterparty || undefined, statementNo: filters.statementNo || undefined, minAmount: filters.minAmount === '' ? undefined : Number(filters.minAmount), maxAmount: filters.maxAmount === '' ? undefined : Number(filters.maxAmount) }) : Promise.resolve<BankDataProjectionPage<BankQueryRow>>({ page, size, total: 0, records: [] }), [resource, page, size, filters, submitted]);
   const { data, loading, error, reload } = useRemote<BankDataProjectionPage<BankQueryRow>>(loader, [loader]);
   const query = () => { setPage(1); setFilters(draft); setSubmitted(true); };
   // 离散筛选（账户/公司/状态/日期）「即选即查」：不必再点查询按钮。输入框仍走按钮/回车，
@@ -171,6 +247,11 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
         sourceSystem: filters.sourceSystem || undefined, syncJobNo: filters.syncJobNo || undefined,
         requestId: filters.requestId || undefined,
         companyId: filters.companyId ? Number(filters.companyId) : undefined,
+        accountNoSuffix: filters.accountNoSuffix || undefined, currency: filters.currency || undefined,
+        loanCode: filters.loanCode || undefined, counterparty: filters.counterparty || undefined,
+        statementNo: filters.statementNo || undefined,
+        minAmount: filters.minAmount === '' ? undefined : Number(filters.minAmount),
+        maxAmount: filters.maxAmount === '' ? undefined : Number(filters.maxAmount),
       });
       message.success('导出已生成');
     } catch (reason) {
@@ -212,11 +293,19 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
   };
   const columns: TableColumnsType<BankQueryRow> = useMemo(() => {
     const base = (isStatement
-      ? statementColumns((row) => openDetail(row)) as TableColumnsType<BankQueryRow>
-      : balanceColumns((row) => openDetail(row)) as TableColumnsType<BankQueryRow>);
-    // 跨公司权限用户注入「公司主体」列；单公司用户所有行同属一家，不占列宽。
-    return canCrossCompany ? [COMPANY_COLUMN, ...base] : base;
-  }, [isStatement, openDetail, canCrossCompany]);
+      ? statementColumns({
+          openDetail,
+          activeFilters: {
+            loanCode: filters.loanCode, counterparty: filters.counterparty, statementNo: filters.statementNo,
+            minAmount: filters.minAmount, maxAmount: filters.maxAmount,
+          },
+          onColumnFilter,
+        }) as TableColumnsType<BankQueryRow>
+      : balanceColumns({ openDetail }) as TableColumnsType<BankQueryRow>);
+    // WP-C：余额页按列设置隐藏；流水页暂全量展示。跨公司权限用户注入「公司主体」列。
+    const visible = base.filter((column) => !hiddenColumns.includes(String(column.key)));
+    return canCrossCompany ? [COMPANY_COLUMN, ...visible] : visible;
+  }, [isStatement, openDetail, canCrossCompany, filters, hiddenColumns, onColumnFilter]);
   const definition = bankDataResources[resource];
   const emptyDescription = data?.enabled === false || isUnavailableStatus(data?.status) ? '真实银行直联未连接，无法获取数据。' : isFailedStatus(data?.status) ? '银行查询失败，请检查同步任务。' : '当前筛选没有匹配的真实银行数据。';
   const detailRequestId = isStatement
@@ -225,6 +314,23 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
   const detailTitle = selected
     ? (isStatement ? `银行流水字段 · ${(selected as BankDataStatementRow).statementNo || selected.id}` : `银行余额字段 · ${selected.id}`)
     : '银行字段明细';
+  const tableBlock = (
+    <>
+      <BankProjectionState data={data} />
+      {data?.requestId && <div className="query-request-id">请求编号：<span className="mono">{data.requestId}</span><Link to={`/operations/logs?requestId=${encodeURIComponent(data.requestId)}`}>查看脱敏审计追溯</Link></div>}
+      <Table
+        rowKey="id"
+        loading={loading}
+        columns={columns}
+        dataSource={data?.records || []}
+        pagination={false}
+        rowSelection={rowSelection}
+        locale={{ emptyText: <Empty description={emptyDescription} /> }}
+        scroll={{ x: isStatement ? 2000 : 1500 }}
+      />
+      {data && <Pagination className="table-pagination" current={data.page} pageSize={data.size || size} total={data.total} showSizeChanger pageSizeOptions={[10, 20, 50]} onChange={(next, nextSize) => { setPage(next); setSize(nextSize); setSubmitted(true); }} />}
+    </>
+  );
   return (
     <>
       <div className="page-heading">
@@ -234,6 +340,7 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
           <p className="muted">{canCrossCompany ? '可跨公司主体查看全部 ACTIVE 公司的银行数据，行内标注归属公司；' : '数据按登录公司主体隔离展示；'}查询读取的是已同步落库的银行数据（不实时请求银行，新数据由每晚自动同步任务或手动补拉获取）；「公司主体」为本系统银行账户档案的归属公司——银行报文只含账号与户名，账户归属由贵司在「账户与主体归档」中维护，行内公司主体列实时跟随账户当前归属（未归属账户标注「未归属」）。直出银行原始字段，本方账号明文展示，完整报文体在「原始报文」模块查看。</p>
         </div>
         {submitted && <Button icon={<DownloadOutlined />} loading={exporting} onClick={exportCsv}>导出 CSV</Button>}
+        {!isStatement && <ColumnSettings options={BALANCE_COLUMN_OPTIONS} hidden={hiddenColumns} onChange={setHiddenColumns} />}
         {canTriggerSync && <Button icon={<PlayCircleOutlined />} loading={syncTriggering} onClick={triggerSyncFromFilters}>按所选账户创建同步任务</Button>}
       </div>
       <Card className="filter-card">
@@ -268,9 +375,8 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
               <Select disabled placeholder="公司主体（仅本公司）" style={{ minWidth: 160 }} options={[]} />
             </Tooltip>
           )}
-          <Select value={draft.status || undefined} allowClear placeholder="任务状态" style={{ minWidth: 130 }} options={syncStatusOptions} onChange={(value) => applyFilter({ status: value || '' })} />
-          <Input value={draft.syncJobNo} placeholder="任务号" onPressEnter={query} onChange={(event) => setDraft((current) => ({ ...current, syncJobNo: event.target.value }))} />
-          <Input value={draft.requestId} placeholder="请求编号" onPressEnter={query} onChange={(event) => setDraft((current) => ({ ...current, requestId: event.target.value }))} />
+          <Input value={draft.accountNoSuffix} placeholder="账号后 4/6 位" style={{ maxWidth: 140 }} onPressEnter={query} onChange={(event) => setDraft((current) => ({ ...current, accountNoSuffix: event.target.value }))} />
+          <Select value={draft.currency || undefined} allowClear placeholder="币种" style={{ minWidth: 110 }} options={CURRENCY_OPTIONS} onChange={(value) => applyFilter({ currency: value || '' })} />
           <DatePicker showTime placeholder="开始时间" value={draft.from ? dayjs(draft.from) : undefined} onChange={(value) => setDateFilter('from', value?.toISOString())} />
           <DatePicker showTime placeholder="结束时间" value={draft.to ? dayjs(draft.to) : undefined} onChange={(value) => setDateFilter('to', value?.toISOString())} />
           <Space className="bank-query-actions">
@@ -290,21 +396,27 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
           : '查询结果'}
       >
         {error ? <ResourceFailure error={error} onRetry={reload} /> : !submitted && !loading ? <Empty description="设置筛选条件后点击查询；没有默认或浏览器生成的数据。" /> : (
-          <>
-            <BankProjectionState data={data} />
-            {data?.requestId && <div className="query-request-id">请求编号：<span className="mono">{data.requestId}</span><Link to={`/operations/logs?requestId=${encodeURIComponent(data.requestId)}`}>查看脱敏审计追溯</Link></div>}
-            <Table
-              rowKey="id"
-              loading={loading}
-              columns={columns}
-              dataSource={data?.records || []}
-              pagination={false}
-              rowSelection={rowSelection}
-              locale={{ emptyText: <Empty description={emptyDescription} /> }}
-              scroll={{ x: isStatement ? 1900 : 1900 }}
-            />
-            {data && <Pagination className="table-pagination" current={data.page} pageSize={data.size || size} total={data.total} showSizeChanger pageSizeOptions={[10, 20, 50]} onChange={(next, nextSize) => { setPage(next); setSize(nextSize); setSubmitted(true); }} />}
-          </>
+          isStatement ? (
+            // WP-C（2026-09-17）：金蝶式左侧主体树——公司主体 → 账户，点选即联动筛选。
+            <div style={{ display: 'flex', gap: 16, alignItems: 'stretch' }}>
+              <div style={{ width: 260, flexShrink: 0, borderRight: '1px solid #f0f0f0', paddingRight: 12, overflow: 'auto', maxHeight: 680 }}>
+                <div className="muted" style={{ marginBottom: 8 }}>公司主体 / 账户</div>
+                {subjectTreeData.length ? (
+                  <Tree
+                    blockNode
+                    defaultExpandAll
+                    selectedKeys={treeSelectedKeys}
+                    onSelect={onTreeSelect}
+                    treeData={subjectTreeData}
+                  />
+                ) : <Spin size="small" />}
+                <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>点选主体或账户筛选数据；再次点击取消。时间区间与摘要关键字在上方筛选区。</p>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                {tableBlock}
+              </div>
+            </div>
+          ) : tableBlock
         )}
       </Card>
       <Modal

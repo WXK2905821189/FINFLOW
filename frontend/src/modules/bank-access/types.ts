@@ -177,6 +177,8 @@ export type BankDataStatementRow = {
   valueDate?: string;
   loanCode?: string;
   signedAmount?: number | string;
+  /** 银行侧币种代码（如 10=人民币）；与规范化后的 currency 并存。 */
+  vendorCurrencyCode?: string | null;
   textCode?: string;
   billNumber?: string;
   remarkTextClt?: string;
@@ -258,6 +260,8 @@ export type BankDataBalanceRow = {
   taskStatus?: string;
   /** 行所属公司主体（跨公司权限用户可见；单公司用户恒为本公司）。 */
   companyName?: string;
+  /** 账户档案的银行代码（CMB/CITIC），前端映射中文名作为「银行」列；WP-C 引入。 */
+  bankCode?: string | null;
 };
 
 /** 银行数据查询页信封；records 直接是银行原始行，不再是统一业务投影。 */

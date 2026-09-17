@@ -203,6 +203,54 @@ class BankDataRealFieldsIntegrationTest {
         assertEquals("STUB-REAL-BANK-1", cells[11], "银行请求号 travels with the row as evidence");
     }
 
+    @Test
+    void columnFiltersNarrowStatementsBalancesAndExports() throws Exception {
+        String adminToken = login("admin", "Admin@123");
+        long accountId = archiveAccount(adminToken);
+        triggerSync(adminToken, accountId);
+
+        // ① 账号后 4 位（余额与流水同口径；stub 账号固定以 0001 结尾）
+        assertEquals(1, filteredCount(adminToken, "statements", accountId, "accountNoSuffix", "0001"));
+        assertEquals(1, filteredCount(adminToken, "balances", accountId, "accountNoSuffix", "0001"));
+        assertEquals(0, filteredCount(adminToken, "statements", accountId, "accountNoSuffix", "9999"));
+
+        // ② 借贷：stub 唯一流水是 D（付）
+        assertEquals(1, filteredCount(adminToken, "statements", accountId, "loanCode", "D"));
+        assertEquals(0, filteredCount(adminToken, "statements", accountId, "loanCode", "C"));
+
+        // ③ 带符号金额区间：唯一流水 signed = -12.34
+        assertEquals(1, filteredCount(adminToken, "statements", accountId, "minAmount", "-12.34"));
+        assertEquals(0, filteredCount(adminToken, "statements", accountId, "minAmount", "0"));
+
+        // ④ 币种语义匹配：CNY 展开命中银行码 10；未收录代码无行
+        assertEquals(1, filteredCount(adminToken, "balances", accountId, "currency", "CNY"));
+        assertEquals(0, filteredCount(adminToken, "balances", accountId, "currency", "USD"));
+
+        // ⑤ 收付方 / 流水号模糊
+        assertEquals(1, filteredCount(adminToken, "statements", accountId, "counterparty", "对手方"));
+        assertEquals(1, filteredCount(adminToken, "statements", accountId, "statementNo", "STUB-REAL-STMT-001"));
+
+        // ⑥ 导出与查询同口径：筛一个不存在的方向 → 只有表头
+        String csv = mockMvc.perform(get("/api/bank-data/statements/export")
+                        .param("accountIds", String.valueOf(accountId))
+                        .param("loanCode", "C")
+                        .header("Authorization", bearer(adminToken)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        assertEquals(1, csv.replace("\uFEFF", "").split("\r\n").length,
+                "export honors the same column filters as the on-screen query");
+    }
+
+    private int filteredCount(String token, String resource, long accountId, String key, String value) throws Exception {
+        String body = mockMvc.perform(get("/api/bank-data/" + resource)
+                        .param("accountIds", String.valueOf(accountId))
+                        .param(key, value)
+                        .header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        return objectMapper.readTree(body).get("data").get("records").size();
+    }
+
     private JsonNode query(String token, String resource, long accountId) throws Exception {
         String body = mockMvc.perform(get("/api/bank-data/" + resource)
                         .param("accountIds", String.valueOf(accountId))

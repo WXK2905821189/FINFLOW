@@ -59,7 +59,9 @@ public record BankDataBalanceResponse(
         /** 产出该行的同步任务状态（SUCCEEDED / UNKNOWN / ...）；仅投影查询填充。 */
         String taskStatus,
         /** 行所属公司主体名称；仅投影查询填充（跨公司权限用户可见，单公司用户恒为本公司）。 */
-        String companyName
+        String companyName,
+        /** 账户档案的银行代码（CMB/CITIC），前端映射中文名作为「银行」列；WP-C 引入。 */
+        String bankCode
 ) {
 
     /**
@@ -74,7 +76,7 @@ public record BankDataBalanceResponse(
                 accountStatus, openDate, interestType, depositTerm,
                 overdraftLimit, interestCode, interestRate, maturityDate,
                 validationStatus, validationMessage, createdAt, taskNo, taskRequestId, taskStatus,
-                null);
+                null, bankCode);
     }
 
     /** Attaches the owning company's display name; chained after {@link #withLineage} in the projection query. */
@@ -86,6 +88,6 @@ public record BankDataBalanceResponse(
                 accountStatus, openDate, interestType, depositTerm,
                 overdraftLimit, interestCode, interestRate, maturityDate,
                 validationStatus, validationMessage, createdAt, taskNo, taskRequestId, taskStatus,
-                companyName);
+                companyName, bankCode);
     }
 }

@@ -353,6 +353,19 @@ type BankDataQueryParams = {
   requestId?: string;
   /** 跨公司权限用户可选定公司主体；不传=全部可见公司，无权限用户传值会被服务端 403。 */
   companyId?: number;
+  /** WP-C Excel 式逐列筛选：账号后 4/6 位（bank_account_no LIKE '%suffix'）。 */
+  accountNoSuffix?: string;
+  /** 借贷方向 C/D（仅流水）。 */
+  loanCode?: string;
+  /** 收付方名称模糊（仅流水）。 */
+  counterparty?: string;
+  /** 银行流水号模糊（仅流水）。 */
+  statementNo?: string;
+  /** 带符号金额区间（借方为负；仅流水）。 */
+  minAmount?: number;
+  maxAmount?: number;
+  /** 币种语义值：CNY 展开命中 {CNY,10,01}。 */
+  currency?: string;
 };
 
 /** axios 默认把数组序列化成 `key[]=1`（Spring 不识别）；数组改重复键拼 URL，其余走 axios params。 */

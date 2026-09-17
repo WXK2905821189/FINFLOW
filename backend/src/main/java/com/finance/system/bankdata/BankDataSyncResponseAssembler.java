@@ -163,7 +163,8 @@ public class BankDataSyncResponseAssembler {
                 balance.getAccountStatus(), balance.getOpenDate(), balance.getInterestType(), balance.getDepositTerm(),
                 balance.getOverdraftLimit(), balance.getInterestCode(), balance.getInterestRate(), balance.getMaturityDate(),
                 balance.getValidationStatus(), balance.getValidationMessage(), balance.getCreatedAt(),
-                null, null, null, null);
+                null, null, null, null,
+                account == null ? null : account.getBankCode());
     }
 
     public BankDataSyncLogResponse log(BankDataSyncLog log) {

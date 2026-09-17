@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.finance.system.bankdata.adapter.BankDataAdapter;
 import com.finance.system.bankdata.dto.BankDataBalanceResponse;
 import com.finance.system.bankdata.dto.BankDataConnectionResponse;
+import com.finance.system.bankdata.dto.BankDataExtraFilter;
 import com.finance.system.bankdata.dto.BankDataProjectionPageResponse;
 import com.finance.system.bankdata.dto.BankDataReconciliationResponse;
 import com.finance.system.bankdata.dto.BankDataStatementDetailResponse;
@@ -126,6 +127,19 @@ public class BankDataQueryService {
                                                              LocalDateTime from, LocalDateTime to,
                                                              String sourceSystem, String syncJobNo,
                                                              String requestId, Long companyIdFilter) {
+        return queryProjection(userId, resource, page, size, status, bankAccountIds, keyword, from, to,
+                sourceSystem, syncJobNo, requestId, companyIdFilter, BankDataExtraFilter.none());
+    }
+
+    /** WP-C（2026-09-17）：Excel 式逐列筛选走 {@link BankDataExtraFilter}，导出与查询同口径。 */
+    public BankDataProjectionPageResponse<?> queryProjection(Long userId, String resource,
+                                                             int page, int size, String status,
+                                                             List<Long> bankAccountIds, String keyword,
+                                                             LocalDateTime from, LocalDateTime to,
+                                                             String sourceSystem, String syncJobNo,
+                                                             String requestId, Long companyIdFilter,
+                                                             BankDataExtraFilter extraFilter) {
+        BankDataExtraFilter extra = extraFilter == null ? BankDataExtraFilter.none() : extraFilter;
         String normalized = resource == null ? "" : resource.trim().toLowerCase(Locale.ROOT);
         if (!List.of("balances", "statements").contains(normalized)) {
             throw new BusinessException(404,
@@ -151,7 +165,7 @@ public class BankDataQueryService {
         }
         if ("balances".equals(normalized)) {
             PageResponse<BankDataBalanceResponse> balances = listBalances(companyIds, page, size, bankAccountIds,
-                    status, from, to, taskIds);
+                    status, from, to, taskIds, extra);
             Map<Long, BankDataSyncTask> tasksById = taskScope.tasksById(companyIds,
                     balances.records().stream().map(BankDataBalanceResponse::taskId).toList());
             // 公司主体列锚定<b>账户当前归属</b>（bank_account.company_id，单一事实源）：
@@ -179,6 +193,16 @@ public class BankDataQueryService {
                         status == null ? null : status.trim().toUpperCase(Locale.ROOT))
                 .ge(from != null, BankDataStatement::getTransactionTime, from)
                 .le(to != null, BankDataStatement::getTransactionTime, to)
+                // WP-C Excel 式逐列筛选（均映射服务端参数，保证分页正确性）。
+                .likeLeft(extra.accountNoSuffix() != null, BankDataStatement::getBankAccountNo, extra.accountNoSuffix())
+                .eq(extra.loanCode() != null, BankDataStatement::getLoanCode, extra.loanCode())
+                .like(extra.counterparty() != null, BankDataStatement::getCounterpartyName, extra.counterparty())
+                .like(extra.statementNo() != null, BankDataStatement::getStatementNo, extra.statementNo())
+                .ge(extra.minAmount() != null, BankDataStatement::getSignedAmount, extra.minAmount())
+                .le(extra.maxAmount() != null, BankDataStatement::getSignedAmount, extra.maxAmount())
+                .and(extra.currency() != null, nested -> nested
+                        .in(BankDataStatement::getVendorCurrencyCode, currencyCodes(extra.currency()))
+                        .or().eq(BankDataStatement::getCurrency, currencyCodes(extra.currency()).get(0)))
                 .and(keyword != null && !keyword.isBlank(), nested -> nested
                         .like(BankDataStatement::getStatementNo, keyword.trim())
                         .or().like(BankDataStatement::getSummary, keyword.trim())
@@ -247,6 +271,15 @@ public class BankDataQueryService {
                                                                 List<Long> bankAccountIds, String validationStatus,
                                                                 LocalDateTime from, LocalDateTime to,
                                                                 List<Long> taskIds) {
+        return listBalances(companyIds, page, size, bankAccountIds, validationStatus, from, to, taskIds,
+                BankDataExtraFilter.none());
+    }
+
+    private PageResponse<BankDataBalanceResponse> listBalances(Collection<Long> companyIds, int page, int size,
+                                                                List<Long> bankAccountIds, String validationStatus,
+                                                                LocalDateTime from, LocalDateTime to,
+                                                                List<Long> taskIds, BankDataExtraFilter extraFilter) {
+        BankDataExtraFilter extra = extraFilter == null ? BankDataExtraFilter.none() : extraFilter;
         LambdaQueryWrapper<BankDataBalance> query = new LambdaQueryWrapper<BankDataBalance>()
                 .in(BankDataBalance::getCompanyId, companyIds)
                 .in(bankAccountIds != null && !bankAccountIds.isEmpty(), BankDataBalance::getBankAccountId, bankAccountIds)
@@ -255,11 +288,22 @@ public class BankDataQueryService {
                         validationStatus == null ? null : validationStatus.trim().toUpperCase(Locale.ROOT))
                 .ge(from != null, BankDataBalance::getAsOfTime, from)
                 .le(to != null, BankDataBalance::getAsOfTime, to)
+                // WP-C：账号后 4/6 位 + 币种（余额与流水同口径）。
+                .likeLeft(extra.accountNoSuffix() != null, BankDataBalance::getBankAccountNo, extra.accountNoSuffix())
+                .and(extra.currency() != null, nested -> nested
+                        .in(BankDataBalance::getVendorCurrencyCode, currencyCodes(extra.currency()))
+                        .or().eq(BankDataBalance::getCurrency, currencyCodes(extra.currency()).get(0)))
                 .orderByDesc(BankDataBalance::getAsOfTime)
                 .orderByDesc(BankDataBalance::getId);
         Page<BankDataBalance> result = balanceMapper.selectPage(new Page<>(Math.max(1, page), boundedSize(size)), query);
         return new PageResponse<>(result.getCurrent(), result.getSize(), result.getTotal(),
                 responseAssembler.balances(result.getRecords(), companyIds));
+    }
+
+    /** WP-C 币种语义匹配：CNY 展开 {CNY,10,01}（银行码与 ISO 并存），其余原样。 */
+    private List<String> currencyCodes(String currency) {
+        String code = currency == null ? "" : currency.trim().toUpperCase(Locale.ROOT);
+        return "CNY".equals(code) ? List.of("CNY", "10", "01") : List.of(code);
     }
 
 

@@ -87,6 +87,17 @@ public class BankDataExportService {
     public BankDataExport export(Long userId, String resource, String status, List<Long> bankAccountIds,
                                  String keyword, LocalDateTime from, LocalDateTime to,
                                  String syncJobNo, String requestId, Long companyIdFilter) {
+        return export(userId, resource, status, bankAccountIds, keyword, from, to, syncJobNo, requestId,
+                companyIdFilter, com.finance.system.bankdata.dto.BankDataExtraFilter.none());
+    }
+
+    /** WP-C（2026-09-17）：导出与屏幕查询同口径（账号后缀/借贷/收付方/流水号/金额区间/币种）。 */
+    public BankDataExport export(Long userId, String resource, String status, List<Long> bankAccountIds,
+                                 String keyword, LocalDateTime from, LocalDateTime to,
+                                 String syncJobNo, String requestId, Long companyIdFilter,
+                                 com.finance.system.bankdata.dto.BankDataExtraFilter extraFilter) {
+        com.finance.system.bankdata.dto.BankDataExtraFilter extra = extraFilter == null
+                ? com.finance.system.bankdata.dto.BankDataExtraFilter.none() : extraFilter;
         String normalized = resource == null ? "" : resource.trim().toLowerCase(Locale.ROOT);
         if (!List.of("balances", "statements").contains(normalized)) {
             throw new BusinessException(404, "银行侧未开通该功能；当前仅支持 balances(余额查询) / statements(流水查询)");
@@ -116,6 +127,10 @@ public class BankDataExportService {
                             status == null ? null : status.trim().toUpperCase(Locale.ROOT))
                     .ge(from != null, BankDataBalance::getAsOfTime, from)
                     .le(to != null, BankDataBalance::getAsOfTime, to)
+                    .likeLeft(extra.accountNoSuffix() != null, BankDataBalance::getBankAccountNo, extra.accountNoSuffix())
+                    .and(extra.currency() != null, nested -> nested
+                            .in(BankDataBalance::getVendorCurrencyCode, currencyCodes(extra.currency()))
+                            .or().eq(BankDataBalance::getCurrency, currencyCodes(extra.currency()).get(0)))
                     .orderByDesc(BankDataBalance::getAsOfTime)
                     .orderByDesc(BankDataBalance::getId), balanceMapper);
             List<List<String>> csv = new ArrayList<>(rows.size());
@@ -143,6 +158,15 @@ public class BankDataExportService {
                         status == null ? null : status.trim().toUpperCase(Locale.ROOT))
                 .ge(from != null, BankDataStatement::getTransactionTime, from)
                 .le(to != null, BankDataStatement::getTransactionTime, to)
+                .likeLeft(extra.accountNoSuffix() != null, BankDataStatement::getBankAccountNo, extra.accountNoSuffix())
+                .eq(extra.loanCode() != null, BankDataStatement::getLoanCode, extra.loanCode())
+                .like(extra.counterparty() != null, BankDataStatement::getCounterpartyName, extra.counterparty())
+                .like(extra.statementNo() != null, BankDataStatement::getStatementNo, extra.statementNo())
+                .ge(extra.minAmount() != null, BankDataStatement::getSignedAmount, extra.minAmount())
+                .le(extra.maxAmount() != null, BankDataStatement::getSignedAmount, extra.maxAmount())
+                .and(extra.currency() != null, nested -> nested
+                        .in(BankDataStatement::getVendorCurrencyCode, currencyCodes(extra.currency()))
+                        .or().eq(BankDataStatement::getCurrency, currencyCodes(extra.currency()).get(0)))
                 .and(keyword != null && !keyword.isBlank(), nested -> nested
                         .like(BankDataStatement::getStatementNo, keyword.trim())
                         .or().like(BankDataStatement::getSummary, keyword.trim())
@@ -231,6 +255,12 @@ public class BankDataExportService {
             return "";
         }
         return CURRENCY_TEXT.getOrDefault(vendorCurrencyCode.trim(), vendorCurrencyCode.trim());
+    }
+
+    /** WP-C 币种语义匹配（与 BankDataQueryService 同口径）：CNY 展开 {CNY,10,01}。 */
+    private List<String> currencyCodes(String currency) {
+        String code = currency == null ? "" : currency.trim().toUpperCase(Locale.ROOT);
+        return "CNY".equals(code) ? List.of("CNY", "10", "01") : List.of(code);
     }
 
     private String text(String value) {

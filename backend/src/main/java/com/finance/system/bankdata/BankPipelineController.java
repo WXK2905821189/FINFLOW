@@ -1,5 +1,6 @@
 package com.finance.system.bankdata;
 
+import com.finance.system.bankdata.dto.BankDataExtraFilter;
 import com.finance.system.bankdata.dto.BankDataProjectionResponse;
 import com.finance.system.bankdata.dto.BankDataProjectionPageResponse;
 import com.finance.system.bankdata.dto.BankDataSyncLogResponse;
@@ -125,13 +126,23 @@ public class BankPipelineController {
             @RequestParam(required = false) String syncJobNo,
             @RequestParam(required = false) String requestId,
             @RequestParam(required = false) Long companyId,
+            // WP-C（2026-09-17）Excel 式逐列筛选：账号后缀/借贷/收付方/流水号/金额区间/币种。
+            @RequestParam(required = false) String accountNoSuffix,
+            @RequestParam(required = false) String loanCode,
+            @RequestParam(required = false) String counterparty,
+            @RequestParam(required = false) String statementNo,
+            @RequestParam(required = false) java.math.BigDecimal minAmount,
+            @RequestParam(required = false) java.math.BigDecimal maxAmount,
+            @RequestParam(required = false) String currency,
             @AuthenticationPrincipal UserPrincipal principal) {
         if (!principal.getAuthorities().stream().anyMatch(authority -> authority.getAuthority().equals("bankdata:view"))
                 && !principal.getAuthorities().stream().anyMatch(authority -> authority.getAuthority().equals(permissionFor(resource)))) {
             throw new org.springframework.security.access.AccessDeniedException("Bank data projection permission is required");
         }
+        BankDataExtraFilter extra = new BankDataExtraFilter(accountNoSuffix, loanCode, counterparty,
+                statementNo, minAmount, maxAmount, currency).normalize();
         return ApiResponse.success(queryService.queryProjection(principal.getId(), resource, page, size, status,
-                accountIds, keyword, from, to, sourceSystem, syncJobNo, requestId, companyId));
+                accountIds, keyword, from, to, sourceSystem, syncJobNo, requestId, companyId, extra));
     }
 
     /**
@@ -152,13 +163,23 @@ public class BankPipelineController {
             @RequestParam(required = false) String syncJobNo,
             @RequestParam(required = false) String requestId,
             @RequestParam(required = false) Long companyId,
+            // WP-C：导出与屏幕查询同一筛选口径（账号后缀/借贷/收付方/流水号/金额区间/币种）。
+            @RequestParam(required = false) String accountNoSuffix,
+            @RequestParam(required = false) String loanCode,
+            @RequestParam(required = false) String counterparty,
+            @RequestParam(required = false) String statementNo,
+            @RequestParam(required = false) java.math.BigDecimal minAmount,
+            @RequestParam(required = false) java.math.BigDecimal maxAmount,
+            @RequestParam(required = false) String currency,
             @AuthenticationPrincipal UserPrincipal principal) {
         if (!principal.getAuthorities().stream().anyMatch(authority -> authority.getAuthority().equals("bankdata:view"))
                 && !principal.getAuthorities().stream().anyMatch(authority -> authority.getAuthority().equals(permissionFor(resource)))) {
             throw new org.springframework.security.access.AccessDeniedException("Bank data projection permission is required");
         }
+        BankDataExtraFilter extra = new BankDataExtraFilter(accountNoSuffix, loanCode, counterparty,
+                statementNo, minAmount, maxAmount, currency).normalize();
         BankDataExportService.BankDataExport export = exportService.export(principal.getId(), resource, status,
-                accountIds, keyword, from, to, syncJobNo, requestId, companyId);
+                accountIds, keyword, from, to, syncJobNo, requestId, companyId, extra);
         // RFC 6266 / RFC 5987: the ASCII fallback keeps old clients working, filename* carries
         // the Chinese name Excel actually shows.
         String encoded = URLEncoder.encode(export.filename(), StandardCharsets.UTF_8).replace("+", "%20");

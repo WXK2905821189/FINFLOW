@@ -1,11 +1,16 @@
-import { Alert, Button, Collapse, Descriptions, Space, Tag, type TableColumnsType } from 'antd';
+import { useState } from 'react';
+import { Alert, Button, Collapse, Descriptions, Input, InputNumber, Segmented, Space, Tag, message, type TableColumnsType } from 'antd';
+import { CopyOutlined } from '@ant-design/icons';
 import { StatusTag } from '../shared/components';
 import { dateTime, displayValue, cleanText, money, dateOnly, isUnavailableStatus, isFailedStatus } from '../shared/format';
 import type { BankDataBalanceRow, BankDataProjectionPage, BankDataStatementRow } from '../../types';
-import { ACCOUNT_STATUS_TEXT, accountStatusColor, INFO_FLAG_TEXT, INTEREST_TYPE_TEXT, LOAN_CODE_TEXT, REVERSAL_TEXT } from './bankQueryTexts';
+import { ACCOUNT_STATUS_TEXT, accountStatusColor, BANK_NAME_TEXT, INFO_FLAG_TEXT, INTEREST_TYPE_TEXT, LOAN_CODE_TEXT, REVERSAL_TEXT, currencyText } from './bankQueryTexts';
 
 /** 投影行类型：流水与余额二选一（列定义与详情抽屉共用）。 */
 export type BankQueryRow = BankDataStatementRow | BankDataBalanceRow;
+
+/** WP-C 列筛选提交载荷：key → 字符串值（金额区间键 minAmount/maxAmount 亦为字符串，页面侧转数值）。 */
+export type ColumnFilterPatch = Record<string, string>;
 
 export function BankProjectionState({ data }: { data?: BankDataProjectionPage<BankQueryRow> }) {
   if (!data) return null;
@@ -22,6 +27,7 @@ export function BankProjectionState({ data }: { data?: BankDataProjectionPage<Ba
 /** 跨公司视图的公司主体列：仅持有 bankdata:cross-company:view 权限的用户注入（见 columns useMemo）。
  *  行值来自账户当前归属（未归属账户为空 → 标注「未归属」）。 */
 export const COMPANY_COLUMN = {
+  key: 'companyName',
   title: '公司主体',
   dataIndex: 'companyName',
   width: 150,
@@ -31,32 +37,198 @@ export const COMPANY_COLUMN = {
     : <Tag color="orange">未归属</Tag>),
 };
 
-export const statementColumns = (openDetail: (row: BankDataStatementRow) => void): TableColumnsType<BankDataStatementRow> => [
-  { title: '交易时间', dataIndex: 'transactionTime', width: 160, render: (value) => dateTime(value) },
+/* ===================== WP-C 表头筛选器（Excel 式，映射服务端参数） ===================== */
+
+/** 文本筛选：收付方 / 流水号。 */
+function TextColumnFilter({ initialValue, placeholder, onApply }: {
+  initialValue?: string;
+  placeholder: string;
+  onApply: (value: string) => void;
+}) {
+  const [draft, setDraft] = useState(initialValue || '');
+  return (
+    <Space direction="vertical" size={6} style={{ padding: 8 }}>
+      <Input
+        autoFocus
+        allowClear
+        value={draft}
+        placeholder={placeholder}
+        style={{ width: 200 }}
+        onChange={(event) => setDraft(event.target.value)}
+        onPressEnter={() => onApply(draft.trim())}
+      />
+      <Space>
+        <Button type="primary" size="small" onClick={() => onApply(draft.trim())}>筛选</Button>
+        <Button size="small" onClick={() => { setDraft(''); onApply(''); }}>清除</Button>
+      </Space>
+    </Space>
+  );
+}
+
+/** 金额区间筛选：带符号金额（借方为负）。 */
+function AmountRangeFilter({ initialValue, onApply }: {
+  initialValue?: { min?: string; max?: string };
+  onApply: (patch: ColumnFilterPatch) => void;
+}) {
+  const [minDraft, setMinDraft] = useState<string>(initialValue?.min || '');
+  const [maxDraft, setMaxDraft] = useState<string>(initialValue?.max || '');
+  const apply = (min: string, max: string) => onApply({ minAmount: min, maxAmount: max });
+  return (
+    <Space direction="vertical" size={6} style={{ padding: 8 }}>
+      <Space size={4}>
+        <InputNumber
+          autoFocus
+          placeholder="最小金额"
+          value={minDraft === '' ? undefined : Number(minDraft)}
+          style={{ width: 120 }}
+          onChange={(value) => setMinDraft(value === null ? '' : String(value))}
+        />
+        <span>~</span>
+        <InputNumber
+          placeholder="最大金额"
+          value={maxDraft === '' ? undefined : Number(maxDraft)}
+          style={{ width: 120 }}
+          onChange={(value) => setMaxDraft(value === null ? '' : String(value))}
+        />
+      </Space>
+      <Space>
+        <Button type="primary" size="small" onClick={() => apply(minDraft, maxDraft)}>筛选</Button>
+        <Button size="small" onClick={() => { setMinDraft(''); setMaxDraft(''); apply('', ''); }}>清除</Button>
+      </Space>
+      <span className="muted" style={{ fontSize: 12 }}>带符号金额：收款为正、付款为负</span>
+    </Space>
+  );
+}
+
+/** 借贷筛选：C=贷方（收）/ D=借方（付）。 */
+function LoanCodeFilter({ initialValue, onApply }: {
+  initialValue?: string;
+  onApply: (value: string) => void;
+}) {
+  return (
+    <div style={{ padding: 8 }}>
+      <Segmented
+        value={initialValue || 'ALL'}
+        options={[
+          { label: '全部', value: 'ALL' },
+          { label: '收（贷）', value: 'C' },
+          { label: '付（借）', value: 'D' },
+        ]}
+        onChange={(value) => onApply(value === 'ALL' ? '' : String(value))}
+      />
+    </div>
+  );
+}
+
+/** 可用余额复制标签：复制原始数值（无千分位），clipboard API 失败时退回 execCommand。 */
+function CopyMoneyButton({ value }: { value: number | string }) {
+  const text = String(value);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      message.success('已复制');
+    } catch {
+      try {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        textarea.remove();
+        message.success('已复制');
+      } catch {
+        message.error('复制失败，请手动选择复制');
+      }
+    }
+  };
+  return (
+    <Button
+      type="text"
+      size="small"
+      icon={<CopyOutlined />}
+      aria-label="复制可用余额"
+      style={{ marginLeft: 2, padding: 0, height: 'auto' }}
+      onClick={(event) => { event.stopPropagation(); void copy(); }}
+    />
+  );
+}
+
+/* ===================== 流水列（WP-C：表头筛选 + 币种列） ===================== */
+
+export type StatementColumnOptions = {
+  openDetail: (row: BankDataStatementRow) => void;
+  /** 当前筛选值（用于 filterDropdown 回显与 filteredIcon 高亮）。 */
+  activeFilters: ColumnFilterPatch;
+  onColumnFilter: (patch: ColumnFilterPatch) => void;
+};
+
+export const statementColumns = ({ openDetail, activeFilters, onColumnFilter }: StatementColumnOptions): TableColumnsType<BankDataStatementRow> => [
+  { key: 'transactionTime', title: '交易时间', dataIndex: 'transactionTime', width: 160, render: (value) => dateTime(value) },
   {
+    key: 'loanCode',
     title: '借贷',
     dataIndex: 'loanCode',
-    width: 90,
+    width: 96,
+    filtered: Boolean(activeFilters.loanCode),
+    filterDropdown: (
+      <LoanCodeFilter
+        initialValue={activeFilters.loanCode}
+        onApply={(value) => onColumnFilter({ loanCode: value })}
+      />
+    ),
     render: (value?: string) => (value ? <Tag color={value === 'C' ? 'blue' : 'gold'}>{LOAN_CODE_TEXT[value] || value}</Tag> : '--'),
   },
   {
+    key: 'signedAmount',
     title: '金额（带符号）',
     dataIndex: 'signedAmount',
-    width: 140,
+    width: 168,
     align: 'right',
+    filtered: Boolean(activeFilters.minAmount || activeFilters.maxAmount),
+    filterDropdown: (
+      <AmountRangeFilter
+        initialValue={{ min: activeFilters.minAmount, max: activeFilters.maxAmount }}
+        onApply={(patch) => onColumnFilter(patch)}
+      />
+    ),
     render: (value) => (value === undefined || value === null ? '--' : <span className="mono">{money(value)}</span>),
   },
   {
+    key: 'acctOnlineBal',
     title: '交易后余额',
     dataIndex: 'acctOnlineBal',
     width: 140,
     align: 'right',
     render: (value) => (value === undefined || value === null ? '--' : <span className="mono">{money(value)}</span>),
   },
-  { title: '流水号', dataIndex: 'statementNo', width: 170, render: (value) => (value ? <span className="mono">{value}</span> : '--') },
   {
+    key: 'statementNo',
+    title: '流水号',
+    dataIndex: 'statementNo',
+    width: 170,
+    filtered: Boolean(activeFilters.statementNo),
+    filterDropdown: (
+      <TextColumnFilter
+        initialValue={activeFilters.statementNo}
+        placeholder="流水号关键字"
+        onApply={(value) => onColumnFilter({ statementNo: value })}
+      />
+    ),
+    render: (value) => (value ? <span className="mono">{value}</span> : '--'),
+  },
+  {
+    key: 'counterparty',
     title: '收付方',
     width: 220,
+    ellipsis: true,
+    filtered: Boolean(activeFilters.counterparty),
+    filterDropdown: (
+      <TextColumnFilter
+        initialValue={activeFilters.counterparty}
+        placeholder="收付方名称关键字"
+        onApply={(value) => onColumnFilter({ counterparty: value })}
+      />
+    ),
     render: (_, row) => (
       <>
         <span>{displayValue(row.counterpartyName)}</span>
@@ -65,12 +237,20 @@ export const statementColumns = (openDetail: (row: BankDataStatementRow) => void
     ),
   },
   {
+    key: 'summary',
     title: '摘要',
     width: 220,
     ellipsis: true,
     render: (_, row) => cleanText(row.businessText || row.remarkTextClt || row.summary || row.extendedRemark),
   },
   {
+    key: 'currency',
+    title: '币种',
+    width: 90,
+    render: (_, row) => currencyText(row.vendorCurrencyCode ?? row.currency, row.currency),
+  },
+  {
+    key: 'validationStatus',
     title: '状态',
     dataIndex: 'validationStatus',
     width: 150,
@@ -81,12 +261,24 @@ export const statementColumns = (openDetail: (row: BankDataStatementRow) => void
       </Space>
     ),
   },
-  { title: '详情', fixed: 'right', width: 80, render: (_, row) => <Button type="link" onClick={(event) => { void event; openDetail(row); }}>查看</Button> },
+  { key: 'detail', title: '详情', fixed: 'right', width: 80, render: (_, row) => <Button type="link" onClick={(event) => { void event; openDetail(row); }}>查看</Button> },
 ];
 
-export const balanceColumns = (openDetail: (row: BankDataBalanceRow) => void): TableColumnsType<BankDataBalanceRow> => [
-  { title: '快照时间', dataIndex: 'asOfTime', width: 160, render: (value) => dateTime(value) },
+/* ===================== 余额列（WP-C：默认 5 列 + 复制标签，其余进列设置） ===================== */
+
+export type BalanceColumnOptions = {
+  openDetail: (row: BankDataBalanceRow) => void;
+};
+
+export const balanceColumns = ({ openDetail }: BalanceColumnOptions): TableColumnsType<BankDataBalanceRow> => [
   {
+    key: 'bankName',
+    title: '银行',
+    width: 110,
+    render: (_, row) => displayValue(row.bankCode ? (BANK_NAME_TEXT[row.bankCode] || row.bankCode) : undefined),
+  },
+  {
+    key: 'account',
     title: '账号',
     width: 180,
     render: (_, row) => (
@@ -97,18 +289,35 @@ export const balanceColumns = (openDetail: (row: BankDataBalanceRow) => void): T
       </>
     ),
   },
-  { title: '户名', dataIndex: 'bankAccountName', width: 220, render: (value) => displayValue(value) },
-  { title: '可用余额', dataIndex: 'availableBalance', width: 140, align: 'right', render: (value) => (value === undefined || value === null ? '--' : <span className="mono">{money(value)}</span>) },
-  { title: '联机余额', dataIndex: 'onlineBalance', width: 140, align: 'right', render: (value) => (value === undefined || value === null ? '--' : <span className="mono">{money(value)}</span>) },
-  { title: '冻结余额', dataIndex: 'frozenBalance', width: 140, align: 'right', render: (value) => (value === undefined || value === null ? '--' : <span className="mono">{money(value)}</span>) },
-  { title: '币种', dataIndex: 'vendorCurrencyCode', width: 90, render: (value, row) => displayValue(value || row.currency) },
+  { key: 'asOfTime', title: '截止时间', dataIndex: 'asOfTime', width: 160, render: (value) => dateTime(value) },
   {
+    key: 'currency',
+    title: '币种',
+    width: 90,
+    render: (_, row) => currencyText(row.vendorCurrencyCode, row.currency),
+  },
+  {
+    key: 'availableBalance',
+    title: '可用余额',
+    dataIndex: 'availableBalance',
+    width: 160,
+    align: 'right',
+    render: (value) => (value === undefined || value === null
+      ? '--'
+      : <Space size={0}><span className="mono">{money(value)}</span><CopyMoneyButton value={value} /></Space>),
+  },
+  { key: 'bankAccountName', title: '户名', dataIndex: 'bankAccountName', width: 220, render: (value) => displayValue(value) },
+  { key: 'onlineBalance', title: '联机余额', dataIndex: 'onlineBalance', width: 140, align: 'right', render: (value) => (value === undefined || value === null ? '--' : <span className="mono">{money(value)}</span>) },
+  { key: 'frozenBalance', title: '冻结余额', dataIndex: 'frozenBalance', width: 140, align: 'right', render: (value) => (value === undefined || value === null ? '--' : <span className="mono">{money(value)}</span>) },
+  {
+    key: 'accountStatus',
     title: '账户状态',
     dataIndex: 'accountStatus',
     width: 90,
     render: (value?: string) => (value ? <Tag color={accountStatusColor(value)}>{ACCOUNT_STATUS_TEXT[value] || value}</Tag> : '--'),
   },
   {
+    key: 'validationStatus',
     title: '状态',
     dataIndex: 'validationStatus',
     width: 150,
@@ -119,8 +328,20 @@ export const balanceColumns = (openDetail: (row: BankDataBalanceRow) => void): T
       </Space>
     ),
   },
-  { title: '详情', fixed: 'right', width: 80, render: (_, row) => <Button type="link" onClick={() => openDetail(row)}>查看</Button> },
+  { key: 'detail', title: '详情', fixed: 'right', width: 80, render: (_, row) => <Button type="link" onClick={() => openDetail(row)}>查看</Button> },
 ];
+
+/** 余额查询「列设置」可选项（默认 5 列 + 详情之外均为可隐藏列）。 */
+export const BALANCE_COLUMN_OPTIONS = [
+  { key: 'bankAccountName', label: '户名' },
+  { key: 'onlineBalance', label: '联机余额' },
+  { key: 'frozenBalance', label: '冻结余额' },
+  { key: 'accountStatus', label: '账户状态' },
+  { key: 'validationStatus', label: '校验状态' },
+];
+
+/** WP-C 余额默认隐藏列（银行/账号/截止时间/币种/可用余额/详情 之外）。 */
+export const BALANCE_DEFAULT_HIDDEN = ['bankAccountName', 'onlineBalance', 'frozenBalance', 'accountStatus', 'validationStatus'];
 
 export function StatementDetail({ row }: { row: BankDataStatementRow }) {
   return (
@@ -137,6 +358,7 @@ export function StatementDetail({ row }: { row: BankDataStatementRow }) {
       <Descriptions.Item label="收付方名称">{displayValue(row.counterpartyName)}</Descriptions.Item>
       <Descriptions.Item label="收付方账号"><span className="mono">{displayValue(row.ctpAcctNbr)}</span></Descriptions.Item>
       <Descriptions.Item label="收付方开户行">{displayValue(row.ctpBankName)}</Descriptions.Item>
+      <Descriptions.Item label="币种">{currencyText(row.vendorCurrencyCode ?? row.currency, row.currency)}</Descriptions.Item>
       <Descriptions.Item label="你方摘要">{cleanText(row.remarkTextClt)}</Descriptions.Item>
       <Descriptions.Item label="网银业务摘要">{cleanText(row.businessText)}</Descriptions.Item>
       <Descriptions.Item label="扩展摘要">{displayValue(row.extendedRemark)}</Descriptions.Item>
@@ -178,7 +400,8 @@ export function BalanceDetail({ row }: { row: BankDataBalanceRow }) {
   return (
     <>
       <Descriptions className="projection-detail" column={1} size="small" bordered>
-        <Descriptions.Item label="快照时间">{dateTime(row.asOfTime)}</Descriptions.Item>
+        <Descriptions.Item label="截止时间">{dateTime(row.asOfTime)}</Descriptions.Item>
+        <Descriptions.Item label="银行">{displayValue(row.bankCode ? (BANK_NAME_TEXT[row.bankCode] || row.bankCode) : undefined)}</Descriptions.Item>
         <Descriptions.Item label="账号"><span className="mono">{displayValue(row.accountMasked || row.bankAccountNo)}</span></Descriptions.Item>
         <Descriptions.Item label="银行侧账号"><span className="mono">{displayValue(row.bankAccountNo)}</span></Descriptions.Item>
         <Descriptions.Item label="户名">{displayValue(row.bankAccountName)}</Descriptions.Item>
@@ -186,7 +409,7 @@ export function BalanceDetail({ row }: { row: BankDataBalanceRow }) {
         <Descriptions.Item label="联机余额">{row.onlineBalance === undefined ? '--' : <span className="mono">{money(row.onlineBalance)}</span>}</Descriptions.Item>
         <Descriptions.Item label="冻结余额">{row.frozenBalance === undefined ? '--' : <span className="mono">{money(row.frozenBalance)}</span>}</Descriptions.Item>
         <Descriptions.Item label="上日余额">{row.previousDayBalance === undefined ? '--' : <span className="mono">{money(row.previousDayBalance)}</span>}</Descriptions.Item>
-        <Descriptions.Item label="币种">{displayValue(row.vendorCurrencyCode || row.currency)}</Descriptions.Item>
+        <Descriptions.Item label="币种">{currencyText(row.vendorCurrencyCode, row.currency)}</Descriptions.Item>
         <Descriptions.Item label="账户状态">{row.accountStatus ? <Tag color={accountStatusColor(row.accountStatus)}>{ACCOUNT_STATUS_TEXT[row.accountStatus] || row.accountStatus}</Tag> : '--'}</Descriptions.Item>
       </Descriptions>
       <Collapse

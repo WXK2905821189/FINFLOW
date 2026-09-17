@@ -23,6 +23,24 @@ export const INFO_FLAG_TEXT: Record<string, string> = {
 /** 银行代码显示名（仅展示层映射；未收录代码原样显示）。 */
 export const BANK_NAME_TEXT: Record<string, string> = { CMB: '招商银行', CITIC: '中信银行' };
 
+/**
+ * WP-C（2026-09-17）币种翻译：银行币种代码 → 中文名。
+ * 银行侧码表（CMB ccynbr/currencyNbr：10=人民币；01 为老口径人民币）；ISO CNY 同译。
+ * 未收录代码原样显示（不猜测码表外语义，与后端导出 CURRENCY_TEXT 口径一致）。
+ */
+export const CURRENCY_TEXT: Record<string, string> = {
+  '10': '人民币',
+  '01': '人民币',
+  CNY: '人民币',
+};
+
+/** 币种展示：vendorCurrencyCode 优先、fallback 规范化 currency；翻译命中则显示中文。 */
+export const currencyText = (vendorCurrencyCode?: string | null, currency?: string | null) => {
+  const code = (vendorCurrencyCode || currency || '').trim().toUpperCase();
+  if (!code) return '--';
+  return CURRENCY_TEXT[code] || code;
+};
+
 /** Pretty-print the bank payload; fall back to the raw text when it is not JSON. */
 export const prettyPayload = (payload: string) => {
   try {
