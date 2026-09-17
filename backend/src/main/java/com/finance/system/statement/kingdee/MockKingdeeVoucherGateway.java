@@ -15,6 +15,13 @@ public class MockKingdeeVoucherGateway implements KingdeeVoucherGateway {
     }
 
     @Override
+    public KingdeeVoucherResult pushGlVoucher(String payloadJson) {
+        return new KingdeeVoucherResult(
+                "GL-MOCK-" + Math.abs(payloadJson.hashCode()), "PUSHED",
+                "Accepted by Kingdee mock gateway (GL_VOUCHER draft)");
+    }
+
+    @Override
     public KingdeeConnectionStatus ping() {
         return new KingdeeConnectionStatus(false, "MOCK",
                 "当前为模拟网关（kingdee.mock-mode=true），推送只产生模拟凭证号，未连接真实金蝶");

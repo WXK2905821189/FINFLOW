@@ -92,6 +92,36 @@ public class KingdeeProperties {
      */
     private String defaultBankAccountNumber;
 
+    /**
+     * GL_VOUCHER voucher-group FNumber (凭证字). Demo account set has "记" (PRE001); the
+     * rule engine always creates plain journal vouchers. Calibrated pending REAL test.
+     */
+    private String glVoucherGroupNumber = "PRE001";
+
+    /**
+     * GL_VOUCHER account-book FNumber (FAccountBookID, MustInput=1 per the 2026-09-11
+     * QueryBusinessInfo snapshot). The production account set is org 400 (雪云); per-org
+     * books need REAL-mode calibration, so the rule-engine builder uses this single value
+     * until the per-org mapping lands.
+     */
+    private String glAcctbookNumber = "400";
+
+    public String getGlVoucherGroupNumber() {
+        return glVoucherGroupNumber;
+    }
+
+    public void setGlVoucherGroupNumber(String glVoucherGroupNumber) {
+        this.glVoucherGroupNumber = glVoucherGroupNumber;
+    }
+
+    public String getGlAcctbookNumber() {
+        return glAcctbookNumber;
+    }
+
+    public void setGlAcctbookNumber(String glAcctbookNumber) {
+        this.glAcctbookNumber = glAcctbookNumber;
+    }
+
     public boolean isRealMode() {
         return !Boolean.TRUE.equals(mockMode) && Boolean.TRUE.equals(realEnabled);
     }

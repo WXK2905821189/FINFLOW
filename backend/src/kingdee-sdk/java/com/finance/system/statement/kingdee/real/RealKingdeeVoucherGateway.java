@@ -72,6 +72,26 @@ public class RealKingdeeVoucherGateway implements KingdeeVoucherGateway {
     }
 
     /**
+     * Rule-engine journal voucher (GL_VOUCHER) draft save. Payload is prebuilt and
+     * balance-checked by KingdeeGlVoucherPayloadBuilder; here we only call Save and parse.
+     * Deliberately NO autoAuditIfEnabled: GL_VOUCHER entries are the legal accounting
+     * record and are always reviewed by finance on the Kingdee side (T8 decision, and the
+     * feasibility report's risk note). FDetailID flex-dimension slots are a known
+     * calibration item — first real push may fail with the dimension error text that
+     * calibrates the slot mapping (probe-iteration, same as the apiexp joint test).
+     */
+    @Override
+    public KingdeeVoucherResult pushGlVoucher(String payloadJson) {
+        String response;
+        try {
+            response = client.save("GL_VOUCHER", payloadJson);
+        } catch (BusinessException e) {
+            return new KingdeeVoucherResult(null, "FAILED", e.getMessage());
+        }
+        return parseResponse("GL_VOUCHER", response);
+    }
+
+    /**
      * Read-only connectivity probe (UI "connection test"): one ExecuteBillQuery against
      * BD_Customer. By contract never saves/submits anything — safe against the "do not
      * touch the real books" boundary agreed on 2026-09-09.
