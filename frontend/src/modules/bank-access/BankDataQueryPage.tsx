@@ -40,7 +40,9 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
   // 跨公司查看（V24）：仅持有 bankdata:cross-company:view 权限的用户渲染公司下拉与公司列。
   const canCrossCompany = hasPermission('bankdata:cross-company:view');
   const companyOptionsLoader = useCallback(() => bankPipelineApi.companyOptions(), []);
-  const { data: companyOptions } = useRemote<CompanyOption[]>(companyOptionsLoader, [companyOptionsLoader]);
+  const { data: companyOptionRows } = useRemote<CompanyOption[]>(companyOptionsLoader, [companyOptionsLoader]);
+  // antd Select 需要 {value,label}；后端返回 {id,name}，此前直喂导致下拉渲染空白项（2026-09-17 修复）。
+  const companyOptions = (companyOptionRows || []).map((option) => ({ value: option.id, label: option.name }));
   const [page, setPage] = useState(1);
   const [size, setSize] = useState(20);
   const [submitted, setSubmitted] = useState(false);
@@ -229,7 +231,7 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
         <div>
           <span className="section-kicker">银行数据 / 数据查询{companyName ? ` · ${companyName}` : ''}</span>
           <h2>{definition.title}</h2>
-          <p className="muted">{canCrossCompany ? '可跨公司主体查看全部 ACTIVE 公司的银行数据，行内标注归属公司；' : '数据按登录公司主体隔离展示；'}查询读取的是已同步落库的银行数据（不实时请求银行，新数据由每晚自动同步任务或手动补拉获取）；「公司主体」为本系统银行账户档案的归属公司——银行报文只含账号与户名，账户归属由贵司在「银行账户」中维护，新增分公司/子公司账户后即可在此分开查看。直出银行原始字段，本方账号脱敏，完整报文体在「原始报文」模块查看。</p>
+          <p className="muted">{canCrossCompany ? '可跨公司主体查看全部 ACTIVE 公司的银行数据，行内标注归属公司；' : '数据按登录公司主体隔离展示；'}查询读取的是已同步落库的银行数据（不实时请求银行，新数据由每晚自动同步任务或手动补拉获取）；「公司主体」为本系统银行账户档案的归属公司——银行报文只含账号与户名，账户归属由贵司在「账户与主体归档」中维护，行内公司主体列实时跟随账户当前归属（未归属账户标注「未归属」）。直出银行原始字段，本方账号明文展示，完整报文体在「原始报文」模块查看。</p>
         </div>
         {submitted && <Button icon={<DownloadOutlined />} loading={exporting} onClick={exportCsv}>导出 CSV</Button>}
         {canTriggerSync && <Button icon={<PlayCircleOutlined />} loading={syncTriggering} onClick={triggerSyncFromFilters}>按所选账户创建同步任务</Button>}
@@ -262,7 +264,7 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
             />
           )}
           {!canCrossCompany && (
-            <Tooltip title="跨公司查看需「跨公司银行数据查看」权限，当前仅显示本公司数据；公司主体的增删在「银行数据 → 账户与主体归档」维护（字典中心的公司主体不参与业务下拉）。">
+            <Tooltip title="跨公司查看需「跨公司银行数据查看」权限，当前仅显示本公司数据；公司主体的增删在「银行数据 → 账户与主体归档」维护（字典中心的「公司主体」即该档案的只读镜像）。">
               <Select disabled placeholder="公司主体（仅本公司）" style={{ minWidth: 160 }} options={[]} />
             </Tooltip>
           )}

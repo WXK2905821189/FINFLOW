@@ -7,8 +7,10 @@ import com.finance.system.dict.dto.DictItemResponse;
 import com.finance.system.dict.dto.DictItemUpsertRequest;
 import com.finance.system.dict.dto.DictTypeResponse;
 import com.finance.system.dict.dto.DictTypeUpsertRequest;
+import com.finance.system.domain.entity.Company;
 import com.finance.system.domain.entity.SysDictItem;
 import com.finance.system.domain.entity.SysDictType;
+import com.finance.system.domain.mapper.CompanyMapper;
 import com.finance.system.domain.mapper.SysDictItemMapper;
 import com.finance.system.domain.mapper.SysDictTypeMapper;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -42,11 +44,17 @@ public class DictService {
 
     private final SysDictTypeMapper typeMapper;
     private final SysDictItemMapper itemMapper;
+    private final CompanyMapper companyMapper;
     private final ObjectMapper objectMapper;
 
-    public DictService(SysDictTypeMapper typeMapper, SysDictItemMapper itemMapper, ObjectMapper objectMapper) {
+    /** 「公司主体」字典镜像标识：读取直通 company 表（账户与主体归档维护的权威源）。 */
+    public static final String COMPANY_ENTITY_CODE = "company_entity";
+
+    public DictService(SysDictTypeMapper typeMapper, SysDictItemMapper itemMapper,
+                       CompanyMapper companyMapper, ObjectMapper objectMapper) {
         this.typeMapper = typeMapper;
         this.itemMapper = itemMapper;
+        this.companyMapper = companyMapper;
         this.objectMapper = objectMapper;
     }
 
@@ -64,7 +72,9 @@ public class DictService {
                         row -> longValue(firstKey(row, "type_id")),
                         row -> longValue(firstKey(row, "cnt"))));
         return types.stream()
-                .map(type -> toTypeResponse(type, counts.getOrDefault(type.getId(), 0L)))
+                .map(type -> toTypeResponse(type,
+                        COMPANY_ENTITY_CODE.equals(type.getTypeCode()) ? activeCompanyCount()
+                                : counts.getOrDefault(type.getId(), 0L)))
                 .toList();
     }
 
@@ -111,12 +121,33 @@ public class DictService {
     // ---- 项 ----
 
     public List<DictItemResponse> listItems(Long typeId) {
-        requireType(typeId);
+        SysDictType type = requireType(typeId);
+        // 「公司主体」只读镜像（2026-09-17 用户需求：与业务打通）：字典中心展示的就是
+        // 「银行数据 → 账户与主体归档」维护的 company 档案——归档页增删改，这里即时同步，
+        // 余额/流水查询的公司主体列与其同源，不再出现两套口径。
+        if (COMPANY_ENTITY_CODE.equals(type.getTypeCode())) {
+            return companyMapper.selectList(new LambdaQueryWrapper<Company>()
+                            .eq(Company::getStatus, ACTIVE)
+                            .orderByAsc(Company::getId))
+                    .stream().map(DictService::toCompanyMirrorItem).toList();
+        }
         return itemMapper.selectList(new LambdaQueryWrapper<SysDictItem>()
                         .eq(SysDictItem::getTypeId, typeId)
                         .orderByAsc(SysDictItem::getSortNo)
                         .orderByAsc(SysDictItem::getId))
                 .stream().map(DictService::toItemResponse).toList();
+    }
+
+    /** 公司档案 → 只读镜像字典项（itemCode=公司 id，备注标注同步来源）。 */
+    private static DictItemResponse toCompanyMirrorItem(Company company) {
+        return new DictItemResponse(company.getId(), company.getId(), String.valueOf(company.getId()),
+                company.getName(), null, company.getId().intValue(), ACTIVE,
+                "同步自「银行数据 → 账户与主体归档」（company 表），此处只读");
+    }
+
+    private long activeCompanyCount() {
+        return companyMapper.selectCount(new LambdaQueryWrapper<Company>()
+                .eq(Company::getStatus, ACTIVE));
     }
 
     /** 消费方读取：按 typeCode 取启用中的项（排序生效），任何登录用户可调。 */
@@ -174,6 +205,11 @@ public class DictService {
 
     @Transactional
     public void deleteItem(Long id) {
+        SysDictItem item = itemMapper.selectById(id);
+        if (item == null) {
+            throw new BusinessException(404, "字典项不存在");
+        }
+        requireMutableType(item.getTypeId());
         if (itemMapper.deleteById(id) == 0) {
             throw new BusinessException(404, "字典项不存在");
         }
@@ -256,6 +292,16 @@ public class DictService {
         SysDictType type = typeMapper.selectById(id);
         if (type == null) {
             throw new BusinessException(404, "字典类型不存在");
+        }
+        return type;
+    }
+
+    /** 可编辑护栏：镜像字典（公司主体）只读，维护入口在「银行数据 → 账户与主体归档」。 */
+    private SysDictType requireMutableType(Long typeId) {
+        SysDictType type = requireType(typeId);
+        if (COMPANY_ENTITY_CODE.equals(type.getTypeCode())) {
+            throw new BusinessException(400,
+                    "「公司主体」为业务镜像字典，数据同步自「银行数据 → 账户与主体归档」，请到归档页维护");
         }
         return type;
     }

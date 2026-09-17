@@ -97,10 +97,10 @@ class BankDataRealFieldsIntegrationTest {
         // 血缘字段：哪次银行调用产出了这一行、那次调用是否落定
         assertNotNull(row.get("taskNo"), "the producing sync task is part of the evidence");
         assertEquals("SUCCEEDED", row.get("taskStatus").asText());
-        // 本方账号脱敏，收付方账号不脱敏
-        assertTrue(row.get("accountMasked").asText().startsWith("****"),
-                "our own account number is masked in the response");
-        assertEquals("****0001", row.get("accountMasked").asText());
+        // 本方账号明文（2026-09-17 用户要求：账户号码不再脱敏）；收付方账号口径不变（明文）
+        String ownAccount = row.get("accountMasked").asText();
+        assertTrue(ownAccount.endsWith("0001") && !ownAccount.startsWith("****"),
+                "our own account number is returned in full (plaintext by design), got: " + ownAccount);
 
         // 银行 Z1 口径的窗口合计落库：这是银行自己认的账，独立于我们的去重/校验计数
         BankDataSyncTask task = taskMapper.selectList(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<BankDataSyncTask>()

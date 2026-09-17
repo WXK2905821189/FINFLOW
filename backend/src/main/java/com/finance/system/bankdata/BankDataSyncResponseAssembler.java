@@ -153,7 +153,9 @@ public class BankDataSyncResponseAssembler {
     private BankDataBalanceResponse balance(BankDataBalance balance, BankDataRawMessage raw, BankAccount account) {
         return new BankDataBalanceResponse(balance.getId(), balance.getTaskId(), balance.getRawMessageId(),
                 raw == null ? null : raw.getContentSha256(), raw == null ? null : raw.getRetentionUntil(),
-                balance.getBankAccountId(), maskAccount(account == null ? null : account.getAccountNumber()),
+                balance.getBankAccountId(),
+                // 2026-09-17 用户要求：本方账号明文展示，不再脱敏（对手方账号口径不变）。
+                account == null ? null : account.getAccountNumber(),
                 balance.getBankRequestNo(), balance.getAvailableBalance(), balance.getCurrency(), balance.getAsOfTime(),
                 balance.getOnlineBalance(), balance.getFrozenBalance(), balance.getPreviousDayBalance(),
                 balance.getVendorCurrencyCode(), balance.getBranchCode(), balance.getBankAccountNo(),

@@ -35,7 +35,6 @@ public class BankDataTaskScope {
     private final BankDataSyncTaskMapper taskMapper;
     private final BankAccountMapper bankAccountMapper;
     private final RbacService rbacService;
-    private final BankDataSyncResponseAssembler responseAssembler;
     /** True when at least one REAL (non-simulated) bank adapter bean is active in this deployment. */
     private final boolean realDirectConnected;
     /** Adapter codes of the active REAL adapters (e.g. CMB); empty when直联未连接. */
@@ -45,13 +44,11 @@ public class BankDataTaskScope {
                              BankDataSyncTaskMapper taskMapper,
                              BankAccountMapper bankAccountMapper,
                              RbacService rbacService,
-                             BankDataSyncResponseAssembler responseAssembler,
                              List<BankDataAdapter> bankDataAdapters) {
         this.companyScope = companyScope;
         this.taskMapper = taskMapper;
         this.bankAccountMapper = bankAccountMapper;
         this.rbacService = rbacService;
-        this.responseAssembler = responseAssembler;
         List<BankDataAdapter> realAdapters = bankDataAdapters == null ? List.of() : bankDataAdapters.stream()
                 .filter(adapter -> adapter.executionMode() == BankAdapterExecutionMode.REAL)
                 .toList();
@@ -116,24 +113,31 @@ public class BankDataTaskScope {
     }
 
     /**
-     * Our side of a row: the masked account number plus the account name. The bank's statement
-     * rows never carry our account name, so it is joined from {@code bank_account} — needed by
-     * the projection page and by the export, which mirrors the bank's own export layout
-     * including its 账号名称 column.
+     * Our side of a row: the account number (明文，2026-09-17 用户要求不再脱敏)、
+     * the account name, and the account's <b>current</b> owning company id. The bank's
+     * statement rows never carry our account name, so it is joined from {@code bank_account}
+     * — needed by the projection page and by the export, which mirrors the bank's own
+     * export layout including its 账号名称 column.
+     *
+     * <p>2026-09-17 语义修正：改为<b>按账户 id 直查、不过滤公司</b>——行本身已经公司范围
+     * 过滤，标签只是展示用 join。此前按 companyIds 过滤会在账户归属变更后查不到标签
+     * （账户已不在旧公司名下），导致行丢失账号/户名；companyId 用于把行的「公司主体」
+     * 列锚定到账户当前归属（单一事实源），而不是产出该行的同步任务（任务停在触发时点）。</p>
      */
-    public Map<Long, AccountLabel> accountLabels(Collection<Long> companyIds, List<Long> accountIds) {
+    public Map<Long, AccountLabel> accountLabels(List<Long> accountIds) {
         List<Long> ids = accountIds.stream().filter(java.util.Objects::nonNull).distinct().toList();
         if (ids.isEmpty()) return Map.of();
         return bankAccountMapper.selectList(new LambdaQueryWrapper<BankAccount>()
-                        .in(BankAccount::getCompanyId, companyIds)
                         .in(BankAccount::getId, ids)
-                        .select(BankAccount::getId, BankAccount::getAccountNumber, BankAccount::getAccountName))
+                        .select(BankAccount::getId, BankAccount::getAccountNumber,
+                                BankAccount::getAccountName, BankAccount::getCompanyId))
                 .stream()
                 .collect(Collectors.toMap(BankAccount::getId, account -> new AccountLabel(
-                        responseAssembler.maskAccount(account.getAccountNumber()), account.getAccountName())));
+                        account.getAccountNumber(), account.getAccountName(), account.getCompanyId())));
     }
 
-    public record AccountLabel(String maskedNumber, String name) {
+    /** 本方账号（明文）+ 户名 + 账户当前归属公司 id（未归属为 null）。 */
+    public record AccountLabel(String accountNumber, String name, Long companyId) {
     }
 
     public boolean hasCrossCompanyPermission(Long userId) {

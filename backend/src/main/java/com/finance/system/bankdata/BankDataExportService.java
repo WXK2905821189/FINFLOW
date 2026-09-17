@@ -156,7 +156,7 @@ public class BankDataExportService {
                 .orderByDesc(BankDataStatement::getId), statementMapper);
         Map<Long, com.finance.system.domain.entity.BankDataSyncTask> tasksById = taskScope.tasksById(List.of(companyId),
                 rows.stream().map(BankDataStatement::getTaskId).toList());
-        Map<Long, BankDataTaskScope.AccountLabel> labels = taskScope.accountLabels(List.of(companyId),
+        Map<Long, BankDataTaskScope.AccountLabel> labels = taskScope.accountLabels(
                 rows.stream().map(BankDataStatement::getBankAccountId).toList());
         List<List<String>> csv = new ArrayList<>(rows.size());
         for (BankDataStatementResponse row : responseAssembler.statements(rows, List.of(companyId)).stream()
@@ -164,7 +164,7 @@ public class BankDataExportService {
                     var task = tasksById.get(statement.taskId());
                     BankDataTaskScope.AccountLabel label = labels.get(statement.bankAccountId());
                     return statement.withLineage(taskScope.taskNo(task), taskScope.requestId(task), taskScope.taskStatus(task),
-                            label == null ? null : label.maskedNumber(),
+                            label == null ? null : label.accountNumber(),
                             label == null ? null : label.name());
                 }).toList()) {
             csv.add(statementExportRow(row));

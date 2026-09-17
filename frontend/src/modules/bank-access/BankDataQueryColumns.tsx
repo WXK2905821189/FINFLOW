@@ -1,6 +1,6 @@
 import { Alert, Button, Collapse, Descriptions, Space, Tag, type TableColumnsType } from 'antd';
 import { StatusTag } from '../shared/components';
-import { dateTime, displayValue, cleanText, money, dateOnly, maskAccountDisplay, isUnavailableStatus, isFailedStatus } from '../shared/format';
+import { dateTime, displayValue, cleanText, money, dateOnly, isUnavailableStatus, isFailedStatus } from '../shared/format';
 import type { BankDataBalanceRow, BankDataProjectionPage, BankDataStatementRow } from '../../types';
 import { ACCOUNT_STATUS_TEXT, accountStatusColor, INFO_FLAG_TEXT, INTEREST_TYPE_TEXT, LOAN_CODE_TEXT, REVERSAL_TEXT } from './bankQueryTexts';
 
@@ -19,13 +19,16 @@ export function BankProjectionState({ data }: { data?: BankDataProjectionPage<Ba
   return <Alert className="phase-one-notice" type="success" showIcon message="已连接真实银行直联" description={<span>{data.message || '以下为真实银行直联返回的余额/流水数据。'}</span>} />;
 }
 
-/** 跨公司视图的公司主体列：仅持有 bankdata:cross-company:view 权限的用户注入（见 columns useMemo）。 */
+/** 跨公司视图的公司主体列：仅持有 bankdata:cross-company:view 权限的用户注入（见 columns useMemo）。
+ *  行值来自账户当前归属（未归属账户为空 → 标注「未归属」）。 */
 export const COMPANY_COLUMN = {
   title: '公司主体',
   dataIndex: 'companyName',
   width: 150,
   ellipsis: true,
-  render: (value?: string) => displayValue(value),
+  render: (value?: string) => (value
+    ? <span>{value}</span>
+    : <Tag color="orange">未归属</Tag>),
 };
 
 export const statementColumns = (openDetail: (row: BankDataStatementRow) => void): TableColumnsType<BankDataStatementRow> => [
@@ -88,8 +91,9 @@ export const balanceColumns = (openDetail: (row: BankDataBalanceRow) => void): T
     width: 180,
     render: (_, row) => (
       <>
-        <span>{maskAccountDisplay(row.accountMasked)}</span>
-        {row.bankAccountNo && <span className="table-sub mono">{row.bankAccountNo}</span>}
+        {/* 2026-09-17 用户要求：本方账号明文展示（后端已返回全号）；银行侧账号仅在与系统账号不同时副行显示。 */}
+        <span className="mono">{displayValue(row.accountMasked || row.bankAccountNo)}</span>
+        {row.bankAccountNo && row.bankAccountNo !== row.accountMasked && <span className="table-sub mono">{row.bankAccountNo}</span>}
       </>
     ),
   },

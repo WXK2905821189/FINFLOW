@@ -154,12 +154,17 @@ public class BankDataQueryService {
                     status, from, to, taskIds);
             Map<Long, BankDataSyncTask> tasksById = taskScope.tasksById(companyIds,
                     balances.records().stream().map(BankDataBalanceResponse::taskId).toList());
-            Map<Long, String> companyNames = companyNames(companyIds);
+            // 公司主体列锚定<b>账户当前归属</b>（bank_account.company_id，单一事实源）：
+            // 此前取产出任务的 company（触发时点快照），归属变更后显示错位（2026-09-17 用户报障）。
+            Map<Long, BankDataTaskScope.AccountLabel> labels = taskScope.accountLabels(
+                    balances.records().stream().map(BankDataBalanceResponse::bankAccountId).toList());
+            Map<Long, String> companyNames = companyNames(companyScopeUnion(companyIds, labels));
             List<BankDataBalanceResponse> records = balances.records().stream()
                     .map(balance -> {
                         BankDataSyncTask task = tasksById.get(balance.taskId());
+                        BankDataTaskScope.AccountLabel label = labels.get(balance.bankAccountId());
                         return balance.withLineage(taskScope.taskNo(task), taskScope.requestId(task), taskScope.taskStatus(task))
-                                .withCompanyName(companyNames.get(task == null ? null : task.getCompanyId()));
+                                .withCompanyName(label == null ? null : companyNames.get(label.companyId()));
                     })
                     .toList();
             return projectionPage(balances.page(), balances.size(), balances.total(), records,
@@ -189,9 +194,10 @@ public class BankDataQueryService {
                 new Page<>(Math.max(1, page), boundedSize(size)), query);
         Map<Long, BankDataSyncTask> tasksById = taskScope.tasksById(companyIds,
                 result.getRecords().stream().map(BankDataStatement::getTaskId).toList());
-        Map<Long, BankDataTaskScope.AccountLabel> accountLabels = taskScope.accountLabels(companyIds,
+        // 账户标签按 id 直查（含账户当前归属 companyId）；公司主体列锚定账户归属而非任务触发时点。
+        Map<Long, BankDataTaskScope.AccountLabel> accountLabels = taskScope.accountLabels(
                 result.getRecords().stream().map(BankDataStatement::getBankAccountId).toList());
-        Map<Long, String> companyNames = companyNames(companyIds);
+        Map<Long, String> companyNames = companyNames(companyScopeUnion(companyIds, accountLabels));
         List<BankDataStatement> rawRows = result.getRecords();
         Set<String> transferredKeys = transferredKeys(rawRows);
         List<BankDataStatementResponse> assembled = responseAssembler.statements(rawRows, companyIds)
@@ -200,9 +206,9 @@ public class BankDataQueryService {
                     BankDataSyncTask task = tasksById.get(statement.taskId());
                     BankDataTaskScope.AccountLabel label = accountLabels.get(statement.bankAccountId());
                     return statement.withLineage(taskScope.taskNo(task), taskScope.requestId(task), taskScope.taskStatus(task),
-                            label == null ? null : label.maskedNumber(),
+                            label == null ? null : label.accountNumber(),
                             label == null ? null : label.name())
-                            .withCompanyName(companyNames.get(task == null ? null : task.getCompanyId()));
+                            .withCompanyName(label == null ? null : companyNames.get(label.companyId()));
                 })
                 .toList();
         List<BankDataStatementResponse> records = java.util.stream.IntStream.range(0, assembled.size())
@@ -264,6 +270,14 @@ public class BankDataQueryService {
                         .in(Company::getId, companyIds)
                         .select(Company::getId, Company::getName))
                 .stream().collect(Collectors.toMap(Company::getId, Company::getName));
+    }
+
+    /** 查询范围公司 ∪ 行上账户当前归属公司（标签锚定账户归属后，账户可能已迁出查询范围）。 */
+    private Collection<Long> companyScopeUnion(Collection<Long> companyIds, Map<Long, BankDataTaskScope.AccountLabel> labels) {
+        java.util.Set<Long> union = new java.util.LinkedHashSet<>(companyIds);
+        labels.values().stream().map(BankDataTaskScope.AccountLabel::companyId)
+                .filter(java.util.Objects::nonNull).forEach(union::add);
+        return union;
     }
 
     /**

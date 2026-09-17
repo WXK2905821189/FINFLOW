@@ -75,6 +75,8 @@ export function DictionaryPage() {
     () => (types || []).find((type) => type.id === selectedTypeId) || null,
     [types, selectedTypeId],
   );
+  // 「公司主体」为业务镜像字典（2026-09-17）：读取直通「账户与主体归档」的 company 表，只读。
+  const isCompanyMirror = selectedType?.typeCode === 'company_entity';
 
   const itemsLoader = useCallback(
     () => (selectedTypeId == null ? Promise.resolve([]) : dictApi.listItems(selectedTypeId)),
@@ -269,10 +271,13 @@ export function DictionaryPage() {
           {row.extraJson && (
             <Button type="link" size="small" onClick={() => setDetailItem(row)}>属性</Button>
           )}
-          <Button type="link" size="small" onClick={() => openEditItem(row)}>编辑</Button>
-          <Popconfirm title="确定删除该字典项？" onConfirm={() => void removeItem(row)}>
-            <Button type="link" size="small" danger>删除</Button>
-          </Popconfirm>
+          {!isCompanyMirror && <Button type="link" size="small" onClick={() => openEditItem(row)}>编辑</Button>}
+          {!isCompanyMirror && (
+            <Popconfirm title="确定删除该字典项？" onConfirm={() => void removeItem(row)}>
+              <Button type="link" size="small" danger>删除</Button>
+            </Popconfirm>
+          )}
+          {isCompanyMirror && <span style={{ color: 'var(--ant-color-text-tertiary, #999)' }}>只读镜像</span>}
         </Space>
       ),
     },
@@ -307,7 +312,7 @@ export function DictionaryPage() {
         <Card
           title={selectedType ? `字典项 · ${selectedType.name}` : '字典项'}
           extra={
-            <Button type="primary" size="small" icon={<PlusOutlined />} disabled={!selectedType} onClick={openCreateItem}>
+            <Button type="primary" size="small" icon={<PlusOutlined />} disabled={!selectedType || isCompanyMirror} onClick={openCreateItem}>
               新建字典项
             </Button>
           }
@@ -317,7 +322,16 @@ export function DictionaryPage() {
           {selectedType && (
             <>
               {itemsError && <ResourceFailure error={itemsError} onRetry={reloadItems} />}
-              {selectedType.description && (
+              {isCompanyMirror && (
+                <Alert
+                  type="info"
+                  showIcon
+                  style={{ marginBottom: 12 }}
+                  message="「公司主体」为业务镜像字典（只读）"
+                  description="以下条目实时同步自「银行数据 → 账户与主体归档」维护的公司档案；余额查询、流水查询的公司主体列与此同源。如需新增/调整公司主体，请到归档页操作。"
+                />
+              )}
+              {selectedType.description && !isCompanyMirror && (
                 <Alert type="info" showIcon message={selectedType.description} style={{ marginBottom: 12 }} />
               )}
               <Table<DictItemRow>

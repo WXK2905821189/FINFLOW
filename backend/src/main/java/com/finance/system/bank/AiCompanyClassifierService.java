@@ -30,6 +30,14 @@ import java.util.Map;
  * 统一审计）→ 严格 JSON 解析。铁律与 A1 一致：<b>AI 只建议、不执行</b>——应用走
  * ai-apply 端点，且仅携带用户在预览中勾选的行。</p>
  *
+ * <p>2026-09-17 增强（用户报障：偶发「缺少 suggestions 数组」要手点好几遍）：
+ * <ul>
+ *   <li>解析失败<b>服务端自动重试 1 次</b>（附纠正指令的强化提示词），两次都失败才抛 502；</li>
+ *   <li>容错模型把单条建议直接输出为对象（无 suggestions 包装）的形态；</li>
+ *   <li>最终失败的错误消息携带<b>模型响应片段</b>（≤200 字），UI 上即时可见根因；
+ *       完整往返原文在 系统管理→AI状态页 调用审计（ai_call_log.response_summary，≤900 字）。</li>
+ * </ul></p>
+ *
  * <p>数据出域口径：只送账户名称、银行代码、账号后 4 位、币种与现有公司名列表；
  * 完整账号、余额、流水一律不出域。归档落点为 company 表（V30 口径：业务下拉以
  * 「账户与主体归档」为准，字典中心不参与）。</p>
@@ -41,6 +49,9 @@ public class AiCompanyClassifierService {
 
     /** 能力名：AI 设置页能力开关与审计表中的 capability 标识。 */
     public static final String CAPABILITY = "company-classification";
+
+    /** 错误消息中携带的模型响应片段上限（UI 即时定位根因用，完整原文看调用审计）。 */
+    private static final int SNIPPET_LIMIT = 200;
 
     private static final String SYSTEM_PROMPT = """
             你是中国企业的财务数据治理助手，负责把银行账户归入正确的公司主体档案。你会收到：
@@ -78,13 +89,34 @@ public class AiCompanyClassifierService {
                 .eq(Company::getStatus, "ACTIVE")
                 .orderByAsc(Company::getId));
         AiEffectiveConfig config = gatewayService.auditedGuard(CAPABILITY, userId);
-        LlmChatRequest request = new LlmChatRequest(CAPABILITY, SYSTEM_PROMPT,
-                buildUserPrompt(unfiled, companies), 0.1, 2048);
-        LlmChatResult result = gatewayService.auditedChat(CAPABILITY, userId, config, request);
-        return new AiCompanySuggestionResponse(
-                parseSuggestions(result.content(), unfiled),
-                result.model(), result.durationMillis());
+        String userPrompt = buildUserPrompt(unfiled, companies);
+        LlmChatResult result = gatewayService.auditedChat(CAPABILITY, userId, config,
+                new LlmChatRequest(CAPABILITY, SYSTEM_PROMPT, userPrompt, 0.1, 2048));
+        List<AiCompanySuggestionResponse.Suggestion> suggestions;
+        try {
+            suggestions = parseSuggestions(result.content(), unfiled);
+        } catch (BusinessException first) {
+            // 自动重试一次：LLM 偶发格式漂移（输出说明文字/改用中文键/单对象），纠正指令后再试。
+            log.warn("AI 归类建议首次解析失败，自动重试：{}", first.getMessage());
+            LlmChatResult retry = gatewayService.auditedChat(CAPABILITY, userId, config,
+                    new LlmChatRequest(CAPABILITY, SYSTEM_PROMPT,
+                            userPrompt + RETRY_NUDGE.formatted(first.getMessage()), 0.1, 2048));
+            try {
+                suggestions = parseSuggestions(retry.content(), unfiled);
+            } catch (BusinessException second) {
+                throw new BusinessException(502, "AI 归类建议解析失败（已自动重试 1 次，模型仍未按约定 JSON 返回）。"
+                        + "模型响应片段：" + snippet(retry.content()));
+            }
+        }
+        return new AiCompanySuggestionResponse(suggestions, result.model(), result.durationMillis());
     }
+
+    /** 重试提示词后缀：%s = 首次失败原因（不含用户数据）。 */
+    private static final String RETRY_NUDGE = """
+
+            注意：上一次输出不符合约定 JSON（%s）。请严格只输出一个 JSON 对象，\
+            顶层键为 suggestions（对象数组），元素键为 accountId/companyName/confidence/reason，\
+            不要输出任何其它文字、markdown 围栏或解释。""";
 
     /** 脱敏上下文：账户名/银行/账号后4位/币种 + 已有公司名；完整账号、余额不出域。 */
     private String buildUserPrompt(List<BankAccount> accounts, List<Company> companies) {
@@ -112,7 +144,8 @@ public class AiCompanyClassifierService {
 
     /**
      * 严格解析：剥 markdown 围栏后截取最外层大括号；accountId 必须命中输入集合
-     * （防模型幻觉编造），重复 accountId 取首个，companyName 空白的行丢弃。
+     * （防模型幻觉编造），重复 accountId 取首个，companyName 空白的行丢弃；
+     * 容错单对象形态（模型漏掉 suggestions 包装时直接解析该对象）。
      */
     private List<AiCompanySuggestionResponse.Suggestion> parseSuggestions(String content, List<BankAccount> unfiled) {
         Map<Long, BankAccount> unfiledById = new LinkedHashMap<>();
@@ -130,12 +163,18 @@ public class AiCompanyClassifierService {
         }
         try {
             JsonNode json = objectMapper.readTree(cleaned);
+            List<JsonNode> entries = new ArrayList<>();
             JsonNode items = json.path("suggestions");
-            if (!items.isArray() || items.isEmpty()) {
+            if (items.isArray()) {
+                items.forEach(entries::add);
+            } else if (json.hasNonNull("accountId") && json.hasNonNull("companyName")) {
+                // 容错：模型把单条建议直接作为顶层对象返回（没有 suggestions 包装）。
+                entries.add(json);
+            } else {
                 throw new BusinessException(502, "AI 归类建议缺少 suggestions 数组（模型未按约定 JSON 返回），可重试");
             }
             List<AiCompanySuggestionResponse.Suggestion> suggestions = new ArrayList<>();
-            for (JsonNode item : items) {
+            for (JsonNode item : entries) {
                 JsonNode idNode = item.path("accountId");
                 if (!idNode.canConvertToLong()) {
                     continue;
@@ -161,6 +200,15 @@ public class AiCompanyClassifierService {
             log.warn("AI 归类建议解析失败：{}", e.getMessage());
             throw new BusinessException(502, "AI 归类建议解析失败（响应非约定 JSON），可重试或手工归档");
         }
+    }
+
+    /** 模型响应片段：平化空白后截断，用于错误消息即时定位根因。 */
+    private static String snippet(String content) {
+        if (content == null || content.isBlank()) {
+            return "（空响应）";
+        }
+        String flat = content.replaceAll("\\s+", " ").trim();
+        return flat.length() <= SNIPPET_LIMIT ? flat : flat.substring(0, SNIPPET_LIMIT) + "...";
     }
 
     private static String tail4(String accountNumber) {

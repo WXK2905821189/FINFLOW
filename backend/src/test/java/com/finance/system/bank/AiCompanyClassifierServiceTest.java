@@ -124,11 +124,15 @@ class AiCompanyClassifierServiceTest {
     }
 
     @Test
-    void blankSuggestionsFails502() {
+    void blankSuggestionsFails502AfterRetry() {
         stubUnfiled(account(4L, "某账户", "1234"));
         stubChat("{\"suggestions\":[]}");
         BusinessException thrown = assertThrows(BusinessException.class, () -> service.suggest(USER_ID));
         assertTrue(thrown.getMessage().contains("suggestions"));
+        assertTrue(thrown.getMessage().contains("已自动重试 1 次"));
+        // 首次 + 自动重试 = 两次 LLM 往返（审计各记一条）
+        verify(gatewayService, org.mockito.Mockito.times(2)).auditedChat(eq(AiCompanyClassifierService.CAPABILITY),
+                eq(USER_ID), eq(config), any(LlmChatRequest.class));
     }
 
     @Test
@@ -137,6 +141,31 @@ class AiCompanyClassifierServiceTest {
         stubChat("抱歉，我无法完成该任务。");
         BusinessException thrown = assertThrows(BusinessException.class, () -> service.suggest(USER_ID));
         assertTrue(thrown.getMessage().contains("解析失败"));
+        // 最终失败的消息携带模型响应片段，UI 即时可见根因
+        assertTrue(thrown.getMessage().contains("抱歉"));
+    }
+
+    @Test
+    void retryRecoversFromFormatDrift() {
+        stubUnfiled(account(8L, "格式漂移恢复账户", "7777"));
+        // 第一次输出混入说明文字（偶发格式漂移），自动重试返回约定 JSON → 成功，用户无需手点
+        when(gatewayService.auditedChat(eq(AiCompanyClassifierService.CAPABILITY), eq(USER_ID),
+                eq(config), any(LlmChatRequest.class))).thenReturn(
+                new LlmChatResult("好的，以下是归类建议：{\"suggestions\":[]}", "test-model", 10, 20, 50L),
+                new LlmChatResult("{\"suggestions\":[{\"accountId\":8,\"companyName\":\"恢复公司\",\"confidence\":0.9,\"reason\":\"r\"}]}",
+                        "test-model", 10, 20, 50L));
+        AiCompanySuggestionResponse response = service.suggest(USER_ID);
+        assertEquals(1, response.suggestions().size());
+        assertEquals("恢复公司", response.suggestions().get(0).suggestedCompanyName());
+        verify(gatewayService, org.mockito.Mockito.times(2)).auditedChat(eq(AiCompanyClassifierService.CAPABILITY),
+                eq(USER_ID), eq(config), any(LlmChatRequest.class));
+    }
+
+    @Test
+    void singleObjectWithoutSuggestionsArrayIsTolerated() {
+        stubUnfiled(account(9L, "单对象账户", "9998"));
+        stubChat("{\"accountId\":9,\"companyName\":\"单对象公司\",\"confidence\":0.5,\"reason\":\"r\"}");
+        assertEquals(1, service.suggest(USER_ID).suggestions().size());
     }
 
     @Test
