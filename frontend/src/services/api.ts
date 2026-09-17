@@ -67,6 +67,8 @@ export const bankApi = {
   renameArchiveCompany: (id: number, name: string) => http.put<never, CompanyArchiveCompany>(`/bank-account-archive/companies/${id}`, { name }),
   /** 归类：账户改挂公司档案，历史流水/余额一并迁移。 */
   assignArchiveAccount: (id: number, companyId: number) => http.put<never, CompanyArchiveAccount>(`/bank-account-archive/accounts/${id}/company`, { companyId }),
+  /** 取消归属：账户拖回「未归属」区（历史流水/余额口径对称置空）。 */
+  unassignArchiveAccount: (id: number) => http.post<never, CompanyArchiveAccount>(`/bank-account-archive/accounts/${id}/unassign`),
   /** AI 归类建议（ai:use + bank:manage）：推断未归档账户的公司主体，只建议不执行。 */
   aiSuggestCompanies: () => http.post<never, AiCompanySuggestionResponse>('/bank-account-archive/ai-suggest-companies'),
   /** AI 归类建议批量应用（bank:manage）：仅应用勾选行，公司不存在则建档，历史归属一并迁移。 */

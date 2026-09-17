@@ -75,6 +75,15 @@ public class CompanyArchiveController {
         return ApiResponse.success("账户归类完成", archiveService.assignAccount(id, request.companyId()));
     }
 
+    /** 取消归属（2026-09-17）：账户拖回「未归属」区等待重新/AI 归类，历史数据口径对称置空。 */
+    @PostMapping("/bank-account-archive/accounts/{id}/unassign")
+    @PreAuthorize("hasAuthority('bank:manage')")
+    @Operation(summary = "Move a bank account back to the unassigned zone (history follows)")
+    public ApiResponse<CompanyArchiveAccount> unassignAccount(@PathVariable Long id,
+                                                              @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success("账户已移至未归属区", archiveService.unassignAccount(id));
+    }
+
     /**
      * AI 归类建议（V32）：推断「账户名 → 公司主体」映射供预览确认，AI 只建议不执行。
      * 需要 ai:use（能力端点统一口径）+ bank:manage（归档域）。

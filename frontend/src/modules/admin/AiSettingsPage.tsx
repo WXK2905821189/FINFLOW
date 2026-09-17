@@ -271,7 +271,7 @@ export function AiSettingsPage() {
                 </Form.Item>
               </Space>
               <Form.Item label="能力开关（未开启的能力一律 403）">
-                <Space direction="vertical">
+                <Space direction="vertical" size={10} style={{ width: '100%' }}>
                   {effective && readyGaps.length > 0 && (
                     <Alert
                       type="warning"
@@ -281,15 +281,27 @@ export function AiSettingsPage() {
                       description={`AI 调用需同时满足：总开关启用、密钥已配置、模型已选。当前缺少：${readyGaps.join('、')}——即使打开下方开关，调用仍会被拒绝。`}
                     />
                   )}
-                  <Form.Item name="capabilitiesSelfTest" valuePropName="checked" noStyle>
-                    <Switch checkedChildren="开" unCheckedChildren="关" /> <Typography.Text>连通性自检（self-test）</Typography.Text>
-                  </Form.Item>
-                  <Form.Item name="capabilitiesAccountingSuggestion" valuePropName="checked" noStyle>
-                    <Switch checkedChildren="开" unCheckedChildren="关" /> <Typography.Text>智能入账建议（accounting-suggestion，A1：AI 只建议不执行）</Typography.Text>
-                  </Form.Item>
-                  <Form.Item name="capabilitiesCompanyClassification" valuePropName="checked" noStyle>
-                    <Switch checkedChildren="开" unCheckedChildren="关" /> <Typography.Text>公司主体归类建议（company-classification，归档页「AI 智能归类」）</Typography.Text>
-                  </Form.Item>
+                  {/* antd 铁律：带 name 的 Form.Item 只能有唯一子元素——Switch 与文字并列在
+                      Form.Item 内会导致 value/onChange 不注入（视觉可切换、表单值恒 false，
+                      保存后回显即「自动关闭」，2026-09-17 线上实证）。文字必须放在外面。 */}
+                  <Space size={10}>
+                    <Form.Item name="capabilitiesSelfTest" valuePropName="checked" noStyle>
+                      <Switch checkedChildren="开" unCheckedChildren="关" />
+                    </Form.Item>
+                    <Typography.Text>连通性自检（self-test）</Typography.Text>
+                  </Space>
+                  <Space size={10}>
+                    <Form.Item name="capabilitiesAccountingSuggestion" valuePropName="checked" noStyle>
+                      <Switch checkedChildren="开" unCheckedChildren="关" />
+                    </Form.Item>
+                    <Typography.Text>智能入账建议（accounting-suggestion，A1：AI 只建议不执行）</Typography.Text>
+                  </Space>
+                  <Space size={10}>
+                    <Form.Item name="capabilitiesCompanyClassification" valuePropName="checked" noStyle>
+                      <Switch checkedChildren="开" unCheckedChildren="关" />
+                    </Form.Item>
+                    <Typography.Text>公司主体归类建议（company-classification，归档页「AI 智能归类」）</Typography.Text>
+                  </Space>
                 </Space>
               </Form.Item>
               <Space>

@@ -124,6 +124,29 @@ public class CompanyArchiveService {
     }
 
     /**
+     * 取消归属（2026-09-17 需求：归档板常驻「未归属」区，账户可拖回等待 AI 智能归类）。
+     *
+     * <p>只重置 {@code bank_account.company_id}（UpdateWrapper 显式置 NULL——updateById
+     * 的 NOT_NULL 策略会跳过 null 字段，无法清空）；历史流水/余额的 company_id 为
+     * NOT NULL 约束且代表已发生的事实，**保留原归属口径不变**——单公司用户对既有
+     * 历史数据的可见性不受取消归属影响，仅账户归属与后续新同步数据的挂载点变化。
+     * 与 {@link #assignAccount}（三表联动迁移）的差异化语义在此显式记录。</p>
+     */
+    @Transactional
+    public CompanyArchiveAccount unassignAccount(Long accountId) {
+        BankAccount account = bankAccountMapper.selectById(accountId);
+        if (account == null) {
+            throw new BusinessException(404, "Bank account not found");
+        }
+        if (account.getCompanyId() != null) {
+            bankAccountMapper.update(null, new LambdaUpdateWrapper<BankAccount>()
+                    .eq(BankAccount::getId, accountId)
+                    .set(BankAccount::getCompanyId, null));
+        }
+        return toAccount(bankAccountMapper.selectById(accountId), directStatusService.resolveOne(account));
+    }
+
+    /**
      * AI 归类建议批量应用（V32）：公司按名称解析——已有同名档案直接复用，否则新建
      * （复用 createCompany 的编码分配与校验），再走 {@link #assignAccount} 挂账户
      * （历史流水/余额的 company_id 一并迁移）。单行失败记 FAILED 不回滚整批，

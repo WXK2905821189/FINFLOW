@@ -253,6 +253,36 @@ function ArchiveBoard() {
     }
   };
 
+  // 拖回「未归属」区（2026-09-17）：取消归属等待重新/AI 归类，历史流水与余额口径对称置空。
+  const unassign = (accountId: number) => {
+    const account = view?.accounts.find((item) => item.id === accountId);
+    if (!account || account.companyId === null) return;
+    Modal.confirm({
+      title: '确认取消归属',
+      content: `将「${account.accountName}（${account.maskedAccountNumber}）」移回未归属区？该账户的历史流水与余额将一并改挂为「未归属」（仅管理员可查），重新归类后随新主体一并迁移。`,
+      okText: '确认取消归属',
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          await bankApi.unassignArchiveAccount(account.id);
+          message.success(`「${account.accountName}」已移至未归属区`);
+          await reload();
+        } catch (reason) {
+          message.error(reason instanceof Error ? reason.message : '取消归属失败');
+        }
+      },
+    });
+  };
+
+  const onUnassignedDrop = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setDragOverId(undefined);
+    const accountId = Number(event.dataTransfer.getData('text/plain'));
+    if (Number.isFinite(accountId) && accountId > 0) {
+      unassign(accountId);
+    }
+  };
+
   const chipStyle: CSSProperties = {
     border: '1px solid #d9d9d9',
     borderRadius: 6,
@@ -376,7 +406,7 @@ function ArchiveBoard() {
         showIcon
         style={{ marginBottom: 16 }}
         message="把账户卡片拖到目标公司档案上即可完成归类"
-        description="归属决定数据查询里的「公司主体」口径：归类后该账户的历史流水与余额会一并改挂到新主体，晚上照常自动同步。银行报文里的户名（accnam）可在余额页与归属互相核对。"
+        description="归属决定数据查询里的「公司主体」口径：归类后该账户的历史流水与余额会一并改挂到新主体，晚上照常自动同步。拖回「未归属」区可取消归属（历史一并置为未归属），或直接点「AI 智能归类」让 AI 建议未归属账户的主体。银行报文里的户名（accnam）可在余额页与归属互相核对。"
       />
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         <Space.Compact style={{ flex: 1, minWidth: 280 }}>
@@ -415,22 +445,25 @@ function ArchiveBoard() {
           : (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'flex-start' }}>
               {(view?.companies || []).map(companyCard)}
-              {unassigned.length > 0 && (
-                <div
-                  style={{ ...zoneStyle('unassigned'), width: 280 }}
-                  onDragOver={(event) => {
-                    event.preventDefault();
-                    setDragOverId('unassigned');
-                  }}
-                  onDragLeave={() => setDragOverId((current) => (current === 'unassigned' ? undefined : current))}
-                >
-                  <Badge count={unassigned.length} style={{ backgroundColor: '#faad14' }} offset={[-4, 0]}>
-                    <span style={{ fontWeight: 600, marginRight: 8 }}>未归类</span>
-                  </Badge>
-                  <div style={{ height: 8 }} />
-                  {unassigned.map(chipFor)}
-                </div>
-              )}
+              {/* 未归属区常驻（2026-09-17）：空区也显示，账户可拖回等待 AI 智能归类 */}
+              <div
+                style={{ ...zoneStyle('unassigned'), width: 280 }}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = 'move';
+                  setDragOverId('unassigned');
+                }}
+                onDragLeave={() => setDragOverId((current) => (current === 'unassigned' ? undefined : current))}
+                onDrop={onUnassignedDrop}
+              >
+                <Badge count={unassigned.length} style={{ backgroundColor: '#faad14' }} offset={[-4, 0]}>
+                  <span style={{ fontWeight: 600, marginRight: 8 }}>未归属 · 待 AI 归类</span>
+                </Badge>
+                <div style={{ height: 8 }} />
+                {unassigned.length === 0
+                  ? <div style={{ color: '#bbb', fontSize: 12, padding: '8px 0' }}>暂无未归属账户；把账户卡片拖到这里可取消归属，稍后用「AI 智能归类」重新归档</div>
+                  : unassigned.map(chipFor)}
+              </div>
             </div>
           )}
       <Modal

@@ -265,6 +265,142 @@ class CompanyArchiveIntegrationTest {
                 .andExpect(status().isNotFound());
     }
 
+    /**
+     * Unassign (2026-09-17): the archive board keeps a permanent "未归属" zone and an
+     * account can be dragged back into it. Only bank_account.company_id resets to NULL
+     * (explicit UpdateWrapper — updateById skips null fields); historical balance/
+     * statement rows keep their original company_id (NOT NULL constraint, and history
+     * must stay queryable under the old scope). Re-filing afterwards works like before.
+     */
+    @Test
+    void archiveUnassignResetsAccountAndHistory() throws Exception {
+        String token = login();
+        String companyName = "未归属测试公司-" + UNIQUE_SUFFIX;
+        long accountId = createUnassignAccount(token, "未归属测试账户-" + UNIQUE_SUFFIX);
+
+        // file the account into a fresh company, history follows
+        MvcResult created = mockMvc.perform(post("/api/bank-account-archive/companies")
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"" + companyName + "\"}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        long companyId = objectMapper.readTree(created.getResponse()
+                .getContentAsString(StandardCharsets.UTF_8)).get("data").get("id").asLong();
+
+        BankDataSyncTask task = new BankDataSyncTask();
+        task.setCompanyId(1L);
+        task.setTaskNo("UNA-T-" + UNIQUE_SUFFIX);
+        task.setAdapterCode("CMB");
+        task.setBankAccountId(accountId);
+        task.setRequestId("una-req-" + UNIQUE_SUFFIX);
+        task.setStatus("SUCCEEDED");
+        taskMapper.insert(task);
+
+        BankDataRawMessage raw = new BankDataRawMessage();
+        raw.setCompanyId(1L);
+        raw.setTaskId(task.getId());
+        raw.setAdapterCode("CMB");
+        raw.setContentSha256(UUID.randomUUID().toString().replace("-", "")
+                + UUID.randomUUID().toString().replace("-", ""));
+        raw.setPayload("{}");
+        raw.setReceivedAt(LocalDateTime.now());
+        raw.setRetentionUntil(LocalDateTime.now().plusYears(1));
+        rawMessageMapper.insert(raw);
+
+        BankDataBalance balance = new BankDataBalance();
+        balance.setCompanyId(1L);
+        balance.setTaskId(task.getId());
+        balance.setRawMessageId(raw.getId());
+        balance.setBankAccountId(accountId);
+        balance.setBankRequestNo("UNA-B-" + UNIQUE_SUFFIX);
+        balance.setAvailableBalance(new BigDecimal("2.00"));
+        balance.setCurrency("CNY");
+        balance.setAsOfTime(LocalDateTime.now());
+        balance.setValidationStatus("VALID");
+        balanceMapper.insert(balance);
+
+        BankDataStatement statement = new BankDataStatement();
+        statement.setCompanyId(1L);
+        statement.setTaskId(task.getId());
+        statement.setRawMessageId(raw.getId());
+        statement.setBankAccountId(accountId);
+        statement.setStatementNo("UNA-S-" + UNIQUE_SUFFIX);
+        statement.setTransactionTime(LocalDateTime.now());
+        statement.setDirection("D");
+        statement.setAmount(new BigDecimal("4.00"));
+        statement.setCurrency("CNY");
+        statement.setSummary("unassign resets history scope");
+        statement.setValidationStatus("VALID");
+        statementMapper.insert(statement);
+
+        mockMvc.perform(put("/api/bank-account-archive/accounts/" + accountId + "/company")
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"companyId\":" + companyId + "}"))
+                .andExpect(status().isOk());
+        assertEquals(companyId, balanceMapper.selectById(balance.getId()).getCompanyId());
+
+        // unassign → account loses company scope, history keeps its original scope
+        mockMvc.perform(post("/api/bank-account-archive/accounts/" + accountId + "/unassign")
+                        .header("Authorization", bearer(token)))
+                .andExpect(status().isOk());
+        assertEquals(companyId, balanceMapper.selectById(balance.getId()).getCompanyId(),
+                "historical balance rows keep their original company scope on unassign");
+        assertEquals(companyId, statementMapper.selectById(statement.getId()).getCompanyId(),
+                "historical statement rows keep their original company scope on unassign");
+
+        // archive view reports the account with companyId = null (未归属 zone)
+        String view = mockMvc.perform(get("/api/bank-account-archive")
+                        .header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        assertTrue(view.contains("\"accountId\":" + accountId) || view.contains("\"id\":" + accountId),
+                "unassigned account must still appear on the archive board");
+        MvcResult viewAfter = mockMvc.perform(get("/api/bank-account-archive")
+                        .header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andReturn();
+        JsonNode unassignedAccount = null;
+        for (JsonNode row : objectMapper.readTree(viewAfter.getResponse()
+                .getContentAsString(StandardCharsets.UTF_8)).get("data").get("accounts")) {
+            if (row.get("id").asLong() == accountId) {
+                unassignedAccount = row;
+            }
+        }
+        assertNotNull(unassignedAccount, "unassigned account must appear in the archive view");
+        assertTrue(unassignedAccount.get("companyId").isNull(),
+                "unassigned account must report companyId = null");
+
+        // idempotent: unassigning an already-unassigned account is a no-op success
+        mockMvc.perform(post("/api/bank-account-archive/accounts/" + accountId + "/unassign")
+                        .header("Authorization", bearer(token)))
+                .andExpect(status().isOk());
+
+        // re-file after unassign behaves like a fresh filing (history follows again)
+        mockMvc.perform(put("/api/bank-account-archive/accounts/" + accountId + "/company")
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"companyId\":" + companyId + "}"))
+                .andExpect(status().isOk());
+        assertEquals(companyId, balanceMapper.selectById(balance.getId()).getCompanyId(),
+                "re-filing after unassign must re-scope the historical rows");
+    }
+
+    private long createUnassignAccount(String token, String accountName) throws Exception {
+        String body = "{\"bankCode\":\"CITIC\",\"accountName\":\"" + accountName + "\","
+                + "\"accountNumber\":\"6222" + UNIQUE_SUFFIX.replaceAll("\\D", "7") + "0002\","
+                + "\"currency\":\"CNY\",\"availableBalance\":0,\"status\":\"ACTIVE\"}";
+        MvcResult result = mockMvc.perform(post("/api/bank-accounts")
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk())
+                .andReturn();
+        return objectMapper.readTree(result.getResponse()
+                .getContentAsString(StandardCharsets.UTF_8)).get("data").get("id").asLong();
+    }
+
     private long createAccount(String token, String accountName) throws Exception {
         String body = "{\"bankCode\":\"CITIC\",\"accountName\":\"" + accountName + "\","
                 + "\"accountNumber\":\"6222" + UNIQUE_SUFFIX.replaceAll("\\D", "7") + "0001\","
