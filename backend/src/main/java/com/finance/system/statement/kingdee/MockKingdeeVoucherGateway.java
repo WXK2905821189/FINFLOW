@@ -13,4 +13,10 @@ public class MockKingdeeVoucherGateway implements KingdeeVoucherGateway {
         return new KingdeeVoucherResult(
                 "KD-MOCK-" + statement.getStatementNo(), "PUSHED", "Accepted by Kingdee mock gateway");
     }
+
+    @Override
+    public KingdeeConnectionStatus ping() {
+        return new KingdeeConnectionStatus(false, "MOCK",
+                "当前为模拟网关（kingdee.mock-mode=true），推送只产生模拟凭证号，未连接真实金蝶");
+    }
 }

@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState, type Key } from 'react';
 import { Alert, Button, Card, DatePicker, Descriptions, Drawer, Empty, Input, Modal, Pagination, Select, Space, Spin, Table, Tabs, Tag, Tooltip, message, type TableColumnsType } from 'antd';
-import { DownloadOutlined, FileTextOutlined, PlayCircleOutlined, RobotOutlined, SearchOutlined } from '@ant-design/icons';
+import { DownloadOutlined, FileTextOutlined, PlayCircleOutlined, RobotOutlined, SearchOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { Link } from 'react-router-dom';
 import { bankPipelineApi, bankApi } from '../../services/api';
@@ -122,20 +122,26 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
   const [selectedStatementIds, setSelectedStatementIds] = useState<number[]>([]);
   const [aiVoucherRunning, setAiVoucherRunning] = useState(false);
   const [aiVoucherResult, setAiVoucherResult] = useState<AiVoucherBatchResult>();
-  const aiVoucherSelected = () => {
+  // 双模式（2026-09-17）：DRAFT=生成草稿停在「凭证草稿与制证」页待人工复核；PUSH=复核内化后直接推送金蝶。
+  const aiVoucherSelected = (mode: 'DRAFT' | 'PUSH') => {
     if (!selectedStatementIds.length) {
       message.warning('请先勾选要制证的银行流水行');
       return;
     }
+    const asDraft = mode === 'DRAFT';
     Modal.confirm({
-      title: `确认对 ${selectedStatementIds.length} 条银行流水 AI 制证并推送`,
-      content: '流程：转入标准流水（幂等）→ AI 生成入账建议 → 推送金蝶（出纳收付款单，提交不审核）。审核请在金蝶侧人工完成；AI 建议不可用时将直接推送原文摘要并标注。',
-      okText: '确认制证推送',
+      title: asDraft
+        ? `确认对 ${selectedStatementIds.length} 条银行流水生成 AI 制证草稿`
+        : `确认对 ${selectedStatementIds.length} 条银行流水 AI 制证并推送`,
+      content: asDraft
+        ? '流程：转入标准流水（幂等）→ AI 生成入账建议写入复核意见 → 停留在「凭证草稿与制证」页待复核，不会推送金蝶。请稍后在该页人工审核并点击推送。'
+        : '流程：转入标准流水（幂等）→ AI 生成入账建议 → 复核内化后直接推送金蝶（出纳收付款单，提交不审核）。审核请在金蝶侧人工完成；AI 建议不可用时将直接推送原文摘要并标注。',
+      okText: asDraft ? '确认生成草稿' : '确认制证推送',
       cancelText: '取消',
       onOk: async () => {
         setAiVoucherRunning(true);
         try {
-          const result = await bankPipelineApi.aiVoucher({ statementIds: selectedStatementIds });
+          const result = await bankPipelineApi.aiVoucher({ statementIds: selectedStatementIds, mode });
           setAiVoucherResult(result);
           setSelectedStatementIds([]);
           reload();
@@ -274,7 +280,12 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
       </Card>
       <Card
         title={canAiVoucher && submitted
-          ? <Space wrap><span>查询结果</span><Button size="small" type="primary" ghost icon={<RobotOutlined />} disabled={!selectedStatementIds.length} loading={aiVoucherRunning} onClick={aiVoucherSelected}>AI 制证推送{selectedStatementIds.length ? `（${selectedStatementIds.length}）` : ''}</Button><span className="muted">已推送行与纯人工制证账户不可选；AI 建议 → 推送金蝶 → 人工在金蝶审核</span></Space>
+          ? <Space wrap>
+              <span>查询结果</span>
+              <Button size="small" type="primary" icon={<RobotOutlined />} disabled={!selectedStatementIds.length} loading={aiVoucherRunning} onClick={() => aiVoucherSelected('DRAFT')}>AI 制证为草稿{selectedStatementIds.length ? `（${selectedStatementIds.length}）` : ''}</Button>
+              <Button size="small" type="primary" ghost icon={<ThunderboltOutlined />} disabled={!selectedStatementIds.length} loading={aiVoucherRunning} onClick={() => aiVoucherSelected('PUSH')}>AI 制证并推送{selectedStatementIds.length ? `（${selectedStatementIds.length}）` : ''}</Button>
+              <span className="muted">草稿：AI 预填后在「凭证草稿与制证」页人工审核推送；推送：复核内化后直送金蝶。已推送行与纯人工制证账户不可选</span>
+            </Space>
           : '查询结果'}
       >
         {error ? <ResourceFailure error={error} onRetry={reload} /> : !submitted && !loading ? <Empty description="设置筛选条件后点击查询；没有默认或浏览器生成的数据。" /> : (
@@ -296,10 +307,13 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
         )}
       </Card>
       <Modal
-        title={`AI 制证结果 · 推送 ${aiVoucherResult?.pushedCount ?? 0} / 幂等跳过 ${aiVoucherResult?.alreadyCount ?? 0} / 跳过 ${aiVoucherResult?.skippedCount ?? 0} / 失败 ${aiVoucherResult?.failedCount ?? 0}`}
+        title={`AI 制证结果 · 草稿 ${aiVoucherResult?.draftCount ?? 0} / 推送 ${aiVoucherResult?.pushedCount ?? 0} / 幂等跳过 ${aiVoucherResult?.alreadyCount ?? 0} / 跳过 ${aiVoucherResult?.skippedCount ?? 0} / 失败 ${aiVoucherResult?.failedCount ?? 0}`}
         open={Boolean(aiVoucherResult)}
         onCancel={() => setAiVoucherResult(undefined)}
-        footer={<Button type="primary" onClick={() => setAiVoucherResult(undefined)}>知道了</Button>}
+        footer={<Space>
+          {(aiVoucherResult?.draftCount ?? 0) > 0 && <Link to="/statements/vouchers"><Button>去「凭证草稿与制证」审核推送</Button></Link>}
+          <Button type="primary" onClick={() => setAiVoucherResult(undefined)}>知道了</Button>
+        </Space>}
         width={720}
       >
         {aiVoucherResult && (
@@ -313,8 +327,8 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
               {
                 title: '结果', dataIndex: 'outcome', width: 110,
                 render: (value: AiVoucherRowResult['outcome']) => (
-                  <Tag color={value === 'PUSHED' ? 'green' : value === 'ALREADY_PUSHED' ? 'blue' : value.startsWith('SKIPPED') ? 'orange' : 'red'}>
-                    {value === 'PUSHED' ? '已推送' : value === 'ALREADY_PUSHED' ? '幂等跳过' : value === 'SKIPPED_MANUAL' ? '人工制证' : value === 'SKIPPED_REJECTED' ? '已驳回' : '失败'}
+                  <Tag color={value === 'PUSHED' ? 'green' : value === 'DRAFT_CREATED' ? 'blue' : value === 'ALREADY_PUSHED' ? 'geekblue' : value === 'ALREADY_APPROVED' ? 'cyan' : value.startsWith('SKIPPED') ? 'orange' : 'red'}>
+                    {value === 'PUSHED' ? '已推送' : value === 'DRAFT_CREATED' ? '草稿已生成' : value === 'ALREADY_APPROVED' ? '已过复核' : value === 'ALREADY_PUSHED' ? '幂等跳过' : value === 'SKIPPED_MANUAL' ? '人工制证' : value === 'SKIPPED_REJECTED' ? '已驳回' : '失败'}
                   </Tag>
                 ),
               },

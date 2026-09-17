@@ -61,6 +61,38 @@ export type StatementReviewRequest = {
   comment?: string;
 };
 
+/** 批量复核/推送逐行结果（/statements/batch-review、/statements/batch-push）。 */
+export type StatementBatchOpRowResult = {
+  id: number;
+  statementNo?: string | null;
+  outcome: 'APPROVED' | 'REJECTED' | 'PUSHED' | 'ALREADY_PUSHED' | 'SKIPPED' | 'FAILED';
+  voucherNo?: string | null;
+  message?: string | null;
+};
+
+export type StatementBatchOpResult = {
+  totalCount: number;
+  successCount: number;
+  skippedCount: number;
+  failedCount: number;
+  rows: StatementBatchOpRowResult[];
+};
+
+/** AI 入账建议（/statements/{id}/ai-suggestion 重新生成，AI 只建议不执行）。 */
+export type AiAccountingSuggestion = {
+  statementId: number;
+  businessCategory?: string | null;
+  suggestedSummary?: string | null;
+  counterpartyType?: string | null;
+  settlementMethod?: string | null;
+  suggestedSubject?: string | null;
+  riskNotes?: string | null;
+  confidence?: number | null;
+  rationale?: string | null;
+  model?: string | null;
+  durationMillis?: number | null;
+};
+
 export type StatementDashboard = {
   totalCount: number;
   pendingReviewCount: number;

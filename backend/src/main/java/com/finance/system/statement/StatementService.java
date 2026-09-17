@@ -24,6 +24,10 @@ import com.finance.system.rbac.RbacService;
 import com.finance.system.statement.collector.StatementCollection;
 import com.finance.system.statement.collector.StatementCollector;
 import com.finance.system.statement.dto.StatementAuditEventResponse;
+import com.finance.system.statement.dto.StatementBatchOpRequest;
+import com.finance.system.statement.dto.StatementBatchOpResponse;
+import com.finance.system.statement.dto.StatementBatchOpRowResult;
+import com.finance.system.statement.dto.StatementBatchPushRequest;
 import com.finance.system.statement.dto.StatementDashboardResponse;
 import com.finance.system.statement.dto.StatementDetailResponse;
 import com.finance.system.statement.dto.StatementImportBatchResponse;
@@ -32,6 +36,7 @@ import com.finance.system.statement.dto.StatementRecordInput;
 import com.finance.system.statement.dto.StatementResponse;
 import com.finance.system.statement.dto.StatementReviewRequest;
 import com.finance.system.statement.dto.StatementTransferRequest;
+import com.finance.system.statement.kingdee.KingdeeConnectionStatus;
 import com.finance.system.statement.kingdee.KingdeeVoucherGateway;
 import com.finance.system.statement.kingdee.KingdeeVoucherResult;
 import org.springframework.stereotype.Service;
@@ -44,6 +49,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -254,30 +260,41 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
     @Transactional
     public StatementResponse review(Long id, StatementReviewRequest request, Long operatorId) {
         long companyId = companyScope.companyIdForUser(operatorId);
+        return reviewInternal(id, companyId, request.action(), request.comment(), operatorId);
+    }
+
+    /**
+     * 复核核心（单条与批量共用）。职责分离规则（2026-09-17 调整）：导入者不能复核自己，
+     * 但 BANKDATA 批次（AI 草稿链路）例外——草稿生成与人工复核常为同一管理员，
+     * 审计事件（REVIEW_APPROVE/REJECT）仍完整记录操作人。
+     */
+    private StatementResponse reviewInternal(Long id, long companyId, String action, String comment,
+                                             Long operatorId) {
         StatementRecord existing = require(id, companyId);
         StatementImportBatch batch = batchMapper.selectOne(new LambdaQueryWrapper<StatementImportBatch>()
                 .eq(StatementImportBatch::getId, existing.getBatchId())
                 .eq(StatementImportBatch::getCompanyId, companyId));
-        if (batch != null && java.util.Objects.equals(batch.getCreatedBy(), operatorId)) {
+        if (batch != null && java.util.Objects.equals(batch.getCreatedBy(), operatorId)
+                && !"BANKDATA".equals(batch.getSourceType())) {
             throw new BusinessException(403, "Importers cannot review their own statements");
         }
-        String action = request.action().trim().toUpperCase(Locale.ROOT);
-        if (!"APPROVE".equals(action) && !"REJECT".equals(action)) {
+        String normalizedAction = action == null ? "" : action.trim().toUpperCase(Locale.ROOT);
+        if (!"APPROVE".equals(normalizedAction) && !"REJECT".equals(normalizedAction)) {
             throw new BusinessException(400, "Review action must be APPROVE or REJECT");
         }
         if (REVIEW_APPROVED.equals(existing.getReviewStatus()) || REVIEW_REJECTED.equals(existing.getReviewStatus())) {
             throw new BusinessException(409, "Statement has already been reviewed");
         }
-        if ("APPROVE".equals(action) && !VALID.equals(existing.getValidationStatus())) {
+        if ("APPROVE".equals(normalizedAction) && !VALID.equals(existing.getValidationStatus())) {
             throw new BusinessException(409, "Only validated statements can be approved");
         }
-        if ("REJECT".equals(action) && (request.comment() == null || request.comment().isBlank())) {
+        if ("REJECT".equals(normalizedAction) && (comment == null || comment.isBlank())) {
             throw new BusinessException(400, "A rejection comment is required");
         }
-        String nextStatus = "APPROVE".equals(action) ? REVIEW_APPROVED : REVIEW_REJECTED;
+        String nextStatus = "APPROVE".equals(normalizedAction) ? REVIEW_APPROVED : REVIEW_REJECTED;
         int updated = baseMapper.update(null, new LambdaUpdateWrapper<StatementRecord>()
                 .set(StatementRecord::getReviewStatus, nextStatus)
-                .set(StatementRecord::getReviewComment, trimToNull(request.comment()))
+                .set(StatementRecord::getReviewComment, trimToNull(comment))
                 .set(StatementRecord::getReviewedBy, operatorId)
                 .set(StatementRecord::getReviewedAt, LocalDateTime.now())
                 .eq(StatementRecord::getId, id)
@@ -287,9 +304,102 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
             throw new BusinessException(409, "Statement review status has changed");
         }
         StatementRecord result = require(id, companyId);
-        audit(result, "REVIEW_" + action, "SUCCESS", REVIEW_PENDING, result.getReviewStatus(), operatorId,
-                trimToNull(request.comment()));
+        audit(result, "REVIEW_" + normalizedAction, "SUCCESS", REVIEW_PENDING, result.getReviewStatus(), operatorId,
+                trimToNull(comment));
         return toResponse(result);
+    }
+
+    /**
+     * 批量复核（「凭证草稿与制证」工作台：批量通过 / 批量驳回）。逐行容错：
+     * 单行失败不影响其余行，409（已复核/状态变化）归类 SKIPPED，其余异常归类 FAILED。
+     */
+    @Transactional
+    public StatementBatchOpResponse batchReview(StatementBatchOpRequest request, Long operatorId) {
+        String action = request.action() == null ? "" : request.action().trim().toUpperCase(Locale.ROOT);
+        if (!"APPROVE".equals(action) && !"REJECT".equals(action)) {
+            throw new BusinessException(400, "Review action must be APPROVE or REJECT");
+        }
+        if ("REJECT".equals(action) && (request.comment() == null || request.comment().isBlank())) {
+            throw new BusinessException(400, "A rejection comment is required");
+        }
+        long companyId = companyScope.companyIdForUser(operatorId);
+        List<StatementBatchOpRowResult> rows = new ArrayList<>();
+        for (Long id : request.ids().stream().filter(Objects::nonNull).distinct().toList()) {
+            try {
+                StatementResponse record = reviewInternal(id, companyId, action, request.comment(), operatorId);
+                rows.add(new StatementBatchOpRowResult(id, record.statementNo(),
+                        "APPROVE".equals(action) ? "APPROVED" : "REJECTED", record.voucherNo(),
+                        "APPROVE".equals(action) ? "已通过复核，可推送金蝶" : "已驳回"));
+            } catch (BusinessException e) {
+                rows.add(failureRow(id, companyId, e.getCode() == 409 ? "SKIPPED" : "FAILED", e.getMessage()));
+            }
+        }
+        return summarize(rows);
+    }
+
+    /**
+     * 批量推送（「凭证草稿与制证」工作台：把已通过复核的草稿推送金蝶）。逐行容错，
+     * 预检已推送（幂等跳过）与未满足复核前置（跳过），推送失败保留服务端 pushMessage。
+     */
+    @Transactional
+    public StatementBatchOpResponse batchPush(StatementBatchPushRequest request, Long operatorId) {
+        long companyId = companyScope.companyIdForUser(operatorId);
+        List<StatementBatchOpRowResult> rows = new ArrayList<>();
+        for (Long id : request.ids().stream().filter(Objects::nonNull).distinct().toList()) {
+            try {
+                StatementRecord record = require(id, companyId);
+                if (PUSHED.equals(record.getPushStatus())) {
+                    rows.add(new StatementBatchOpRowResult(id, record.getStatementNo(), "ALREADY_PUSHED",
+                            record.getVoucherNo(), "此前已推送金蝶（幂等跳过）"));
+                    continue;
+                }
+                if (!VALID.equals(record.getValidationStatus()) || !REVIEW_APPROVED.equals(record.getReviewStatus())) {
+                    rows.add(new StatementBatchOpRowResult(id, record.getStatementNo(), "SKIPPED", null,
+                            "仅校验通过且已复核的流水可推送（当前 " + record.getValidationStatus()
+                                    + "/" + record.getReviewStatus() + "）"));
+                    continue;
+                }
+                StatementResponse pushed = pushVoucher(id, operatorId);
+                if (PUSHED.equals(pushed.pushStatus())) {
+                    rows.add(new StatementBatchOpRowResult(id, pushed.statementNo(), "PUSHED", pushed.voucherNo(),
+                            pushed.pushMessage() == null ? "已推送金蝶" : pushed.pushMessage()));
+                } else {
+                    rows.add(new StatementBatchOpRowResult(id, pushed.statementNo(), "FAILED", pushed.voucherNo(),
+                            pushed.pushMessage() == null ? "推送失败" : pushed.pushMessage()));
+                }
+            } catch (BusinessException e) {
+                rows.add(failureRow(id, companyId, e.getCode() == 409 ? "SKIPPED" : "FAILED", e.getMessage()));
+            }
+        }
+        return summarize(rows);
+    }
+
+    private StatementBatchOpRowResult failureRow(Long id, long companyId, String outcome, String message) {
+        String statementNo = null;
+        try {
+            statementNo = require(id, companyId).getStatementNo();
+        } catch (BusinessException ignored) {
+            // 流水不可见（404）：statementNo 置空，仍回报该行失败原因。
+        }
+        return new StatementBatchOpRowResult(id, statementNo, outcome, null, message);
+    }
+
+    private StatementBatchOpResponse summarize(List<StatementBatchOpRowResult> rows) {
+        return new StatementBatchOpResponse(rows.size(),
+                (int) rows.stream().filter(r -> "APPROVED".equals(r.outcome())
+                        || "REJECTED".equals(r.outcome()) || "PUSHED".equals(r.outcome())).count(),
+                (int) rows.stream().filter(r -> "SKIPPED".equals(r.outcome())
+                        || "ALREADY_PUSHED".equals(r.outcome())).count(),
+                (int) rows.stream().filter(r -> "FAILED".equals(r.outcome())).count(),
+                rows);
+    }
+
+    /**
+     * Read-only Kingdee connectivity probe for the UI connection-test button.
+     * Delegates to the active gateway (mock/unavailable/real); never touches statements.
+     */
+    public KingdeeConnectionStatus pingKingdee() {
+        return kingdeeGateway.ping();
     }
 
     @Transactional

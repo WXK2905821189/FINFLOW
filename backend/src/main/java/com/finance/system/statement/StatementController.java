@@ -2,7 +2,11 @@ package com.finance.system.statement;
 
 import com.finance.system.common.api.ApiResponse;
 import com.finance.system.common.api.PageResponse;
+import com.finance.system.ai.dto.AiAccountingSuggestionResponse;
 import com.finance.system.security.UserPrincipal;
+import com.finance.system.statement.dto.StatementBatchOpRequest;
+import com.finance.system.statement.dto.StatementBatchOpResponse;
+import com.finance.system.statement.dto.StatementBatchPushRequest;
 import com.finance.system.statement.dto.StatementDashboardResponse;
 import com.finance.system.statement.dto.StatementDetailResponse;
 import com.finance.system.statement.dto.StatementImportBatchResponse;
@@ -10,6 +14,7 @@ import com.finance.system.statement.dto.StatementImportRequest;
 import com.finance.system.statement.dto.StatementResponse;
 import com.finance.system.statement.dto.StatementReviewRequest;
 import com.finance.system.statement.dto.StatementTransferRequest;
+import com.finance.system.statement.kingdee.KingdeeConnectionStatus;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
@@ -29,9 +34,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class StatementController {
 
     private final StatementService statementService;
+    private final BankDataAccountingService bankDataAccountingService;
 
-    public StatementController(StatementService statementService) {
+    public StatementController(StatementService statementService,
+                               BankDataAccountingService bankDataAccountingService) {
         this.statementService = statementService;
+        this.bankDataAccountingService = bankDataAccountingService;
     }
 
     @PostMapping("/statement-imports")
@@ -98,6 +106,41 @@ public class StatementController {
                                                   @Valid @RequestBody StatementReviewRequest request,
                                                   @AuthenticationPrincipal UserPrincipal principal) {
         return ApiResponse.success("Statement review completed", statementService.review(id, request, principal.getId()));
+    }
+
+    @PostMapping("/statements/batch-review")
+    @PreAuthorize("hasAuthority('statement:review')")
+    @Operation(summary = "Batch approve or reject statement drafts (voucher draft workbench)")
+    public ApiResponse<StatementBatchOpResponse> batchReview(@Valid @RequestBody StatementBatchOpRequest request,
+                                                              @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success("Batch review completed",
+                statementService.batchReview(request, principal.getId()));
+    }
+
+    @PostMapping("/statements/batch-push")
+    @PreAuthorize("hasAuthority('voucher:push')")
+    @Operation(summary = "Batch push approved statements to the Kingdee gateway (voucher draft workbench)")
+    public ApiResponse<StatementBatchOpResponse> batchPush(@Valid @RequestBody StatementBatchPushRequest request,
+                                                            @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success("Batch push completed",
+                statementService.batchPush(request, principal.getId()));
+    }
+
+    @PostMapping("/statements/{id}/ai-suggestion")
+    @PreAuthorize("hasAuthority('statement:view')")
+    @Operation(summary = "Regenerate the AI accounting suggestion for a pending draft "
+            + "(writes the review comment only; AI guard ai:use applies inside)")
+    public ApiResponse<AiAccountingSuggestionResponse> refreshAiSuggestion(@PathVariable Long id,
+                                                                            @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success("AI 建议已更新",
+                bankDataAccountingService.refreshAiSuggestion(id, principal.getId()));
+    }
+
+    @GetMapping("/statements/kingdee/ping")
+    @PreAuthorize("hasAuthority('statement:view')")
+    @Operation(summary = "Read-only Kingdee connectivity probe (never creates or modifies Kingdee data)")
+    public ApiResponse<KingdeeConnectionStatus> pingKingdee(@AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success(statementService.pingKingdee());
     }
 
     @PostMapping("/statements/{id}/voucher-push")

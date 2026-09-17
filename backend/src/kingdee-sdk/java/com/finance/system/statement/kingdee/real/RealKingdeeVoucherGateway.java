@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.finance.system.common.exception.BusinessException;
 import com.finance.system.domain.entity.StatementRecord;
+import com.finance.system.statement.kingdee.KingdeeConnectionStatus;
 import com.finance.system.statement.kingdee.KingdeeProperties;
 import com.finance.system.statement.kingdee.KingdeeRealModeCondition;
 import com.finance.system.statement.kingdee.KingdeeVoucherGateway;
@@ -68,6 +69,39 @@ public class RealKingdeeVoucherGateway implements KingdeeVoucherGateway {
             return pushed;
         }
         return autoAuditIfEnabled(formId, pushed);
+    }
+
+    /**
+     * Read-only connectivity probe (UI "connection test"): one ExecuteBillQuery against
+     * BD_Customer. By contract never saves/submits anything — safe against the "do not
+     * touch the real books" boundary agreed on 2026-09-09.
+     */
+    @Override
+    public KingdeeConnectionStatus ping() {
+        String query = "{\"FormId\":\"BD_Customer\",\"FieldKeys\":\"FNumber,FName\",\"Limit\":1}";
+        try {
+            String response = client.executeBillQueryJson(query);
+            JsonNode rows = mapper.readTree(response);
+            int rowCount = rows.isArray() ? rows.size() : 0;
+            String sample = rowCount > 0 ? rows.get(0).get(1).asText("") : "";
+            return new KingdeeConnectionStatus(true, "REAL",
+                    "已连接金蝶（" + hostOf(props.getServerUrl()) + "，账套 " + props.getAcctId()
+                            + "，组织 " + props.getOrgNumber() + "；BD_Customer 查询返回 " + rowCount + " 行"
+                            + (sample.isBlank() ? "" : "，示例：" + sample) + "）");
+        } catch (BusinessException e) {
+            return new KingdeeConnectionStatus(false, "REAL", "连接失败：" + e.getMessage());
+        } catch (Exception e) {
+            return new KingdeeConnectionStatus(false, "REAL",
+                    "连接失败：金蝶响应无法解析 " + abbreviate(String.valueOf(e.getMessage())));
+        }
+    }
+
+    private static String hostOf(String serverUrl) {
+        try {
+            return java.net.URI.create(serverUrl).getHost();
+        } catch (Exception e) {
+            return serverUrl;
+        }
     }
 
     private String resolveFormId(String direction) {

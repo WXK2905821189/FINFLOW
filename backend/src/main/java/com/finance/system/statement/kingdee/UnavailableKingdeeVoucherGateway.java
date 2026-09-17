@@ -19,4 +19,11 @@ public class UnavailableKingdeeVoucherGateway implements KingdeeVoucherGateway {
         return new KingdeeVoucherResult(null, "UNAVAILABLE",
                 "Kingdee real gateway is not enabled; set kingdee.real-enabled=true with the kingdee-sdk Maven profile");
     }
+
+    @Override
+    public KingdeeConnectionStatus ping() {
+        return new KingdeeConnectionStatus(false, "UNAVAILABLE",
+                "Real 网关未激活：需同时满足 kingdee-sdk Maven profile 编译（本地 ~/.m2 有 SDK jar）"
+                        + "与 KINGDEE_REAL_ENABLED=true 及凭据环境变量");
+    }
 }

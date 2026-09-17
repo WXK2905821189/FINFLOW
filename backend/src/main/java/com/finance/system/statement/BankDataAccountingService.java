@@ -27,21 +27,28 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 
 /**
- * 一键 AI 制证（2026-09-16 决策）：银行流水行 → 转入标准流水（幂等）→ AI 入账建议 →
- * 复核闸门内化 → 推送金蝶（save→submit，audit 留给金蝶侧人工审核）。
+ * 一键 AI 制证（2026-09-16 决策，2026-09-17 扩展草稿模式）：银行流水行 → 转入标准流水（幂等）→
+ * AI 入账建议 → 按 mode 分流：
+ * <ul>
+ *   <li><b>PUSH</b>：复核闸门内化（自动 APPROVED）→ 推送金蝶（save→submit，audit 留给金蝶侧人工审核）；</li>
+ *   <li><b>DRAFT</b>：AI 建议落为复核意见（reviewComment），流水停在 PENDING 草稿，
+ *   人工在「凭证草稿与制证」页批量/逐行审核（batch-review）后推送（batch-push）——AI 只预填不执行。</li>
+ * </ul>
  *
  * <p>流程决策记录：
  * <ul>
  *   <li>复用 {@link StatementService#transferFromBankData} 完成转入（含跨公司权限、批次、
  *   查重与 IMPORT 审计），本服务不重复实现转入逻辑；</li>
- *   <li>复核不再要求「导入者不能复核自己」——一键链路中复核职责转移到金蝶侧人工审核，
- *   系统内自动置 APPROVED 并留审计事件（action=AI_VOUCHER_REVIEW）说明 AI 建议与人工审核落点；</li>
- *   <li>AI 建议失败（未配置/无 ai:use 权限/限频/解析失败）时降级继续推送：AI 是增强不是闸门，
- *   金蝶侧人工审核兜底，逐行结果以 aiStatus 标注；</li>
+ *   <li>PUSH 模式复核不再要求「导入者不能复核自己」——复核职责转移到金蝶侧人工审核，
+ *   系统内自动置 APPROVED 并留审计事件（action=AI_VOUCHER_REVIEW）；DRAFT 模式保持 PENDING，
+ *   人工审核走 batch-review（BANKDATA 批次允许生成人自审，审计 action=REVIEW_APPROVE/REJECT）；</li>
+ *   <li>AI 建议失败（未配置/无 ai:use 权限/限频/解析失败）时降级：PUSH 模式继续推送，DRAFT 模式
+ *   仍生成草稿并在复核意见中标注「AI 建议不可用」，逐行结果以 aiStatus 标注；</li>
  *   <li>MANUAL 制证模式账户（V31）的行跳过推送，数据仍正常落库与查询（纯人工制证）。</li>
  * </ul></p>
  */
@@ -83,6 +90,15 @@ public class BankDataAccountingService {
 
     @Transactional
     public AiVoucherBatchResponse createVouchers(List<Long> statementIds, Long operatorId) {
+        return createVouchers(statementIds, operatorId, "PUSH");
+    }
+
+    @Transactional
+    public AiVoucherBatchResponse createVouchers(List<Long> statementIds, Long operatorId, String requestMode) {
+        String mode = requestMode == null || requestMode.isBlank() ? "PUSH" : requestMode.trim().toUpperCase(Locale.ROOT);
+        if (!"PUSH".equals(mode) && !"DRAFT".equals(mode)) {
+            throw new BusinessException(400, "制证模式仅支持 DRAFT（生成草稿）或 PUSH（直接推送）");
+        }
         List<Long> ids = statementIds.stream().filter(Objects::nonNull).distinct().toList();
         if (ids.isEmpty()) {
             throw new BusinessException(400, "请选择要制证的银行流水");
@@ -139,9 +155,11 @@ public class BankDataAccountingService {
             }
         });
 
-        // 逐行：AI 建议 → 自动复核 → 推送。
+        // 逐行：AI 建议 → 按模式分流（DRAFT 停在草稿 / PUSH 复核内化后推送）。
         for (BankDataStatement row : eligible) {
-            results.put(row.getId(), processRow(row, operatorId));
+            results.put(row.getId(), "DRAFT".equals(mode)
+                    ? processRowAsDraft(row, operatorId)
+                    : processRow(row, operatorId));
         }
 
         List<AiVoucherRowResult> ordered = ids.stream().map(results::get)
@@ -149,9 +167,11 @@ public class BankDataAccountingService {
         return new AiVoucherBatchResponse(
                 batchNoHolder[0],
                 ordered.size(),
+                (int) ordered.stream().filter(r -> "DRAFT_CREATED".equals(r.outcome())).count(),
                 (int) ordered.stream().filter(r -> "PUSHED".equals(r.outcome())).count(),
                 (int) ordered.stream().filter(r -> "ALREADY_PUSHED".equals(r.outcome())).count(),
-                (int) ordered.stream().filter(r -> r.outcome() != null && r.outcome().startsWith("SKIPPED")).count(),
+                (int) ordered.stream().filter(r -> r.outcome() != null && r.outcome().startsWith("SKIPPED")
+                        || "ALREADY_APPROVED".equals(r.outcome())).count(),
                 (int) ordered.stream().filter(r -> "FAILED".equals(r.outcome())
                         || "FAILED_VALIDATION".equals(r.outcome())).count(),
                 ordered);
@@ -239,6 +259,122 @@ public class BankDataAccountingService {
                     suggestion == null ? null : suggestion.confidence(),
                     null, record.getPushStatus(), e.getMessage());
         }
+    }
+
+    /**
+     * DRAFT 模式逐行处理：转入后的标准流水停留 PENDING，AI 建议写进复核意见（reviewComment），
+     * 审计 action=AI_VOUCHER_DRAFT；推送留给人工在「凭证草稿与制证」页 batch-review 后 batch-push。
+     */
+    private AiVoucherRowResult processRowAsDraft(BankDataStatement row, Long operatorId) {
+        String statementNo = firstNonBlank(row.getStatementNo(), "BKD-" + row.getId());
+        StatementRecord record = recordMapper.selectOne(new LambdaQueryWrapper<StatementRecord>()
+                .eq(StatementRecord::getCompanyId, row.getCompanyId())
+                .eq(StatementRecord::getStatementNo, statementNo.trim())
+                .last("LIMIT 1"));
+        if (record == null) {
+            return new AiVoucherRowResult(row.getId(), statementNo, "FAILED_VALIDATION", null,
+                    null, null, null, null, null, null, "转入后未找到对应标准流水（校验未通过）");
+        }
+        if (!VALIDATION_PASSED.equals(record.getValidationStatus())) {
+            return new AiVoucherRowResult(row.getId(), statementNo, "FAILED_VALIDATION", null,
+                    null, null, null, null, null, record.getPushStatus(), record.getValidationMessage());
+        }
+        if ("PUSHED".equals(record.getPushStatus())) {
+            return new AiVoucherRowResult(row.getId(), statementNo, "ALREADY_PUSHED", null,
+                    null, null, null, null, record.getVoucherNo(), record.getPushStatus(),
+                    "此前已推送金蝶（幂等跳过）");
+        }
+        if (REVIEW_REJECTED.equals(record.getReviewStatus())) {
+            return new AiVoucherRowResult(row.getId(), statementNo, "SKIPPED_REJECTED", null,
+                    null, null, null, null, record.getVoucherNo(), record.getPushStatus(),
+                    "该流水此前已被人工驳回：" + trimToEmpty(record.getReviewComment()));
+        }
+        if (REVIEW_APPROVED.equals(record.getReviewStatus())) {
+            return new AiVoucherRowResult(row.getId(), statementNo, "ALREADY_APPROVED", null,
+                    null, null, null, null, record.getVoucherNo(), record.getPushStatus(),
+                    "此前已通过复核，可直接在「凭证草稿与制证」页推送");
+        }
+
+        // AI 建议：失败降级仍生成草稿（复核意见标注不可用，可在草稿页重新生成）。
+        AiAccountingSuggestionResponse suggestion = null;
+        String aiStatus = "OK";
+        String aiNote = null;
+        try {
+            suggestion = aiSuggestionService.suggest(record.getId(), operatorId);
+        } catch (BusinessException e) {
+            aiStatus = "UNAVAILABLE";
+            aiNote = e.getMessage();
+        }
+        String comment = suggestion != null ? formatSuggestion(suggestion)
+                : "AI 建议不可用：" + trimToEmpty(aiNote) + "（可在「凭证草稿与制证」页重新生成）";
+        int updated = recordMapper.update(null, new LambdaUpdateWrapper<StatementRecord>()
+                .set(StatementRecord::getReviewComment, comment)
+                .eq(StatementRecord::getId, record.getId())
+                .eq(StatementRecord::getReviewStatus, REVIEW_PENDING));
+        if (updated == 1) {
+            insertAudit(record, "AI_VOUCHER_DRAFT", "SUCCESS", REVIEW_PENDING, REVIEW_PENDING,
+                    operatorId, comment);
+        }
+        return new AiVoucherRowResult(row.getId(), statementNo, "DRAFT_CREATED", aiStatus,
+                suggestion == null ? null : suggestion.businessCategory(),
+                suggestion == null ? null : suggestion.suggestedSummary(),
+                suggestion == null ? null : suggestion.suggestedSubject(),
+                suggestion == null ? null : suggestion.confidence(),
+                null, record.getPushStatus(),
+                suggestion == null ? "草稿已生成（AI 建议不可用），待人工复核后推送"
+                        : "草稿已生成，待人工复核后推送");
+    }
+
+    /** AI 建议的复核意见呈现格式（一行业务摘要，完整字段留在审计事件明细里）。 */
+    private static String formatSuggestion(AiAccountingSuggestionResponse s) {
+        StringBuilder text = new StringBuilder("AI 建议：");
+        if (s.businessCategory() != null) {
+            text.append("业务类别 ").append(s.businessCategory());
+        }
+        if (s.suggestedSubject() != null) {
+            text.append("｜科目 ").append(s.suggestedSubject());
+        }
+        if (s.suggestedSummary() != null) {
+            text.append("｜摘要 ").append(s.suggestedSummary());
+        }
+        if (s.confidence() != null) {
+            text.append("（置信度 ").append(Math.round(s.confidence() * 100)).append("%）");
+        }
+        return text.toString();
+    }
+
+    /**
+     * 在「凭证草稿与制证」页对单条 PENDING 草稿重新生成 AI 建议（覆盖 reviewComment，
+     * 不改任何状态字段）；已推送/已驳回/已通过的流水拒绝刷新。
+     */
+    @Transactional
+    public AiAccountingSuggestionResponse refreshAiSuggestion(Long statementId, Long operatorId) {
+        long companyId = companyScope.companyIdForUser(operatorId);
+        StatementRecord record = recordMapper.selectById(statementId);
+        if (record == null || record.getCompanyId() == null || record.getCompanyId() != companyId) {
+            throw new BusinessException(404, "流水不存在或不在当前公司域内");
+        }
+        if ("PUSHED".equals(record.getPushStatus())) {
+            throw new BusinessException(409, "已推送金蝶的流水不再刷新 AI 建议");
+        }
+        if (REVIEW_REJECTED.equals(record.getReviewStatus())) {
+            throw new BusinessException(409, "已驳回的流水不刷新 AI 建议");
+        }
+        if (!REVIEW_PENDING.equals(record.getReviewStatus())) {
+            throw new BusinessException(409, "仅待复核草稿可刷新 AI 建议");
+        }
+        AiAccountingSuggestionResponse suggestion = aiSuggestionService.suggest(statementId, operatorId);
+        String comment = formatSuggestion(suggestion);
+        int updated = recordMapper.update(null, new LambdaUpdateWrapper<StatementRecord>()
+                .set(StatementRecord::getReviewComment, comment)
+                .eq(StatementRecord::getId, statementId)
+                .eq(StatementRecord::getReviewStatus, REVIEW_PENDING));
+        if (updated != 1) {
+            throw new BusinessException(409, "流水复核状态已变化，请刷新后重试");
+        }
+        insertAudit(record, "AI_SUGGESTION_REFRESH", "SUCCESS", REVIEW_PENDING, REVIEW_PENDING,
+                operatorId, comment);
+        return suggestion;
     }
 
     private void insertAudit(StatementRecord record, String action, String result, String previous,

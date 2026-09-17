@@ -27,6 +27,7 @@ import type {
   StatementImportRequest,
   StatementRecord,
   StatementReviewRequest,
+  StatementBatchOpResult,
   ValidationRule,
   AccountingMapping,
   ClosingPeriod,
@@ -263,6 +264,15 @@ export const statementApi = {
   review: (id: number, data: StatementReviewRequest) => http.post<never, StatementRecord>(`/statements/${id}/review`, data),
   pushVoucher: (id: number) => http.post<never, StatementRecord>(`/statements/${id}/voucher-push`),
   pingKingdee: () => http.get<never, { connected: boolean; mode: string; message: string }>('/statements/kingdee/ping'),
+  /** 批量通过/驳回草稿（BANKDATA 批次允许生成人自审）。 */
+  batchReview: (data: { ids: number[]; action: 'APPROVE' | 'REJECT'; comment?: string }) =>
+    http.post<never, StatementBatchOpResult>('/statements/batch-review', data),
+  /** 批量推送已通过复核的草稿到金蝶。 */
+  batchPush: (data: { ids: number[] }) =>
+    http.post<never, StatementBatchOpResult>('/statements/batch-push', data),
+  /** 对 PENDING 草稿重新生成 AI 建议（覆盖复核意见，不改状态；ai:use 闸门在服务端）。 */
+  refreshAiSuggestion: (id: number) =>
+    http.post<never, AiAccountingSuggestion>(`/statements/${id}/ai-suggestion`),
 };
 
 type OperationListParams = { page?: number; size?: number; connectionCode?: string; status?: string; requestId?: string };
@@ -360,8 +370,8 @@ export const bankPipelineApi = {
   /** 银行流水一键转入标准流水（流水与入账）；服务端按银行流水行的公司归属落批次。 */
   transferFromBankdata: (data: { statementIds: number[] }) =>
     http.post<never, StatementTransferResult>('/statements/transfer-from-bankdata', data),
-  /** 一键 AI 制证（2026-09-16）：转入 → AI 建议 → 推送金蝶；audit 由人工在金蝶侧完成。 */
-  aiVoucher: (data: { statementIds: number[] }) =>
+  /** 一键 AI 制证（2026-09-16；2026-09-17 扩展 DRAFT）：转入 → AI 建议 → DRAFT=生成草稿待人工复核 / PUSH=复核内化后直接推送金蝶。 */
+  aiVoucher: (data: { statementIds: number[]; mode?: 'DRAFT' | 'PUSH' }) =>
     http.post<never, AiVoucherBatchResult>('/bank-data/statements/ai-voucher', data),
   /** 定时同步计划（V25）：读取全部计划时刻（查看权限即可读）。 */
   listSchedules: () => http.get<never, BankSyncScheduleRow[]>('/bank-sync-schedules'),

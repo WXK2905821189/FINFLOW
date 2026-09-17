@@ -25,6 +25,10 @@ import com.finance.system.domain.mapper.SysUserMapper;
 import com.finance.system.domain.mapper.SysUserRoleMapper;
 import com.finance.system.statement.dto.AiVoucherBatchResponse;
 import com.finance.system.statement.dto.AiVoucherRowResult;
+import com.finance.system.statement.dto.StatementBatchOpRequest;
+import com.finance.system.statement.dto.StatementBatchOpResponse;
+import com.finance.system.statement.dto.StatementBatchOpRowResult;
+import com.finance.system.statement.dto.StatementBatchPushRequest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -71,6 +75,8 @@ class BankDataAccountingIntegrationTest {
     private StatementAuditEventMapper auditEventMapper;
     @Autowired
     private BankDataAccountingService accountingService;
+    @Autowired
+    private StatementService statementService;
 
     @Test
     void aiVoucherHappyPathTransfersReviewsAndPushes() {
@@ -201,6 +207,111 @@ class BankDataAccountingIntegrationTest {
         BusinessException denied = assertThrows(BusinessException.class,
                 () -> accountingService.createVouchers(List.of(), adminId));
         assertEquals(400, denied.getCode());
+    }
+
+    @Test
+    void draftModeStaysPendingWithAiCommentAndDoesNotPush() {
+        Company company = insertCompany("AIV-DRAFT");
+        BankAccount account = insertAccount(company.getId(), null);
+        BankDataStatement row = insertBankStatement(company.getId(), account.getId(), "对手方己", "咨询费");
+        Long adminId = insertUser(company.getId(), "aiv-draft-admin", 1L);
+
+        AiVoucherBatchResponse response = accountingService.createVouchers(List.of(row.getId()), adminId, "DRAFT");
+
+        assertEquals(1, response.draftCount());
+        assertEquals(0, response.pushedCount());
+        AiVoucherRowResult result = response.rows().get(0);
+        assertEquals("DRAFT_CREATED", result.outcome());
+
+        StatementRecord record = statementRecordMapper.selectOne(new LambdaQueryWrapper<StatementRecord>()
+                .eq(StatementRecord::getCompanyId, company.getId())
+                .eq(StatementRecord::getStatementNo, row.getStatementNo()));
+        assertNotNull(record);
+        assertEquals("PENDING", record.getReviewStatus(), "DRAFT 模式必须停在待复核草稿");
+        assertEquals("NOT_PUSHED", record.getPushStatus(), "DRAFT 模式不得推送金蝶");
+        assertTrue(record.getReviewComment() != null && record.getReviewComment().contains("AI 建议"),
+                "复核意见应带 AI 建议或不可用标注，实际：" + record.getReviewComment());
+
+        StatementAuditEvent draftEvent = auditEventMapper.selectOne(new LambdaQueryWrapper<StatementAuditEvent>()
+                .eq(StatementAuditEvent::getStatementId, record.getId())
+                .eq(StatementAuditEvent::getAction, "AI_VOUCHER_DRAFT"));
+        assertNotNull(draftEvent, "草稿生成必须留审计事件");
+    }
+
+    @Test
+    void invalidModeIsRejected() {
+        Company company = insertCompany("AIV-BADMODE");
+        BankAccount account = insertAccount(company.getId(), null);
+        BankDataStatement row = insertBankStatement(company.getId(), account.getId(), "对手方庚", "测试");
+        Long adminId = insertUser(company.getId(), "aiv-badmode-admin", 1L);
+        BusinessException denied = assertThrows(BusinessException.class,
+                () -> accountingService.createVouchers(List.of(row.getId()), adminId, "AUTO"));
+        assertEquals(400, denied.getCode());
+    }
+
+    @Test
+    void draftThenSelfReviewThenBatchPushFullPipeline() {
+        Company company = insertCompany("AIV-FULL");
+        BankAccount account = insertAccount(company.getId(), null);
+        BankDataStatement row = insertBankStatement(company.getId(), account.getId(), "对手方辛", "广告费");
+        Long adminId = insertUser(company.getId(), "aiv-full-admin", 1L);
+
+        // 1) AI 生成草稿
+        accountingService.createVouchers(List.of(row.getId()), adminId, "DRAFT");
+        StatementRecord record = statementRecordMapper.selectOne(new LambdaQueryWrapper<StatementRecord>()
+                .eq(StatementRecord::getCompanyId, company.getId())
+                .eq(StatementRecord::getStatementNo, row.getStatementNo()));
+        assertEquals("PENDING", record.getReviewStatus());
+
+        // 2) 生成人自审（BANKDATA 批次允许）批量通过
+        StatementBatchOpResponse review = statementService.batchReview(
+                new StatementBatchOpRequest(List.of(record.getId()), "APPROVE", null), adminId);
+        assertEquals(1, review.successCount());
+        assertEquals("APPROVED", review.rows().get(0).outcome());
+
+        // 3) 批量推送金蝶（dev mock 网关）
+        StatementBatchOpResponse push = statementService.batchPush(
+                new StatementBatchPushRequest(List.of(record.getId())), adminId);
+        assertEquals(1, push.successCount());
+        StatementBatchOpRowResult pushRow = push.rows().get(0);
+        assertEquals("PUSHED", pushRow.outcome());
+        assertTrue(pushRow.voucherNo() != null && pushRow.voucherNo().startsWith("KD-MOCK-"));
+
+        StatementRecord pushed = statementRecordMapper.selectById(record.getId());
+        assertEquals("PUSHED", pushed.getPushStatus());
+        assertEquals("APPROVED", pushed.getReviewStatus());
+
+        // 4) 幂等：再次批量推送 → ALREADY_PUSHED
+        StatementBatchOpResponse again = statementService.batchPush(
+                new StatementBatchPushRequest(List.of(record.getId())), adminId);
+        assertEquals("ALREADY_PUSHED", again.rows().get(0).outcome());
+        assertEquals(1, again.skippedCount());
+    }
+
+    @Test
+    void batchReviewRejectRequiresCommentAndPendingOnly() {
+        Company company = insertCompany("AIV-REJCOM");
+        BankAccount account = insertAccount(company.getId(), null);
+        BankDataStatement row = insertBankStatement(company.getId(), account.getId(), "对手方壬", "招待费");
+        Long adminId = insertUser(company.getId(), "aiv-rejcom-admin", 1L);
+        accountingService.createVouchers(List.of(row.getId()), adminId, "DRAFT");
+        StatementRecord record = statementRecordMapper.selectOne(new LambdaQueryWrapper<StatementRecord>()
+                .eq(StatementRecord::getCompanyId, company.getId())
+                .eq(StatementRecord::getStatementNo, row.getStatementNo()));
+
+        // 驳回无意见 → 400
+        BusinessException denied = assertThrows(BusinessException.class, () -> statementService.batchReview(
+                new StatementBatchOpRequest(List.of(record.getId()), "REJECT", null), adminId));
+        assertEquals(400, denied.getCode());
+
+        // 带意见驳回 → REJECTED；再批量推送 → SKIPPED（未通过复核）
+        StatementBatchOpResponse rejected = statementService.batchReview(
+                new StatementBatchOpRequest(List.of(record.getId()), "REJECT", "金额存疑"), adminId);
+        assertEquals("REJECTED", rejected.rows().get(0).outcome());
+        StatementBatchOpResponse push = statementService.batchPush(
+                new StatementBatchPushRequest(List.of(record.getId())), adminId);
+        assertEquals("SKIPPED", push.rows().get(0).outcome());
+        assertEquals(1, push.skippedCount());
     }
 
     private Long insertUser(Long companyId, String username, Long roleId) {

@@ -33,10 +33,10 @@ public class BankDataAccountingController {
     @PostMapping("/bank-data/statements/ai-voucher")
     @PreAuthorize("hasAuthority('voucher:push')")
     @Operation(summary = "One-click AI voucher creation for real bank statements "
-            + "(transfer → AI suggestion → push to Kingdee, audit stays manual in Kingdee)")
+            + "(transfer → AI suggestion → DRAFT pending review or PUSH to Kingdee)")
     public ApiResponse<AiVoucherBatchResponse> createAiVouchers(@Valid @RequestBody AiVoucherBatchRequest request,
                                                                 @AuthenticationPrincipal UserPrincipal principal) {
         return ApiResponse.success("AI 制证处理完成",
-                accountingService.createVouchers(request.statementIds(), principal.getId()));
+                accountingService.createVouchers(request.statementIds(), principal.getId(), request.mode()));
     }
 }

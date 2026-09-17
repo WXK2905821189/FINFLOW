@@ -24,7 +24,7 @@ export type BankAccount = {
 export type AiVoucherRowResult = {
   bankDataStatementId: number;
   statementNo: string;
-  outcome: 'PUSHED' | 'ALREADY_PUSHED' | 'SKIPPED_MANUAL' | 'SKIPPED_REJECTED' | 'FAILED_VALIDATION' | 'FAILED';
+  outcome: 'PUSHED' | 'DRAFT_CREATED' | 'ALREADY_APPROVED' | 'ALREADY_PUSHED' | 'SKIPPED_MANUAL' | 'SKIPPED_REJECTED' | 'FAILED_VALIDATION' | 'FAILED';
   aiStatus?: 'OK' | 'UNAVAILABLE';
   aiBusinessCategory?: string | null;
   aiSuggestedSummary?: string | null;
@@ -39,6 +39,8 @@ export type AiVoucherRowResult = {
 export type AiVoucherBatchResult = {
   batchNo?: string | null;
   totalCount: number;
+  /** DRAFT 模式生成的 PENDING 草稿数。 */
+  draftCount: number;
   pushedCount: number;
   alreadyCount: number;
   skippedCount: number;

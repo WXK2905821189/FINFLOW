@@ -5,6 +5,7 @@ import org.springframework.context.annotation.ConditionContext;
 import org.springframework.core.type.AnnotatedTypeMetadata;
 import org.springframework.mock.env.MockEnvironment;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -58,5 +59,19 @@ class KingdeeGatewayConditionsTest {
                 .withProperty("kingdee.real-enabled", "true"));
         assertFalse(real.matches(context, metadata));
         assertFalse(unavailable.matches(context, metadata));
+    }
+
+    @Test
+    void mockGatewayPingReportsNotConnected() {
+        KingdeeConnectionStatus status = new MockKingdeeVoucherGateway().ping();
+        assertFalse(status.connected());
+        assertEquals("MOCK", status.mode());
+    }
+
+    @Test
+    void unavailableGatewayPingReportsNotConnected() {
+        KingdeeConnectionStatus status = new UnavailableKingdeeVoucherGateway().ping();
+        assertFalse(status.connected());
+        assertEquals("UNAVAILABLE", status.mode());
     }
 }

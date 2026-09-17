@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.finance.system.common.exception.BusinessException;
 import com.finance.system.domain.entity.StatementRecord;
+import com.finance.system.statement.kingdee.KingdeeConnectionStatus;
 import com.finance.system.statement.kingdee.KingdeeProperties;
 import com.finance.system.statement.kingdee.KingdeeVoucherResult;
 import org.junit.jupiter.api.BeforeEach;
@@ -265,6 +266,34 @@ class RealKingdeeVoucherGatewayTest {
         assertEquals("PUSHED", result.status());
         assertEquals("CSPAY0012", result.voucherNo());
         assertTrue(result.message().contains("audit=false"));
+    }
+
+    @Test
+    void pingReturnsConnectedWithSampleOnQuerySuccess() throws Exception {
+        // 9/9 真实账套实查样本：ping 只读查 BD_Customer，不产生任何金蝶数据
+        props.setServerUrl("https://xyrc.ik3cloud.com/k3cloud/");
+        props.setAcctId("20210801002010962");
+        props.setOrgNumber("400");
+        when(client.executeBillQueryJson(anyString()))
+                .thenReturn("[[\"CUST0001\",\"财付通支付科技有限公司客户备付金\"]]");
+        KingdeeConnectionStatus status = gateway.ping();
+        assertTrue(status.connected());
+        assertEquals("REAL", status.mode());
+        assertTrue(status.message().contains("已连接金蝶"));
+        assertTrue(status.message().contains("xyrc.ik3cloud.com"));
+        assertTrue(status.message().contains("400"));
+        assertTrue(status.message().contains("财付通"));
+    }
+
+    @Test
+    void pingFailsClosedOnBusinessException() throws Exception {
+        when(client.executeBillQueryJson(anyString()))
+                .thenThrow(new BusinessException(502, "Kingdee bill query failed: read timed out"));
+        KingdeeConnectionStatus status = gateway.ping();
+        assertTrue(!status.connected());
+        assertEquals("REAL", status.mode());
+        assertTrue(status.message().contains("连接失败"));
+        assertTrue(status.message().contains("read timed out"));
     }
 
     private static String successResponse(String number) {
