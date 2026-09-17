@@ -14,7 +14,7 @@ import {
   Tooltip,
   message,
 } from 'antd';
-import { DeleteOutlined, RobotOutlined } from '@ant-design/icons';
+import { DeleteOutlined, PlusOutlined, RobotOutlined } from '@ant-design/icons';
 import { statementApi } from '../../services/api';
 import { useAuthStore } from '../../store/auth';
 import { useRemote, ResourceFailure, StatusTag } from '../shared/components';
