@@ -132,7 +132,7 @@ export function StatementDetail({ row }: { row: BankDataStatementRow }) {
       <Descriptions.Item label="金额（记账口径）">{row.amount === undefined ? '--' : <span className="mono">{money(row.amount)}</span>}</Descriptions.Item>
       <Descriptions.Item label="交易后余额">{row.acctOnlineBal === undefined ? '--' : <span className="mono">{money(row.acctOnlineBal)}</span>}</Descriptions.Item>
       <Descriptions.Item label="流水号"><span className="mono">{displayValue(row.statementNo)}</span></Descriptions.Item>
-      <Descriptions.Item label="本方账号">{maskAccountDisplay(row.accountMasked)}</Descriptions.Item>
+      <Descriptions.Item label="本方账号"><span className="mono">{displayValue(row.accountMasked || row.bankAccountNo)}</span></Descriptions.Item>
       <Descriptions.Item label="银行侧账号"><span className="mono">{displayValue(row.bankAccountNo)}</span></Descriptions.Item>
       <Descriptions.Item label="收付方名称">{displayValue(row.counterpartyName)}</Descriptions.Item>
       <Descriptions.Item label="收付方账号"><span className="mono">{displayValue(row.ctpAcctNbr)}</span></Descriptions.Item>
@@ -179,7 +179,7 @@ export function BalanceDetail({ row }: { row: BankDataBalanceRow }) {
     <>
       <Descriptions className="projection-detail" column={1} size="small" bordered>
         <Descriptions.Item label="快照时间">{dateTime(row.asOfTime)}</Descriptions.Item>
-        <Descriptions.Item label="账号">{maskAccountDisplay(row.accountMasked)}</Descriptions.Item>
+        <Descriptions.Item label="账号"><span className="mono">{displayValue(row.accountMasked || row.bankAccountNo)}</span></Descriptions.Item>
         <Descriptions.Item label="银行侧账号"><span className="mono">{displayValue(row.bankAccountNo)}</span></Descriptions.Item>
         <Descriptions.Item label="户名">{displayValue(row.bankAccountName)}</Descriptions.Item>
         <Descriptions.Item label="可用余额">{row.availableBalance === undefined ? '--' : <span className="mono">{money(row.availableBalance)}</span>}</Descriptions.Item>
