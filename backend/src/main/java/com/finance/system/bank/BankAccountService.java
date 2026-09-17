@@ -65,11 +65,32 @@ public class BankAccountService extends ServiceImpl<BankAccountMapper, BankAccou
 
     public BankAccountResponse create(Long userId, BankAccountRequest request) {
         bankServiceFactory.get(request.bankCode());
+        long ownCompanyId = companyScope.companyIdForUser(userId);
+        // V34 ⑧：可选归属公司主体——缺省=操作人本公司；跨公司归属需要 cross-company 权限。
+        long companyId = resolveCompanyId(userId, ownCompanyId, request.companyId());
         BankAccount account = new BankAccount();
-        account.setCompanyId(companyScope.companyIdForUser(userId));
+        account.setCompanyId(companyId);
         apply(request, account);
         save(account);
-        return toResponse(account, directStatusService.resolveOne(account), null);
+        return toResponse(account, directStatusService.resolveOne(account), companyMapper.selectById(companyId));
+    }
+
+    /**
+     * V34 ⑧ 归属解析：{@code companyId} 缺省/越权语义见 {@link BankAccountRequest}。
+     * 跨公司校验与 {@code BankDataAccountingService} 制证跨公司行同款（权限码
+     * {@code bankdata:cross-company:view}）。
+     */
+    private long resolveCompanyId(Long userId, long ownCompanyId, Long requestedCompanyId) {
+        if (requestedCompanyId == null || requestedCompanyId <= 0 || requestedCompanyId == ownCompanyId) {
+            return ownCompanyId;
+        }
+        if (!rbacService.permissionCodesForUser(userId).contains("bankdata:cross-company:view")) {
+            throw new BusinessException(403, "跨公司建立银行账户需要跨公司数据权限");
+        }
+        if (companyMapper.selectById(requestedCompanyId) == null) {
+            throw new BusinessException(404, "目标公司主体不存在");
+        }
+        return requestedCompanyId;
     }
 
     public BankAccountResponse updateAccount(Long userId, Long id, BankAccountRequest request) {
@@ -106,9 +127,13 @@ public class BankAccountService extends ServiceImpl<BankAccountMapper, BankAccou
         account.setBankCode(request.bankCode().trim().toUpperCase());
         account.setAccountName(request.accountName().trim());
         account.setAccountNumber(request.accountNumber().trim());
-        account.setCurrency(request.currency().trim().toUpperCase());
-        account.setAvailableBalance(request.availableBalance());
-        account.setStatus(request.status().trim().toUpperCase());
+        // V34 ⑧：币种/余额/状态降为可选，空值兜底（CNY / 0.00 / ACTIVE）——新增表单必填只有户名+账号。
+        account.setCurrency(request.currency() == null || request.currency().isBlank()
+                ? "CNY" : request.currency().trim().toUpperCase());
+        account.setAvailableBalance(request.availableBalance() == null
+                ? new java.math.BigDecimal("0.00") : request.availableBalance());
+        account.setStatus(request.status() == null || request.status().isBlank()
+                ? "ACTIVE" : request.status().trim().toUpperCase());
         // V31 制证模式：null 保持默认（KINGDEE_AUTO），显式 MANUAL 才落纯人工制证。
         account.setAccountingMode(request.accountingMode() == null ? "KINGDEE_AUTO"
                 : request.accountingMode().trim().toUpperCase());

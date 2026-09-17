@@ -393,14 +393,15 @@ export type BankConnectionTestResult = {
   testedAt: string;
 };
 
-/** 新增银行账户请求体（bank:manage）。 */
+/** 新增银行账户请求体（bank:manage）。V34 ⑧：必填降为户名+账号（银行前端识别/手选），其余可选走服务端兜底；companyId 可选指定归属。 */
 export type BankAccountCreatePayload = {
   bankCode: string;
   accountName: string;
   accountNumber: string;
-  currency: string;
-  availableBalance: number;
-  status: string;
+  currency?: string;
+  availableBalance?: number;
+  status?: string;
+  companyId?: number;
 };
 
 /** AI 公司主体归类建议（V32）：建议只读，应用走 aiApplyCompanies。 */
