@@ -6,7 +6,7 @@ import { useAuthStore } from '../../store/auth';
 import { useRemote, ResourceFailure } from '../shared/components';
 import { dateTime } from '../shared/format';
 import { BANK_NAME_TEXT } from './bankQueryTexts';
-import type { AiCompanyApplyResponse, AiCompanySuggestion, BankAccountCreatePayload, BankConnectionTestResult, CompanyArchiveAccount, CompanyArchiveCompany, CompanyArchiveView } from '../../types';
+import type { AiCompanyApplyResponse, AiCompanyApplyRow, AiCompanySuggestion, BankAccountCreatePayload, BankConnectionTestResult, CompanyArchiveAccount, CompanyArchiveCompany, CompanyArchiveView } from '../../types';
 
 /**
  * 拖拽式账户档案管理：公司档案是投放区，账户卡片拖到目标公司上松手完成归类。
