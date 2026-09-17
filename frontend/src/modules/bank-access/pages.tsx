@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Alert, Button, Card, Empty, Form, Input, InputNumber, Modal, Select, Space, Spin, Table, Tag, type TableColumnsType, message } from 'antd';
+import { Alert, Button, Card, Descriptions, Empty, Form, Input, InputNumber, Modal, Select, Space, Spin, Table, Tag, type TableColumnsType, message } from 'antd';
 import { ApartmentOutlined, ApiOutlined, PlusOutlined } from '@ant-design/icons';
 import { bankApi, bankPipelineApi, operationsApi } from '../../services/api';
 import { useAuthStore } from '../../store/auth';
@@ -110,7 +110,7 @@ export function BankAccountPage() {
     { title: '直联状态', width: 140, render: (_, row) => <DirectStatusTag status={row.directStatus} lastRealSyncAt={row.lastRealSyncAt} /> },
     ...(canManageArchive || canTriggerSync ? [{
       title: '操作', width: 120,
-      render: (_, row: BankAccount) => (
+      render: (_value: unknown, row: BankAccount) => (
         <Button type="link" size="small" icon={<ApiOutlined />} loading={testingId === row.id} onClick={() => void runTest(row)}>
           测试连通
         </Button>

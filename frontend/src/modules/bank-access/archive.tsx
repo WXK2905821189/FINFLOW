@@ -102,7 +102,7 @@ function ArchiveBoard() {
     }
     setCreatingAcct(true);
     try {
-      await bankApi.createAccount({ ...acctDraft, accountName: name, accountNumber: number, currency: acctDraft.currency.trim().toUpperCase() || 'CNY' });
+      await bankApi.createAccount({ ...acctDraft, accountName: name, accountNumber: number, currency: (acctDraft.currency ?? '').trim().toUpperCase() || 'CNY' });
       message.success(`账户「${name}」已创建，可在下方档案板拖拽归类到公司主体`);
       setCreateAcctOpen(false);
       setAcctDraft(emptyAcctDraft);
