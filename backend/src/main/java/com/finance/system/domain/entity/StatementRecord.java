@@ -28,6 +28,8 @@ public class StatementRecord {
     private String validationMessage;
     private String reviewStatus;
     private String reviewComment;
+    /** V33：结构化 AI 凭证建议（分录数组+逐行置信度+人工修正标记），见 VoucherSuggestionDto。 */
+    private String aiSuggestionJson;
     private Long reviewedBy;
     private LocalDateTime reviewedAt;
     private String pushStatus;
@@ -71,6 +73,8 @@ public class StatementRecord {
     public void setReviewStatus(String reviewStatus) { this.reviewStatus = reviewStatus; }
     public String getReviewComment() { return reviewComment; }
     public void setReviewComment(String reviewComment) { this.reviewComment = reviewComment; }
+    public String getAiSuggestionJson() { return aiSuggestionJson; }
+    public void setAiSuggestionJson(String aiSuggestionJson) { this.aiSuggestionJson = aiSuggestionJson; }
     public Long getReviewedBy() { return reviewedBy; }
     public void setReviewedBy(Long reviewedBy) { this.reviewedBy = reviewedBy; }
     public LocalDateTime getReviewedAt() { return reviewedAt; }

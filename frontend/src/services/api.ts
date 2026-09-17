@@ -41,6 +41,8 @@ import type {
   AiVoucherBatchResult,
   AiCompanySuggestionResponse,
   AiCompanyApplyResponse,
+  AiVoucherSuggestion,
+  VoucherDraftSavePayload,
 } from '../types';
 import type {
   SysPermission,
@@ -284,6 +286,9 @@ export const statementApi = {
   /** 对 PENDING 草稿重新生成 AI 建议（覆盖复核意见，不改状态；ai:use 闸门在服务端）。 */
   refreshAiSuggestion: (id: number) =>
     http.post<never, AiAccountingSuggestion>(`/statements/${id}/ai-suggestion`),
+  /** V33：保存人工修正后的凭证分录与主摘要（voucher:push 闸门；主摘要回写供金蝶单据备注）。 */
+  saveVoucherDraft: (id: number, data: VoucherDraftSavePayload) =>
+    http.put<never, AiVoucherSuggestion>(`/statements/${id}/voucher-draft`, data),
 };
 
 type OperationListParams = { page?: number; size?: number; connectionCode?: string; status?: string; requestId?: string };

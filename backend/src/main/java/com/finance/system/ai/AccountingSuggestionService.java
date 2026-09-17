@@ -3,6 +3,7 @@ package com.finance.system.ai;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.finance.system.ai.dto.AiAccountingSuggestionResponse;
+import com.finance.system.ai.dto.VoucherEntry;
 import com.finance.system.common.exception.BusinessException;
 import com.finance.system.common.tenant.CompanyScopeService;
 import com.finance.system.domain.entity.StatementRecord;
@@ -10,6 +11,11 @@ import com.finance.system.domain.mapper.StatementRecordMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 
 /**
  * A1 智能入账建议（规划文档 2026-09-11 首发能力，衔接金蝶制证的「AI 兜底预填」）。
@@ -41,7 +47,18 @@ public class AccountingSuggestionService {
             "suggestedSubject":"建议会计科目（如 应收账款/管理费用-办公费/主营业务收入 等）",
             "riskNotes":"该笔交易需要注意的风险点（无则写“无”）",
             "confidence":0到1的小数,
-            "rationale":"判断依据（60字内）"}""";
+            "rationale":"判断依据（60字内）",
+            "entries":[
+              {"summary":"该分录摘要（与 suggestedSummary 一致或更具体）",
+               "subjectCode":"该科目在你的建议中的编码，不确定就给空字符串",
+               "subjectName":"科目名称，如 银行存款/应收账款/主营业务收入/管理费用-办公费",
+               "direction":"DEBIT 或 CREDIT（借方/贷方）",
+               "amount":金额数字,
+               "confidence":该行科目判断的置信度0到1}]}
+            entries 分录规则：收入（银行收款）→ 借：银行存款（DEBIT），贷：业务科目（CREDIT）；
+            支出（银行付款）→ 借：业务科目（DEBIT），贷：银行存款（CREDIT）。银行存款行科目
+            通常就是“银行存款”，置信度给 1.0；业务科目行给出你的判断与置信度。各分录 amount
+            之和必须借贷相等（都等于流水金额）；一般两行，确需拆分时才多行且必须借贷平衡。""";
 
     private final AiGatewayService gatewayService;
     private final StatementRecordMapper statementMapper;
@@ -74,7 +91,8 @@ public class AccountingSuggestionService {
                 json.path("confidence").isNumber() ? json.path("confidence").asDouble() : null,
                 text(json, "rationale"),
                 result.model(),
-                result.durationMillis());
+                result.durationMillis(),
+                parseEntries(json, statement));
     }
 
     /** 公司域校验：跨公司流水一律 404（不暴露存在性）。 */
@@ -124,6 +142,61 @@ public class AccountingSuggestionService {
             log.warn("AI 入账建议解析失败：{}", e.getMessage());
             throw new BusinessException(502, "AI 建议解析失败（响应非约定 JSON），可重试一次或人工判断");
         }
+    }
+
+    /**
+     * 分录解析（V33）：entries 数组合法（≥1 行、科目名/方向/金额齐全、方向枚举合法）→ 原样构建；
+     * 缺失或非法 → 用单科目建议降级构造两行（银行存款行 + 业务科目行），<b>不因 entries 缺失而
+     * 502</b>（兼容旧模型输出）。降级也构造不出业务科目行（suggestedSubject 空）时返回空列表。
+     * 金额借贷是否平衡不做硬校验——AI 只建议，不平衡由凭证详情页标注并人工修正。
+     */
+    private List<VoucherEntry> parseEntries(JsonNode json, StatementRecord statement) {
+        JsonNode nodes = json.path("entries");
+        if (nodes.isArray() && !nodes.isEmpty()) {
+            List<VoucherEntry> parsed = new ArrayList<>();
+            boolean valid = true;
+            for (JsonNode node : nodes) {
+                String subjectName = text(node, "subjectName");
+                String direction = text(node, "direction");
+                BigDecimal amount = node.path("amount").isNumber() ? node.path("amount").decimalValue() : null;
+                String normalized = direction == null ? "" : direction.trim().toUpperCase(Locale.ROOT);
+                if (subjectName == null || amount == null || amount.signum() <= 0
+                        || (!VoucherEntry.DIRECTION_DEBIT.equals(normalized)
+                            && !VoucherEntry.DIRECTION_CREDIT.equals(normalized))) {
+                    valid = false;
+                    break;
+                }
+                parsed.add(new VoucherEntry(
+                        text(node, "summary"),
+                        text(node, "subjectCode"),
+                        subjectName.trim(),
+                        normalized,
+                        amount,
+                        node.path("confidence").isNumber() ? node.path("confidence").asDouble() : null));
+            }
+            if (valid) {
+                return parsed;
+            }
+            log.info("AI 建议 entries 非法，降级为单科目两行分录（statementId={}）", statement.getId());
+        }
+        return fallbackEntries(json, statement);
+    }
+
+    /** 旧输出降级：单科目建议 → 两行分录（收入=借银行存款/贷业务科目；支出反之）。 */
+    private List<VoucherEntry> fallbackEntries(JsonNode json, StatementRecord statement) {
+        String subject = text(json, "suggestedSubject");
+        if (subject == null) {
+            return List.of();
+        }
+        BigDecimal amount = statement.getAmount() == null ? BigDecimal.ZERO : statement.getAmount();
+        String summary = text(json, "suggestedSummary");
+        Double confidence = json.path("confidence").isNumber() ? json.path("confidence").asDouble() : null;
+        boolean income = "CREDIT".equalsIgnoreCase(statement.getDirection());
+        VoucherEntry bankLine = new VoucherEntry(summary, null, "银行存款",
+                income ? VoucherEntry.DIRECTION_DEBIT : VoucherEntry.DIRECTION_CREDIT, amount, 1.0);
+        VoucherEntry businessLine = new VoucherEntry(summary, null, subject,
+                income ? VoucherEntry.DIRECTION_CREDIT : VoucherEntry.DIRECTION_DEBIT, amount, confidence);
+        return income ? List.of(bankLine, businessLine) : List.of(businessLine, bankLine);
     }
 
     private static String text(JsonNode json, String field) {

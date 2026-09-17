@@ -57,15 +57,17 @@ FINFLOW 是“银行数据采集、财务数据治理、自动入账和协同运
 | 角色 | 核心职责 | 典型权限 |
 | --- | --- | --- |
 | 企业管理员（ADMIN） | 管理本企业用户、账户、规则、连接和飞书配置 | 用户/RBAC、账户、规则、连接配置、日志与全量查询 |
-| 财务运营人员（FINANCE_STAFF） | 维护采集任务和处理数据异常 | 触发同步、导入/转入流水、查看流水、处理采集异常 |
-| 财务复核人员（FINANCE_MANAGER） | 复核异常和待入账流水 | 流水复核、制证、差异处理；不得复核本人产生的记录 |
+| 财务运营人员（FINANCE_STAFF） | 维护采集任务、AI 制证与推送 | 触发同步、导入/转入流水、查看流水、AI 制证推送、原始报文、字典维护 |
+| 财务复核人员（FINANCE_MANAGER） | 复核与制证推送、结账与审计 | 流水复核、制证推送（V33 补授）、跨公司查看、原始报文、字典维护、结账、审计；不得复核本人产生的记录（BANKDATA 草稿批次除外） |
 | 业务查看者（VIEWER） | 获取授权范围内的财务信息 | 只读查看，不得同步、复核、入账、改规则或改配置 |
+
+**角色权限可视化调整（V33）**：超管在「用户与角色 → 角色与权限」可对 FINANCE_STAFF / FINANCE_MANAGER / VIEWER 与自定义角色直接勾选调整权限集，保存即时生效（权限每请求从库加载）并写入审计；仅 ADMIN 受保护（安全锚点）。角色列表展示成员数供评估影响面。
 
 ### 3.1 权限要求
 
-权限由后端强制执行（`@PreAuthorize` + 路由守卫），前端隐藏菜单不能代替服务端鉴权。**唯一权威清单为 `docs/permission-catalog.md`（现行 33 项）**，命名规范 `<domain>:<resource>:<action>`；新增端点/页面只允许引用目录中的编码，需要新编码时先登记再落代码。
+权限由后端强制执行（`@PreAuthorize` + 路由守卫），前端隐藏菜单不能代替服务端鉴权。**唯一权威清单为 `docs/permission-catalog.md`（现行 36 项）**，命名规范 `<domain>:<resource>:<action>`；新增端点/页面只允许引用目录中的编码，需要新编码时先登记再落代码。
 
-核心编码示例：`bankdata:balance/statement/reconciliation/receipt/payroll:view`（五类投影查看）、`bankdata:sync:trigger`（触发同步）、`bankdata:raw:view`（原始报文，全系统唯一返回完整银行响应体，仅 ADMIN/FINANCE_STAFF）、`bankdata:cross-company:view`（跨公司查看）、`statement:import/review`、`voucher:push`、`closing:manage`、`bank:manage`（含同步计划修改）、`user:manage`、`audit:view`。
+核心编码示例：`bankdata:balance/statement/reconciliation/receipt/payroll:view`（五类投影查看）、`bankdata:sync:trigger`（触发同步）、`bankdata:raw:view`（原始报文，全系统唯一返回完整银行响应体，ADMIN/FINANCE_STAFF/FINANCE_MANAGER）、`bankdata:cross-company:view`（跨公司查看）、`statement:import/review`、`voucher:push`、`closing:manage`、`bank:manage`（含同步计划修改）、`user:manage`、`audit:view`。
 
 权限验收要求：越权请求返回 `401/403`，不泄露资源存在性；跨企业 ID、账户 ID、任务 ID 和流水 ID 均不得读取、修改或推断。同一动作只允许一个编码，别名收敛走 Flyway 迁移，禁止在代码里堆 `hasAnyAuthority` 兜底。
 
@@ -394,10 +396,19 @@ FINFLOW 是“银行数据采集、财务数据治理、自动入账和协同运
 | 能力 | 入口 | 运行逻辑 |
 |---|---|---|
 | 连通性自检 self-test | AI 设置页 / AI 状态页 | 用当前配置发一次最小 LLM 往返，回显模型与耗时；只读不落业务数据 |
-| A1 智能入账建议 accounting-suggestion | 流水查询页「AI 制证为草稿 / AI 制证并推送」 | 银行流水行 → 转入标准流水（幂等）→ AI 生成摘要/科目/往来建议 → **草稿模式**：建议写入复核意见、停留待复核，人工在「凭证草稿与制证」工作台批量通过/驳回/推送金蝶；**直推模式**：AI 建议后内化复核闸门（审计事件说明）直接推送金蝶（save→submit 停住，金蝶侧人工审核）。AI 建议失败时降级继续（标注 UNAVAILABLE），MANUAL 纯人工制证账户的行始终跳过 |
+| A1 智能入账建议 accounting-suggestion | 流水查询页「AI 制证为草稿 / AI 制证并推送」 | 银行流水行 → 转入标准流水（幂等）→ AI 生成摘要/科目/往来建议与**结构化分录**（V33）→ **草稿模式**：建议写入复核意见 + 分录落 `ai_suggestion_json`、停留待复核，人工在「凭证草稿与制证」工作台点击「凭证」查看金蝶式单据页（分录预填+逐行置信度，人工复核+改，保存即回写并同步主摘要到金蝶单据备注）→ 批量/单条通过/驳回/推送金蝶；**直推模式**：AI 建议后内化复核闸门（审计事件说明）直接推送金蝶（save→submit 停住，金蝶侧人工审核）。AI 建议失败时降级继续（标注 UNAVAILABLE），MANUAL 纯人工制证账户的行始终跳过 |
 | 公司主体归类 company-classification | 归档页「AI 智能归类」+ 常驻「未归属」区 | 未归属账户（company_id 为空）→ 脱敏上下文（只送账户名、银行、账号后 4 位、币种 + 已有公司名列表）→ LLM 给出「账户 → 公司主体」建议（含置信度与依据）→ 预览弹窗可改公司名、可勾选行 → 批量应用：同名档案复用、不存在则自动建档，账户与历史流水/余额归属一并迁移；单行失败不回滚整批 |
 
 - 归档页「未归属 · 待 AI 归类」区**常驻显示**（空区也显示）；账户可随时拖回未归属区（取消归属，历史口径对称置空，仅跨公司权限可见），等待重新归类或 AI 建议。
+
+### 18.4.1 凭证草稿详情（金蝶式单据页，V33 2026-09-17）
+
+- **入口**：「凭证草稿与制证」工作台每行「凭证」按钮（voucher:push 可见），抽屉内呈现收款单/付款单样式的单据页。
+- **分录预填**：AI 建议扩展为 `entries` 分录数组（摘要/科目编码/科目名称/借贷方向/金额/**逐行置信度**），约定收入=借银行存款/贷业务科目、支出反之；旧输出无 entries 时服务端按单科目建议降级构造两行，不因分录缺失而报错。
+- **置信度徽标**：逐行显示 高（≥85% 绿）/中（≥60% 橙）/低（红）；人工改过的行标记「人工」。
+- **人工复核+改**：分录可编辑、可增删行（借贷金额互斥列）；保存校验借贷平衡（±0.01，前端+服务端双重）；人工主摘要同步回写 `statement.summary`——金蝶推送单据的 FREMARK/FCOMMENT 取自该字段，保证「人工改了什么、金蝶就收什么」；修正整体回写 `ai_suggestion_json`（edited/editedBy/editedAt 标记）并记审计 `VOUCHER_DRAFT_EDIT`。
+- **状态边界**：已推送/已驳回不可改；推送动作要求先通过复核；推送后单据在金蝶侧人工审核（系统 save→submit 停住）。
+- **权限**：查看凭证详情 = statement:view（与列表一致）；保存修正/推送 = voucher:push；通过/驳回 = statement:review。
 
 ### 18.5 数据安全与边界
 

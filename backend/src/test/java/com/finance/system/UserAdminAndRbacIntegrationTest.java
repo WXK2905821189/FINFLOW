@@ -168,13 +168,36 @@ class UserAdminAndRbacIntegrationTest {
         // permission set actually swapped: the role now carries audit:view only
         assertThat(rbacService.findRoleByCode(roleCode)).isPresent();
 
-        // Built-in roles are immutable (module doc §5.2 / GAP-6)
+        // V33: only ADMIN is protected; re-saving FINANCE_MANAGER (role 3) with its current
+        // permission set must succeed — 超管可视化调整内置角色权限的开放性证明（不改任何授权）。
+        MvcResult roles = mockMvc.perform(get("/api/rbac/roles").header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andReturn();
+        var roleNodes = objectMapper.readTree(roles.getResponse().getContentAsString()).get("data");
+        long managerRoleId = 0;
+        String managerName = null;
+        String managerPerms = null;
+        for (var node : roleNodes) {
+            if ("FINANCE_MANAGER".equals(node.get("code").asText())) {
+                managerRoleId = node.get("id").asLong();
+                managerName = node.get("name").asText();
+                managerPerms = node.get("permissionIds").toString();
+            }
+        }
+        org.junit.jupiter.api.Assumptions.assumeTrue(managerRoleId > 0);
+        mockMvc.perform(put("/api/rbac/roles/" + managerRoleId).header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"" + managerName + "\",\"description\":\"Manages finance data\","
+                                + "\"permissionIds\":" + managerPerms + "}"))
+                .andExpect(status().isOk());
+
+        // ADMIN stays immutable (V33 安全锚点：超管角色不可通过 API 修改)
         mockMvc.perform(put("/api/rbac/roles/1").header("Authorization", bearer(token))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\":\"Hacked Admin\",\"permissionIds\":[" + dashboardViewId + "]}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value(
-                        org.hamcrest.Matchers.containsString("Built-in roles cannot be modified")));
+                        org.hamcrest.Matchers.containsString("ADMIN role is protected")));
     }
 
     @Test

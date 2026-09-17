@@ -14,6 +14,8 @@ import com.finance.system.statement.dto.StatementImportRequest;
 import com.finance.system.statement.dto.StatementResponse;
 import com.finance.system.statement.dto.StatementReviewRequest;
 import com.finance.system.statement.dto.StatementTransferRequest;
+import com.finance.system.statement.dto.VoucherDraftSaveRequest;
+import com.finance.system.statement.dto.VoucherSuggestionDto;
 import com.finance.system.statement.kingdee.KingdeeConnectionStatus;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -23,6 +25,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -134,6 +137,17 @@ public class StatementController {
                                                                             @AuthenticationPrincipal UserPrincipal principal) {
         return ApiResponse.success("AI 建议已更新",
                 bankDataAccountingService.refreshAiSuggestion(id, principal.getId()));
+    }
+
+    @PutMapping("/statements/{id}/voucher-draft")
+    @PreAuthorize("hasAuthority('voucher:push')")
+    @Operation(summary = "Save human-corrected voucher entries for a draft (V33 凭证草稿详情："
+            + "金蝶式单据页 AI 预填 → 人工复核+改；主摘要同步回写 statement.summary 供金蝶单据备注)")
+    public ApiResponse<VoucherSuggestionDto> saveVoucherDraft(@PathVariable Long id,
+                                                               @RequestBody VoucherDraftSaveRequest request,
+                                                               @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success("凭证草稿已保存",
+                bankDataAccountingService.saveVoucherDraft(id, request, principal.getId()));
     }
 
     @GetMapping("/statements/kingdee/ping")

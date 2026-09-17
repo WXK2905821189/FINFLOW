@@ -1174,3 +1174,35 @@ a {
     flex-direction: column;
   }
 }
+
+/* V33 凭证草稿详情（金蝶式单据分录表） */
+.voucher-entry-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.voucher-entry-table th,
+.voucher-entry-table td {
+  border: 1px solid #d9d9d9;
+  padding: 2px 4px;
+  vertical-align: middle;
+  font-size: 13px;
+}
+
+.voucher-entry-table th {
+  background: #fafafa;
+  font-weight: 600;
+  text-align: left;
+  padding: 6px 8px;
+}
+
+.voucher-entry-table .ant-input,
+.voucher-entry-table .ant-input-number {
+  font-size: 13px;
+}
+
+.voucher-entry-table .voucher-row-total td {
+  background: #fafafa;
+  padding: 6px 8px;
+}

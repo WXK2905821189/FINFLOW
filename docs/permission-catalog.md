@@ -23,7 +23,7 @@
 | statement:view | 查看流水 | 全部角色 | 流水批次/对账页 |
 | statement:import | 导入流水 | ADMIN, FINANCE_STAFF | 导入页 |
 | statement:review | 流水复核 | ADMIN, FINANCE_MANAGER | 人工复核页 |
-| voucher:push | 金蝶制证 | ADMIN, FINANCE_STAFF | 制证页 |
+| voucher:push | 金蝶制证 | ADMIN, FINANCE_STAFF, FINANCE_MANAGER（V33：财务经理补授，制证复核推送的实际负责人） | 制证页、凭证草稿与制证、AI 制证入口 |
 | reconciliation:view | 查看对账 | 全部角色 | 对账页 |
 | connection:view / connection:manage | 连接查看/管理 | ADMIN+FINANCE_MANAGER / ADMIN | 连接配置页 |
 | operation:monitor | 采集运营监控 | ADMIN, FINANCE_MANAGER | 直联监控页、/api/operations/connections |
@@ -40,9 +40,9 @@
 | validation:view / validation:manage | 规则查看/管理 | 全部 / ADMIN | 规则与映射页 |
 | closing:view / closing:manage | 结账查看/管理 | 全部 / ADMIN+FINANCE_MANAGER | 结账管理页 |
 | audit:view | 审计中心 | ADMIN, FINANCE_MANAGER, VIEWER | 审计中心页 |
-| bankdata:raw:view | 原始报文查看（全系统唯一返回完整银行响应体的接口） | ADMIN, FINANCE_STAFF | RawMessagesPage、BankRawMessageController（V16 引入，2026-09-07 补登） |
+| bankdata:raw:view | 原始报文查看（全系统唯一返回完整银行响应体的接口） | ADMIN, FINANCE_STAFF, FINANCE_MANAGER（V33：财务经理补授，审阅需全量证据链） | RawMessagesPage、BankRawMessageController（V16 引入，2026-09-07 补登） |
 | bankdata:cross-company:view | 跨公司银行数据查看（余额/流水投影可见全部 ACTIVE 公司，行带公司列） | ADMIN, FINANCE_MANAGER | BankDataQueryService 投影/导出 companyId 过滤 + /bank-data/company-options（V24 引入，2026-09-07） |
-| system:dict:manage | 管理字典中心（系统管理 → 字典中心，页面维护字段值） | ADMIN, FINANCE_STAFF | DictController 管理端点、/system/dicts 路由守卫（V26 引入，2026-09-11 补登） |
+| system:dict:manage | 管理字典中心（系统管理 → 字典中心，页面维护字段值） | ADMIN, FINANCE_STAFF, FINANCE_MANAGER（V33：财务经理补授，公司主体/科目字典是财务职责） | DictController 管理端点、/system/dicts 路由守卫（V26 引入，2026-09-11 补登） |
 | ai:use | 使用 AI 能力（各 AI 能力端点，能力开关另需在 ai.capabilities 显式开启） | ADMIN, FINANCE_STAFF, FINANCE_MANAGER | AiController /api/ai/*（V27 引入，2026-09-11） |
 | ai:config | 管理 AI 网关（状态查看/连通性自检/调用审计日志） | ADMIN, FINANCE_STAFF | AiController self-test + call-logs（V27 引入，2026-09-11） |
 
@@ -66,6 +66,10 @@
 
 ## 变更记录
 
+- 2026-09-17 V33：**权限基线再规划 + 内置角色可视化编辑开放**。
+  - FINANCE_MANAGER 补授 voucher:push(13) / bankdata:raw:view(39) / system:dict:manage(41)——修复「财务经理看不到凭证草稿与制证、流水查询无 AI 制证入口」；
+  - 内置角色编辑策略变更：此前四个内置角色一律不可改（"Built-in roles cannot be modified"），V33 起仅 ADMIN 受保护（RbacService.PROTECTED_ROLE_CODES，安全锚点），FINANCE_STAFF / FINANCE_MANAGER / VIEWER 与自定义角色均可由超管在「用户与角色 → 角色与权限」可视化调整，保存即生效（权限每请求从库加载）并写入审计（ROLE_UPDATE）；角色列表新增成员数列；
+  - 新增 statement_record.ai_suggestion_json（凭证草稿结构化 AI 建议，见 PRD 第 18 章）。
 - 2026-09-11 新增：V27（AI 能力地基）引入 ai:use(42)/ai:config(43)；同日补登 V26（2026-09-10）引入的 system:dict:manage(id=41)（文档漂移）；现行总数 33 → **36 项**。
 - 2026-09-07 新增：V24 引入 bankdata:cross-company:view(id=40)，授权 ADMIN+FINANCE_MANAGER（默认授权，角色管理页可调整）；现行总数 32 → **33 项**。
 

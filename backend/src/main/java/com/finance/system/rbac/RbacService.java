@@ -29,8 +29,16 @@ import java.util.Set;
 @Service
 public class RbacService {
 
-    /** Bootstrap roles (V1 seed) are authorization anchors and must stay immutable via API. */
+    /** Bootstrap roles (V1 seed). Kept for UI labelling: FINANCE_STAFF / FINANCE_MANAGER /
+     * VIEWER are editable since V33; {@link #PROTECTED_ROLE_CODES} is the real immutability set. */
     public static final Set<String> BUILT_IN_ROLE_CODES = Set.of("ADMIN", "FINANCE_STAFF", "FINANCE_MANAGER", "VIEWER");
+
+    /**
+     * V33（2026-09-17）：仅 ADMIN 是安全锚点（持 role:manage/user:manage，保护自身可登录可管理），
+     * 不可通过 API 修改；其余内置角色的权限集开放给超管可视化调整——角色管理页保存即生效
+     * （权限每请求从库加载），并写入审计（ROLE_UPDATE）。基线矩阵见 docs/permission-catalog.md。
+     */
+    public static final Set<String> PROTECTED_ROLE_CODES = Set.of("ADMIN");
 
     private final SysRoleMapper roleMapper;
     private final SysPermissionMapper permissionMapper;
@@ -88,7 +96,7 @@ public class RbacService {
         return roleMapper.selectList(new LambdaQueryWrapper<SysRole>().orderByAsc(SysRole::getId));
     }
 
-    /** Roles with their permission id sets (one grouped query, ordered by role id). */
+    /** Roles with their permission id sets + member counts (grouped queries, ordered by role id). */
     public List<RolePermissionsResponse> listRolesWithPermissions() {
         List<SysRole> roles = listRoles();
         if (roles.isEmpty()) {
@@ -100,8 +108,13 @@ public class RbacService {
             permissionIdsByRole.computeIfAbsent(relation.getRoleId(), key -> new java.util.ArrayList<>())
                     .add(relation.getPermissionId());
         }
+        Map<Long, Long> userCountsByRole = new java.util.HashMap<>();
+        for (Long roleId : roleIds) {
+            userCountsByRole.put(roleId, (long) userRoleMapper.findByRoleId(roleId).size());
+        }
         return roles.stream().map(role -> new RolePermissionsResponse(role.getId(), role.getCode(), role.getName(),
-                role.getDescription(), permissionIdsByRole.getOrDefault(role.getId(), List.of()))).toList();
+                role.getDescription(), permissionIdsByRole.getOrDefault(role.getId(), List.of()),
+                userCountsByRole.getOrDefault(role.getId(), 0L))).toList();
     }
 
     public List<SysPermission> listPermissions() {
@@ -130,10 +143,11 @@ public class RbacService {
     }
 
     /**
-     * GAP-6: adjust name/description/permission set of a custom role. Built-in roles are
-     * rejected — their grants are bootstrap anchors (permission-catalog.md). Permission
-     * changes take effect on the next request because authorities are reloaded from the
-     * database per request (UserDetailsServiceImpl), so no token invalidation is needed.
+     * GAP-6 + V33: adjust name/description/permission set of a role. Since V33 only the ADMIN
+     * role is protected (安全锚点：持 role:manage 的超管角色，防止把系统改到无人可管理);
+     * FINANCE_STAFF / FINANCE_MANAGER / VIEWER and custom roles are editable from the UI.
+     * Permission changes take effect on the next request because authorities are reloaded
+     * from the database per request (UserDetailsServiceImpl), so no token invalidation is needed.
      */
     @Transactional
     public SysRole updateRole(Long actorId, Long roleId, RoleUpdateRequest request) {
@@ -141,8 +155,8 @@ public class RbacService {
         if (role == null) {
             throw new BusinessException(404, "Role not found");
         }
-        if (BUILT_IN_ROLE_CODES.contains(role.getCode())) {
-            throw new BusinessException(400, "Built-in roles cannot be modified");
+        if (PROTECTED_ROLE_CODES.contains(role.getCode())) {
+            throw new BusinessException(400, "ADMIN role is protected and cannot be modified");
         }
         List<Long> before = rolePermissionMapper.findByRoleIds(List.of(roleId)).stream()
                 .map(SysRolePermission::getPermissionId).distinct().sorted().toList();

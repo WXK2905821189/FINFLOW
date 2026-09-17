@@ -57,7 +57,8 @@ public class RoleController {
 
     @PutMapping("/roles/{id}")
     @PreAuthorize("hasAuthority('role:manage')")
-    @Operation(summary = "Update a custom role's name and permission set (built-in roles are immutable)")
+    @Operation(summary = "Update a role's name and permission set (V33: only the ADMIN role is protected; "
+            + "other built-in roles and custom roles are editable)")
     public ApiResponse<SysRole> updateRole(@AuthenticationPrincipal UserPrincipal principal,
                                            @PathVariable Long id,
                                            @Valid @RequestBody RoleUpdateRequest request) {

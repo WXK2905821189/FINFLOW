@@ -25,7 +25,7 @@ import { rbacApi, userApi } from '../../services/api';
 import { useRemote, ResourceFailure, StatusTag } from '../shared/components';
 import type { PageResponse, User } from '../../types';
 import type { SysPermission, SysRole } from './types';
-import { BUILT_IN_ROLE_CODES, ROLE_LABELS, USER_STATUS_OPTIONS } from './types';
+import { BUILT_IN_ROLE_CODES, PROTECTED_ROLE_CODES, ROLE_LABELS, USER_STATUS_OPTIONS } from './types';
 
 const DOMAIN_LABELS: Record<string, string> = {
   dashboard: '工作台',
@@ -306,19 +306,27 @@ function RolesTab() {
     } },
     { title: '描述', dataIndex: 'description', ellipsis: true },
     {
+      title: '成员数',
+      dataIndex: 'userCount',
+      width: 80,
+      render: (value?: number) => (value == null ? '--' : `${value} 人`),
+    },
+    {
       title: '类型',
       key: 'type',
-      width: 100,
-      render: (_, record) => BUILT_IN_ROLE_CODES.includes(record.code)
-        ? <Tag color="purple">内置只读</Tag>
-        : <Tag>自定义</Tag>,
+      width: 110,
+      render: (_, record) => PROTECTED_ROLE_CODES.includes(record.code)
+        ? <Tag color="purple">系统保护</Tag>
+        : BUILT_IN_ROLE_CODES.includes(record.code)
+          ? <Tag color="geekblue">内置可调</Tag>
+          : <Tag>自定义</Tag>,
     },
     {
       title: '操作',
       key: 'actions',
       width: 120,
-      render: (_, record) => BUILT_IN_ROLE_CODES.includes(record.code) ? (
-        <Tooltip title="内置角色是授权基线锚点，名称与权限不可修改；如需调整请新建自定义角色。">
+      render: (_, record) => PROTECTED_ROLE_CODES.includes(record.code) ? (
+        <Tooltip title="ADMIN 是安全锚点（超管自身的 role:manage/user:manage），不可修改；其余内置与自定义角色均可在本页可视化调整权限。">
           <Button size="small" disabled>编辑权限</Button>
         </Tooltip>
       ) : (
@@ -331,7 +339,7 @@ function RolesTab() {
     <>
       <Card>
         <Space style={{ width: '100%', justifyContent: 'space-between' }}>
-          <span className="muted">权限编码基线见 docs/permission-catalog.md（共 {data?.permissions?.length ?? '…'} 项）；权限变更即时生效并写入审计。</span>
+          <span className="muted">权限编码基线见 docs/permission-catalog.md（共 {data?.permissions?.length ?? '…'} 项）；V33 起内置角色（除 ADMIN）与自定义角色均可在此可视化调整，权限变更即时生效并写入审计。</span>
           <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>新建角色</Button>
         </Space>
       </Card>

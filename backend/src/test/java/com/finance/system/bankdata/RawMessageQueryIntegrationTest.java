@@ -156,7 +156,8 @@ class RawMessageQueryIntegrationTest {
         user.setPasswordHash(passwordEncoder.encode(PASSWORD));
         user.setStatus("ACTIVE");
         userMapper.insert(user);
-        userRoleMapper.insert(new SysUserRole(user.getId(), 3L));
+        // V33 起 FINANCE_MANAGER(3) 持有 bankdata:raw:view，负例夹具改用 VIEWER(4)（真无权角色）
+        userRoleMapper.insert(new SysUserRole(user.getId(), 4L));
         return login(user.getUsername(), PASSWORD);
     }
 

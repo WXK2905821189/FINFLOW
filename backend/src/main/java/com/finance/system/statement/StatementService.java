@@ -36,6 +36,7 @@ import com.finance.system.statement.dto.StatementRecordInput;
 import com.finance.system.statement.dto.StatementResponse;
 import com.finance.system.statement.dto.StatementReviewRequest;
 import com.finance.system.statement.dto.StatementTransferRequest;
+import com.finance.system.statement.dto.VoucherSuggestionDto;
 import com.finance.system.statement.kingdee.KingdeeConnectionStatus;
 import com.finance.system.statement.kingdee.KingdeeVoucherGateway;
 import com.finance.system.statement.kingdee.KingdeeVoucherResult;
@@ -254,7 +255,23 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
                         .orderByAsc(StatementAuditEvent::getCreatedAt)
                         .orderByAsc(StatementAuditEvent::getId))
                 .stream().map(this::toAuditResponse).toList();
-        return new StatementDetailResponse(toResponse(statement), trail);
+        return new StatementDetailResponse(toResponse(statement), parseAiSuggestion(statement), trail);
+    }
+
+    /**
+     * V33：解析 statement_record.ai_suggestion_json 为凭证建议文档；损坏/缺失一律返回 null
+     * （详情页展示「AI 建议不可用」，绝不因 JSON 异常打断详情加载）。
+     */
+    private VoucherSuggestionDto parseAiSuggestion(StatementRecord statement) {
+        String json = statement.getAiSuggestionJson();
+        if (json == null || json.isBlank()) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(json, VoucherSuggestionDto.class);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     @Transactional

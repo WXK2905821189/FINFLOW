@@ -26,6 +26,7 @@ import { statementApi } from '../../services/api';
 import { useAuthStore } from '../../store/auth';
 import { useRemote, ResourceFailure, StatusTag } from '../shared/components';
 import { dateTime, money } from '../shared/format';
+import { VoucherDraftDrawer } from './VoucherDraftDrawer';
 import type {
   PageResponse,
   StatementAuditEvent,
@@ -67,6 +68,7 @@ export function VoucherStatements() {
   const [page, setPage] = useState(1);
   const [filter, setFilter] = useState<VoucherFilter>('ALL');
   const [trace, setTrace] = useState<StatementRecord>();
+  const [voucherDetail, setVoucherDetail] = useState<StatementRecord>();
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [busy, setBusy] = useState(false);
   const [aiBusyId, setAiBusyId] = useState<number>();
@@ -174,8 +176,9 @@ export function VoucherStatements() {
     { title: '制证状态', dataIndex: 'pushStatus', render: (value, row) => <><StatusTag status={value} />{row.pushMessage && <span className="table-sub">{row.pushMessage}</span>}</> },
     { title: '金蝶凭证号', dataIndex: 'voucherNo', render: (value) => value ? <span className="mono">{value}</span> : '--' },
     {
-      title: '操作', fixed: 'right', width: 230,
+      title: '操作', fixed: 'right', width: 270,
       render: (_, row) => <Space size={0} wrap>
+        <Button type="link" size="small" onClick={() => setVoucherDetail(row)}>凭证</Button>
         {canReview && row.reviewStatus === 'PENDING' && <Button type="link" size="small" disabled={busy} onClick={() => batchApprove([row.id])}>通过</Button>}
         {canReview && row.reviewStatus === 'PENDING' && <Button type="link" size="small" disabled={busy} onClick={() => openReject([row.id])}>驳回</Button>}
         {canAi && row.reviewStatus === 'PENDING' && <Button type="link" size="small" loading={aiBusyId === row.id} onClick={() => void refreshAi(row)}>刷新 AI 建议</Button>}
@@ -189,7 +192,7 @@ export function VoucherStatements() {
       <div>
         <span className="section-kicker">流水与入账 / 制证工作台</span>
         <h2>凭证草稿与制证</h2>
-        <p className="muted">AI 制证草稿在此人工审核：通过（可批量）→ 推送金蝶（可批量、幂等）→ 金蝶侧完成审核。AI 建议写入复核意见列，可对单条草稿重新生成。</p>
+        <p className="muted">AI 制证草稿在此人工审核：点击「凭证」查看金蝶式凭证单据（AI 预填科目与逐行置信度，人工复核+改）→ 通过（可批量）→ 推送金蝶（可批量、幂等）→ 金蝶侧完成最终审核。</p>
       </div>
       <Space wrap>
         {canReview && <Button type="primary" ghost disabled={busy || !selectedIds.length} onClick={() => batchApprove(selectedIds)}>批量通过{selectedIds.length ? `（${selectedIds.length}）` : ''}</Button>}
@@ -266,6 +269,7 @@ export function VoucherStatements() {
       />}
     </Modal>
     <AuditDrawer statement={trace} onClose={() => setTrace(undefined)} />
+    <VoucherDraftDrawer statement={voucherDetail} onClose={() => setVoucherDetail(undefined)} onChanged={() => void reload()} />
   </>;
 }
 

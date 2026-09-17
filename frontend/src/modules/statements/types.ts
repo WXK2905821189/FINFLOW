@@ -93,6 +93,41 @@ export type AiAccountingSuggestion = {
   durationMillis?: number | null;
 };
 
+/** 凭证分录预填行（V33 凭证草稿详情：AI 预填 + 逐行置信度，人工可改）。 */
+export type VoucherEntry = {
+  summary?: string | null;
+  subjectCode?: string | null;
+  subjectName: string;
+  direction: 'DEBIT' | 'CREDIT';
+  amount: number | string;
+  confidence?: number | null;
+};
+
+/** 凭证草稿的结构化 AI 建议（GET /statements/{id} 的 aiSuggestion 字段，V33）。 */
+export type AiVoucherSuggestion = {
+  businessCategory?: string | null;
+  suggestedSummary?: string | null;
+  counterpartyType?: string | null;
+  settlementMethod?: string | null;
+  suggestedSubject?: string | null;
+  riskNotes?: string | null;
+  confidence?: number | null;
+  rationale?: string | null;
+  model?: string | null;
+  durationMillis?: number | null;
+  entries: VoucherEntry[];
+  balanced?: boolean | null;
+  edited: boolean;
+  editedBy?: number | null;
+  editedAt?: string | null;
+};
+
+/** 保存人工修正后的凭证分录（PUT /statements/{id}/voucher-draft）。 */
+export type VoucherDraftSavePayload = {
+  summary?: string;
+  entries: VoucherEntry[];
+};
+
 export type StatementDashboard = {
   totalCount: number;
   pendingReviewCount: number;
@@ -118,6 +153,8 @@ export type StatementAuditEvent = {
 
 export type StatementDetail = {
   statement: StatementRecord;
+  /** V33 凭证草稿的结构化 AI 建议（未生成过 AI 建议时为 null）。 */
+  aiSuggestion?: AiVoucherSuggestion | null;
   auditTrail: StatementAuditEvent[];
 };
 
