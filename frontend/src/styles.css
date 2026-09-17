@@ -1206,3 +1206,74 @@ a {
   background: #fafafa;
   padding: 6px 8px;
 }
+
+/* ================= V34 ⑦ 凭证单据（详情页 + 打印） ================= */
+
+.voucher-doc .voucher-doc-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #246352;
+  margin-bottom: 12px;
+}
+
+.voucher-doc .voucher-doc-title {
+  margin: 0 0 4px;
+  font-size: 20px;
+  letter-spacing: 8px;
+  font-weight: 650;
+}
+
+.voucher-doc .voucher-doc-meta {
+  margin-bottom: 12px;
+}
+
+.voucher-doc .voucher-doc-total {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  justify-content: flex-end;
+  font-weight: 600;
+}
+
+.voucher-doc .voucher-doc-upper {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: #fafcfc;
+  border: 1px solid #eef3f3;
+  border-radius: 4px;
+}
+
+.voucher-doc .voucher-doc-sign {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px dashed #e2e9e9;
+  color: #556a6f;
+  font-size: 13px;
+}
+
+@media print {
+  .app-shell .ant-layout-sider,
+  .topbar,
+  .no-print,
+  .ant-modal-mask,
+  .ant-modal-wrap {
+    display: none !important;
+  }
+  .app-shell .ant-layout > .ant-layout .page-content {
+    padding: 0;
+    overflow: visible;
+  }
+  .voucher-doc {
+    box-shadow: none !important;
+    border: none;
+  }
+  body {
+    background: #fff;
+  }
+}

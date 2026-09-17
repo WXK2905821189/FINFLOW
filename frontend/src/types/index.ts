@@ -62,3 +62,9 @@ export type {
   AiCompanyApplyRow,
   AiCompanyApplyResponse,
 } from '../modules/bank-access/types';
+export type {
+  VoucherGroupRow,
+  VoucherGroupFilter,
+  VoucherRuleLine,
+  VoucherRuleRow,
+} from '../modules/voucher/types';

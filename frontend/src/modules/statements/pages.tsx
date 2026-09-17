@@ -44,7 +44,7 @@ import type {
  *    刷新 AI 建议/连接测试）、Reconciliation（三方对账汇总）。
  */
 
-export function AuditDrawer({ statement, onClose }: { statement?: StatementRecord; onClose: () => void }) {
+export function AuditDrawer({ statement, onClose }: { statement?: Pick<StatementRecord, 'id' | 'statementNo'> | null; onClose: () => void }) {
   const loader = useCallback(() => statement ? statementApi.get(statement.id) : Promise.resolve<StatementDetail | undefined>(undefined), [statement]);
   const { data, loading, error, reload } = useRemote<StatementDetail | undefined>(loader, [loader]);
   const auditTrail: StatementAuditEvent[] = data?.auditTrail || [];

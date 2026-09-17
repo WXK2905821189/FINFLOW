@@ -13,15 +13,12 @@ const Login = lazy(() => import('./modules/auth/LoginPage').then((module) => ({ 
 const Forbidden = lazy(() => import('./modules/auth/ForbiddenPage').then((module) => ({ default: module.Forbidden })));
 
 const Dashboard = lazy(() => import('./modules/dashboard/pages').then((module) => ({ default: module.Dashboard })));
-const Reconciliation = lazy(() => import('./modules/statements/pages').then((module) => ({ default: module.Reconciliation })));
-const VoucherStatements = lazy(() => import('./modules/statements/pages').then((module) => ({ default: module.VoucherStatements })));
 const ValidationPage = lazy(() => import('./modules/statements/ValidationPage').then((module) => ({ default: module.ValidationPage })));
 const BankAccountPage = lazy(() => import('./modules/bank-access/pages').then((module) => ({ default: module.BankAccountPage })));
 const OperationLogs = lazy(() => import('./modules/bank-access/operations').then((module) => ({ default: module.OperationLogs })));
 const OperationTasks = lazy(() => import('./modules/bank-access/operations').then((module) => ({ default: module.OperationTasks })));
 const BankDataQueryPage = lazy(() => import('./modules/bank-access/BankDataQueryPage').then((module) => ({ default: module.BankDataQueryPage })));
 const RawMessagesPage = lazy(() => import('./modules/bank-access/RawMessagesPage').then((module) => ({ default: module.RawMessagesPage })));
-const BankReconciliationPage = lazy(() => import('./modules/bank-access/BankReconciliationPage').then((module) => ({ default: module.BankReconciliationPage })));
 const FeishuCollaboration = lazy(() => import('./modules/feishu/pages').then((module) => ({ default: module.FeishuCollaboration })));
 const ClosingPage = lazy(() => import('./modules/closing/pages').then((module) => ({ default: module.ClosingPage })));
 const AuditCenterPage = lazy(() => import('./modules/audit/pages').then((module) => ({ default: module.AuditCenterPage })));
@@ -29,6 +26,9 @@ const UserAdminPage = lazy(() => import('./modules/admin/UsersPage').then((modul
 const DictionaryPage = lazy(() => import('./modules/admin/DictionaryPage').then((module) => ({ default: module.DictionaryPage })));
 const AiSettingsPage = lazy(() => import('./modules/admin/AiSettingsPage').then((module) => ({ default: module.AiSettingsPage })));
 const AiStatusPage = lazy(() => import('./modules/admin/AiStatusPage').then((module) => ({ default: module.AiStatusPage })));
+const VoucherCenterPage = lazy(() => import('./modules/voucher/VoucherCenterPage').then((module) => ({ default: module.VoucherCenterPage })));
+const VoucherDocPage = lazy(() => import('./modules/voucher/VoucherDocPage').then((module) => ({ default: module.VoucherDocPage })));
+const CategoryRulesPage = lazy(() => import('./modules/voucher/CategoryRulesPage').then((module) => ({ default: module.CategoryRulesPage })));
 
 function AppRoutes() {
   const hydrate = useAuthStore((state) => state.hydrate);
@@ -67,17 +67,25 @@ function AppRoutes() {
           <Route element={<PermissionGuard permissions={['feishu:view', 'feishu:manage']} />}>
             <Route path="/feishu" element={<FeishuCollaboration />} />
           </Route>
+          {/* V34 ⑦：/statements/vouchers 换为「凭证中心」（凭证一等视图 + 单据详情 + 打印），
+              原「凭证草稿与制证」组件由凭证中心承载的行内通过/驳回/推送操作取代。 */}
           <Route element={<PermissionGuard permissions={['voucher:push']} />}>
-            <Route path="/statements/vouchers" element={<VoucherStatements />} />
+            <Route path="/statements/vouchers" element={<VoucherCenterPage />} />
           </Route>
-          {/* 已下线页面（2026-09-16 流程精简）：导入流水/标准流水/人工复核三页删除，
-              制证链路收敛为流水查询页「AI 制证推送」一键入口；复核职责转移到金蝶侧人工审核。 */}
+          <Route element={<PermissionGuard permissions={['voucher:push']} />}>
+            <Route path="/statements/voucher-doc/:statementId" element={<VoucherDocPage />} />
+          </Route>
+          {/* V34 ②：大类规则（kingdee_voucher_rule 只读清单，规则维护走迁移）。 */}
+          <Route element={<PermissionGuard permissions={['voucher:push']} />}>
+            <Route path="/voucher-rules" element={<CategoryRulesPage />} />
+          </Route>
+          {/* 已下线页面（2026-09-16 流程精简 + 2026-09-17 V34 ⑥ 三方对账并入工作台）：
+              导入流水/标准流水/人工复核/三方对账/对账核对各页删除或并入。 */}
           <Route path="/statements/import" element={<Navigate to="/bank-access/data/statements" replace />} />
           <Route path="/statements/batches" element={<Navigate to="/statements/vouchers" replace />} />
           <Route path="/statements/review" element={<Navigate to="/bank-access/data/statements" replace />} />
-          <Route element={<PermissionGuard permissions={['reconciliation:view']} />}>
-            <Route path="/reconciliation/dashboard" element={<Reconciliation />} />
-          </Route>
+          <Route path="/reconciliation/dashboard" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/statements/reconciliation" element={<Navigate to="/dashboard" replace />} />
           <Route element={<PermissionGuard permissions={['bank:view']} />}>
             <Route path="/bank-access/accounts" element={<BankAccountPage />} />
           </Route>
@@ -96,9 +104,6 @@ function AppRoutes() {
           <Route element={<PermissionGuard permissions={['bankdata:raw:view']} />}>
             <Route path="/bank-access/raw-messages" element={<RawMessagesPage />} />
           </Route>
-          <Route element={<PermissionGuard permissions={['bankdata:view', 'bankdata:reconciliation:view']} />}>
-            <Route path="/bank-access/data/reconciliation" element={<BankReconciliationPage />} />
-          </Route>
           {/* 已下线页面的旧路径统一重定向：接入配置两页并入银行账户，连接监控并入采集任务 */}
           <Route path="/bank-access/connections" element={<Navigate to="/bank-access/accounts" replace />} />
           <Route path="/bank-access/agreements" element={<Navigate to="/bank-access/accounts" replace />} />
@@ -112,7 +117,7 @@ function AppRoutes() {
           <Route path="/operations/logs" element={<Navigate to="/bank-access/logs" replace />} />
           <Route path="/bank-data/balances" element={<Navigate to="/bank-access/data/balances" replace />} />
           <Route path="/bank-data/statements" element={<Navigate to="/bank-access/data/statements" replace />} />
-          <Route path="/statements/reconciliation" element={<Navigate to="/reconciliation/dashboard" replace />} />
+          <Route path="/bank-access/data/reconciliation" element={<Navigate to="/dashboard" replace />} />
           <Route path="/403" element={<Forbidden />} />
         </Route>
       </Route>

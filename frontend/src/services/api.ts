@@ -43,6 +43,8 @@ import type {
   AiCompanyApplyResponse,
   AiVoucherSuggestion,
   VoucherDraftSavePayload,
+  VoucherGroupRow,
+  VoucherRuleRow,
 } from '../types';
 import type {
   SysPermission,
@@ -289,6 +291,20 @@ export const statementApi = {
   /** V33：保存人工修正后的凭证分录与主摘要（voucher:push 闸门；主摘要回写供金蝶单据备注）。 */
   saveVoucherDraft: (id: number, data: VoucherDraftSavePayload) =>
     http.put<never, AiVoucherSuggestion>(`/statements/${id}/voucher-draft`, data),
+};
+
+/** V34 ⑦ 凭证中心（voucher:push）：流水管线投影为凭证组语义的只读视图。 */
+export const voucherGroupApi = {
+  list: (params: { page?: number; size?: number; status?: string; keyword?: string }) =>
+    http.get<never, PageResponse<VoucherGroupRow>>('/statements/voucher-groups', { params }),
+};
+
+/** V34 ② 大类规则（voucher:push）：金蝶凭证规则只读清单（规则维护走迁移，无编辑 UI）。 */
+export const kingdeeRuleApi = {
+  list: (enabledOnly?: boolean) =>
+    http.get<never, VoucherRuleRow[]>('/kingdee/voucher-rules', {
+      params: enabledOnly == null ? undefined : { enabledOnly },
+    }),
 };
 
 type OperationListParams = { page?: number; size?: number; connectionCode?: string; status?: string; requestId?: string };
