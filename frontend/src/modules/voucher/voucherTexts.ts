@@ -41,7 +41,7 @@ export function toChineseAmount(value: number | string | null | undefined): stri
   const jiao = Math.floor((cents % 100) / 10);
   const fen = cents % 10;
 
-  let intText = '';
+  let intText;
   if (intPart > 0) {
     const groups: number[] = [];
     let rest = intPart;

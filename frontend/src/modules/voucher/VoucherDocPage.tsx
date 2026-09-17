@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { Button, Card, Descriptions, Empty, Skeleton, Space, Table, Tag, type TableColumnsType } from 'antd';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { PrinterOutlined } from '@ant-design/icons';
 import { statementApi } from '../../services/api';
 import { useRemote, ResourceFailure, StatusTag } from '../shared/components';
