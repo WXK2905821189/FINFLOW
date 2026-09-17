@@ -267,7 +267,6 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
             </Tooltip>
           )}
           <Select value={draft.status || undefined} allowClear placeholder="任务状态" style={{ minWidth: 130 }} options={syncStatusOptions} onChange={(value) => applyFilter({ status: value || '' })} />
-          <Input value={draft.sourceSystem} placeholder="来源（真实数据为 BANKDATA）" onPressEnter={query} onChange={(event) => setDraft((current) => ({ ...current, sourceSystem: event.target.value }))} />
           <Input value={draft.syncJobNo} placeholder="任务号" onPressEnter={query} onChange={(event) => setDraft((current) => ({ ...current, syncJobNo: event.target.value }))} />
           <Input value={draft.requestId} placeholder="请求编号" onPressEnter={query} onChange={(event) => setDraft((current) => ({ ...current, requestId: event.target.value }))} />
           <DatePicker showTime placeholder="开始时间" value={draft.from ? dayjs(draft.from) : undefined} onChange={(value) => setDateFilter('from', value?.toISOString())} />

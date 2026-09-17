@@ -27,6 +27,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -186,6 +187,81 @@ class CompanyArchiveIntegrationTest {
                         .header("Authorization", bearer(token))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"companyId\":999999}"))
+                .andExpect(status().isNotFound());
+    }
+
+    /**
+     * V32 soft delete: DELETE removes the account from the archive board and the
+     * bank-accounts list (both are MyBatis-Plus queries, automatically filtered by
+     * @TableLogic) while the historical statement/balance rows stay queryable in H2.
+     */
+    @Test
+    void archiveSoftDeleteHidesAccountButKeepsHistory() throws Exception {
+        String token = login();
+        long accountId = createAccount(token, "软删测试账户-" + UNIQUE_SUFFIX);
+
+        BankDataSyncTask task = new BankDataSyncTask();
+        task.setCompanyId(1L);
+        task.setTaskNo("DEL-T-" + UNIQUE_SUFFIX);
+        task.setAdapterCode("CMB");
+        task.setBankAccountId(accountId);
+        task.setRequestId("del-req-" + UNIQUE_SUFFIX);
+        task.setStatus("SUCCEEDED");
+        taskMapper.insert(task);
+
+        BankDataRawMessage raw = new BankDataRawMessage();
+        raw.setCompanyId(1L);
+        raw.setTaskId(task.getId());
+        raw.setAdapterCode("CMB");
+        raw.setContentSha256(UUID.randomUUID().toString().replace("-", "")
+                + UUID.randomUUID().toString().replace("-", ""));
+        raw.setPayload("{}");
+        raw.setReceivedAt(LocalDateTime.now());
+        raw.setRetentionUntil(LocalDateTime.now().plusYears(1));
+        rawMessageMapper.insert(raw);
+
+        BankDataStatement statement = new BankDataStatement();
+        statement.setCompanyId(1L);
+        statement.setTaskId(task.getId());
+        statement.setRawMessageId(raw.getId());
+        statement.setBankAccountId(accountId);
+        statement.setStatementNo("DEL-S-" + UNIQUE_SUFFIX);
+        statement.setTransactionTime(LocalDateTime.now());
+        statement.setDirection("D");
+        statement.setAmount(new BigDecimal("3.00"));
+        statement.setCurrency("CNY");
+        statement.setSummary("soft delete keeps history");
+        statement.setValidationStatus("VALID");
+        statementMapper.insert(statement);
+
+        // delete via the new endpoint (bank:manage)
+        mockMvc.perform(delete("/api/bank-accounts/" + accountId)
+                        .header("Authorization", bearer(token)))
+                .andExpect(status().isOk());
+
+        // account disappears from both surfaces (logical-delete filter, not a hard DELETE)
+        String accountList = mockMvc.perform(get("/api/bank-accounts")
+                        .header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        assertTrue(!accountList.contains("软删测试账户-" + UNIQUE_SUFFIX),
+                "deleted account must vanish from the accounts list");
+
+        String view = mockMvc.perform(get("/api/bank-account-archive")
+                        .header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        assertTrue(!view.contains("软删测试账户-" + UNIQUE_SUFFIX),
+                "deleted account must vanish from the archive board");
+
+        // history is retained: raw mapper read (bypasses @TableLogic) still finds the row
+        BankDataStatement history = statementMapper.selectById(statement.getId());
+        assertNotNull(history, "historical statement rows must be retained");
+        assertEquals(accountId, history.getBankAccountId());
+
+        // deleting again hits the logical-delete filter → 404
+        mockMvc.perform(delete("/api/bank-accounts/" + accountId)
+                        .header("Authorization", bearer(token)))
                 .andExpect(status().isNotFound());
     }
 

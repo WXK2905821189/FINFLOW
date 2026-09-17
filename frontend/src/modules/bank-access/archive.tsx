@@ -1,12 +1,12 @@
 import { useState, type CSSProperties, type DragEvent } from 'react';
-import { Alert, Badge, Button, Descriptions, Drawer, Empty, Input, InputNumber, Modal, Select, Space, Tag, message } from 'antd';
-import { ApiOutlined, EditOutlined, FolderAddOutlined, PlusOutlined } from '@ant-design/icons';
+import { Alert, Badge, Button, Descriptions, Drawer, Empty, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Tag, message, type TableColumnsType } from 'antd';
+import { ApiOutlined, DeleteOutlined, EditOutlined, FolderAddOutlined, PlusOutlined, RobotOutlined } from '@ant-design/icons';
 import { bankApi } from '../../services/api';
 import { useAuthStore } from '../../store/auth';
 import { useRemote, ResourceFailure } from '../shared/components';
 import { dateTime } from '../shared/format';
 import { BANK_NAME_TEXT } from './bankQueryTexts';
-import type { BankAccountCreatePayload, BankConnectionTestResult, CompanyArchiveAccount, CompanyArchiveCompany, CompanyArchiveView } from '../../types';
+import type { AiCompanyApplyResponse, AiCompanySuggestion, BankAccountCreatePayload, BankConnectionTestResult, CompanyArchiveAccount, CompanyArchiveCompany, CompanyArchiveView } from '../../types';
 
 /**
  * 拖拽式账户档案管理：公司档案是投放区，账户卡片拖到目标公司上松手完成归类。
@@ -45,6 +45,15 @@ function ArchiveBoard() {
   const [acctDraft, setAcctDraft] = useState<BankAccountCreatePayload>(emptyAcctDraft);
   const [testingId, setTestingId] = useState<number>();
   const [testResult, setTestResult] = useState<{ accountName: string; result: BankConnectionTestResult }>();
+  // AI 智能归类（V32）：建议 → 预览（公司名可编辑/行可勾选）→ 批量应用。
+  const canAi = canManage && hasPermission('ai:use');
+  const [aiSuggesting, setAiSuggesting] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<AiCompanySuggestion[]>([]);
+  const [aiEdits, setAiEdits] = useState<Record<number, string>>({});
+  const [aiSelected, setAiSelected] = useState<number[]>([]);
+  const [aiApplying, setAiApplying] = useState(false);
+  const [aiApplyResult, setAiApplyResult] = useState<AiCompanyApplyResponse>();
 
   const createCompany = async () => {
     const name = newName.trim();
@@ -118,6 +127,89 @@ function ArchiveBoard() {
     }
   };
 
+  const removeAccount = (account: CompanyArchiveAccount) => {
+    return async () => {
+      try {
+        await bankApi.deleteAccount(account.id);
+        message.success(`账户「${account.accountName}」已从档案移除，历史流水与余额保留可查`);
+        await reload();
+      } catch (reason) {
+        message.error(reason instanceof Error ? reason.message : '移除失败');
+      }
+    };
+  };
+
+  const runAiSuggest = async () => {
+    if (aiSuggesting) return;
+    setAiSuggesting(true);
+    try {
+      const response = await bankApi.aiSuggestCompanies();
+      setAiSuggestions(response.suggestions);
+      setAiEdits(Object.fromEntries(response.suggestions.map((item) => [item.accountId, item.suggestedCompanyName])));
+      setAiSelected(response.suggestions.map((item) => item.accountId));
+      if (response.suggestions.length === 0) {
+        message.info('当前没有待归类的账户：所有账户都已有公司主体归属');
+        return;
+      }
+      setAiOpen(true);
+    } catch (reason) {
+      message.error(reason instanceof Error ? reason.message : 'AI 归类建议生成失败（请确认 AI 设置已启用并勾选「公司归类建议」能力）');
+    } finally {
+      setAiSuggesting(false);
+    }
+  };
+
+  const applyAiSuggestions = async () => {
+    if (aiApplying || aiSelected.length === 0) return;
+    const invalid = aiSelected.filter((id) => !(aiEdits[id] || '').trim());
+    if (invalid.length > 0) {
+      message.warning('存在公司主体名称为空的行，请填写或取消勾选');
+      return;
+    }
+    setAiApplying(true);
+    try {
+      const result = await bankApi.aiApplyCompanies(aiSelected.map((id) => ({ accountId: id, companyName: (aiEdits[id] || '').trim() })));
+      setAiOpen(false);
+      setAiApplyResult(result);
+      await reload();
+    } catch (reason) {
+      message.error(reason instanceof Error ? reason.message : '归类应用失败');
+    } finally {
+      setAiApplying(false);
+    }
+  };
+
+  const AI_SUGGESTION_COLUMNS: TableColumnsType<AiCompanySuggestion> = [
+    { title: '账户名称', dataIndex: 'accountName', ellipsis: true },
+    {
+      title: '建议公司主体（可修改）',
+      width: 260,
+      render: (_, item) => (
+        <Input
+          value={aiEdits[item.accountId] ?? item.suggestedCompanyName}
+          maxLength={128}
+          onChange={(event) => setAiEdits((current) => ({ ...current, [item.accountId]: event.target.value }))}
+        />
+      ),
+    },
+    {
+      title: '置信度',
+      width: 90,
+      render: (_, item) => (item.confidence == null ? '--' : (
+        <Tag color={item.confidence >= 0.8 ? 'green' : item.confidence >= 0.5 ? 'orange' : 'red'}>
+          {Math.round(item.confidence * 100)}%
+        </Tag>
+      )),
+    },
+    { title: '判断依据', dataIndex: 'reason', ellipsis: true, render: (value: string | null) => value || '--' },
+  ];
+
+  const AI_APPLY_OUTCOME_TEXT: Record<string, { label: string; color: string }> = {
+    CREATED: { label: '新建档案并归入', color: 'green' },
+    ASSIGNED: { label: '归入已有档案', color: 'blue' },
+    FAILED: { label: '失败', color: 'red' },
+  };
+
   const CONNECTION_RESULT_TEXT: Record<string, string> = {
     CONNECTED: '连接正常',
     FAILED: '银行返回失败',
@@ -188,22 +280,49 @@ function ArchiveBoard() {
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
         <div style={{ fontWeight: 500 }}>{account.accountName}</div>
-        {canTest && (
-          <Button
-            type="link"
-            size="small"
-            icon={<ApiOutlined />}
-            style={{ padding: 0, flexShrink: 0, height: 'auto' }}
-            loading={testingId === account.id}
-            disabled={Boolean(testingId) && testingId !== account.id}
-            onClick={(event) => {
-              event.stopPropagation();
-              void runTest(account);
-            }}
-          >
-            测试连接
-          </Button>
-        )}
+        <Space size={2} style={{ flexShrink: 0 }}>
+          {canTest && (
+            <Button
+              type="link"
+              size="small"
+              icon={<ApiOutlined />}
+              style={{ padding: 0, height: 'auto' }}
+              loading={testingId === account.id}
+              disabled={Boolean(testingId) && testingId !== account.id}
+              onClick={(event) => {
+                event.stopPropagation();
+                void runTest(account);
+              }}
+            >
+              测试连接
+            </Button>
+          )}
+          {canManage && (
+            <Popconfirm
+              title="从档案移除该账户？"
+              description="该账户将从档案板、下拉与查询中隐藏，历史流水与余额保留可查；如需恢复可重新添加账户。"
+              okText="移除"
+              cancelText="取消"
+              okButtonProps={{ danger: true }}
+              onConfirm={(event) => {
+                event?.stopPropagation();
+                void removeAccount(account)();
+              }}
+              onCancel={(event) => event?.stopPropagation()}
+            >
+              <Button
+                type="link"
+                size="small"
+                danger
+                icon={<DeleteOutlined />}
+                style={{ padding: 0, height: 'auto' }}
+                onClick={(event) => event.stopPropagation()}
+              >
+                删除
+              </Button>
+            </Popconfirm>
+          )}
+        </Space>
       </div>
       <div style={{ color: '#888', fontSize: 12 }}>
         <span className="mono">{account.maskedAccountNumber}</span> · {BANK_NAME_TEXT[account.bankCode] || account.bankCode} · {account.currency}
@@ -275,6 +394,17 @@ function ArchiveBoard() {
         {canManage && (
           <Button icon={<PlusOutlined />} onClick={() => setCreateAcctOpen(true)}>
             新增银行账户
+          </Button>
+        )}
+        {canAi && (
+          <Button
+            type="primary"
+            ghost
+            icon={<RobotOutlined />}
+            loading={aiSuggesting}
+            onClick={() => void runAiSuggest()}
+          >
+            AI 智能归类
           </Button>
         )}
       </div>
@@ -422,6 +552,66 @@ function ArchiveBoard() {
             )}
             <Descriptions.Item label="测试时间">{dateTime(testResult.result.testedAt)}</Descriptions.Item>
           </Descriptions>
+        )}
+      </Modal>
+      <Modal
+        title="AI 智能归类 · 预览确认"
+        open={aiOpen}
+        onCancel={() => setAiOpen(false)}
+        width={760}
+        footer={<Space>
+          <span className="muted">已勾选 {aiSelected.length} / {aiSuggestions.length} 行；公司名可直接修改，不存在则自动建档</span>
+          <Button onClick={() => setAiOpen(false)}>取消</Button>
+          <Button type="primary" loading={aiApplying} disabled={aiSelected.length === 0} onClick={() => void applyAiSuggestions()}>
+            应用勾选行
+          </Button>
+        </Space>}
+      >
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message="AI 只建议、不执行：勾选并确认后才会建档/归类，历史流水与余额将改挂到对应主体。归档落在「账户与主体归档」的公司表，字典中心不受影响。"
+        />
+        <Table<AiCompanySuggestion>
+          rowKey="accountId"
+          size="small"
+          pagination={false}
+          dataSource={aiSuggestions}
+          columns={AI_SUGGESTION_COLUMNS}
+          rowSelection={{
+            selectedRowKeys: aiSelected,
+            onChange: (keys) => setAiSelected(keys.map(Number)),
+          }}
+        />
+      </Modal>
+      <Modal
+        title={`AI 归类应用结果 · 成功 ${aiApplyResult?.assignedAccounts ?? 0} / 新建档案 ${aiApplyResult?.createdCompanies ?? 0} / 失败 ${(aiApplyResult?.rows || []).filter((row) => row.outcome === 'FAILED').length}`}
+        open={Boolean(aiApplyResult)}
+        footer={<Button type="primary" onClick={() => setAiApplyResult(undefined)}>知道了</Button>}
+        onCancel={() => setAiApplyResult(undefined)}
+        width={620}
+      >
+        {aiApplyResult && (
+          <Table<AiCompanyApplyRow>
+            rowKey={(row) => `${row.accountId}-${row.companyName ?? ''}`}
+            size="small"
+            pagination={false}
+            dataSource={aiApplyResult.rows}
+            columns={[
+              { title: '账户', dataIndex: 'accountName', ellipsis: true },
+              { title: '公司主体', dataIndex: 'companyName', ellipsis: true },
+              {
+                title: '结果',
+                width: 130,
+                render: (_, row) => {
+                  const outcome = AI_APPLY_OUTCOME_TEXT[row.outcome] || { label: row.outcome, color: 'default' };
+                  return <Tag color={outcome.color}>{outcome.label}</Tag>;
+                },
+              },
+              { title: '说明', dataIndex: 'message', ellipsis: true, render: (value: string | null) => value || '--' },
+            ]}
+          />
         )}
       </Modal>
     </>

@@ -56,6 +56,8 @@ ai:
     self-test: ${AI_CAPABILITY_SELF_TEST:false}
     # A1 智能入账建议（POST /api/ai/accounting-suggestion，ai:use 权限；AI 只建议不执行）
     accounting-suggestion: ${AI_CAPABILITY_ACCOUNTING_SUGGESTION:false}
+    # AI 公司主体归类建议（POST /api/bank-account-archive/ai-suggest-companies，ai:use+bank:manage）
+    company-classification: ${AI_CAPABILITY_COMPANY_CLASSIFICATION:false}
 
 statement:
   collection:

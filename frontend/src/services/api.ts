@@ -39,6 +39,8 @@ import type {
   BankConnectionTestResult,
   BankAccountCreatePayload,
   AiVoucherBatchResult,
+  AiCompanySuggestionResponse,
+  AiCompanyApplyResponse,
 } from '../types';
 import type {
   SysPermission,
@@ -65,10 +67,17 @@ export const bankApi = {
   renameArchiveCompany: (id: number, name: string) => http.put<never, CompanyArchiveCompany>(`/bank-account-archive/companies/${id}`, { name }),
   /** 归类：账户改挂公司档案，历史流水/余额一并迁移。 */
   assignArchiveAccount: (id: number, companyId: number) => http.put<never, CompanyArchiveAccount>(`/bank-account-archive/accounts/${id}/company`, { companyId }),
+  /** AI 归类建议（ai:use + bank:manage）：推断未归档账户的公司主体，只建议不执行。 */
+  aiSuggestCompanies: () => http.post<never, AiCompanySuggestionResponse>('/bank-account-archive/ai-suggest-companies'),
+  /** AI 归类建议批量应用（bank:manage）：仅应用勾选行，公司不存在则建档，历史归属一并迁移。 */
+  aiApplyCompanies: (items: Array<{ accountId: number; companyName: string }>) =>
+    http.post<never, AiCompanyApplyResponse>('/bank-account-archive/ai-apply-companies', { items }),
   /** 新增银行账户（bank:manage）；创建后归属当前用户公司，可在档案板拖拽归类。 */
   createAccount: (data: BankAccountCreatePayload) => http.post<never, BankAccount>('/bank-accounts', data),
   /** 连通性探测（bank:manage 或 bankdata:sync:trigger）：服务端对适配器发起一次只读调用，不落库。 */
   testConnection: (id: number) => http.post<never, BankConnectionTestResult>(`/bank-accounts/${id}/test-connection`),
+  /** 档案移除（bank:manage，V32 软删除）：历史流水/余额保留，全链路自动隐藏。 */
+  deleteAccount: (id: number) => http.delete<never, void>(`/bank-accounts/${id}`),
 };
 
 export const userApi = {

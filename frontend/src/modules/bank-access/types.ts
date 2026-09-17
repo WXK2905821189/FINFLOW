@@ -398,3 +398,32 @@ export type BankAccountCreatePayload = {
   availableBalance: number;
   status: string;
 };
+
+/** AI 公司主体归类建议（V32）：建议只读，应用走 aiApplyCompanies。 */
+export type AiCompanySuggestion = {
+  accountId: number;
+  accountName: string;
+  suggestedCompanyName: string;
+  confidence: number | null;
+  reason: string | null;
+};
+
+export type AiCompanySuggestionResponse = {
+  suggestions: AiCompanySuggestion[];
+  model: string | null;
+  durationMillis: number | null;
+};
+
+export type AiCompanyApplyRow = {
+  accountId: number | null;
+  accountName: string | null;
+  companyName: string | null;
+  outcome: 'CREATED' | 'ASSIGNED' | 'FAILED' | string;
+  message: string | null;
+};
+
+export type AiCompanyApplyResponse = {
+  rows: AiCompanyApplyRow[];
+  createdCompanies: number;
+  assignedAccounts: number;
+};

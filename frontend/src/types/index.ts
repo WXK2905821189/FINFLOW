@@ -54,4 +54,8 @@ export type {
   BankAccountCreatePayload,
   AiVoucherRowResult,
   AiVoucherBatchResult,
+  AiCompanySuggestion,
+  AiCompanySuggestionResponse,
+  AiCompanyApplyRow,
+  AiCompanyApplyResponse,
 } from '../modules/bank-access/types';

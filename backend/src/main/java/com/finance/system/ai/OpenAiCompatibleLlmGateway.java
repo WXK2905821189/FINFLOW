@@ -99,8 +99,9 @@ public class OpenAiCompatibleLlmGateway implements LlmGateway {
 
     @Override
     public List<String> listModels(AiEffectiveConfig config) {
+        String responseBody = null;
         try {
-            String responseBody = client(config.timeoutMillis()).get()
+            responseBody = client(config.timeoutMillis()).get()
                     .uri(config.baseUrl() + "/models")
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + config.apiKey())
                     .retrieve()
@@ -126,34 +127,77 @@ public class OpenAiCompatibleLlmGateway implements LlmGateway {
             throw e;
         } catch (Exception e) {
             throw new BusinessException(502, "模型列表解析失败：" + e.getClass().getSimpleName()
-                    + "（响应非 OpenAI 兼容 JSON）");
+                    + "（响应非 JSON），响应开头：" + snippet(responseBody));
         }
     }
 
     private LlmChatResult parse(String responseBody, AiEffectiveConfig config, long startedAt) {
+        JsonNode root;
         try {
-            JsonNode root = objectMapper.readTree(responseBody == null ? "" : responseBody);
-            JsonNode choices = root.path("choices");
-            if (!choices.isArray() || choices.isEmpty()) {
-                throw new BusinessException(502, "LLM 响应缺少 choices 字段（OpenAI 兼容协议）");
-            }
-            String content = choices.get(0).path("message").path("content").asText(null);
-            if (content == null) {
-                throw new BusinessException(502, "LLM 响应缺少 message.content 字段");
-            }
-            JsonNode usage = root.path("usage");
-            return new LlmChatResult(
-                    content,
-                    root.path("model").asText(config.model()),
-                    usage.path("prompt_tokens").isInt() ? usage.path("prompt_tokens").asInt() : null,
-                    usage.path("completion_tokens").isInt() ? usage.path("completion_tokens").asInt() : null,
-                    System.currentTimeMillis() - startedAt);
-        } catch (BusinessException e) {
-            throw e;
+            root = objectMapper.readTree(responseBody == null ? "" : responseBody);
         } catch (Exception e) {
+            // 供应商返回了非 JSON（HTML 网关错误页 / SSE 流 / 空体等）：带响应开头摘要，
+            // 让用户不用抓包就能判断是接入点配错、网关拦截还是协议不兼容。
             throw new BusinessException(502, "LLM 响应解析失败：" + e.getClass().getSimpleName()
-                    + "（响应非 OpenAI 兼容 JSON）");
+                    + "（响应非 JSON，疑似网关错误页/流式响应/协议不兼容），响应开头："
+                    + snippet(responseBody));
         }
+        JsonNode error = root.path("error");
+        if (error.isObject() && !error.path("message").isMissingNode()) {
+            throw new BusinessException(502, "LLM 接入点返回错误：" + error.path("message").asText("unknown"));
+        }
+        JsonNode choices = root.path("choices");
+        if (!choices.isArray() || choices.isEmpty()) {
+            throw new BusinessException(502, "LLM 响应缺少 choices 字段（OpenAI 兼容协议），响应开头："
+                    + snippet(responseBody));
+        }
+        JsonNode message = choices.get(0).path("message");
+        String content = extractText(message.path("content"));
+        if (content == null && !message.path("reasoning_content").isMissingNode()
+                && !message.path("reasoning_content").asText().isBlank()) {
+            throw new BusinessException(502, "模型仅返回思考内容（reasoning_content），未输出正文——"
+                    + "请在模型选择上避开纯推理型模型，或调大 max_tokens 后重试");
+        }
+        if (content == null) {
+            throw new BusinessException(502, "LLM 响应缺少 message.content 字段，响应开头："
+                    + snippet(responseBody));
+        }
+        JsonNode usage = root.path("usage");
+        return new LlmChatResult(
+                content,
+                root.path("model").asText(config.model()),
+                usage.path("prompt_tokens").isInt() ? usage.path("prompt_tokens").asInt() : null,
+                usage.path("completion_tokens").isInt() ? usage.path("completion_tokens").asInt() : null,
+                System.currentTimeMillis() - startedAt);
+    }
+
+    /**
+     * content 字段取值：字符串直接用；部分网关返回数组格式
+     * （[{type:"text",text:"..."},...]）时拼接全部 text 段；其他形态视为缺失。
+     */
+    private String extractText(JsonNode content) {
+        if (content.isTextual()) {
+            return content.asText();
+        }
+        if (content.isArray() && !content.isEmpty()) {
+            StringBuilder joined = new StringBuilder();
+            for (JsonNode part : content) {
+                if (part.path("type").asText("text").equals("text") && part.hasNonNull("text")) {
+                    joined.append(part.path("text").asText());
+                }
+            }
+            return joined.toString();
+        }
+        return null;
+    }
+
+    /** 响应开头摘要（≤200 字符，换行折空格）；仅诊断用，绝不包含请求侧密钥。 */
+    private String snippet(String body) {
+        if (body == null || body.isBlank()) {
+            return "（空响应体）";
+        }
+        String flat = body.replaceAll("\\s+", " ").trim();
+        return flat.length() <= 200 ? flat : flat.substring(0, 200) + "...";
     }
 
     /** 异常翻译：诊断信息充足（类名 + 状态 + 响应摘要），密钥绝不进消息。 */

@@ -50,6 +50,7 @@ export function AiSettingsPage() {
       maxRetries: data.db?.maxRetries ?? undefined,
       capabilitiesSelfTest: data.effective.capabilities['self-test'] === true,
       capabilitiesAccountingSuggestion: data.effective.capabilities['accounting-suggestion'] === true,
+      capabilitiesCompanyClassification: data.effective.capabilities['company-classification'] === true,
     });
   }, [data, form]);
 
@@ -65,6 +66,7 @@ export function AiSettingsPage() {
     capabilities: {
       'self-test': values.capabilitiesSelfTest === true,
       'accounting-suggestion': values.capabilitiesAccountingSuggestion === true,
+      'company-classification': values.capabilitiesCompanyClassification === true,
     },
   });
 
@@ -285,6 +287,9 @@ export function AiSettingsPage() {
                   <Form.Item name="capabilitiesAccountingSuggestion" valuePropName="checked" noStyle>
                     <Switch checkedChildren="开" unCheckedChildren="关" /> <Typography.Text>智能入账建议（accounting-suggestion，A1：AI 只建议不执行）</Typography.Text>
                   </Form.Item>
+                  <Form.Item name="capabilitiesCompanyClassification" valuePropName="checked" noStyle>
+                    <Switch checkedChildren="开" unCheckedChildren="关" /> <Typography.Text>公司主体归类建议（company-classification，归档页「AI 智能归类」）</Typography.Text>
+                  </Form.Item>
                 </Space>
               </Form.Item>
               <Space>
@@ -324,4 +329,5 @@ type FormValues = {
   maxRetries?: number | null;
   capabilitiesSelfTest?: boolean;
   capabilitiesAccountingSuggestion?: boolean;
+  capabilitiesCompanyClassification?: boolean;
 };

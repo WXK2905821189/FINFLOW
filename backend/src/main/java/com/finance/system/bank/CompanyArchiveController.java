@@ -1,6 +1,9 @@
 package com.finance.system.bank;
 
 import com.finance.system.bank.dto.AccountCompanyAssignRequest;
+import com.finance.system.bank.dto.AiCompanyApplyRequest;
+import com.finance.system.bank.dto.AiCompanyApplyResponse;
+import com.finance.system.bank.dto.AiCompanySuggestionResponse;
 import com.finance.system.bank.dto.CompanyArchiveAccount;
 import com.finance.system.bank.dto.CompanyArchiveCompany;
 import com.finance.system.bank.dto.CompanyArchiveNameRequest;
@@ -31,9 +34,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class CompanyArchiveController {
 
     private final CompanyArchiveService archiveService;
+    private final AiCompanyClassifierService aiClassifierService;
 
-    public CompanyArchiveController(CompanyArchiveService archiveService) {
+    public CompanyArchiveController(CompanyArchiveService archiveService,
+                                    AiCompanyClassifierService aiClassifierService) {
         this.archiveService = archiveService;
+        this.aiClassifierService = aiClassifierService;
     }
 
     @GetMapping("/bank-account-archive")
@@ -67,5 +73,27 @@ public class CompanyArchiveController {
                                                             @Valid @RequestBody AccountCompanyAssignRequest request,
                                                             @AuthenticationPrincipal UserPrincipal principal) {
         return ApiResponse.success("账户归类完成", archiveService.assignAccount(id, request.companyId()));
+    }
+
+    /**
+     * AI 归类建议（V32）：推断「账户名 → 公司主体」映射供预览确认，AI 只建议不执行。
+     * 需要 ai:use（能力端点统一口径）+ bank:manage（归档域）。
+     */
+    @PostMapping("/bank-account-archive/ai-suggest-companies")
+    @PreAuthorize("hasAuthority('ai:use') and hasAuthority('bank:manage')")
+    @Operation(summary = "AI-suggest company archive mappings for unfiled accounts")
+    public ApiResponse<AiCompanySuggestionResponse> suggestCompanies(
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success("AI 归类建议已生成", aiClassifierService.suggest(principal.getId()));
+    }
+
+    /** AI 归类建议批量应用：仅应用用户勾选的行，公司不存在则建档，历史流水归属一并迁移。 */
+    @PostMapping("/bank-account-archive/ai-apply-companies")
+    @PreAuthorize("hasAuthority('bank:manage')")
+    @Operation(summary = "Apply confirmed AI filing suggestions (create company when missing)")
+    public ApiResponse<AiCompanyApplyResponse> applySuggestions(
+            @RequestBody AiCompanyApplyRequest request,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success("归类应用完成", archiveService.applySuggestions(request));
     }
 }

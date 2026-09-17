@@ -1,4 +1,4 @@
-import { Alert, Button, Descriptions, Space, Tag, type TableColumnsType } from 'antd';
+import { Alert, Button, Collapse, Descriptions, Space, Tag, type TableColumnsType } from 'antd';
 import { StatusTag } from '../shared/components';
 import { dateTime, displayValue, cleanText, money, dateOnly, maskAccountDisplay, isUnavailableStatus, isFailedStatus } from '../shared/format';
 import type { BankDataBalanceRow, BankDataProjectionPage, BankDataStatementRow } from '../../types';
@@ -30,11 +30,10 @@ export const COMPANY_COLUMN = {
 
 export const statementColumns = (openDetail: (row: BankDataStatementRow) => void): TableColumnsType<BankDataStatementRow> => [
   { title: '交易时间', dataIndex: 'transactionTime', width: 160, render: (value) => dateTime(value) },
-  { title: '起息日', dataIndex: 'valueDate', width: 110, render: (value) => dateOnly(value) },
   {
     title: '借贷',
     dataIndex: 'loanCode',
-    width: 110,
+    width: 90,
     render: (value?: string) => (value ? <Tag color={value === 'C' ? 'blue' : 'gold'}>{LOAN_CODE_TEXT[value] || value}</Tag> : '--'),
   },
   {
@@ -52,7 +51,6 @@ export const statementColumns = (openDetail: (row: BankDataStatementRow) => void
     render: (value) => (value === undefined || value === null ? '--' : <span className="mono">{money(value)}</span>),
   },
   { title: '流水号', dataIndex: 'statementNo', width: 170, render: (value) => (value ? <span className="mono">{value}</span> : '--') },
-  { title: '交易类型', dataIndex: 'textCode', width: 100, render: (value) => displayValue(value) },
   {
     title: '收付方',
     width: 220,
@@ -69,7 +67,6 @@ export const statementColumns = (openDetail: (row: BankDataStatementRow) => void
     ellipsis: true,
     render: (_, row) => cleanText(row.businessText || row.remarkTextClt || row.summary || row.extendedRemark),
   },
-  { title: '银行请求号', dataIndex: 'bankRequestNo', width: 170, render: (value) => (value ? <span className="mono">{value}</span> : '--') },
   {
     title: '状态',
     dataIndex: 'validationStatus',
@@ -100,16 +97,13 @@ export const balanceColumns = (openDetail: (row: BankDataBalanceRow) => void): T
   { title: '可用余额', dataIndex: 'availableBalance', width: 140, align: 'right', render: (value) => (value === undefined || value === null ? '--' : <span className="mono">{money(value)}</span>) },
   { title: '联机余额', dataIndex: 'onlineBalance', width: 140, align: 'right', render: (value) => (value === undefined || value === null ? '--' : <span className="mono">{money(value)}</span>) },
   { title: '冻结余额', dataIndex: 'frozenBalance', width: 140, align: 'right', render: (value) => (value === undefined || value === null ? '--' : <span className="mono">{money(value)}</span>) },
-  { title: '上日余额', dataIndex: 'previousDayBalance', width: 140, align: 'right', render: (value) => (value === undefined || value === null ? '--' : <span className="mono">{money(value)}</span>) },
   { title: '币种', dataIndex: 'vendorCurrencyCode', width: 90, render: (value, row) => displayValue(value || row.currency) },
-  { title: '科目 / 分行', width: 140, render: (_, row) => <span className="mono">{displayValue(row.accountItem)} / {displayValue(row.branchCode)}</span> },
   {
     title: '账户状态',
     dataIndex: 'accountStatus',
     width: 90,
     render: (value?: string) => (value ? <Tag color={accountStatusColor(value)}>{ACCOUNT_STATUS_TEXT[value] || value}</Tag> : '--'),
   },
-  { title: '银行请求号', dataIndex: 'bankRequestNo', width: 170, render: (value) => (value ? <span className="mono">{value}</span> : '--') },
   {
     title: '状态',
     dataIndex: 'validationStatus',
@@ -126,66 +120,93 @@ export const balanceColumns = (openDetail: (row: BankDataBalanceRow) => void): T
 
 export function StatementDetail({ row }: { row: BankDataStatementRow }) {
   return (
-    <Descriptions className="projection-detail" column={1} size="small" bordered>
+    <>
+      <Descriptions className="projection-detail" column={1} size="small" bordered>
       <Descriptions.Item label="交易时间">{dateTime(row.transactionTime)}</Descriptions.Item>
-      <Descriptions.Item label="起息日">{dateOnly(row.valueDate)}</Descriptions.Item>
       <Descriptions.Item label="借贷码">{row.loanCode ? `${LOAN_CODE_TEXT[row.loanCode] || row.loanCode}（${row.loanCode}）` : '--'}</Descriptions.Item>
-      <Descriptions.Item label="记账方向">{displayValue(row.direction)}</Descriptions.Item>
       <Descriptions.Item label="金额（带符号 / 银行口径）">{row.signedAmount === undefined ? '--' : <span className="mono">{money(row.signedAmount)}</span>}</Descriptions.Item>
       <Descriptions.Item label="金额（记账口径）">{row.amount === undefined ? '--' : <span className="mono">{money(row.amount)}</span>}</Descriptions.Item>
       <Descriptions.Item label="交易后余额">{row.acctOnlineBal === undefined ? '--' : <span className="mono">{money(row.acctOnlineBal)}</span>}</Descriptions.Item>
       <Descriptions.Item label="流水号"><span className="mono">{displayValue(row.statementNo)}</span></Descriptions.Item>
-      <Descriptions.Item label="交易类型">{displayValue(row.textCode)}</Descriptions.Item>
-      <Descriptions.Item label="票据号">{displayValue(row.billNumber)}</Descriptions.Item>
-      <Descriptions.Item label="冲账标志">{row.reversalFlag ? `${REVERSAL_TEXT[row.reversalFlag] || row.reversalFlag}（${row.reversalFlag}）` : '--'}</Descriptions.Item>
-      <Descriptions.Item label="信息标志">{row.infoFlag === undefined ? '--' : (INFO_FLAG_TEXT[row.infoFlag] || row.infoFlag)}</Descriptions.Item>
       <Descriptions.Item label="本方账号">{maskAccountDisplay(row.accountMasked)}</Descriptions.Item>
       <Descriptions.Item label="银行侧账号"><span className="mono">{displayValue(row.bankAccountNo)}</span></Descriptions.Item>
       <Descriptions.Item label="收付方名称">{displayValue(row.counterpartyName)}</Descriptions.Item>
       <Descriptions.Item label="收付方账号"><span className="mono">{displayValue(row.ctpAcctNbr)}</span></Descriptions.Item>
       <Descriptions.Item label="收付方开户行">{displayValue(row.ctpBankName)}</Descriptions.Item>
-      <Descriptions.Item label="收付方开户行地址">{displayValue(row.ctpBankAddress)}</Descriptions.Item>
-      <Descriptions.Item label="母子公司账号"><span className="mono">{displayValue(row.fatOrSonAccount)}</span></Descriptions.Item>
-      <Descriptions.Item label="母子公司名称">{displayValue(row.fatOrSonCompanyName)}</Descriptions.Item>
-      <Descriptions.Item label="母子公司开户行">{displayValue(row.fatOrSonBankName)}</Descriptions.Item>
-      <Descriptions.Item label="母子公司开户行地址">{displayValue(row.fatOrSonBankAddress)}</Descriptions.Item>
       <Descriptions.Item label="你方摘要">{cleanText(row.remarkTextClt)}</Descriptions.Item>
       <Descriptions.Item label="网银业务摘要">{cleanText(row.businessText)}</Descriptions.Item>
       <Descriptions.Item label="扩展摘要">{displayValue(row.extendedRemark)}</Descriptions.Item>
       <Descriptions.Item label="业务名称">{displayValue(row.businessName)}</Descriptions.Item>
-      <Descriptions.Item label="网银流程实例号"><span className="mono">{displayValue(row.requestNbr)}</span></Descriptions.Item>
-      <Descriptions.Item label="网银业务参考号"><span className="mono">{displayValue(row.yurRef)}</span></Descriptions.Item>
-      <Descriptions.Item label="虚拟户编号">{displayValue(row.virtualNbr)}</Descriptions.Item>
-      <Descriptions.Item label="商务支付订单号">{displayValue(row.mchOrderNbr)}</Descriptions.Item>
-      <Descriptions.Item label="记账卡号">{displayValue(row.transCardNbr)}</Descriptions.Item>
-      <Descriptions.Item label="保留字">{displayValue(row.reserve)}</Descriptions.Item>
+      <Descriptions.Item label="票据号">{displayValue(row.billNumber)}</Descriptions.Item>
+      <Descriptions.Item label="冲账标志">{row.reversalFlag ? `${REVERSAL_TEXT[row.reversalFlag] || row.reversalFlag}（${row.reversalFlag}）` : '--'}</Descriptions.Item>
+      <Descriptions.Item label="信息标志">{row.infoFlag === undefined ? '--' : (INFO_FLAG_TEXT[row.infoFlag] || row.infoFlag)}</Descriptions.Item>
     </Descriptions>
+    <Collapse
+      ghost
+      size="small"
+      items={[{
+        key: 'raw',
+        label: '银行原始字段（技术明细，日常对账一般不用）',
+        children: (
+          <Descriptions className="projection-detail" column={1} size="small" bordered>
+            <Descriptions.Item label="起息日">{dateOnly(row.valueDate)}</Descriptions.Item>
+            <Descriptions.Item label="记账方向">{displayValue(row.direction)}</Descriptions.Item>
+            <Descriptions.Item label="收付方开户行地址">{displayValue(row.ctpBankAddress)}</Descriptions.Item>
+            <Descriptions.Item label="母子公司账号"><span className="mono">{displayValue(row.fatOrSonAccount)}</span></Descriptions.Item>
+            <Descriptions.Item label="母子公司名称">{displayValue(row.fatOrSonCompanyName)}</Descriptions.Item>
+            <Descriptions.Item label="母子公司开户行">{displayValue(row.fatOrSonBankName)}</Descriptions.Item>
+            <Descriptions.Item label="母子公司开户行地址">{displayValue(row.fatOrSonBankAddress)}</Descriptions.Item>
+            <Descriptions.Item label="网银流程实例号"><span className="mono">{displayValue(row.requestNbr)}</span></Descriptions.Item>
+            <Descriptions.Item label="网银业务参考号"><span className="mono">{displayValue(row.yurRef)}</span></Descriptions.Item>
+            <Descriptions.Item label="虚拟户编号">{displayValue(row.virtualNbr)}</Descriptions.Item>
+            <Descriptions.Item label="商务支付订单号">{displayValue(row.mchOrderNbr)}</Descriptions.Item>
+            <Descriptions.Item label="记账卡号">{displayValue(row.transCardNbr)}</Descriptions.Item>
+            <Descriptions.Item label="保留字">{displayValue(row.reserve)}</Descriptions.Item>
+          </Descriptions>
+        ),
+      }]}
+    />
+    </>
   );
 }
 
 export function BalanceDetail({ row }: { row: BankDataBalanceRow }) {
   return (
-    <Descriptions className="projection-detail" column={1} size="small" bordered>
-      <Descriptions.Item label="快照时间">{dateTime(row.asOfTime)}</Descriptions.Item>
-      <Descriptions.Item label="账号">{maskAccountDisplay(row.accountMasked)}</Descriptions.Item>
-      <Descriptions.Item label="银行侧账号"><span className="mono">{displayValue(row.bankAccountNo)}</span></Descriptions.Item>
-      <Descriptions.Item label="户名">{displayValue(row.bankAccountName)}</Descriptions.Item>
-      <Descriptions.Item label="可用余额（avlblv）">{row.availableBalance === undefined ? '--' : <span className="mono">{money(row.availableBalance)}</span>}</Descriptions.Item>
-      <Descriptions.Item label="联机余额（onlblv）">{row.onlineBalance === undefined ? '--' : <span className="mono">{money(row.onlineBalance)}</span>}</Descriptions.Item>
-      <Descriptions.Item label="冻结余额（hldblv）">{row.frozenBalance === undefined ? '--' : <span className="mono">{money(row.frozenBalance)}</span>}</Descriptions.Item>
-      <Descriptions.Item label="上日余额（accblv）">{row.previousDayBalance === undefined ? '--' : <span className="mono">{money(row.previousDayBalance)}</span>}</Descriptions.Item>
-      <Descriptions.Item label="币种">{displayValue(row.vendorCurrencyCode || row.currency)}</Descriptions.Item>
-      <Descriptions.Item label="科目">{displayValue(row.accountItem)}</Descriptions.Item>
-      <Descriptions.Item label="分行号">{displayValue(row.branchCode)}</Descriptions.Item>
-      <Descriptions.Item label="客户关系号">{displayValue(row.customerRelationNo)}</Descriptions.Item>
-      <Descriptions.Item label="账户状态（stscod）">{row.accountStatus ? <Tag color={accountStatusColor(row.accountStatus)}>{ACCOUNT_STATUS_TEXT[row.accountStatus] || row.accountStatus}（{row.accountStatus}）</Tag> : '--'}</Descriptions.Item>
-      <Descriptions.Item label="开户日（opndat）">{row.openDate ? <span className="mono">{row.openDate}</span> : '--'}</Descriptions.Item>
-      <Descriptions.Item label="利率类型（inttyp）">{row.interestType ? `${INTEREST_TYPE_TEXT[row.interestType] || row.interestType}（${row.interestType}）` : '--'}</Descriptions.Item>
-      <Descriptions.Item label="存期（dpstxt）">{displayValue(row.depositTerm)}</Descriptions.Item>
-      <Descriptions.Item label="透支额度（lmtovr）">{row.overdraftLimit === undefined || row.overdraftLimit === null ? '--' : <span className="mono">{money(row.overdraftLimit)}</span>}</Descriptions.Item>
-      <Descriptions.Item label="利息码（intcod）">{displayValue(row.interestCode)}{row.interestCode === 'S' ? '（子公司虚拟余额）' : ''}</Descriptions.Item>
-      <Descriptions.Item label="年利率（intrat）">{displayValue(row.interestRate)}</Descriptions.Item>
-      <Descriptions.Item label="到期日（mutdat）">{row.maturityDate && row.maturityDate !== '00000000' ? <span className="mono">{row.maturityDate}</span> : '--'}</Descriptions.Item>
-    </Descriptions>
+    <>
+      <Descriptions className="projection-detail" column={1} size="small" bordered>
+        <Descriptions.Item label="快照时间">{dateTime(row.asOfTime)}</Descriptions.Item>
+        <Descriptions.Item label="账号">{maskAccountDisplay(row.accountMasked)}</Descriptions.Item>
+        <Descriptions.Item label="银行侧账号"><span className="mono">{displayValue(row.bankAccountNo)}</span></Descriptions.Item>
+        <Descriptions.Item label="户名">{displayValue(row.bankAccountName)}</Descriptions.Item>
+        <Descriptions.Item label="可用余额">{row.availableBalance === undefined ? '--' : <span className="mono">{money(row.availableBalance)}</span>}</Descriptions.Item>
+        <Descriptions.Item label="联机余额">{row.onlineBalance === undefined ? '--' : <span className="mono">{money(row.onlineBalance)}</span>}</Descriptions.Item>
+        <Descriptions.Item label="冻结余额">{row.frozenBalance === undefined ? '--' : <span className="mono">{money(row.frozenBalance)}</span>}</Descriptions.Item>
+        <Descriptions.Item label="上日余额">{row.previousDayBalance === undefined ? '--' : <span className="mono">{money(row.previousDayBalance)}</span>}</Descriptions.Item>
+        <Descriptions.Item label="币种">{displayValue(row.vendorCurrencyCode || row.currency)}</Descriptions.Item>
+        <Descriptions.Item label="账户状态">{row.accountStatus ? <Tag color={accountStatusColor(row.accountStatus)}>{ACCOUNT_STATUS_TEXT[row.accountStatus] || row.accountStatus}</Tag> : '--'}</Descriptions.Item>
+      </Descriptions>
+      <Collapse
+        ghost
+        size="small"
+        items={[{
+          key: 'raw',
+          label: '银行原始字段（技术明细，日常对账一般不用）',
+          children: (
+            <Descriptions className="projection-detail" column={1} size="small" bordered>
+              <Descriptions.Item label="科目">{displayValue(row.accountItem)}</Descriptions.Item>
+              <Descriptions.Item label="分行号">{displayValue(row.branchCode)}</Descriptions.Item>
+              <Descriptions.Item label="客户关系号">{displayValue(row.customerRelationNo)}</Descriptions.Item>
+              <Descriptions.Item label="开户日（opndat）">{row.openDate ? <span className="mono">{row.openDate}</span> : '--'}</Descriptions.Item>
+              <Descriptions.Item label="利率类型（inttyp）">{row.interestType ? `${INTEREST_TYPE_TEXT[row.interestType] || row.interestType}（${row.interestType}）` : '--'}</Descriptions.Item>
+              <Descriptions.Item label="存期（dpstxt）">{displayValue(row.depositTerm)}</Descriptions.Item>
+              <Descriptions.Item label="透支额度（lmtovr）">{row.overdraftLimit === undefined || row.overdraftLimit === null ? '--' : <span className="mono">{money(row.overdraftLimit)}</span>}</Descriptions.Item>
+              <Descriptions.Item label="利息码（intcod）">{displayValue(row.interestCode)}{row.interestCode === 'S' ? '（子公司虚拟余额）' : ''}</Descriptions.Item>
+              <Descriptions.Item label="年利率（intrat）">{displayValue(row.interestRate)}</Descriptions.Item>
+              <Descriptions.Item label="到期日（mutdat）">{row.maturityDate && row.maturityDate !== '00000000' ? <span className="mono">{row.maturityDate}</span> : '--'}</Descriptions.Item>
+            </Descriptions>
+          ),
+        }]}
+      />
+    </>
   );
 }

@@ -2,6 +2,8 @@ package com.finance.system.bank;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.finance.system.bank.dto.AiCompanyApplyRequest;
+import com.finance.system.bank.dto.AiCompanyApplyResponse;
 import com.finance.system.bank.dto.CompanyArchiveAccount;
 import com.finance.system.bank.dto.CompanyArchiveCompany;
 import com.finance.system.bank.dto.CompanyArchiveView;
@@ -17,6 +19,7 @@ import com.finance.system.domain.mapper.CompanyMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -118,6 +121,66 @@ public class CompanyArchiveService {
                     .set(BankDataStatement::getCompanyId, companyId));
         }
         return toAccount(account, directStatusService.resolveOne(account));
+    }
+
+    /**
+     * AI 归类建议批量应用（V32）：公司按名称解析——已有同名档案直接复用，否则新建
+     * （复用 createCompany 的编码分配与校验），再走 {@link #assignAccount} 挂账户
+     * （历史流水/余额的 company_id 一并迁移）。单行失败记 FAILED 不回滚整批，
+     * 与 AI 制证批量语义一致。
+     */
+    @Transactional
+    public AiCompanyApplyResponse applySuggestions(AiCompanyApplyRequest request) {
+        List<AiCompanyApplyRequest.Item> items = request == null || request.items() == null
+                ? List.of() : request.items();
+        if (items.isEmpty()) {
+            throw new BusinessException(400, "请选择要应用的归类建议");
+        }
+        List<AiCompanyApplyResponse.Row> rows = new ArrayList<>();
+        long created = 0;
+        long assigned = 0;
+        for (AiCompanyApplyRequest.Item item : items) {
+            if (item == null || item.accountId() == null
+                    || item.companyName() == null || item.companyName().isBlank()) {
+                rows.add(new AiCompanyApplyResponse.Row(null, null, null, "FAILED", "行数据不完整"));
+                continue;
+            }
+            String companyName = item.companyName().trim();
+            BankAccount account = bankAccountMapper.selectById(item.accountId());
+            if (account == null) {
+                rows.add(new AiCompanyApplyResponse.Row(item.accountId(), null, companyName,
+                        "FAILED", "账户不存在或已从档案移除"));
+                continue;
+            }
+            try {
+                Company company = companyMapper.selectOne(new LambdaQueryWrapper<Company>()
+                        .eq(Company::getName, companyName));
+                boolean isNew = company == null;
+                if (isNew) {
+                    company = findCreated(companyName);
+                }
+                assignAccount(account.getId(), company.getId());
+                created += isNew ? 1 : 0;
+                assigned += 1;
+                rows.add(new AiCompanyApplyResponse.Row(account.getId(), account.getAccountName(),
+                        companyName, isNew ? "CREATED" : "ASSIGNED", null));
+            } catch (BusinessException e) {
+                rows.add(new AiCompanyApplyResponse.Row(account.getId(), account.getAccountName(),
+                        companyName, "FAILED", e.getMessage()));
+            }
+        }
+        return new AiCompanyApplyResponse(rows, created, assigned);
+    }
+
+    /** createCompany 的重名校验在批量语义下改为「复用已有」，绕行直接建档保持编码分配一致。 */
+    private Company findCreated(String companyName) {
+        String code = nextCompanyCode();
+        Company company = new Company();
+        company.setCode(code);
+        company.setName(companyName);
+        company.setStatus("ACTIVE");
+        companyMapper.insert(company);
+        return company;
     }
 
     private void assertNameAvailable(String name, Long excludeId) {

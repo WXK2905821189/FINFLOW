@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -74,5 +75,17 @@ public class BankController {
     public ApiResponse<BankConnectionTestResponse> testConnection(@PathVariable Long id,
                                                                   @AuthenticationPrincipal UserPrincipal principal) {
         return ApiResponse.success("连接测试完成", connectionTestService.test(principal.getId(), id));
+    }
+
+    /**
+     * Archive removal (V32 soft delete): statements/balances/raw messages are retained,
+     * the account disappears from the archive board, dropdowns, queries and the scheduler.
+     */
+    @DeleteMapping("/bank-accounts/{id}")
+    @PreAuthorize("hasAuthority('bank:manage')")
+    @Operation(summary = "Soft-delete a bank account (history retained)")
+    public ApiResponse<Void> deleteAccount(@PathVariable Long id, @AuthenticationPrincipal UserPrincipal principal) {
+        bankAccountService.deleteAccount(principal.getId(), id);
+        return ApiResponse.success("Bank account removed from archive", null);
     }
 }

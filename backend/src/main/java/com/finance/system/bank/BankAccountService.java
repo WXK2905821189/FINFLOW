@@ -86,6 +86,22 @@ public class BankAccountService extends ServiceImpl<BankAccountMapper, BankAccou
         return toResponse(account, directStatusService.resolveOne(account), null);
     }
 
+    /**
+     * 档案移除（V32 软删除）：{@link BankAccount} 带 @TableLogic，removeById 落库为
+     * UPDATE deleted=1——历史流水/余额/报文全保留，档案板/下拉/查询/调度自动过滤。
+     * 可见性规则与 updateAccount 一致（本公司账户；404 不区分不存在与已删除）。
+     */
+    public void deleteAccount(Long userId, Long id) {
+        long companyId = companyScope.companyIdForUser(userId);
+        BankAccount account = getOne(new LambdaQueryWrapper<BankAccount>()
+                .eq(BankAccount::getId, id)
+                .eq(BankAccount::getCompanyId, companyId));
+        if (account == null) {
+            throw new BusinessException(404, "Bank account not found");
+        }
+        removeById(id);
+    }
+
     private void apply(BankAccountRequest request, BankAccount account) {
         account.setBankCode(request.bankCode().trim().toUpperCase());
         account.setAccountName(request.accountName().trim());

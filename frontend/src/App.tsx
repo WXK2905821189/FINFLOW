@@ -51,7 +51,8 @@ function AppRoutes() {
           <Route element={<PermissionGuard permissions={['ai:config']} />}>
             <Route path="/system/ai-settings" element={<AiSettingsPage />} />
           </Route>
-          <Route element={<PermissionGuard permissions={['ai:use']} />}>
+          {/* V32：AI 状态与设置仅超管（ai:config）可见；成员通过 ai:use 使用能力端点，不感知网关配置。 */}
+          <Route element={<PermissionGuard permissions={['ai:config']} />}>
             <Route path="/system/ai" element={<AiStatusPage />} />
           </Route>
           <Route element={<PermissionGuard permissions={['audit:view']} />}>
