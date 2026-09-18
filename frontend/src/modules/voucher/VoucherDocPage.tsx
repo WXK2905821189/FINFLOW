@@ -1,8 +1,8 @@
 import { useCallback } from 'react';
-import { Button, Card, Descriptions, Empty, Skeleton, Space, Table, Tag, type TableColumnsType } from 'antd';
+import { Button, Card, Descriptions, Empty, Skeleton, Space, Table, Tag, Tooltip, type TableColumnsType } from 'antd';
 import { useNavigate, useParams } from 'react-router-dom';
-import { PrinterOutlined } from '@ant-design/icons';
-import { statementApi } from '../../services/api';
+import { LockOutlined, PrinterOutlined } from '@ant-design/icons';
+import { closingApi, statementApi } from '../../services/api';
 import { useRemote, ResourceFailure, StatusTag } from '../shared/components';
 import { money } from '../shared/format';
 import { toChineseAmount } from './voucherTexts';
@@ -13,6 +13,8 @@ import type { VoucherEntry } from '../statements/types';
  * 金蝶式凭证排版（独立单据页 + 打印），数据源 = GET /statements/{id}（statement + AI 建议分录）。
  * 分录展示 AI 预填 + 逐行置信度（人工修正行显式标记）；已推送/已驳回不可改（操作入口只保留打印/返回）。
  * 页面自身带 print CSS（@media print 隐藏导航与操作区）。
+ * W7（2026-09-18）：所属账期已结账（CLOSED）时显示锁 chip（demo 的 data-lock-blocked 语义）——
+ * 服务端对 CLOSED 账期的导入/制证/推送一律 409，此处为可视化提示。
  */
 
 const directionTitle = (direction: string | null | undefined) =>
@@ -33,6 +35,9 @@ export function VoucherDocPage() {
   const navigate = useNavigate();
   const loader = useCallback(() => statementApi.get(statementId), [statementId]);
   const { data, loading, error, reload } = useRemote(loader, [loader]);
+  // W7 账期锁提示：拉本公司 CLOSED 账期，命中凭证账期即显示锁 chip。
+  const closedLoader = useCallback(() => closingApi.periods({ page: 1, size: 100, status: 'CLOSED' }), []);
+  const closed = useRemote(closedLoader, [closedLoader]);
   const statement = data?.statement;
   const suggestion = data?.aiSuggestion;
   const entries: VoucherEntry[] = suggestion?.entries || [];
@@ -44,6 +49,15 @@ export function VoucherDocPage() {
     .filter((entry) => entry.direction === 'CREDIT')
     .reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
   const balanced = Math.abs(debitTotal - creditTotal) < 0.01 && debitTotal > 0;
+
+  const voucherPeriod = (statement?.transactionTime || '').slice(0, 7);
+  const periodLocked = Boolean(voucherPeriod)
+    && (closed.data?.records || []).some((row) => row.period === voucherPeriod);
+  const lockChip = periodLocked ? (
+    <Tooltip title="该账期已结账（CLOSED）：导入、AI 制证与推送被拦截，超管可在结账管理中解锁。">
+      <Tag icon={<LockOutlined />} color="red" style={{ marginLeft: 6 }}>账期已结账</Tag>
+    </Tooltip>
+  ) : null;
 
   const columns: TableColumnsType<VoucherEntry & { keyIndex: number }> = [
     { title: '#', width: 40, render: (_, row) => row.keyIndex + 1 },
@@ -83,7 +97,7 @@ export function VoucherDocPage() {
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <StatusTag status={statement.pushStatus || statement.reviewStatus} />
-                  <div className="table-sub">账期 {(statement.transactionTime || '').slice(0, 7)}</div>
+                  <div className="table-sub">账期 {(statement.transactionTime || '').slice(0, 7)}{lockChip}</div>
                 </div>
               </div>
               <Descriptions className="voucher-doc-meta" size="small" column={{ xs: 1, sm: 2, xl: 4 }}>

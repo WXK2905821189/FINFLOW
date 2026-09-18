@@ -52,6 +52,7 @@ public class KingdeeVoucherEngineService {
     private final KingdeeVoucherGateway gateway;
     private final StatementAuditEventMapper auditEventMapper;
     private final KingdeeOrgResolver orgResolver;
+    private final com.finance.system.closing.ClosingService closingService;
 
     public KingdeeVoucherEngineService(StatementRecordMapper statementMapper,
                                        BankAccountMapper bankAccountMapper,
@@ -62,7 +63,8 @@ public class KingdeeVoucherEngineService {
                                        KingdeeGlVoucherPayloadBuilder payloadBuilder,
                                        KingdeeVoucherGateway gateway,
                                        StatementAuditEventMapper auditEventMapper,
-                                       KingdeeOrgResolver orgResolver) {
+                                       KingdeeOrgResolver orgResolver,
+                                       com.finance.system.closing.ClosingService closingService) {
         this.statementMapper = statementMapper;
         this.bankAccountMapper = bankAccountMapper;
         this.companyMapper = companyMapper;
@@ -73,6 +75,7 @@ public class KingdeeVoucherEngineService {
         this.gateway = gateway;
         this.auditEventMapper = auditEventMapper;
         this.orgResolver = orgResolver;
+        this.closingService = closingService;
     }
 
     /** Batch preview: rule-engine parse for each statement id (unknown ids are skipped silently). */
@@ -118,6 +121,8 @@ public class KingdeeVoucherEngineService {
             throw new BusinessException(400, "流水复核状态为 " + statement.getReviewStatus()
                     + "，规则制证仅受理 APPROVED");
         }
+        // W7 账期锁：CLOSED 账期禁止规则制证推送（按流水所属公司+交易时间归月）。
+        closingService.ensurePeriodOpen(statement.getCompanyId(), statement.getTransactionTime());
         KingdeeVoucherRule ruleEntity = ruleMapper.selectOne(
                 new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<KingdeeVoucherRule>()
                         .eq(KingdeeVoucherRule::getRuleNo, ruleNo));

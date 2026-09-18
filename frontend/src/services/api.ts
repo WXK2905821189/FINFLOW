@@ -382,6 +382,7 @@ export const closingApi = {
   periods: (params: { page?: number; size?: number; status?: string }) => http.get<never, PageResponse<ClosingPeriod>>('/closing/periods', { params }),
   check: (period: string) => http.post<never, ClosingPeriod>(`/closing/periods/${period}/check`),
   close: (period: string) => http.post<never, ClosingPeriod>(`/closing/periods/${period}/close`),
+  unlock: (period: string) => http.post<never, ClosingPeriod>(`/closing/periods/${period}/unlock`),
 };
 
 export const auditApi = {

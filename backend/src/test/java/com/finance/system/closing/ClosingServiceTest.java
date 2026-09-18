@@ -6,8 +6,10 @@ import com.finance.system.common.exception.BusinessException;
 import com.finance.system.common.tenant.CompanyScopeService;
 import com.finance.system.domain.entity.ClosingPeriod;
 import com.finance.system.domain.entity.StatementRecord;
+import com.finance.system.domain.entity.SysRole;
 import com.finance.system.domain.mapper.ClosingPeriodMapper;
 import com.finance.system.domain.mapper.StatementRecordMapper;
+import com.finance.system.rbac.RbacService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -21,6 +23,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -47,15 +50,27 @@ class ClosingServiceTest {
     @Mock private StatementRecordMapper statementMapper;
     @Mock private CompanyScopeService scope;
     @Mock private SystemAuditService audit;
+    @Mock private RbacService rbacService;
 
     private ClosingService service;
 
     @BeforeEach
     void setUp() {
-        service = new ClosingService(periodMapper, statementMapper, scope, audit);
+        service = new ClosingService(periodMapper, statementMapper, scope, audit, rbacService);
         when(scope.companyIdForUser(USER_ID)).thenReturn(COMPANY_ID);
         when(periodMapper.updateById(any(ClosingPeriod.class))).thenReturn(1);
         when(periodMapper.insert(any(ClosingPeriod.class))).thenReturn(1);
+        when(periodMapper.selectList(any(Wrapper.class))).thenReturn(List.of());
+        when(rbacService.rolesForUser(USER_ID)).thenReturn(List.of(role("FINANCE_STAFF")));
+        when(rbacService.rolesForUser(ADMIN_ID)).thenReturn(List.of(role("ADMIN")));
+    }
+
+    private static final long ADMIN_ID = 9L;
+
+    private static SysRole role(String code) {
+        SysRole r = new SysRole();
+        r.setCode(code);
+        return r;
     }
 
     /** 让 find() 命中一条已存在的账期，避免走 insert 分支。 */
@@ -171,5 +186,85 @@ class ClosingServiceTest {
 
         assertThat(result.status()).isEqualTo("READY");
         assertThat(result.totalCount()).isZero();
+    }
+
+    // ===== W7（2026-09-18）：解锁与账期锁拦截 =====
+
+    @Test
+    @DisplayName("W7 unlock：非 ADMIN（FINANCE_STAFF）→ 403，账期状态不被改动")
+    void unlockRejectsNonAdmin() {
+        existingPeriod("CLOSED");
+
+        assertThatThrownBy(() -> service.unlock(USER_ID, "2026-09", "req-u1"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("仅超级管理员");
+    }
+
+    @Test
+    @DisplayName("W7 unlock：ADMIN 解锁 CLOSED 账期 → READY 并写审计")
+    void unlockByAdminMovesClosedToReady() {
+        existingPeriod("CLOSED");
+
+        var result = service.unlock(ADMIN_ID, "2026-09", "req-u2");
+
+        assertThat(result.status()).isEqualTo("READY");
+    }
+
+    @Test
+    @DisplayName("W7 unlock：账期不存在 → 404（提示先做账期检查）")
+    void unlockRejectsUnknownPeriod() {
+        when(periodMapper.selectOne(any(Wrapper.class))).thenReturn(null);
+
+        assertThatThrownBy(() -> service.unlock(ADMIN_ID, "2026-08", "req-u3"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("账期不存在");
+    }
+
+    @Test
+    @DisplayName("W7 unlock：非 CLOSED（READY/BLOCKED）→ 409")
+    void unlockRejectsNonClosedStatus() {
+        existingPeriod("READY");
+
+        assertThatThrownBy(() -> service.unlock(ADMIN_ID, "2026-09", "req-u4"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("仅已结账");
+    }
+
+    @Test
+    @DisplayName("W7 账期锁：CLOSED 账期 → ensurePeriodOpen 抛 409 提示解锁")
+    void ensurePeriodOpenRejectsClosed() {
+        existingPeriod("CLOSED");
+
+        assertThatThrownBy(() -> service.ensurePeriodOpen(COMPANY_ID, "2026-09"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("已结账");
+    }
+
+    @Test
+    @DisplayName("W7 账期锁：无账期记录或 READY → 放行（不拦截）")
+    void ensurePeriodOpenAllowsOpenPeriods() {
+        when(periodMapper.selectOne(any(Wrapper.class))).thenReturn(null);
+        assertThatCode(() -> service.ensurePeriodOpen(COMPANY_ID, "2026-09")).doesNotThrowAnyException();
+
+        existingPeriod("READY");
+        assertThatCode(() -> service.ensurePeriodOpen(COMPANY_ID, LocalDateTime.of(2026, 9, 15, 8, 0)))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("W7 账期锁（批量）：任一涉及月份 CLOSED → 409 且一次报清全部命中月份")
+    void ensurePeriodsOpenRejectsAnyClosedMonth() {
+        ClosingPeriod closed = new ClosingPeriod();
+        closed.setCompanyId(COMPANY_ID);
+        closed.setPeriod("2026-09");
+        closed.setStatus("CLOSED");
+        when(periodMapper.selectList(any(Wrapper.class))).thenReturn(List.of(closed));
+
+        assertThatThrownBy(() -> service.ensurePeriodsOpen(COMPANY_ID, java.util.Arrays.asList(
+                LocalDateTime.of(2026, 9, 10, 10, 0),
+                LocalDateTime.of(2026, 8, 1, 10, 0),
+                null)))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("2026-09");
     }
 }

@@ -75,6 +75,7 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
     private final CompanyScopeService companyScope;
     private final BankDataStatementMapper bankDataStatementMapper;
     private final RbacService rbacService;
+    private final com.finance.system.closing.ClosingService closingService;
 
     /** 与 bankdata 侧 BankDataQueryService 的跨公司权限码一致；转入他公司银行流水时要求。 */
     private static final String CROSS_COMPANY_PERMISSION = "bankdata:cross-company:view";
@@ -87,7 +88,8 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
                             KingdeeVoucherGateway kingdeeGateway,
                             CompanyScopeService companyScope,
                             BankDataStatementMapper bankDataStatementMapper,
-                            RbacService rbacService) {
+                            RbacService rbacService,
+                            com.finance.system.closing.ClosingService closingService) {
         this.collector = collector;
         this.batchMapper = batchMapper;
         this.auditMapper = auditMapper;
@@ -97,12 +99,16 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
         this.companyScope = companyScope;
         this.bankDataStatementMapper = bankDataStatementMapper;
         this.rbacService = rbacService;
+        this.closingService = closingService;
     }
 
     @Transactional
     public StatementImportBatchResponse importBatch(StatementImportRequest request, Long operatorId) {
         long companyId = companyScope.companyIdForUser(operatorId);
         StatementCollection collection = collector.collect(request);
+        // W7 账期锁：CLOSED 账期禁止导入流水（按流水交易时间归月，一次报清全部涉及月份）。
+        closingService.ensurePeriodsOpen(companyId,
+                collection.records().stream().map(StatementRecordInput::transactionTime).toList());
         StatementImportBatch batch = new StatementImportBatch();
         batch.setCompanyId(companyId);
         batch.setBatchNo("STB-" + UUID.randomUUID().toString().replace("-", "").substring(0, 20).toUpperCase(Locale.ROOT));
@@ -166,6 +172,10 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
         batch.setInvalidCount(0);
         batch.setCreatedBy(operatorId);
         batchMapper.insert(batch);
+
+        // W7 账期锁：CLOSED 账期禁止转入（公司归属取银行流水行自身，与批次公司一致）。
+        closingService.ensurePeriodsOpen(companyId,
+                rows.stream().map(BankDataStatement::getTransactionTime).toList());
 
         List<StatementRecordInput> inputs = rows.stream().map(this::mapToInput).toList();
         int[] counters = processRecords(batch, inputs, companyId, operatorId);
@@ -430,6 +440,8 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
         if (PUSHED.equals(existing.getPushStatus())) {
             return toResponse(existing);
         }
+        // W7 账期锁：CLOSED 账期禁止推送（按流水所属公司+交易时间归月；批量链路 409 转为行级 SKIPPED）。
+        closingService.ensurePeriodOpen(existing.getCompanyId(), existing.getTransactionTime());
         String previousPushStatus = existing.getPushStatus();
         int claimed = baseMapper.update(null, new LambdaUpdateWrapper<StatementRecord>()
                 .set(StatementRecord::getPushStatus, PUSH_PROCESSING)

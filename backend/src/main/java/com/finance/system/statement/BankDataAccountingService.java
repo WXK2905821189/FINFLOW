@@ -75,6 +75,7 @@ public class BankDataAccountingService {
     private final CompanyScopeService companyScope;
     private final RbacService rbacService;
     private final ObjectMapper objectMapper;
+    private final com.finance.system.closing.ClosingService closingService;
 
     public BankDataAccountingService(BankDataStatementMapper bankDataStatementMapper,
                                      BankAccountMapper bankAccountMapper,
@@ -84,7 +85,8 @@ public class BankDataAccountingService {
                                      AccountingSuggestionService aiSuggestionService,
                                      CompanyScopeService companyScope,
                                      RbacService rbacService,
-                                     ObjectMapper objectMapper) {
+                                     ObjectMapper objectMapper,
+                                     com.finance.system.closing.ClosingService closingService) {
         this.bankDataStatementMapper = bankDataStatementMapper;
         this.bankAccountMapper = bankAccountMapper;
         this.recordMapper = recordMapper;
@@ -94,6 +96,7 @@ public class BankDataAccountingService {
         this.companyScope = companyScope;
         this.rbacService = rbacService;
         this.objectMapper = objectMapper;
+        this.closingService = closingService;
     }
 
     @Transactional
@@ -146,6 +149,12 @@ public class BankDataAccountingService {
             }
             eligible.add(row);
         }
+
+        // W7 账期锁：CLOSED 账期禁止 AI 制证（导入/草稿/推送全链），按行归属公司+交易时间归月预检。
+        rows.stream().map(BankDataStatement::getCompanyId).filter(Objects::nonNull).distinct()
+                .forEach(companyId -> closingService.ensurePeriodsOpen(companyId,
+                        rows.stream().filter(r -> companyId.equals(r.getCompanyId()))
+                                .map(BankDataStatement::getTransactionTime).toList()));
 
         // 复用既有转入链路（按公司分批：transferFromBankData 要求单公司批次）。
         String[] batchNoHolder = new String[1];
@@ -424,6 +433,8 @@ public class BankDataAccountingService {
         if (REVIEW_REJECTED.equals(record.getReviewStatus())) {
             throw new BusinessException(409, "已驳回的流水不可修改凭证草稿，请重新生成 AI 制证草稿");
         }
+        // W7 账期锁：CLOSED 账期禁止修改凭证草稿（按流水所属公司+交易时间归月）。
+        closingService.ensurePeriodOpen(record.getCompanyId(), record.getTransactionTime());
         List<VoucherEntry> entries = normalizeEntries(request == null ? null : request.entries());
         if (entries.isEmpty()) {
             throw new BusinessException(400, "凭证至少需要一条有效分录（科目名称/借贷方向/正数金额）");
