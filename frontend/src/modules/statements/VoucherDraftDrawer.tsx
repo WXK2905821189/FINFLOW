@@ -366,7 +366,7 @@ export function VoucherDraftDrawer({ statement, onClose, onChanged }: {
       width={880}
       open={Boolean(statement)}
       onClose={onClose}
-      destroyOnClose
+      destroyOnHidden
     >
       {loading && !detail ? <Skeleton active paragraph={{ rows: 10 }} />
         : error ? <ResourceFailure error={error} onRetry={reload} />

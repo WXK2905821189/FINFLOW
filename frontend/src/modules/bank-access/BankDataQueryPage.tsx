@@ -307,7 +307,9 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
     return canCrossCompany ? [COMPANY_COLUMN, ...visible] : visible;
   }, [isStatement, openDetail, canCrossCompany, filters, hiddenColumns, onColumnFilter]);
   const definition = bankDataResources[resource];
-  const emptyDescription = data?.enabled === false || isUnavailableStatus(data?.status) ? '真实银行直联未连接，无法获取数据。' : isFailedStatus(data?.status) ? '银行查询失败，请检查同步任务。' : '当前筛选没有匹配的真实银行数据。';
+  /** 真实直连未启用：后端 notConnectedPage 会带 enabled=false，此时导出必然 503，按钮须先禁用。 */
+  const directLinkOff = data?.enabled === false || isUnavailableStatus(data?.status);
+  const emptyDescription = directLinkOff ? '真实银行直联未连接，无法获取数据。' : isFailedStatus(data?.status) ? '银行查询失败，请检查同步任务。' : '当前筛选没有匹配的真实银行数据。';
   const detailRequestId = isStatement
     ? (selected as BankDataStatementRow | undefined)?.taskRequestId
     : (selected as BankDataBalanceRow | undefined)?.taskRequestId;
@@ -339,7 +341,11 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
           <h2>{definition.title}</h2>
           <p className="muted">{canCrossCompany ? '可跨公司主体查看全部 ACTIVE 公司的银行数据，行内标注归属公司；' : '数据按登录公司主体隔离展示；'}查询读取的是已同步落库的银行数据（不实时请求银行，新数据由每晚自动同步任务或手动补拉获取）；「公司主体」为本系统银行账户档案的归属公司——银行报文只含账号与户名，账户归属由贵司在「账户与主体归档」中维护，行内公司主体列实时跟随账户当前归属（未归属账户标注「未归属」）。直出银行原始字段，本方账号明文展示，完整报文体在「原始报文」模块查看。</p>
         </div>
-        {submitted && <Button icon={<DownloadOutlined />} loading={exporting} onClick={exportCsv}>导出 CSV</Button>}
+        {submitted && (
+          <Tooltip title={directLinkOff ? '真实银行直联未连接：服务端未启用真实银行适配器，暂无可导出的数据。' : undefined}>
+            <Button icon={<DownloadOutlined />} loading={exporting} disabled={directLinkOff} onClick={exportCsv}>导出 CSV</Button>
+          </Tooltip>
+        )}
         {!isStatement && <ColumnSettings options={BALANCE_COLUMN_OPTIONS} hidden={hiddenColumns} onChange={setHiddenColumns} />}
         {canTriggerSync && <Button icon={<PlayCircleOutlined />} loading={syncTriggering} onClick={triggerSyncFromFilters}>按所选账户创建同步任务</Button>}
       </div>
@@ -499,7 +505,7 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
         open={Boolean(rawMessage) || rawMessageLoading}
         onClose={() => { setRawMessage(undefined); setRawMessageError(undefined); setRawMessageLoading(false); }}
       >
-        {rawMessageLoading && <div className="raw-message-loading"><Spin tip="正在加载报文……" /></div>}
+        {rawMessageLoading && <div className="raw-message-loading"><Spin /><div className="muted" style={{ marginTop: 8 }}>正在加载报文……</div></div>}
         {rawMessageError && <Alert type="error" showIcon message="报文加载失败" description={rawMessageError} />}
         {rawMessage && (
           <>

@@ -11,7 +11,7 @@ import type { AiCompanyApplyResponse, AiCompanyApplyRow, AiCompanySuggestion, Ba
 /**
  * 拖拽式账户档案管理：公司档案是投放区，账户卡片拖到目标公司上松手完成归类。
  * 原生 HTML5 drag & drop，不引入第三方拖拽库；历史流水/余额由服务端一并迁移。
- * 外层 Drawer destroyOnClose：每次打开重新挂载档案板并加载数据。
+ * 外层 Drawer destroyOnHidden：每次打开重新挂载档案板并加载数据。
  */
 export function CompanyArchiveDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
@@ -20,7 +20,7 @@ export function CompanyArchiveDrawer({ open, onClose }: { open: boolean; onClose
       width={960}
       open={open}
       onClose={onClose}
-      destroyOnClose
+      destroyOnHidden
     >
       {open ? <ArchiveBoard /> : null}
     </Drawer>
@@ -474,7 +474,7 @@ function ArchiveBoard() {
         okText="保存"
         cancelText="取消"
         confirmLoading={renamingBusy}
-        destroyOnClose
+        destroyOnHidden
       >
         <Input
           value={renameValue}
@@ -492,7 +492,7 @@ function ArchiveBoard() {
         okText="创建"
         cancelText="取消"
         confirmLoading={creatingAcct}
-        destroyOnClose
+        destroyOnHidden
         width={460}
       >
         <Space direction="vertical" style={{ width: '100%' }} size={10}>

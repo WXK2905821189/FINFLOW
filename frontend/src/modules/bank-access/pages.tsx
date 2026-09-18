@@ -136,6 +136,8 @@ export function BankAccountPage() {
     <Card title="企业授权账户">{error ? <ResourceFailure error={error} onRetry={reload} /> : <Table rowKey="id" loading={loading} columns={columns} dataSource={data || []} pagination={false} locale={{ emptyText: <Empty description="当前企业暂无授权银行账户" /> }} scroll={{ x: 880 }} />}</Card>
     <CompanyArchiveDrawer open={archiveOpen} onClose={() => setArchiveOpen(false)} />
 
+    {/* forceRender：openCreate 先调 createForm.resetFields 再打开弹窗，
+        不预渲染 Form 会与 rc-field-form 的挂载校验抢时序，间歇打印 "useForm is not connected"。 */}
     <Modal
       title="新增银行账户"
       open={createOpen}
@@ -144,7 +146,8 @@ export function BankAccountPage() {
       okText="创建账户"
       cancelText="取消"
       confirmLoading={creating}
-      destroyOnClose
+      destroyOnHidden
+      forceRender
     >
       <Alert style={{ marginBottom: 14 }} type="info" showIcon
         message="只需填写户名与账号" description="银行按账号特征自动识别；识别不了时手动选择。币种默认人民币，初始余额与归属主体可留空。" />
@@ -204,7 +207,7 @@ export function BankAccountPage() {
       onCancel={() => setTestModalOpen(false)}
       footer={<Button type="primary" onClick={() => setTestModalOpen(false)}>知道了</Button>}
     >
-      {testingId != null ? <div style={{ textAlign: 'center', padding: '24px 0' }}><Spin tip="正在发起一次只读探测…" /></div>
+      {testingId != null ? <div style={{ textAlign: 'center', padding: '24px 0' }}><Spin /><div className="muted" style={{ marginTop: 8 }}>正在发起一次只读探测…</div></div>
         : testError ? <Alert type="error" showIcon message="测试未能完成" description={testError} />
           : testResult ? <>
             <Alert

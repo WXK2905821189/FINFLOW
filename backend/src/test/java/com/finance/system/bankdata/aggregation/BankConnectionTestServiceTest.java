@@ -159,12 +159,19 @@ class BankConnectionTestServiceTest {
     }
 
     @Test
-    void unregisteredBankCodeIsRejected() {
+    void unregisteredBankCodeReportsDisabledInsteadOfFailing() {
         account.setBankCode("ICBC");
-        BusinessException thrown = assertThrows(BusinessException.class, () -> service(
+
+        BankConnectionTestResponse response = service(
                 fakeAdapter(BankAdapterExecutionMode.SIMULATED, successCollection()))
-                .test(USER_ID, ACCOUNT_ID));
-        assertTrue(thrown.getMessage().toLowerCase().contains("adapter"));
+                .test(USER_ID, ACCOUNT_ID);
+
+        // Deployment state ("this bank is not wired here"), not a bad request: the probe must
+        // report it. 400 would surface as a red "请求未能完成" dialog the operator cannot act on.
+        assertEquals(BankConnectionTestService.DISABLED, response.result());
+        assertTrue(response.message().contains("ICBC"));
+        assertNull(response.bankRequestNo());
+        assertNull(response.endpoint());
     }
 
     @Test

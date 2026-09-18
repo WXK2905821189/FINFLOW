@@ -348,13 +348,16 @@ export function DictionaryPage() {
         </Card>
       </div>
 
+      {/* forceRender：openCreateType/openEditType 先调 form.resetFields/setFieldsValue 再打开弹窗，
+          不预渲染 Form 会与 rc-field-form 的挂载校验抢时序，间歇打印 "useForm is not connected"。 */}
       <Modal
         title={editingType ? '编辑字典类型' : '新建字典类型'}
         open={typeModalOpen}
         onOk={() => void submitType()}
         onCancel={() => setTypeModalOpen(false)}
         confirmLoading={confirmLoading}
-        destroyOnClose
+        destroyOnHidden
+        forceRender
       >
         <Form form={typeForm} layout="vertical">
           <Form.Item
@@ -380,13 +383,15 @@ export function DictionaryPage() {
         </Form>
       </Modal>
 
+      {/* forceRender：同上，itemForm 也在打开前被 resetFields/setFieldsValue 赋值。 */}
       <Modal
         title={editingItem ? '编辑字典项' : '新建字典项'}
         open={itemModalOpen}
         onOk={() => void submitItem()}
         onCancel={() => setItemModalOpen(false)}
         confirmLoading={confirmLoading}
-        destroyOnClose
+        destroyOnHidden
+        forceRender
         width={560}
       >
         <Form form={itemForm} layout="vertical">

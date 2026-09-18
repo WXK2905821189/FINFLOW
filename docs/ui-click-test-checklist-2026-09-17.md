@@ -375,6 +375,10 @@
 | R3-b | 2026-09-18 | 凭证中心 5 个状态桶逐个切换 | 5/5 桶渲染正确，行内按钮随状态正确增减 | `tmp/ui-click-test/out/r3b-1789693701571.json` |
 | R3-c | 2026-09-18 | **修复后回归**：大类规则 / 结账（含中文化）/ 校验中心新建草稿+启用 | **全部通过**：22 条规则渲染、账期 READY→CLOSED、BLOCKED→409、confirm 按钮中文、草稿保存+启用成功 | `tmp/ui-click-test/out/r3c-1789694247345.json` |
 | R3-d | 2026-09-18 | 剩余行内按钮：报文抽屉 3 按钮 / 字典 / 用户 / 凭证 通过·驳回·推送·追溯 / 同步任务详情 | **零真实错误**（仅 favicon 404 + antd 弃用告警） | `tmp/ui-click-test/out/r3d-1789694463303.json` |
+| R4 | 2026-09-18 | **告警归属探针**：逐页单独开记录窗口，抓 React 组件栈 | 定位到 `destroyOnClose` 首屏告警只来自 3 页（accounts/tasks/validation）；`useForm` 告警**首屏 0 次** → 只由点击路径触发 | `tmp/ui-click-test/out/r4-warn-attrib-*.json` |
+| R4-b | 2026-09-18 | **点击路径归属**：逐按钮 点击→等待→取消，统计每步新增告警 | 命中 3 处「新增/编辑」按钮（accounts/dicts/users）；并发现**同一步骤可复现性不稳定** → 判定为竞态 | `tmp/ui-click-test/out/r4b-useform-*.json` |
+| R4-c | 2026-09-18 | **预填回归**：先点「编辑」（不先点新增）读取弹窗字段值 | 推翻「重挂载清空表单」假设：字典/用户编辑弹窗**预填正常**，无潜在 bug | `tmp/ui-click-test/out/r4c-prefill-*.json` |
+| R5 | 2026-09-18 | **A1/B1/C1 修复验收**（测试连通 / 导出门控 / 告警清零 + 预填回归） | **全项通过**：探测 3 账户全部 200+DISABLED、导出按钮 disabled+Tooltip、useForm 告警 **0**、destroyOnClose 告警 **0**、Spin 告警 **0**、新增 4xx/5xx **0** | `tmp/ui-click-test/out/r5-accept-*.json` |
 
 ### 变更日志
 
@@ -383,6 +387,7 @@
 | v1 | 2026-09-17 | 初始清单，覆盖 23 个页面分组、约 120 条用例 |
 | v2 | 2026-09-17 | 补 R1 执行结果；新增 §6 实测渲染核对、§7 R2 结果；记录 antd 双字插空格等定位陷阱 |
 | v3 | 2026-09-18 | 补 R3(a–d) 执行结果与 2 项 P1 修复；新增 §8 R3 实测结果；§9 修复建议改为带状态跟踪 |
+| v4 | 2026-09-18 | 补 R4/R4-b/R4-c 告警归属结果与 R5 验收；新增 §9.2 剩余三项的处置与背景；记录「告警是竞态、非必然」这一诊断结论 |
 
 ---
 
@@ -553,13 +558,29 @@ R1/R2 受限于 H2 空库，19 类行内按钮根本不渲染。本轮改为**�
 | 4 | `Modal.confirm` 按钮显示英文 `Cancel` / `OK` | `App.tsx` 包 `<ConfigProvider locale={zhCN}>` + `main.tsx` 引入 `dayjs/locale/zh-cn`；另用 `ConfigProvider.config({ holderRender })` 覆盖 `Modal.confirm` 等**静态方法**（v5 中 `ConfigProvider` 对静态方法默认不生效） | 3 处 | ✅ **已修复**；R3-c 实测「确认结账」弹窗按钮为 `取消` / `确定` |
 | 8 | 大类规则页整页「数据暂不可用」 | `KingdeeVoucherRuleController.list()` 从裸 `ResponseEntity<List<...>>` 改为 `ApiResponse<List<...>>` 信封 | 1 文件 | ✅ **已修复**；R3-c 实测渲染 22 条规则 + 行内 `模板` 弹窗可用 |
 | 9 | 结账对任何含流水的账期恒 `BLOCKED` | `ClosingService.refresh()`：`"VALID"` → `"PASSED"`；「已制证」判定同时接受 `PUSHED` 与 `GL_PUSHED` | 1 文件 + 新增 7 条单测 | ✅ **已修复**；2026-08 `READY`→结账成功，2026-09 计数由「异常 4」修正为「待复核 1/异常 1/未制证 1」 |
-| 2 | 适配器未启用时导出按钮仍可点，一点必失败且无引导 | 前端按 `bankdata.adapter.real-adapters-enabled` 禁用按钮，或点击给出明确说明 | 需后端暴露开关状态 | ⏳ **待拍板**（P2） |
-| 3 | `test-connection` 用 HTTP 400 表达「适配器不可用」 | 该异常在 `BankDataAdapterRegistry` 有**两个触发点**：非法 `adapterCode`（客户端问题，400 正确）与真实适配器未启用（服务不可用，应 503）。需先在上层区分语义再改 | 需改异常类型 + 调用点 | ⏳ **待拍板**（P2）。不宜简单全改 503 |
-| 5 | `useForm is not connected to any Form element` 警告 | 把 `form.resetFields()` 从关闭回调移到 `afterClose`，或加 `forceRender` | 多处 | ⏳ **待拍板**（P2） |
-| 6 | `[antd: Modal] destroyOnClose is deprecated` | 全仓替换为 `destroyOnHidden` | 多处 | ⏳ **待拍板**（P3） |
-| 7 | `[antd: Spin] tip only work in nest or fullscreen pattern` | 给 `Spin` 加包裹元素或改 `fullscreen` | 少量 | ⏳ **待拍板**（P3） |
+| 3 | `test-connection` 用 HTTP 400 表达「适配器不可用」 | ~~需在 `BankDataAdapterRegistry` 上层区分语义~~ → **修正**：探测路径的 `adapterCode` 完全由服务端账户档案决定（`resolveCode(null, bankCode)`），无客户端输入，400 在此 100% 误用；改由 `BankConnectionTestService` 就地翻译为 **200 + `DISABLED`**（复用前端已有渲染），**registry 一行未动** | 1 文件 + 1 测试用例改写 | ✅ **已修复**；三个账户（CMB/CITIC/ICBC）实测 `HTTP 400 → 200` + `result=DISABLED`（见 §9.2） |
+| 2 | 适配器未启用时导出按钮仍可点，一点必失败且无引导 | **探测结论：无需新增端点** —— `BankDataQueryService.notConnectedPage()` 早已返回 `enabled=false`，前端亦已在空态文案里消费该字段。仅需拿它门控按钮 | 1 行条件 + Tooltip | ✅ **已修复**（禁用 + Tooltip）；R5 实测 balances/statements 两页按钮均 `disabled=true`，Tooltip 文案为「真实银行直联未连接：服务端未启用真实银行适配器，暂无可导出的数据。」 |
+| 5 | `useForm is not connected to any Form element` 警告 | **探测结论：这是竞态，非必然触发** —— rc-field-form 用 `setTimeout(0)` 检查 `formHooked`，与 React 首次挂载 commit 抢时序；且 rc-util 对同一文案做**会话内去重**（故"只在首次点击"是假象）。修法须消除竞态：给承载表单的 Modal 加 `forceRender` | 5 个 Modal 各加 1 个 prop | ✅ **已修复**；R5 实测 useForm 告警 **0**，且字典/用户编辑弹窗预填未被破坏 |
+| 6 | `[antd: Modal] destroyOnClose is deprecated` | 全仓替换为 `destroyOnHidden`（antd ≥5.25 的官方改名，语义相同） | 7 文件 12 处 | ✅ **已修复**；R5 实测 destroyOnClose 告警 **0** |
+| 7 | `[antd: Spin] tip only work in nest or fullscreen pattern` | 去掉 `tip`，把文案改为 `Spin` 的同级文本（不依赖 antd 的 nest 语义） | 2 处 | ✅ **已修复**；R5 实测 Spin 告警 **0** |
 
-### 9.1 本轮实际改动文件
+### 9.2 剩余三项的处置说明（2026-09-18）
+
+**① `test-connection`（#3）——原判断被推翻，成本比预想低。**
+上一轮记录的是「该异常在 `BankDataAdapterRegistry` 有两个触发点，需先在上层区分语义」。实读代码后确认：探测路径调用的是 `registry.resolveCode(null, account.getBankCode())`，`requested` 传 `null`，**没有任何客户端输入**；真正需要保留 400 的是另一条路径（`BankDataSyncService` 的补拉表单 `request.adapterCode`）。
+因此**不动 registry**，只在 `BankConnectionTestService` 就地捕获并翻译为 `200 + DISABLED`——前端 `CONNECTION_TONE` 本来就有 `DISABLED: { title: '真实适配器未启用' }`，**前端零改动**。
+> 语义理由：这是**探测**端点，用户点「测试连通」要的就是"能不能连"这个结论。"本环境没启用"是合法探测结果，不该表现为运维无法处置的错误状态码。
+
+**② 导出按钮（#2）——同样无需新增端点。**
+`BankDataPageResponse` 早已带 `enabled` 字段（`notConnectedPage()` 传 `false`），前端 `BankDataQueryPage` 也已在空态文案里使用 `data?.enabled === false`，只是没拿来门控导出按钮。补上门控即可。
+
+**③ 告警清理（#5/#6/#7）——已全清，且新增一类告警的处置结论。**
+R4 探针额外发现 **React Router v7 future flag 提示**（`v7_startTransition` / `v7_relativeSplatPath`，每页 2 条）。**本轮有意不动**：这两个 flag 是 react-router v7 的行为开关，开启会真实改变渲染与时序行为（本应用存在 `path="*"` splat 路由，`v7_relativeSplatPath` 会影响其下相对路径解析）。把它当"告警清理"顺手打开等于**借清理之名做行为变更**，应另开一批并做回归。
+> 另注：R2/R3 的历史报告只采集 `console.error`，故这类 `console.warn` 从未进入此前统计。
+
+### 9.1 实际改动文件
+
+**上一批（P1/P2，2026-09-18）**
 
 | 文件 | 改动 |
 |---|---|
@@ -571,6 +592,21 @@ R1/R2 受限于 H2 空库，19 类行内按钮根本不渲染。本轮改为**�
 | `frontend/src/main.tsx` | `import 'dayjs/locale/zh-cn'` + `dayjs.locale('zh-cn')`（#4） |
 
 验证：`mvn -o -Dtest=ClosingServiceTest test` → `Tests run: 7, Failures: 0`；`tsc -b` 通过；导出接口 curl 实测 503；R3-c 浏览器实测三项修复全部生效。
+
+**本批（A1/B1/C1，2026-09-18）**
+
+| 文件 | 改动 |
+|---|---|
+| `backend/.../bankdata/aggregation/BankConnectionTestService.java` | 探测路径无注册适配器时返回 `200 + DISABLED`（含可读说明），不再抛 400（#3） |
+| `backend/.../bank/dto/BankConnectionTestResponse.java` | `result` 字段 javadoc 补充 `DISABLED` 的第二种来源（#3） |
+| `backend/src/test/java/.../BankConnectionTestServiceTest.java` | 用例改写：`unregisteredBankCodeIsRejected`（断言抛异常）→ `unregisteredBankCodeReportsDisabledInsteadOfFailing`（断言 200+DISABLED） |
+| `frontend/src/modules/bank-access/BankDataQueryPage.tsx` | 导出按钮按 `data.enabled === false` 禁用 + Tooltip 说明（#2）；`Spin tip` 改同级文本（#7） |
+| `frontend/src/modules/bank-access/pages.tsx` | 新增账户 Modal 加 `forceRender`（#5）；`Spin tip` 改同级文本（#7） |
+| `frontend/src/modules/admin/DictionaryPage.tsx` | 2 个 Modal 加 `forceRender`（#5）；`destroyOnClose`→`destroyOnHidden` ×2（#6） |
+| `frontend/src/modules/admin/UsersPage.tsx` | 2 个 Modal 加 `forceRender`（#5）；`destroyOnClose`→`destroyOnHidden` ×2（#6） |
+| `frontend/src/modules/bank-access/operations.tsx`、`archive.tsx`、`ValidationPage.tsx`、`VoucherDraftDrawer.tsx` | `destroyOnClose`→`destroyOnHidden`（#6，共 7 处） |
+
+验证：`mvn -o -Dtest=BankConnectionTestServiceTest test` → `Tests run: 7, Failures: 0`；后端全量测试通过；`tsc -b` 0 错误、`eslint` 0 错误；R5 浏览器实测 6 项断言全绿（见 §5 执行记录）。
 
 ---
 

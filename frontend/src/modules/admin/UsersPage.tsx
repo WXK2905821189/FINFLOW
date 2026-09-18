@@ -187,6 +187,8 @@ function AccountsTab() {
         )}
       </Card>
 
+      {/* forceRender：openCreate/openEdit 先调 form.resetFields/setFieldsValue 再打开弹窗，
+          不预渲染 Form 会与 rc-field-form 的挂载校验抢时序，间歇打印 "useForm is not connected"。 */}
       <Modal
         title={isCreate ? '新增账号' : `编辑账号：${editing?.username}`}
         open={creating || editing != null}
@@ -195,7 +197,8 @@ function AccountsTab() {
         confirmLoading={confirmLoading}
         okText="保存"
         cancelText="取消"
-        destroyOnClose
+        destroyOnHidden
+        forceRender
       >
         <Alert type="info" showIcon message={PASSWORD_NOTICE} style={{ marginBottom: 16 }} />
         <Form form={form} layout="vertical">
@@ -350,8 +353,9 @@ function RolesTab() {
         )}
       </Card>
 
+      {/* forceRender：openCreate 先调 form.resetFields 再打开弹窗，理由同账号弹窗。 */}
       <Modal title="新建角色" open={createOpen} onCancel={() => setCreateOpen(false)}
-        onOk={submitCreate} confirmLoading={confirmLoading} okText="创建" cancelText="取消" destroyOnClose>
+        onOk={submitCreate} confirmLoading={confirmLoading} okText="创建" cancelText="取消" destroyOnHidden forceRender>
         <Form form={form} layout="vertical">
           <Form.Item name="code" label="角色编码" rules={[
             { required: true, message: '请输入角色编码' },

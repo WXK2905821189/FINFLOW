@@ -31,6 +31,10 @@ import java.util.UUID;
  * sync log (bank_data_sync_log.task_id is NOT NULL and a probe has no task). The bank
  * exchange still produces its wire evidence; only the sanitized summary fields are
  * returned to the caller.</p>
+ *
+ * <p>An account whose bank code has no registered adapter answers {@link #DISABLED} with
+ * HTTP 200 instead of an error: "this bank is not wired in this deployment" is a result
+ * the operator needs to read off the probe, not a malformed request.</p>
  */
 @Service
 public class BankConnectionTestService {
@@ -64,10 +68,24 @@ public class BankConnectionTestService {
 
     public BankConnectionTestResponse test(Long userId, Long accountId) {
         BankAccount account = requireVisibleAccount(userId, accountId);
-        String adapterCode = registry.resolveCode(null, account.getBankCode());
-        BankDataAdapter adapter = registry.require(adapterCode);
-
         LocalDateTime now = LocalDateTime.now();
+
+        BankDataAdapter adapter;
+        try {
+            adapter = registry.require(registry.resolveCode(null, account.getBankCode()));
+        } catch (BusinessException unavailable) {
+            // The account's own bank code has no registered adapter. Unlike the sync trigger
+            // (where adapterCode is client-supplied and 400 is right), nothing here comes from
+            // the caller — this is a server-side deployment state (the bank is still in test /
+            // not wired in production, or the real-adapter switch is off). The probe exists to
+            // *report* that state, so answer 200 + DISABLED, which the UI already renders as a
+            // warning ("真实适配器未启用"), instead of an error status the operator cannot act on.
+            return new BankConnectionTestResponse(DISABLED,
+                    "未启用 " + account.getBankCode() + " 直联适配器：本环境未注册该银行的适配器"
+                            + "（该行可能仍在测试阶段，或真实适配器开关未开启）。本次未向银行发起任何请求。",
+                    null, null, null, null, null, null, null, now);
+        }
+
         String requestId = "test-conn-" + UUID.randomUUID();
         BankDataSyncContext context = new BankDataSyncContext(account.getCompanyId(), null, account.getId(),
                 TASK_NO, requestId, now.toLocalDate().minusDays(1).atStartOfDay(), now,

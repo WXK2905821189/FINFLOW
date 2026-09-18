@@ -15,7 +15,9 @@ import java.time.LocalDateTime;
  *
  * @param result           CONNECTED when the bank answered a successful exchange;
  *                         FAILED when the bank answered with a non-success code;
- *                         DISABLED when real adapters are switched off;
+ *                         DISABLED when real adapters are switched off, or when the
+ *                         account's bank has no registered adapter in this deployment
+ *                         (a probe result, not an error — see BankConnectionTestService);
  *                         TIMEOUT / PENDING from the call executor's bounded retry.
  * @param message          sanitized human-readable summary (no raw payloads, no secrets)
  * @param bankRequestNo    bank-side request number when an exchange happened
