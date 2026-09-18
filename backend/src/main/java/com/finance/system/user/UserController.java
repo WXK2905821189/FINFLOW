@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -73,6 +74,15 @@ public class UserController {
                                                    @PathVariable Long id,
                                                    @Valid @RequestBody UserUpsertRequest request) {
         return ApiResponse.success("User updated", authService.currentUser(userService.updateUser(principal.getId(), id, request)));
+    }
+
+    /** V36-W5（需求5）：物理删除（V34 拍板③）。有业务/审计引用时 409 提示改用「停用」。 */
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('user:manage')")
+    @Operation(summary = "Physically delete a user; rejected when business/audit references exist")
+    public ApiResponse<Void> delete(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long id) {
+        userService.delete(principal.getId(), id);
+        return ApiResponse.success("User deleted", null);
     }
 
     private long normalizePage(long page) {

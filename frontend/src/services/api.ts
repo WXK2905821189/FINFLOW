@@ -91,6 +91,8 @@ export const userApi = {
   list: (params: { page?: number; size?: number }) => http.get<never, PageResponse<User>>('/users', { params }),
   create: (data: UserUpsertPayload) => http.post<never, User>('/users', data),
   update: (id: number, data: UserUpsertPayload) => http.put<never, User>(`/users/${id}`, data),
+  /** V36-W5：物理删除（有业务/审计引用时后端 409，提示改用停用）。 */
+  remove: (id: number) => http.delete<never, void>(`/users/${id}`),
 };
 
 /**

@@ -124,6 +124,26 @@ function AccountsTab() {
     }
   };
 
+  /** V36-W5（需求5）：物理删除。有业务/审计引用的账号后端会 409，文案引导改用停用。 */
+  const confirmRemove = (user: User) => {
+    Modal.confirm({
+      title: `删除账号「${user.username}」？`,
+      content: '物理删除后不可恢复，该账号的登录会话立即失效。有制证、审计、批次等业务记录的账号无法删除（会提示改用停用）；删除仅适用于清理从未真正使用的误建账号。',
+      okText: '删除',
+      okButtonProps: { danger: true },
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          await userApi.remove(user.id);
+          message.success('账号已删除');
+          reload();
+        } catch (requestError) {
+          message.error(requestError instanceof Error ? requestError.message : '删除失败');
+        }
+      },
+    });
+  };
+
   const columns: TableColumnsType<User> = [
     { title: '用户名', dataIndex: 'username', width: 160 },
     { title: '邮箱', dataIndex: 'email', width: 220 },
@@ -143,7 +163,7 @@ function AccountsTab() {
     {
       title: '操作',
       key: 'actions',
-      width: 170,
+      width: 205,
       render: (_, record) => (
         <Space size={8}>
           <Button size="small" onClick={() => openEdit(record)}>编辑 / 重置密码</Button>
@@ -156,6 +176,9 @@ function AccountsTab() {
               {record.status === 'ACTIVE' ? '停用' : '启用'}
             </Button>
           </Popconfirm>
+          <Tooltip title="物理删除，不可恢复。仅适用于从未真正使用的误建账号；有业务或审计记录的账号会被拒绝，请改用停用。">
+            <Button size="small" danger onClick={() => confirmRemove(record)}>删除</Button>
+          </Tooltip>
         </Space>
       ),
     },
@@ -203,7 +226,7 @@ function AccountsTab() {
         <Alert type="info" showIcon message={PASSWORD_NOTICE} style={{ marginBottom: 16 }} />
         <Form form={form} layout="vertical">
           <Form.Item name="username" label="用户名" rules={[{ required: true, min: 3, max: 64, message: '用户名 3-64 个字符' }]}>
-            <Input disabled={!isCreate} placeholder="登录用户名" />
+            <Input disabled={!isCreate} placeholder="登录用户名（支持中文姓名）" />
           </Form.Item>
           <Form.Item name="email" label="邮箱" rules={[{ required: true, type: 'email', message: '邮箱格式不正确' }]}>
             <Input disabled={!isCreate} placeholder="name@company.com" />
