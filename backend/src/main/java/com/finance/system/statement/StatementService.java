@@ -233,9 +233,9 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
 
     public PageResponse<StatementResponse> pageStatements(int page, int size, String validationStatus,
                                                             String reviewStatus, String pushStatus, Long userId) {
-        long companyId = companyScope.companyIdForUser(userId);
+        CompanyView view = viewFor(userId);
         LambdaQueryWrapper<StatementRecord> query = new LambdaQueryWrapper<StatementRecord>()
-                .eq(StatementRecord::getCompanyId, companyId)
+                .eq(!view.crossCompany(), StatementRecord::getCompanyId, view.ownCompanyId())
                 .eq(validationStatus != null && !validationStatus.isBlank(), StatementRecord::getValidationStatus, validationStatus)
                 .eq(reviewStatus != null && !reviewStatus.isBlank(), StatementRecord::getReviewStatus, reviewStatus)
                 .eq(pushStatus != null && !pushStatus.isBlank(), StatementRecord::getPushStatus, pushStatus)
@@ -247,10 +247,10 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
     }
 
     public StatementDetailResponse getDetail(Long id, Long userId) {
-        long companyId = companyScope.companyIdForUser(userId);
-        StatementRecord statement = require(id, companyId);
+        CompanyView view = viewFor(userId);
+        StatementRecord statement = require(id, view);
         List<StatementAuditEventResponse> trail = auditMapper.selectList(new LambdaQueryWrapper<StatementAuditEvent>()
-                        .eq(StatementAuditEvent::getCompanyId, companyId)
+                        .eq(!view.crossCompany(), StatementAuditEvent::getCompanyId, view.ownCompanyId())
                         .eq(StatementAuditEvent::getStatementId, id)
                         .orderByAsc(StatementAuditEvent::getCreatedAt)
                         .orderByAsc(StatementAuditEvent::getId))
@@ -276,21 +276,22 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
 
     @Transactional
     public StatementResponse review(Long id, StatementReviewRequest request, Long operatorId) {
-        long companyId = companyScope.companyIdForUser(operatorId);
-        return reviewInternal(id, companyId, request.action(), request.comment(), operatorId);
+        CompanyView view = viewFor(operatorId);
+        return reviewInternal(id, view, request.action(), request.comment(), operatorId);
     }
 
     /**
      * 复核核心（单条与批量共用）。职责分离规则（2026-09-17 调整）：导入者不能复核自己，
      * 但 BANKDATA 批次（AI 草稿链路）例外——草稿生成与人工复核常为同一管理员，
      * 审计事件（REVIEW_APPROVE/REJECT）仍完整记录操作人。
+     * W3（2026-09-18）：公司域从「操作者本公司」放宽为 {@link CompanyView} 可见域。
      */
-    private StatementResponse reviewInternal(Long id, long companyId, String action, String comment,
+    private StatementResponse reviewInternal(Long id, CompanyView view, String action, String comment,
                                              Long operatorId) {
-        StatementRecord existing = require(id, companyId);
+        StatementRecord existing = require(id, view);
         StatementImportBatch batch = batchMapper.selectOne(new LambdaQueryWrapper<StatementImportBatch>()
                 .eq(StatementImportBatch::getId, existing.getBatchId())
-                .eq(StatementImportBatch::getCompanyId, companyId));
+                .eq(!view.crossCompany(), StatementImportBatch::getCompanyId, view.ownCompanyId()));
         if (batch != null && java.util.Objects.equals(batch.getCreatedBy(), operatorId)
                 && !"BANKDATA".equals(batch.getSourceType())) {
             throw new BusinessException(403, "Importers cannot review their own statements");
@@ -315,12 +316,12 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
                 .set(StatementRecord::getReviewedBy, operatorId)
                 .set(StatementRecord::getReviewedAt, LocalDateTime.now())
                 .eq(StatementRecord::getId, id)
-                .eq(StatementRecord::getCompanyId, companyId)
+                .eq(!view.crossCompany(), StatementRecord::getCompanyId, view.ownCompanyId())
                 .eq(StatementRecord::getReviewStatus, REVIEW_PENDING));
         if (updated != 1) {
             throw new BusinessException(409, "Statement review status has changed");
         }
-        StatementRecord result = require(id, companyId);
+        StatementRecord result = require(id, view);
         audit(result, "REVIEW_" + normalizedAction, "SUCCESS", REVIEW_PENDING, result.getReviewStatus(), operatorId,
                 trimToNull(comment));
         return toResponse(result);
@@ -339,16 +340,16 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
         if ("REJECT".equals(action) && (request.comment() == null || request.comment().isBlank())) {
             throw new BusinessException(400, "A rejection comment is required");
         }
-        long companyId = companyScope.companyIdForUser(operatorId);
+        CompanyView view = viewFor(operatorId);
         List<StatementBatchOpRowResult> rows = new ArrayList<>();
         for (Long id : request.ids().stream().filter(Objects::nonNull).distinct().toList()) {
             try {
-                StatementResponse record = reviewInternal(id, companyId, action, request.comment(), operatorId);
+                StatementResponse record = reviewInternal(id, view, action, request.comment(), operatorId);
                 rows.add(new StatementBatchOpRowResult(id, record.statementNo(),
                         "APPROVE".equals(action) ? "APPROVED" : "REJECTED", record.voucherNo(),
                         "APPROVE".equals(action) ? "已通过复核，可推送金蝶" : "已驳回"));
             } catch (BusinessException e) {
-                rows.add(failureRow(id, companyId, e.getCode() == 409 ? "SKIPPED" : "FAILED", e.getMessage()));
+                rows.add(failureRow(id, view, e.getCode() == 409 ? "SKIPPED" : "FAILED", e.getMessage()));
             }
         }
         return summarize(rows);
@@ -360,11 +361,11 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
      */
     @Transactional
     public StatementBatchOpResponse batchPush(StatementBatchPushRequest request, Long operatorId) {
-        long companyId = companyScope.companyIdForUser(operatorId);
+        CompanyView view = viewFor(operatorId);
         List<StatementBatchOpRowResult> rows = new ArrayList<>();
         for (Long id : request.ids().stream().filter(Objects::nonNull).distinct().toList()) {
             try {
-                StatementRecord record = require(id, companyId);
+                StatementRecord record = require(id, view);
                 if (PUSHED.equals(record.getPushStatus())) {
                     rows.add(new StatementBatchOpRowResult(id, record.getStatementNo(), "ALREADY_PUSHED",
                             record.getVoucherNo(), "此前已推送金蝶（幂等跳过）"));
@@ -385,16 +386,16 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
                             pushed.pushMessage() == null ? "推送失败" : pushed.pushMessage()));
                 }
             } catch (BusinessException e) {
-                rows.add(failureRow(id, companyId, e.getCode() == 409 ? "SKIPPED" : "FAILED", e.getMessage()));
+                rows.add(failureRow(id, view, e.getCode() == 409 ? "SKIPPED" : "FAILED", e.getMessage()));
             }
         }
         return summarize(rows);
     }
 
-    private StatementBatchOpRowResult failureRow(Long id, long companyId, String outcome, String message) {
+    private StatementBatchOpRowResult failureRow(Long id, CompanyView view, String outcome, String message) {
         String statementNo = null;
         try {
-            statementNo = require(id, companyId).getStatementNo();
+            statementNo = require(id, view).getStatementNo();
         } catch (BusinessException ignored) {
             // 流水不可见（404）：statementNo 置空，仍回报该行失败原因。
         }
@@ -421,8 +422,8 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
 
     @Transactional
     public StatementResponse pushVoucher(Long id, Long operatorId) {
-        long companyId = companyScope.companyIdForUser(operatorId);
-        StatementRecord existing = require(id, companyId);
+        CompanyView view = viewFor(operatorId);
+        StatementRecord existing = require(id, view);
         if (!VALID.equals(existing.getValidationStatus()) || !REVIEW_APPROVED.equals(existing.getReviewStatus())) {
             throw new BusinessException(409, "Only validated and approved statements can be pushed");
         }
@@ -433,21 +434,21 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
         int claimed = baseMapper.update(null, new LambdaUpdateWrapper<StatementRecord>()
                 .set(StatementRecord::getPushStatus, PUSH_PROCESSING)
                 .eq(StatementRecord::getId, id)
-                .eq(StatementRecord::getCompanyId, companyId)
+                .eq(!view.crossCompany(), StatementRecord::getCompanyId, view.ownCompanyId())
                 .in(StatementRecord::getPushStatus, PUSH_NOT_STARTED, "FAILED"));
         if (claimed != 1) {
             throw new BusinessException(409, "Statement push is already in progress or has completed");
         }
 
-        StatementRecord processing = require(id, companyId);
+        StatementRecord processing = require(id, view);
         KingdeeVoucherResult result = kingdeeGateway.push(processing);
         if (!PUSHED.equalsIgnoreCase(result.status())) {
             baseMapper.update(null, new LambdaUpdateWrapper<StatementRecord>()
                     .set(StatementRecord::getPushStatus, "FAILED")
                     .set(StatementRecord::getPushMessage, trimToNull(result.message()))
                     .eq(StatementRecord::getId, id)
-                    .eq(StatementRecord::getCompanyId, companyId));
-            StatementRecord failed = require(id, companyId);
+                    .eq(!view.crossCompany(), StatementRecord::getCompanyId, view.ownCompanyId()));
+            StatementRecord failed = require(id, view);
             audit(failed, "PUSH_VOUCHER", "FAILED", previousPushStatus, failed.getPushStatus(), operatorId,
                     failed.getPushMessage());
             return toResponse(failed);
@@ -458,19 +459,20 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
                 .set(StatementRecord::getPushMessage, trimToNull(result.message()))
                 .set(StatementRecord::getPushedAt, LocalDateTime.now())
                 .eq(StatementRecord::getId, id)
-                .eq(StatementRecord::getCompanyId, companyId)
+                .eq(!view.crossCompany(), StatementRecord::getCompanyId, view.ownCompanyId())
                 .eq(StatementRecord::getPushStatus, PUSH_PROCESSING));
-        StatementRecord pushed = require(id, companyId);
+        StatementRecord pushed = require(id, view);
         audit(pushed, "PUSH_VOUCHER", "SUCCESS", previousPushStatus, pushed.getPushStatus(), operatorId,
                 pushed.getVoucherNo());
         return toResponse(pushed);
     }
 
     public PageResponse<StatementImportBatchResponse> pageBatches(int page, int size, Long userId) {
-        long companyId = companyScope.companyIdForUser(userId);
+        CompanyView view = viewFor(userId);
         Page<StatementImportBatch> result = batchMapper.selectPage(
                 new Page<>(Math.max(1, page), Math.min(100, Math.max(1, size))),
-                new LambdaQueryWrapper<StatementImportBatch>().eq(StatementImportBatch::getCompanyId, companyId)
+                new LambdaQueryWrapper<StatementImportBatch>()
+                        .eq(!view.crossCompany(), StatementImportBatch::getCompanyId, view.ownCompanyId())
                         .orderByDesc(StatementImportBatch::getCreatedAt)
                         .orderByDesc(StatementImportBatch::getId));
         return new PageResponse<>(result.getCurrent(), result.getSize(), result.getTotal(),
@@ -478,10 +480,10 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
     }
 
     public StatementImportBatchResponse getBatch(Long id, Long userId) {
-        long companyId = companyScope.companyIdForUser(userId);
+        CompanyView view = viewFor(userId);
         StatementImportBatch batch = batchMapper.selectOne(new LambdaQueryWrapper<StatementImportBatch>()
                 .eq(StatementImportBatch::getId, id)
-                .eq(StatementImportBatch::getCompanyId, companyId));
+                .eq(!view.crossCompany(), StatementImportBatch::getCompanyId, view.ownCompanyId()));
         if (batch == null) {
             throw new BusinessException(404, "Import batch not found");
         }
@@ -489,9 +491,9 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
     }
 
     public StatementDashboardResponse dashboard(Long userId) {
-        long companyId = companyScope.companyIdForUser(userId);
+        CompanyView view = viewFor(userId);
         List<StatementRecord> records = list(new LambdaQueryWrapper<StatementRecord>()
-                .eq(StatementRecord::getCompanyId, companyId));
+                .eq(!view.crossCompany(), StatementRecord::getCompanyId, view.ownCompanyId()));
         long pending = records.stream().filter(s -> REVIEW_PENDING.equals(s.getReviewStatus())).count();
         long approved = records.stream().filter(s -> REVIEW_APPROVED.equals(s.getReviewStatus())).count();
         long rejected = records.stream().filter(s -> REVIEW_REJECTED.equals(s.getReviewStatus())).count();
@@ -568,11 +570,28 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
         auditMapper.insert(event);
     }
 
-    private StatementRecord require(Long id, long companyId) {
-        StatementRecord statement = getOne(new LambdaQueryWrapper<StatementRecord>()
-                .eq(StatementRecord::getId, id)
-                .eq(StatementRecord::getCompanyId, companyId));
-        if (statement == null) throw new BusinessException(404, "Statement not found");
+    /**
+     * W3（2026-09-18）凭证链路可见域：本公司恒可见；持 {@code bankdata:cross-company:view}
+     * 权限者可见全部公司主体——与制证/转入口径（transferFromBankData 153 行）对称。
+     * 修复「cross-company 用户对他司流水 AI 制证为草稿成功，但凭证中心/复核/推送全程 404 不可见」。
+     */
+    record CompanyView(long ownCompanyId, boolean crossCompany) {
+        boolean canAccess(Long rowCompanyId) {
+            return crossCompany || (rowCompanyId != null && rowCompanyId == ownCompanyId);
+        }
+    }
+
+    private CompanyView viewFor(Long userId) {
+        long own = companyScope.companyIdForUser(userId);
+        boolean cross = rbacService.permissionCodesForUser(userId).contains(CROSS_COMPANY_PERMISSION);
+        return new CompanyView(own, cross);
+    }
+
+    private StatementRecord require(Long id, CompanyView view) {
+        StatementRecord statement = getById(id);
+        if (statement == null || !view.canAccess(statement.getCompanyId())) {
+            throw new BusinessException(404, "Statement not found");
+        }
         return statement;
     }
 

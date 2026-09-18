@@ -69,9 +69,20 @@ public class KingdeeVoucherRule {
     /** 财务原文备注（映射表原文/口径说明）。 */
     private String remark;
 
+    /** 规则分组（W4 规则中心）：kingdee_rule_group.id，seed 规则挂在「财务默认规则」。 */
+    private Long groupId;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
+
+    public Long getGroupId() {
+        return groupId;
+    }
+
+    public void setGroupId(Long groupId) {
+        this.groupId = groupId;
+    }
 
     public Long getId() {
         return id;

@@ -361,9 +361,13 @@ public class BankDataAccountingService {
      */
     @Transactional
     public AiAccountingSuggestionResponse refreshAiSuggestion(Long statementId, Long operatorId) {
+        // W3（2026-09-18）：与制证口径对称——cross-company 权限用户可刷新他司草稿的 AI 建议。
         long companyId = companyScope.companyIdForUser(operatorId);
+        boolean crossCompany = rbacService.permissionCodesForUser(operatorId)
+                .contains("bankdata:cross-company:view");
         StatementRecord record = recordMapper.selectById(statementId);
-        if (record == null || record.getCompanyId() == null || record.getCompanyId() != companyId) {
+        if (record == null || record.getCompanyId() == null
+                || (record.getCompanyId() != companyId && !crossCompany)) {
             throw new BusinessException(404, "流水不存在或不在当前公司域内");
         }
         if ("PUSHED".equals(record.getPushStatus())) {
@@ -405,9 +409,13 @@ public class BankDataAccountingService {
      */
     @Transactional
     public VoucherSuggestionDto saveVoucherDraft(Long statementId, VoucherDraftSaveRequest request, Long operatorId) {
+        // W3（2026-09-18）：与制证口径对称——cross-company 权限用户可修正他司凭证草稿。
         long companyId = companyScope.companyIdForUser(operatorId);
+        boolean crossCompany = rbacService.permissionCodesForUser(operatorId)
+                .contains("bankdata:cross-company:view");
         StatementRecord record = recordMapper.selectById(statementId);
-        if (record == null || record.getCompanyId() == null || record.getCompanyId() != companyId) {
+        if (record == null || record.getCompanyId() == null
+                || (record.getCompanyId() != companyId && !crossCompany)) {
             throw new BusinessException(404, "流水不存在或不在当前公司域内");
         }
         if ("PUSHED".equals(record.getPushStatus())) {

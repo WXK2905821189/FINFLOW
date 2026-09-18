@@ -11,6 +11,7 @@ import com.finance.system.domain.entity.StatementRecord;
 import com.finance.system.domain.mapper.BankAccountMapper;
 import com.finance.system.domain.mapper.CompanyMapper;
 import com.finance.system.domain.mapper.StatementRecordMapper;
+import com.finance.system.rbac.RbacService;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -44,26 +45,36 @@ public class VoucherGroupService {
     public static final String ST_PUSHED = "PUSHED";
     public static final String ST_FAILED = "FAILED";
 
+    /** 与制证/转入侧一致：跨公司凭证可见域要求 {@code bankdata:cross-company:view}。 */
+    private static final String CROSS_COMPANY_PERMISSION = "bankdata:cross-company:view";
+
     private final StatementRecordMapper statementMapper;
     private final BankAccountMapper bankAccountMapper;
     private final CompanyMapper companyMapper;
     private final CompanyScopeService companyScope;
+    private final RbacService rbacService;
 
     public VoucherGroupService(StatementRecordMapper statementMapper,
                                BankAccountMapper bankAccountMapper,
                                CompanyMapper companyMapper,
-                               CompanyScopeService companyScope) {
+                               CompanyScopeService companyScope,
+                               RbacService rbacService) {
         this.statementMapper = statementMapper;
         this.bankAccountMapper = bankAccountMapper;
         this.companyMapper = companyMapper;
         this.companyScope = companyScope;
+        this.rbacService = rbacService;
     }
 
     public PageResponse<VoucherGroupResponse> pageGroups(int page, int size, String status,
                                                          String keyword, Long userId) {
+        // W3 修复（2026-09-18）：此前恒等过滤本公司，导致 cross-company 用户对其他公司主体
+        // 流水「AI 制证为草稿」成功后凭证中心看不到（制证口径放行、查看口径拦截的不对称）。
+        // 现与制证口径对称：持 cross-company 权限者可见全部公司主体的凭证草稿。
         long companyId = companyScope.companyIdForUser(userId);
+        boolean crossCompany = rbacService.permissionCodesForUser(userId).contains(CROSS_COMPANY_PERMISSION);
         LambdaQueryWrapper<StatementRecord> query = new LambdaQueryWrapper<StatementRecord>()
-                .eq(StatementRecord::getCompanyId, companyId);
+                .eq(!crossCompany, StatementRecord::getCompanyId, companyId);
         applyStatusFilter(query, status);
         if (keyword != null && !keyword.isBlank()) {
             String like = keyword.trim();

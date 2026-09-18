@@ -30,9 +30,8 @@ export const pageTitles: Record<string, string> = {
   '/bank-access/data/balances': '余额查询',
   '/bank-access/data/statements': '流水查询',
   '/bank-access/raw-messages': '原始报文',
-  '/validation': '科目与往来规则',
   '/statements/vouchers': '凭证中心',
-  '/voucher-rules': '大类规则',
+  '/voucher-rules': '规则中心',
   '/closing': '账期结账',
   '/users': '用户管理',
   '/system/dicts': '字典中心',
@@ -47,7 +46,7 @@ type HasPermission = (permission: string) => boolean;
 /**
  * 产品导航（V34 ⑥⑦② 页面增删后的三组结构，2026-09-17）：
  *  - 「银行数据」：账户 + 查询（余额/流水）与采集运营（任务/日志/报文）；对账核对已并入工作台（V34 ⑥）；
- *  - 「凭证与入账」：大类规则（V34 ②）+ 凭证中心（V34 ⑦，替代原凭证草稿与制证）+ 科目与往来规则；
+ *  - 「凭证与入账」：规则中心（V34 ② + W4 合并科目与往来规则，CRUD/分组/Excel 导入）+ 凭证中心（V34 ⑦）；
  *  - 「系统管理」：低频页收纳（账期结账/飞书配置等）；三方对账页下线（并入工作台）。
  */
 export function buildProductNavigation(hasPermission: HasPermission): MenuProps['items'] {
@@ -57,7 +56,6 @@ export function buildProductNavigation(hasPermission: HasPermission): MenuProps[
     'bankdata:balance:view', 'bankdata:statement:view',
   ].some(hasPermission);
   const canViewRawMessages = hasPermission('bankdata:raw:view');
-  const canViewValidation = hasPermission('validation:view') || hasPermission('validation:manage');
   const canViewClosing = hasPermission('closing:view') || hasPermission('closing:manage');
   const canViewVoucher = hasPermission('voucher:push');
 
@@ -71,11 +69,10 @@ export function buildProductNavigation(hasPermission: HasPermission): MenuProps[
     ...(canViewRawMessages ? [{ key: '/bank-access/raw-messages', icon: <CodeOutlined />, label: <Link to="/bank-access/raw-messages">原始报文</Link> }] : []),
   ];
 
-  // V34 ②⑦：凭证链路一等页面组——大类规则（模板透明化）+ 凭证中心（推送状态跟踪/单据详情）。
+  // V34 ②⑦ + W4：凭证链路一等页面组——规则中心（大类规则 CRUD/分组/导入，内嵌校验与入账映射）+ 凭证中心。
   const voucherChildren = [
-    ...(canViewVoucher ? [{ key: '/voucher-rules', icon: <ProfileOutlined />, label: <Link to="/voucher-rules">大类规则</Link> }] : []),
+    ...(canViewVoucher ? [{ key: '/voucher-rules', icon: <ProfileOutlined />, label: <Link to="/voucher-rules">规则中心</Link> }] : []),
     ...(canViewVoucher ? [{ key: '/statements/vouchers', icon: <SendOutlined />, label: <Link to="/statements/vouchers">凭证中心</Link> }] : []),
-    ...(canViewValidation ? [{ key: '/validation', icon: <SettingOutlined />, label: <Link to="/validation">科目与往来规则</Link> }] : []),
   ];
 
   const systemChildren = [

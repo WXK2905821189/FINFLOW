@@ -44,7 +44,10 @@ import type {
   AiVoucherSuggestion,
   VoucherDraftSavePayload,
   VoucherGroupRow,
+  VoucherRuleGroup,
+  VoucherRuleImportPreview,
   VoucherRuleRow,
+  VoucherRuleUpsertPayload,
   AccountPreference,
 } from '../types';
 import type {
@@ -302,12 +305,51 @@ export const voucherGroupApi = {
     http.get<never, PageResponse<VoucherGroupRow>>('/statements/voucher-groups', { params }),
 };
 
-/** V34 ② 大类规则（voucher:push）：金蝶凭证规则只读清单（规则维护走迁移，无编辑 UI）。 */
+/** W4 规则中心（voucher:push）：金蝶凭证规则 CRUD + 分组 + Excel 导入（AI 映射 + 人工审阅）。 */
 export const kingdeeRuleApi = {
-  list: (enabledOnly?: boolean) =>
+  list: (enabledOnly?: boolean, groupId?: number) =>
     http.get<never, VoucherRuleRow[]>('/kingdee/voucher-rules', {
-      params: enabledOnly == null ? undefined : { enabledOnly },
+      params: {
+        ...(enabledOnly == null ? {} : { enabledOnly }),
+        ...(groupId == null ? {} : { groupId }),
+      },
     }),
+  create: (data: VoucherRuleUpsertPayload) => http.post<never, VoucherRuleRow>('/kingdee/voucher-rules', data),
+  update: (id: number, data: VoucherRuleUpsertPayload) =>
+    http.put<never, VoucherRuleRow>(`/kingdee/voucher-rules/${id}`, data),
+  remove: (id: number) => http.delete<never, void>(`/kingdee/voucher-rules/${id}`),
+  groups: () => http.get<never, VoucherRuleGroup[]>('/kingdee/voucher-rule-groups'),
+  createGroup: (data: { name: string; description?: string | null; sortNo?: number }) =>
+    http.post<never, VoucherRuleGroup>('/kingdee/voucher-rule-groups', data),
+  updateGroup: (id: number, data: { name: string; description?: string | null; sortNo?: number }) =>
+    http.put<never, VoucherRuleGroup>(`/kingdee/voucher-rule-groups/${id}`, data),
+  removeGroup: (id: number) => http.delete<never, void>(`/kingdee/voucher-rule-groups/${id}`),
+  /** 上传 xlsx → 解析 + AI 映射 → 预览（不入库；AI 不可用降级 aiMapped=false）。 */
+  importPreview: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return http.post<never, VoucherRuleImportPreview>('/kingdee/voucher-rules/import/preview', form);
+  },
+  /** 人工勾选/修正后确认入库（走 createRule 统一校验，rule_no 冲突整体 409）。 */
+  importConfirm: (rows: VoucherRuleUpsertPayload[], defaultGroupId?: number | null) =>
+    http.post<never, VoucherRuleRow[]>('/kingdee/voucher-rules/import/confirm', {
+      rows,
+      defaultGroupId: defaultGroupId ?? null,
+    }),
+  /** 模板下载（后端生成 xlsx，带鉴权头走 blob）。 */
+  downloadTemplate: async (): Promise<void> => {
+    const response = await http.get<never, AxiosResponse<Blob>>('/kingdee/voucher-rules/import-template', {
+      responseType: 'blob',
+    });
+    const url = URL.createObjectURL(response.data);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = '规则导入模板.xlsx';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  },
 };
 
 type OperationListParams = { page?: number; size?: number; connectionCode?: string; status?: string; requestId?: string };

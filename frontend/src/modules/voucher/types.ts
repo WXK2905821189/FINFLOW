@@ -60,4 +60,53 @@ export type VoucherRuleRow = {
   extraVoucher: { debitLines: VoucherRuleLine[]; creditLines: VoucherRuleLine[] } | null;
   enabled: boolean;
   remark: string | null;
+  /** W4 规则中心：所属分组（null = 未分组）。 */
+  groupId?: number | null;
+  groupName?: string | null;
+};
+
+/** 规则分组（W4 规则中心，GET /kingdee/voucher-rule-groups）。 */
+export type VoucherRuleGroup = {
+  id: number;
+  name: string;
+  description: string | null;
+  sortNo: number;
+  ruleCount: number;
+};
+
+/** 规则创建/更新载荷（POST/PUT /kingdee/voucher-rules）。 */
+export type VoucherRuleUpsertPayload = {
+  ruleNo?: number | null;
+  businessType: string;
+  category: string;
+  priority: number;
+  scopeOrgs?: string[] | null;
+  scopeBankChannels?: string[] | null;
+  direction: string;
+  amountMin?: string | null;
+  amountMax?: string | null;
+  match: { logic: string; conditions: Array<{ field: string; op: string; values: string[] }> } | null;
+  debitLines: VoucherRuleLine[];
+  creditLines: VoucherRuleLine[];
+  extraVoucher?: VoucherRuleRow['extraVoucher'];
+  enabled: boolean;
+  remark?: string | null;
+  groupId?: number | null;
+};
+
+/** Excel 导入预览行：原文单元格 + AI 映射（aiMapped=false 时由人工补齐）。 */
+export type VoucherRuleImportRow = {
+  rowIndex: number;
+  sourceCells: string[];
+  mapped: VoucherRuleUpsertPayload | null;
+  aiMapped: boolean;
+  confidence: number | null;
+  aiNote: string | null;
+};
+
+/** Excel 导入预览响应（无状态两步导入第一步，不入库）。 */
+export type VoucherRuleImportPreview = {
+  totalRows: number;
+  rows: VoucherRuleImportRow[];
+  aiSummary: string;
 };

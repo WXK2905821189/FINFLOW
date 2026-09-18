@@ -68,4 +68,8 @@ export type {
   VoucherGroupFilter,
   VoucherRuleLine,
   VoucherRuleRow,
+  VoucherRuleGroup,
+  VoucherRuleUpsertPayload,
+  VoucherRuleImportRow,
+  VoucherRuleImportPreview,
 } from '../modules/voucher/types';

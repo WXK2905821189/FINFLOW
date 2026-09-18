@@ -212,28 +212,35 @@ class V02BackendIntegrationTest {
     @Test
     void statementsAndBankDataProjectionsAreIsolatedByAuthenticatedCompany() throws Exception {
         String adminToken = login("admin", "Admin@123");
-        userRoleMapper.insert(new SysUserRole(userB.getId(), 3L));
+        // userB 只挂 FINANCE_STAFF（role 2，无 cross-company）——隔离断言的主体。
+        // （不再叠加 role 3：W3 起财务经理持 bankdata:cross-company:view，可见他司流水，
+        //   不能再充当隔离样本；跨公司可见性由上方 admin 正向断言覆盖。）
         String companyBToken = login(userB.getUsername(), PASSWORD);
 
         String sharedStatementNo = "QA-SHARED-STATEMENT-" + UUID.randomUUID();
         long statementAId = importStatement(adminToken, accountA.getId(), sharedStatementNo);
         long statementBId = importStatement(companyBToken, accountB.getId(), sharedStatementNo);
 
-        mockMvc.perform(get("/api/statements").header("Authorization", bearer(adminToken)))
+        // W3（2026-09-18）：持 bankdata:cross-company:view 的 admin 可见全部公司流水（与制证口径对称，
+        // 修「他司草稿制证成功、凭证中心看不到」）；无权限用户的隔离断言见下方 companyB 组。
+        // size=100：全量套件下 statements 表可能有 30+ 行（默认页 20 条会把目标行挤出首页）。
+        mockMvc.perform(get("/api/statements").param("size", "100").header("Authorization", bearer(adminToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.records[*].id").value(org.hamcrest.Matchers.hasItem((int) statementAId)))
-                .andExpect(jsonPath("$.data.records[*].id").value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem((int) statementBId))));
-        mockMvc.perform(get("/api/statements").header("Authorization", bearer(companyBToken)))
+                .andExpect(jsonPath("$.data.records[*].id").value(org.hamcrest.Matchers.hasItem((int) statementBId)));
+        mockMvc.perform(get("/api/statements").param("size", "100").header("Authorization", bearer(companyBToken)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.records[*].id").value(org.hamcrest.Matchers.hasItem((int) statementBId)))
                 .andExpect(jsonPath("$.data.records[*].id").value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem((int) statementAId))));
         mockMvc.perform(get("/api/statements/" + statementAId).header("Authorization", bearer(companyBToken)))
                 .andExpect(status().isNotFound());
+        // W3 后 statement:review 仅授予 FINANCE_MANAGER（自带 cross-company），FINANCE_STAFF 在
+        // PreAuthorize 即 403——公司隔离语义在 review 域被权限门覆盖，404 样本由 detail/push 承担。
         mockMvc.perform(post("/api/statements/" + statementAId + "/review")
                         .header("Authorization", bearer(companyBToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"action\":\"APPROVE\"}"))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isForbidden());
         mockMvc.perform(post("/api/statements/" + statementAId + "/voucher-push")
                         .header("Authorization", bearer(companyBToken)))
                 .andExpect(status().isNotFound());

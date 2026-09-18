@@ -30,7 +30,9 @@ public record KingdeeVoucherRuleResponse(
         List<LineTemplate> creditLines,
         ExtraVoucher extraVoucher,
         boolean enabled,
-        String remark) {
+        String remark,
+        Long groupId,
+        String groupName) {
 
     /** 匹配条件组：logic=ALL 全部满足 / ANY 任一满足；field ∈ SUMMARY|COUNTERPARTY_NAME。 */
     @JsonIgnoreProperties(ignoreUnknown = true)
