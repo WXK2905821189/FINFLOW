@@ -81,8 +81,12 @@ public class GlobalExceptionHandler {
             case 404 -> HttpStatus.NOT_FOUND;
             case 409 -> HttpStatus.CONFLICT;
             case 429 -> HttpStatus.TOO_MANY_REQUESTS;
-            case 502 -> HttpStatus.BAD_GATEWAY;
             case 501 -> HttpStatus.NOT_IMPLEMENTED;
+            case 502 -> HttpStatus.BAD_GATEWAY;
+            // 2026-09-17: 503 must map to SERVICE_UNAVAILABLE. Without this branch the export
+            // endpoint's "real adapter not connected" (BankDataExportService) surfaced as HTTP 500,
+            // so callers could not tell "dependency not ready" from "server crashed".
+            case 503 -> HttpStatus.SERVICE_UNAVAILABLE;
             default -> HttpStatus.INTERNAL_SERVER_ERROR;
         };
     }

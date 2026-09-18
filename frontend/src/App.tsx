@@ -1,6 +1,15 @@
 import { lazy, Suspense, useEffect } from 'react';
+import { ConfigProvider } from 'antd';
+import zhCN from 'antd/locale/zh_CN';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import './styles.css';
+
+// antd 5 的静态方法（Modal.confirm / Modal.info 等）不读取最近的 <ConfigProvider>，它们走独立的
+// holderRender 通道。缺这段则弹窗按钮恒为英文 Cancel/OK（2026-09-17 UI 点击测试 R2 截图实证）。
+// 组件式 antd 组件由下方 <ConfigProvider locale> 覆盖。
+ConfigProvider.config({
+  holderRender: (children) => <ConfigProvider locale={zhCN}>{children}</ConfigProvider>,
+});
 import { useAuthStore } from './store/auth';
 import { AuthGuard, PermissionGuard } from './modules/auth/pages';
 import { PageLoading } from './modules/shared/components';
@@ -128,5 +137,9 @@ function AppRoutes() {
 }
 
 export default function App() {
-  return <BrowserRouter><AppRoutes /></BrowserRouter>;
+  return (
+    <ConfigProvider locale={zhCN}>
+      <BrowserRouter><AppRoutes /></BrowserRouter>
+    </ConfigProvider>
+  );
 }

@@ -1,7 +1,7 @@
 package com.finance.system.statement.voucherrule;
 
+import com.finance.system.common.api.ApiResponse;
 import com.finance.system.statement.voucherrule.dto.KingdeeVoucherRuleResponse;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -30,11 +30,14 @@ public class KingdeeVoucherRuleController {
     /**
      * 规则清单（可按启用状态过滤）：GET /api/kingdee/voucher-rules?enabledOnly=true。
      * enabledOnly 缺省返回全部（含停用），前端按 priority 升序展示。
+     *
+     * <p>响应统一走 {@link ApiResponse} 信封——前端 http 拦截器按 {@code code !== 0} 判定失败，
+     * 裸数组会因 {@code code} 为 undefined 被误判为「请求未能完成」（大类规则页整页不可用）。</p>
      */
     @GetMapping("/kingdee/voucher-rules")
     @PreAuthorize("hasAuthority('voucher:push')")
-    public ResponseEntity<List<KingdeeVoucherRuleResponse>> list(
+    public ApiResponse<List<KingdeeVoucherRuleResponse>> list(
             @RequestParam(name = "enabledOnly", required = false) Boolean enabledOnly) {
-        return ResponseEntity.ok(ruleService.listRules(enabledOnly));
+        return ApiResponse.success(ruleService.listRules(enabledOnly));
     }
 }
