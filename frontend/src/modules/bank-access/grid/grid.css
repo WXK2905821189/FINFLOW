@@ -1,0 +1,302 @@
+/* ==================================================================
+   V35 · 表格内核样式（Excel 化）
+   来源：docs/ui-v34-demo.html 的高保真稿样式，按「可移植」重排：
+   · 全部选择器收在 .xgrid 之下，不污染全局（真实前端 styles.css 里
+     经核对不存在同名类 / 同名 CSS 变量，这里再包一层是为了防御性隔离）
+   · 令牌就地定义在 .xgrid 上，不依赖 demo 的 :root
+   ================================================================== */
+
+.xgrid {
+  /* 结构 */
+  --canvas: #f4f7f7;
+  --surface: #ffffff;
+  --surface-sunken: #fafcfc;
+  --border: #e2e9e9;
+  --border-strong: #d3dede;
+  --keyline: #eef3f3;
+
+  /* 品牌 */
+  --brand-deep: #246352;
+  --brand: #2f8b6f;
+  --brand-accent: #77c1a4;
+  --brand-tint: #eaf4f0;
+
+  /* 文本 */
+  --text: #16262b;
+  --text-2: #556a6f;
+  --text-3: #7c8c90;
+  --text-4: #9aa8ab;
+
+  /* 语义 */
+  --ok: #2f8b6f;     --ok-bg: #eaf4f0;     --ok-line: #b6ddcd;
+  --warn: #b07b21;   --warn-bg: #fdf5e4;   --warn-line: #e8d19a;
+  --danger: #b84444; --danger-bg: #fbecec; --danger-line: #e9bcbc;
+  --info: #3d6ea8;   --info-bg: #eef3fa;   --info-line: #c2d5ec;
+
+  --radius-s: 4px;
+  --radius: 6px;
+  --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.xgrid * { box-sizing: border-box; }
+.xgrid table { border-collapse: collapse; width: 100%; }
+
+/* ---------- 按钮 ---------- */
+.xgrid .btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 32px; padding: 0 12px;
+  border: 1px solid var(--border-strong); border-radius: var(--radius-s);
+  background: #fff; color: var(--text); font-size: 13px; font-weight: 600;
+  white-space: nowrap; cursor: pointer;
+}
+.xgrid .btn:hover { border-color: var(--brand); color: var(--brand-deep); }
+.xgrid .btn-primary { border-color: var(--brand); background: var(--brand); color: #fff; }
+.xgrid .btn-primary:hover { background: #26765e; border-color: #26765e; color: #fff; }
+.xgrid .btn-sm { min-height: 26px; padding: 0 8px; font-size: 12px; }
+
+/* ---------- 工具条 ---------- */
+.xgrid .toolbar {
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 14px;
+  padding: 12px 18px; border-bottom: 1px solid var(--keyline); flex-wrap: wrap;
+}
+.xgrid .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+/* 工具条左槽：页面自己的筛选控件（账户 / 时间 / 币种…）+ 本页查找。
+   demo 里这套 .filters/.field 是全局样式，内核样式只带走了表格相关部分，这里补齐。 */
+.xgrid .filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; min-width: 0; }
+.xgrid .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.xgrid .field > label { color: var(--text-3); font-size: 11.5px; font-weight: 650; letter-spacing: .02em; }
+.xgrid .seg { display: inline-flex; padding: 2px; border: 1px solid var(--border); border-radius: var(--radius-s); background: #f7fafa; }
+.xgrid .seg button {
+  height: 26px; padding: 0 10px; border: 0; border-radius: 3px; background: transparent;
+  color: var(--text-2); font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.xgrid .seg button.is-on { background: #fff; color: var(--text); box-shadow: 0 1px 2px rgba(22, 38, 43, .08); }
+.xgrid .hint { color: var(--text-3); font-size: 12px; }
+.xgrid .switch {
+  display: inline-flex; align-items: center; gap: 8px; color: var(--text-2);
+  font-size: 12.5px; font-weight: 650; white-space: nowrap; cursor: pointer;
+}
+.xgrid .switch i { position: relative; width: 34px; height: 19px; border-radius: 10px; background: #cfdbdb; transition: background .15s; }
+.xgrid .switch i::after {
+  content: ""; position: absolute; top: 2px; left: 2px; width: 15px; height: 15px;
+  border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(22, 38, 43, .2); transition: transform .15s;
+}
+.xgrid .switch.is-on { color: var(--brand-deep); }
+.xgrid .switch.is-on i { background: var(--brand); }
+.xgrid .switch.is-on i::after { transform: translateX(15px); }
+
+/* ---------- 表格 ---------- */
+.xgrid .table-wrap { overflow-x: auto; position: relative; }
+.xgrid table.data { min-width: 100%; font-size: 13px; }
+.xgrid table.data th {
+  padding: 10px 12px; background: var(--surface-sunken);
+  border-bottom: 1px solid var(--border); border-top: 1px solid var(--keyline);
+  color: #5d7479; font-size: 12px; font-weight: 700; text-align: left; white-space: nowrap;
+}
+.xgrid table.data td {
+  padding: 11px 12px; border-bottom: 1px solid var(--keyline); color: var(--text); vertical-align: middle;
+}
+.xgrid table.data tbody tr:hover td { background: #fafcfc; }
+.xgrid table.data tbody tr.is-locked td { color: var(--text-4); }
+.xgrid table.data tbody tr.is-locked:hover td { background: #fbfbfa; }
+.xgrid .num { text-align: right; font-family: var(--mono); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.xgrid .mono { font-family: var(--mono); font-size: 12px; color: #556c72; }
+.xgrid .row-2 { display: block; margin-top: 2px; color: var(--text-3); font-size: 12px; }
+.xgrid .cell-strong { font-weight: 650; }
+
+/* 选择列 */
+.xgrid .col-check { width: 34px; text-align: center; }
+.xgrid .col-check.is-disabled { opacity: .45; }
+.xgrid .box {
+  display: inline-grid; place-items: center; width: 15px; height: 15px; flex: 0 0 15px;
+  border: 1px solid var(--border-strong); border-radius: 3px; background: #fff; vertical-align: middle;
+}
+.xgrid .box.on { border-color: var(--brand); background: var(--brand); color: #fff; }
+
+/* ---------- 标签 ---------- */
+.xgrid .tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  height: 22px; padding: 0 8px; border-radius: 3px;
+  border: 1px solid var(--border-strong); background: #f7fafa; color: var(--text-2);
+  font-size: 12px; font-weight: 600; white-space: nowrap;
+}
+.xgrid .tag-ok { border-color: var(--ok-line); background: var(--ok-bg); color: #1f6a52; }
+.xgrid .tag-warn { border-color: var(--warn-line); background: var(--warn-bg); color: #8f6316; }
+.xgrid .tag-danger { border-color: var(--danger-line); background: var(--danger-bg); color: #9b3636; }
+.xgrid .tag-info { border-color: var(--info-line); background: var(--info-bg); color: #315a8b; }
+.xgrid .tag-brand { border-color: #b6ddcd; background: var(--brand-tint); color: var(--brand-deep); }
+.xgrid .tag-muted { background: #f4f6f6; color: var(--text-3); }
+
+/* 复制标签 */
+.xgrid .copy-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  margin-left: 6px; padding: 1px 5px; border: 1px solid var(--border);
+  border-radius: 3px; background: #f7fafa; color: var(--text-3);
+  font-size: 11px; height: 18px; cursor: pointer;
+}
+.xgrid .copy-chip:hover { border-color: var(--brand); color: var(--brand-deep); }
+.xgrid .copy-chip svg { width: 11px; height: 11px; }
+
+/* 方向徽标 */
+.xgrid .dir-tag { display: inline-block; min-width: 32px; padding: 1px 6px; border-radius: 3px; font-size: 11.5px; font-weight: 700; text-align: center; }
+.xgrid .dir-debit { background: #fdeeee; color: #9b3636; }
+.xgrid .dir-credit { background: #eaf6f1; color: #1f6a52; }
+
+/* ---------- 排序口径提示（常驻，琥珀色，不做成可关闭的 toast） ---------- */
+.xgrid .sort-scope {
+  display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px;
+  border: 1px solid var(--warn-line); border-radius: var(--radius-s);
+  background: var(--warn-bg); color: #7a540f; font-size: 11.5px; font-weight: 650; white-space: nowrap;
+}
+.xgrid .sort-scope .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--warn); flex: 0 0 auto; }
+
+/* ---------- 表头排序 ---------- */
+.xgrid table.data thead th.th-sortable { cursor: pointer; user-select: none; }
+/* 只有非冻结列的 th 能用 relative 承载 .col-resize 绝对定位；冻结列必须是 sticky。
+   若这条还带 position: relative，其特异性 (0,2,3) 会盖掉 .is-frozen 的 (0,2,2)：
+   结果是表头不冻结，且 left 被当成 relative 偏移把表头文字整体推走，与已冻结的数据列错位。 */
+.xgrid table.data thead th.th-sortable:not(.is-frozen) { position: relative; }
+.xgrid table.data thead th.th-sortable:hover { background: #e9efef; }
+.xgrid .th-inner { display: flex; align-items: center; gap: 6px; }
+.xgrid .th-inner .th-t { overflow: hidden; text-overflow: ellipsis; }
+.xgrid .sort-ind { display: inline-flex; flex-direction: column; gap: 2px; opacity: .3; flex: 0 0 auto; }
+.xgrid .sort-ind i { width: 0; height: 0; border-left: 3.5px solid transparent; border-right: 3.5px solid transparent; display: block; }
+.xgrid .sort-ind i:first-child { border-bottom: 4px solid currentColor; }
+.xgrid .sort-ind i:last-child { border-top: 4px solid currentColor; }
+.xgrid th.sort-asc .sort-ind, .xgrid th.sort-desc .sort-ind { opacity: 1; color: var(--brand-deep); }
+.xgrid th.sort-asc .sort-ind i:last-child { opacity: .22; }
+.xgrid th.sort-desc .sort-ind i:first-child { opacity: .22; }
+.xgrid th.num .th-inner { justify-content: flex-end; }
+.xgrid .sort-rank { display: none; min-width: 15px; padding: 0 4px; border-radius: 999px; background: var(--brand); color: #fff; font-size: 10px; font-weight: 700; text-align: center; }
+.xgrid th.has-rank .sort-rank { display: inline-block; }
+
+/* ---------- 列头筛选 ---------- */
+.xgrid .filter-btn {
+  display: inline-grid; place-items: center; width: 18px; height: 18px; flex: 0 0 auto;
+  border: 1px solid transparent; border-radius: 3px; color: var(--text-3); background: transparent; cursor: pointer; padding: 0;
+}
+.xgrid .filter-btn:hover { border-color: var(--border-strong); background: #fff; }
+.xgrid .filter-btn.is-on { border-color: var(--brand); background: var(--brand-tint); color: var(--brand-deep); }
+.xgrid .filter-pop { position: fixed; width: 268px; z-index: 80; }
+.xgrid .filter-pop .fp-body { padding: 10px 12px; max-height: 300px; overflow: auto; }
+.xgrid .filter-pop .fp-kind { display: flex; gap: 4px; margin-bottom: 9px; flex-wrap: wrap; }
+.xgrid .filter-pop .fp-kind button { height: 24px; padding: 0 8px; font-size: 11.5px; border: 1px solid var(--border); background: #fff; border-radius: 4px; color: var(--text-2); cursor: pointer; }
+.xgrid .filter-pop .fp-kind button.is-on { border-color: var(--brand); background: var(--brand-tint); color: var(--brand-deep); font-weight: 700; }
+.xgrid .fp-val { display: flex; align-items: center; gap: 7px; padding: 5px 4px; border-radius: 4px; cursor: pointer; font-size: 12.5px; }
+.xgrid .fp-val:hover { background: var(--surface-sunken); }
+.xgrid .fp-range { display: flex; align-items: center; gap: 6px; }
+.xgrid .fp-range input, .xgrid .fp-text input {
+  flex: 1; min-width: 0; height: 28px; padding: 0 8px; border: 1px solid var(--border-strong);
+  border-radius: var(--radius-s); font: inherit; font-size: 12.5px; color: var(--text); background: #fff;
+}
+.xgrid .fp-range span { color: var(--text-3); font-size: 12px; }
+
+/* ---------- 已生效筛选 chips ---------- */
+.xgrid .filter-chips { display: none; align-items: center; gap: 6px; flex-wrap: wrap; padding: 9px 18px; border-bottom: 1px solid var(--keyline); background: #fbfdfd; }
+.xgrid .filter-chips.is-on { display: flex; }
+.xgrid .fchip {
+  display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 6px 0 9px;
+  border: 1px solid #bcd9ff; border-radius: 999px; background: var(--info-bg); color: #2d4f7a; font-size: 11.5px; font-weight: 650;
+}
+.xgrid .fchip button { display: grid; place-items: center; width: 15px; height: 15px; border: 0; border-radius: 50%; background: rgba(45, 79, 122, .14); color: inherit; cursor: pointer; font-size: 10px; line-height: 1; padding: 0; }
+.xgrid .fchip button:hover { background: rgba(45, 79, 122, .3); }
+.xgrid .fchip-none { color: var(--text-3); font-size: 11.5px; }
+
+/* ---------- 列布局：宽 / 拖拽 / 冻结 / 密度 ---------- */
+.xgrid .col-resize { position: absolute; top: 0; right: -3px; width: 7px; height: 100%; cursor: col-resize; z-index: 3; }
+.xgrid .col-resize::after { content: ''; position: absolute; top: 20%; left: 3px; width: 1px; height: 60%; background: var(--border-strong); opacity: 0; }
+.xgrid .col-resize:hover::after { opacity: 1; }
+.xgrid table.data th.is-frozen, .xgrid table.data td.is-frozen { position: sticky; z-index: 2; background: var(--surface); }
+.xgrid table.data th.is-frozen { background: var(--surface-sunken); z-index: 4; }
+.xgrid table.data th.is-frozen::after, .xgrid table.data td.is-frozen::after {
+  content: ''; position: absolute; top: 0; right: 0; width: 1px; height: 100%; background: var(--border);
+}
+.xgrid table.data.is-dense td { padding: 6px 12px; }
+.xgrid table.data.is-dense th { padding: 8px 12px; }
+.xgrid table.data.is-dense .row-2 { display: none; }
+.xgrid .drag-handle { color: var(--text-4); font-size: 12px; cursor: grab; letter-spacing: -2px; user-select: none; }
+.xgrid .drag-handle:active { cursor: grabbing; }
+.xgrid .colrow { display: flex; align-items: center; gap: 9px; padding: 7px 4px; font-size: 13px; border-bottom: 1px dashed var(--keyline); }
+.xgrid .colrow:last-child { border-bottom: 0; }
+.xgrid .colrow.is-dragging { opacity: .45; }
+.xgrid .colrow.drop-before { box-shadow: inset 0 2px 0 var(--brand); }
+.xgrid .colrow.drop-after { box-shadow: inset 0 -2px 0 var(--brand); }
+.xgrid .colrow .badge-default { color: var(--text-3); font-size: 11px; }
+
+/* ---------- 选区 ---------- */
+.xgrid table.data td.cell-sel { background: #e6f2ec !important; box-shadow: inset 1px 0 0 #b6ddcd, inset -1px 0 0 #b6ddcd, inset 0 1px 0 #b6ddcd, inset 0 -1px 0 #b6ddcd; }
+.xgrid table.data td.cell-active { outline: 2px solid var(--brand); outline-offset: -2px; }
+.xgrid table.data tbody tr.row-sel td { background: #eef7f2; }
+.xgrid table.data tbody tr.row-sel td.is-frozen { background: #eef7f2; }
+.xgrid table.data tbody tr:hover td.is-frozen { background: #fafcfc; }
+.xgrid table.data td.cell-hit { background: #fff8dc; box-shadow: inset 0 -2px 0 #e8b400; }
+.xgrid table.data td.cell-hit-active { background: #ffe89a; }
+.xgrid .grid-empty { padding: 26px 12px; text-align: center; color: var(--text-3); font-size: 13px; }
+
+/* ---------- 分组行 ---------- */
+.xgrid table.data tr.group-row { display: none; }
+.xgrid table.data.is-grouped tr.group-row { display: table-row; }
+.xgrid table.data tr.group-row td {
+  padding: 8px 12px; background: #f1f7f5;
+  border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  color: var(--brand-deep); font-size: 12.5px; font-weight: 700;
+}
+.xgrid table.data tr.group-row .gmeta { margin-left: 10px; color: var(--text-2); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.xgrid table.data tr.group-row .gmeta b { color: var(--text); }
+
+/* ---------- 底部状态栏（口径＝本页） ---------- */
+.xgrid .grid-status {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 9px 18px; border-top: 1px solid var(--border); background: var(--surface-sunken);
+  font-size: 12px; color: var(--text-2);
+}
+.xgrid .grid-status .gs-item { display: flex; align-items: baseline; gap: 5px; }
+.xgrid .grid-status .gs-item b { color: var(--text); font-variant-numeric: tabular-nums; font-size: 12.5px; }
+.xgrid .grid-status .gs-sep { width: 1px; height: 14px; background: var(--border); }
+.xgrid .grid-status .gs-scope { flex: 1 1 100%; color: var(--text-3); font-size: 11.5px; line-height: 1.6; }
+
+/* ---------- 条件格式 ---------- */
+.xgrid table.data td.cf-neg { color: var(--danger); font-weight: 700; }
+.xgrid table.data td.cf-big { font-weight: 700; box-shadow: inset 3px 0 0 var(--warn); }
+.xgrid table.data td.cf-late { color: #9b3636; }
+.xgrid table.data td .cf-mute, .xgrid table.data td.cf-mute { color: var(--text-4); }
+
+/* ---------- 浮层 ---------- */
+.xgrid .pop {
+  position: absolute; z-index: 70; display: none; overflow: hidden;
+  border: 1px solid var(--border-strong); border-radius: var(--radius);
+  background: #fff; box-shadow: 0 14px 36px rgba(22, 38, 43, .16);
+}
+.xgrid .pop.is-on { display: block; }
+.xgrid .pop-head { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--keyline); }
+.xgrid .pop-head h3 { font-size: 13.5px; font-weight: 700; margin: 0; }
+.xgrid .pop-head .sub { margin-top: 2px; color: var(--text-3); font-size: 12px; }
+.xgrid .pop-body { max-height: 380px; overflow: auto; padding: 6px; }
+.xgrid .pop-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 14px; border-top: 1px solid var(--keyline); background: var(--surface-sunken);
+}
+.xgrid .colset-wrap, .xgrid .views { position: relative; }
+.xgrid .colset-wrap .pop { top: calc(100% + 8px); right: 0; width: 348px; }
+.xgrid .views .pop { top: calc(100% + 8px); right: 0; width: 336px; }
+
+/* ---------- 我的视图 ---------- */
+.xgrid .viewrow { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: var(--radius-s); cursor: pointer; }
+.xgrid .viewrow:hover { background: var(--surface-sunken); }
+.xgrid .viewrow.is-on { background: var(--brand-tint); }
+.xgrid .viewrow .vn { font-size: 12.5px; font-weight: 650; color: var(--text); }
+.xgrid .viewrow .vd { font-size: 11.5px; color: var(--text-3); }
+.xgrid .viewrow .va { margin-left: auto; }
+.xgrid .viewrow .va button { border: 0; background: transparent; color: var(--text-3); cursor: pointer; font-size: 11.5px; }
+.xgrid .viewrow .va button:hover { color: var(--brand-deep); text-decoration: underline; }
+
+/* ---------- 本页查找 ---------- */
+.xgrid .find-wrap {
+  display: flex; align-items: center; gap: 6px; height: 32px; padding: 0 6px 0 9px;
+  border: 1px solid var(--border-strong); border-radius: var(--radius-s); background: #fff;
+}
+.xgrid .find-input { flex: 1; min-width: 0; border: 0; outline: 0; font: inherit; font-size: 12.5px; background: transparent; color: var(--text); }

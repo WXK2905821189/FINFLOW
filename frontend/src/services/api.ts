@@ -45,6 +45,7 @@ import type {
   VoucherDraftSavePayload,
   VoucherGroupRow,
   VoucherRuleRow,
+  AccountPreference,
 } from '../types';
 import type {
   SysPermission,
@@ -460,4 +461,16 @@ export const bankPipelineApi = {
     link.remove();
     URL.revokeObjectURL(url);
   },
+};
+
+/**
+ * 账号级界面偏好（V35 表格内核口径③：跨设备一致，不是本机 localStorage）。
+ *
+ * `scope` 是调用方定义的命名空间（如 bankdata.balances），按账号 + scope 唯一。
+ * payload 是前端自己的不透明 JSON 快照，服务端只做「合法 JSON + 长度」校验。
+ */
+export const preferenceApi = {
+  get: (scope: string) => http.get<never, AccountPreference>(`/preferences/${encodeURIComponent(scope)}`),
+  put: (scope: string, payload: string) =>
+    http.put<never, AccountPreference>(`/preferences/${encodeURIComponent(scope)}`, { payload }),
 };

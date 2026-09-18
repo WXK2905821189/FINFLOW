@@ -432,3 +432,16 @@ export type AiCompanyApplyResponse = {
   createdCompanies: number;
   assignedAccounts: number;
 };
+
+/**
+ * 账号级界面偏好（V35 表格内核口径③）。
+ *
+ * `payload` 是不透明 JSON 字符串：列显隐 / 列序 / 列宽 / 排序 / 本页筛选 / 密度 / 冻结列 /
+ * 命名视图 的组合。服务端只校验「合法 JSON + 长度」，不解释结构——这样前端加一个表格偏好
+ * 字段不需要后端跟版本。`payload` 为 null 表示该账号从未保存过（用内置默认值）。
+ */
+export type AccountPreference = {
+  scopeKey: string;
+  payload: string | null;
+  updatedAt?: string | null;
+};

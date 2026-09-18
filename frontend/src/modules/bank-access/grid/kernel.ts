@@ -1,0 +1,1272 @@
+/* ==================================================================
+   V35 · 表格内核（Excel 化）——余额查询 / 流水查询
+   ------------------------------------------------------------------
+   移植自 docs/ui-v34-demo.html 的高保真稿（内核源码 tmp/kernel.js），
+   口径按用户 2026-09-17 拍板，**不要擅自改**：
+   ① 排序口径 = 「仅当前页排序」（零后端改造）。因此必须在界面上常驻标注
+      「本页」，否则用户会把本页排序当成全量排序 —— 财务场景红线。
+   ② 「合计」两个口径并存且各自标清：
+      · 状态栏 = 本页可见小计（受列头筛选影响）
+      · 工具栏 = 服务端全量聚合（只含查询级条件，不含本页列头筛选）
+   ③ 视图偏好 = 服务端账号级（跨设备一致），不是本机 localStorage。
+      落库走 /api/preferences/{scope}（V35 迁移 account_preference）。
+   ④ 导出 = 当前查询条件的全量结果；有选区时另给「仅导出选中行」。
+   ------------------------------------------------------------------
+   与 demo 的差异（都是落地必需，不改语义）：
+   · 宿主节点不再用 document 全局 id，改为在 opts.root 内按 data-grid-role 查找
+     —— 余额页与流水页会同时存在，全局 id 会互抢。
+   · window.toast / window.closePops 改为 opts 注入（React 侧提供）。
+   · 条件格式 cf、行样式 rowClass、行可选中性 isRowSelectable、行内动作
+     onRowAction、导出 onExport/onExportRows 全部改为声明式回调，
+     让内核与具体业务字段解耦。
+   · 新增 setRows / setTotalAgg / destroy，供 React 数据刷新时复用同一实例
+     （不销毁重建，避免 document 级监听器累积）。
+   ================================================================== */
+
+/** 行模型：内核不解释字段语义，只做排序 / 筛选 / 渲染。 */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type GridRow = Record<string, any>;
+
+export type GridCellAlign = 'num' | undefined;
+export type GridColumnType = 'text' | 'money' | 'num';
+/**
+ * 列头筛选的**声明**口径：这一列允许开哪种筛选器。
+ * 'value' = 按值勾选、'text' = 文本包含、'num' = 数值区间、'date' = 日期区间、null = 不给筛选入口。
+ */
+export type GridFilterDecl = 'value' | 'text' | 'num' | 'date' | null;
+/**
+ * 筛选**状态**口径。注意：按值勾选在状态里叫 'values'（复数），
+ * 与声明口径的 'value' 不是一个字面量 —— 两者混用会被 TS 直接判为无重叠比较。
+ */
+export type GridFilterKind = 'values' | 'text' | 'num' | 'date';
+
+export interface GridColumn {
+  /** 字段键（对应行上的属性名）。 */
+  k: string;
+  /** 列标题。 */
+  t: string;
+  /** 列宽（px）。 */
+  w: number;
+  /** 是否可见。 */
+  on: boolean;
+  /** 列设置里的角标文案（「默认」「必需，不可关闭」）。 */
+  def?: string;
+  /** 必需列：不允许关闭（藏起来会让未采集账户看起来像正常数据）。 */
+  req?: boolean;
+  align?: GridCellAlign;
+  type: GridColumnType;
+  filter?: GridFilterDecl;
+  /** 「无发生额」的 0 视同空值（借贷双轨列）。 */
+  emptyZero?: boolean;
+  /** 单元格 HTML。 */
+  cell: (row: GridRow) => string;
+  /**
+   * 纯文本取值（TSV 复制 / 导出用）。
+   * 必须给「k 不是真实行字段」的列（如账号 / 收付方 / 摘要这类由多字段合成的列）声明，
+   * 否则 rawCell 会去读 row[k] 拿到空值，复制进 Excel 就是一整列空白。
+   */
+  text?: (row: GridRow) => string;
+  /** 条件格式：返回附加 class（'' 表示无）。 */
+  cf?: (row: GridRow) => string;
+}
+
+export interface GridSortSpec {
+  k: string;
+  dir: 1 | -1;
+}
+
+export type GridFilter =
+  | { kind: 'values'; set: string[] }
+  | { kind: 'text'; q: string }
+  | { kind: 'num'; min: string; max: string }
+  | { kind: 'date'; from: string; to: string };
+
+export interface GridView {
+  name: string;
+  desc: string;
+  on: string[];
+  order?: string[];
+  w?: { k: string; w: number }[];
+  sort: GridSortSpec[];
+  filters: Record<string, GridFilter>;
+  density?: GridDensity;
+  frozen?: number;
+}
+
+export type GridDensity = 'compact' | 'comfortable';
+
+export interface GridTotals {
+  /** 服务端按查询条件统计的全量行数。 */
+  count: number;
+  /**
+   * 服务端全量金额合计。**没拿到就别填** —— 拿本页求和冒充全量合计，
+   * 正是口径②（两个合计口径必须分得清）要防的事。缺省时只显示行数。
+   */
+  sum?: number;
+}
+
+/** 持久化快照（口径③：存服务端账号级）。 */
+export interface GridSnapshot {
+  on: string[];
+  order: string[];
+  w: { k: string; w: number }[];
+  sort: GridSortSpec[];
+  filters: Record<string, GridFilter>;
+  density: GridDensity;
+  frozen: number;
+  view: string | null;
+  views: GridView[];
+}
+
+export interface GridOptions {
+  /** 内核挂载根节点；内部按 data-grid-role 查找各个协作节点。 */
+  root: HTMLElement;
+  id: string;
+  cols: GridColumn[];
+  rows: GridRow[];
+  /** 分组键（行上的字段名）；不给则平铺。 */
+  groupBy?: string;
+  groupedDefault?: boolean;
+  /** 状态栏小计的取值字段与文案。 */
+  sumKey: string;
+  sumLabel?: string;
+  /** 服务端全量合计（口径②）。 */
+  totalAgg?: GridTotals;
+  /** 无行且无本页筛选时的空态文案（由页面按「直连未启用 / 查询失败 / 无匹配」区分）。 */
+  emptyText?: string;
+  groupMeta?: (group: string, rows: GridRow[]) => string;
+  views?: GridView[];
+  density?: GridDensity;
+  frozen?: number;
+  /** 行样式（如未接入直连的降权行）。 */
+  rowClass?: (row: GridRow) => string;
+  /** 是否渲染行勾选列（余额页不需要；流水页仅在持有 AI 制证权限时为 true）。默认 true。 */
+  selectable?: boolean;
+  /** 行是否可勾选（如已推送 / 纯人工制证账户禁选）。 */
+  isRowSelectable?: (row: GridRow) => boolean;
+  /** 点了不可勾选行的提示文案；给函数时按行取（已推送 / 纯人工制证账户原因不同）。 */
+  disabledRowHint?: string | ((row: GridRow) => string);
+  /** 行内动作按钮（[data-row-action]）与复制标签（[data-copy]）的回调。 */
+  onRowAction?: (action: string, row: GridRow) => void;
+  /** 勾选行变化（供页面消费，如 AI 制证的「已选 N 条」）。 */
+  onSelectionChange?: (rows: GridRow[]) => void;
+  onExport?: () => void;
+  onExportRows?: (rows: GridRow[]) => void;
+  /** 导出按钮默认文案（无选中行时）；有选中行时自动切成「仅导出选中 N 行」。 */
+  exportLabel?: string;
+  toast?: (message: string) => void;
+  onClosePops?: () => void;
+  /** 快照变化时回调（口径③：由调用方落服务端账号级偏好）。 */
+  onSnapshotChange?: (snapshot: GridSnapshot) => void;
+}
+
+export interface GridState {
+  id: string;
+  cols: GridColumn[];
+  rows: GridRow[];
+  sort: GridSortSpec[];
+  filters: Record<string, GridFilter>;
+  grouped: boolean;
+  density: GridDensity;
+  frozen: number;
+  views: GridView[];
+  view: string | null;
+}
+
+export interface GridInstance {
+  state: GridState;
+  setRows: (rows: GridRow[]) => void;
+  setCols: (cols: GridColumn[]) => void;
+  setTotalAgg: (totals?: GridTotals) => void;
+  snapshot: () => GridSnapshot;
+  applySnapshot: (snapshot: Partial<GridSnapshot>) => void;
+  /** 打开快照回调。必须在「已从服务端载入偏好」之后再调用 —— 否则首次挂载会用
+      内置默认值回调一次，把服务端已保存的视图覆盖成默认。 */
+  enableSnapshotNotify: () => void;
+  destroy: () => void;
+}
+
+const CURRENCY_TEXT: Record<string, string> = { CNY: '人民币', USD: '美元', EUR: '欧元', HKD: '港币', JPY: '日元' };
+
+const COPY_SVG =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>';
+
+export const currencyText = (code: string): string => CURRENCY_TEXT[code] || code;
+export const copyChip = (value: string, title = '复制'): string =>
+  `<button class="copy-chip" data-copy="${esc(value)}" title="${esc(title)}">${COPY_SVG}复制</button>`;
+
+/* ---------------- 格式化 ---------------- */
+const num2 = (v: unknown) => Number(v).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const money = (v: unknown) => (v === null || v === undefined || v === '') ? '<span class="mono">--</span>' : num2(v);
+const last4 = (s: unknown) => String(s).slice(-4);
+export const esc = (s: unknown): string =>
+  String(s === null || s === undefined ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const isEmpty = (v: unknown) => v === null || v === undefined || v === '';
+
+/* 借贷双轨列「无发生额」的一侧数据值是 0，界面也渲染成「--」。0 在数学上是合法金额，
+   但对这类列语义就是「无值」，若按 0 参与排序 / 区间筛选 / 值勾选会同时踩三处口径。
+   所以按列声明 emptyZero，统一归入「空值」口径。 */
+const isBlank = (col: GridColumn | undefined, v: unknown) => isEmpty(v) || (!!(col && col.emptyZero) && Number(v) === 0);
+
+/* ---------------- 纯文本取值（TSV 复制 / 导出） ---------------- */
+/** 单元格的纯文本形态。列声明了 text 就用它，否则回落到 row[k]（金额统一两位小数）。 */
+export function rawCell(row: GridRow, col: GridColumn | undefined): string {
+  if (!col) return '';
+  if (col.text) return col.text(row);
+  const v = row[col.k];
+  if (isEmpty(v)) return '';
+  if (col.type === 'money' || col.type === 'num') return Number(v).toFixed(2);
+  return String(v);
+}
+
+/* ---------------- 比较 ---------------- */
+function cmp(a: unknown, b: unknown, type: GridColumnType) {
+  if (type === 'money' || type === 'num') return Number(a) - Number(b);
+  return String(a).localeCompare(String(b), 'zh-CN');
+}
+
+/* ---------------- 网格工厂 ---------------- */
+export function createGrid(opts: GridOptions): GridInstance | null {
+  const { root } = opts;
+  const el = (role: string) => root.querySelector<HTMLElement>(`[data-grid-role="${role}"]`);
+  const host = el('host');
+  const table = host?.querySelector('table');
+  const thead = table?.querySelector('thead');
+  const tbody = table?.querySelector('tbody');
+  if (!host || !table || !thead || !tbody) return null;
+
+  const toast = opts.toast || (() => {});
+  const closePops = opts.onClosePops || (() => {});
+
+  const st: GridState & {
+    rowSel: Set<number>;
+    range: { r1: number; c1: number; r2: number; c2: number } | null;
+    active: { r: number; ri: number; ci: number } | null;
+    find: string;
+    findHits: { ri: number; ci: number }[];
+    findIdx: number;
+  } = {
+    id: opts.id,
+    cols: opts.cols.map((c) => ({ ...c })),
+    rows: opts.rows.slice(),
+    sort: [],
+    filters: {},
+    grouped: opts.groupedDefault !== false,
+    density: opts.density || 'compact',
+    frozen: opts.frozen || 0,
+    views: (opts.views || []).map((v) => JSON.parse(JSON.stringify(v)) as GridView),
+    view: null,
+    rowSel: new Set<number>(),
+    range: null,
+    active: null,
+    find: '',
+    findHits: [],
+    findIdx: -1,
+  };
+
+  let totalAgg = opts.totalAgg;
+  /* 勾选列：余额页没有制证语义，整列不渲染（否则会多出一个永远用不上的复选框列）。 */
+  const showCheck = opts.selectable !== false;
+  /* 「恢复默认」的基准：setCols 会随权限变化增删列（如跨公司主体列），必须同步，
+     否则恢复默认会把新增列一并抹掉。 */
+  let baseCols = opts.cols.map((c) => ({ ...c }));
+  const visCols = () => st.cols.filter((c) => c.on);
+  const ri = (r: GridRow) => st.rows.indexOf(r);
+  let bodyOrder: number[] = [];
+  const notifySelection = () => {
+    if (opts.onSelectionChange) opts.onSelectionChange(st.rows.filter((_, i) => st.rowSel.has(i)));
+  };
+
+  /* ---------- 过滤 / 排序（作用域＝本页） ---------- */
+  function filtered(): GridRow[] {
+    const keys = Object.keys(st.filters);
+    if (!keys.length) return st.rows.slice();
+    return st.rows.filter((r) => keys.every((k) => {
+      const f = st.filters[k];
+      const col = st.cols.find((c) => c.k === k);
+      const v = r[k];
+      if (f.kind === 'values') {
+        const s = isBlank(col, v) ? '(空)' : String(v);
+        return f.set.indexOf(s) >= 0;
+      }
+      if (f.kind === 'text') return String(isBlank(col, v) ? '' : v).toLowerCase().indexOf(String(f.q).toLowerCase()) >= 0;
+      if (f.kind === 'num') {
+        if (isBlank(col, v)) return false;
+        const x = Number(v);
+        if (f.min !== '' && f.min !== undefined && x < Number(f.min)) return false;
+        if (f.max !== '' && f.max !== undefined && x > Number(f.max)) return false;
+        return true;
+      }
+      if (f.kind === 'date') {
+        const x = String(v || '');
+        if (f.from && x.slice(0, 10) < f.from) return false;
+        if (f.to && x.slice(0, 10) > f.to) return false;
+        return true;
+      }
+      return true;
+    }));
+  }
+
+  function sorted(rows: GridRow[]): GridRow[] {
+    if (!st.sort.length) return rows.slice();
+    const out = rows.slice();
+    out.sort((a, b) => {
+      for (let i = 0; i < st.sort.length; i++) {
+        const s = st.sort[i];
+        const col = st.cols.find((c) => c.k === s.k);
+        const av = a[s.k];
+        const bv = b[s.k];
+        const an = isBlank(col, av);
+        const bn = isBlank(col, bv);
+        if (an && bn) continue;
+        if (an) return 1;    // 空值恒排最后，不随升降序翻转——不让「未采集」伪装成有值
+        if (bn) return -1;
+        const r = cmp(av, bv, col?.type || 'text');
+        if (r !== 0) return r * s.dir;
+      }
+      return 0;
+    });
+    return out;
+  }
+
+  const shown = () => sorted(filtered());
+
+  /* ---------- 冻结偏移 ---------- */
+  function frozenOffsets() {
+    const cols = visCols();
+    let left = showCheck ? 40 : 0;
+    const map: Record<string, number> = {};
+    cols.forEach((c, i) => { if (i < st.frozen) { map[c.k] = left; left += c.w; } });
+    return map;
+  }
+
+  /* ---------- 渲染：表头 ---------- */
+  function renderHead() {
+    const cols = visCols();
+    const off = frozenOffsets();
+    const all = shown();
+    const allSel = all.length > 0 && st.rowSel.size === all.length;
+    let h = '<tr>';
+    if (showCheck) {
+      h += '<th class="col-check' + (st.frozen > 0 ? ' is-frozen' : '') + '"'
+        + (st.frozen > 0 ? ' style="left:0"' : '') + '><span class="box' + (allSel ? ' on' : '') + '">' + (allSel ? '✓' : '') + '</span></th>';
+    }
+    cols.forEach((c, i) => {
+      const s = st.sort.find((x) => x.k === c.k);
+      const cls = ['th-sortable'];
+      if (s) cls.push(s.dir === 1 ? 'sort-asc' : 'sort-desc');
+      if (st.sort.length > 1 && s) cls.push('has-rank');   // 只给参与排序的列挂序号，否则全列表头都是空胶囊
+      if (i < st.frozen) cls.push('is-frozen');
+      if (c.align === 'num') cls.push('num');
+      h += '<th class="' + cls.join(' ') + '" data-k="' + c.k + '" data-ci="' + i + '"'
+        + ' style="width:' + c.w + 'px;min-width:' + c.w + 'px;' + (i < st.frozen ? 'left:' + off[c.k] + 'px' : '') + '"'
+        + ' title="点击排序（Shift+点击多列）；仅本页排序">'
+        + '<span class="th-inner"><span class="th-t">' + esc(c.t) + '</span>'
+        + '<span class="sort-ind"><i></i><i></i></span>'
+        + '<span class="sort-rank">' + (st.sort.length > 1 && s ? st.sort.indexOf(s) + 1 : '') + '</span>'
+        + (c.filter ? '<button class="filter-btn' + (st.filters[c.k] ? ' is-on' : '') + '" data-filter="' + c.k + '" title="筛选「' + esc(c.t) + '」（仅本页）">'
+          + '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M3 5h18M6 12h12M10 19h4"/></svg></button>' : '')
+        + '</span><span class="col-resize" data-resize="' + c.k + '" title="拖动调宽 / 双击自适应"></span></th>';
+    });
+    h += '</tr>';
+    thead!.innerHTML = h;
+  }
+
+  /* ---------- 渲染：表体 ---------- */
+  function renderBody() {
+    const cols = visCols();
+    const off = frozenOffsets();
+    const rows = shown();
+    let h = '';
+
+    if (!rows.length) {
+      h += '<tr class="empty-row"><td colspan="' + (cols.length + (showCheck ? 1 : 0)) + '">'
+        + '<div class="grid-empty">'
+        + (Object.keys(st.filters).length
+          ? '当前本页列头筛选没有命中任何行。已生效筛选见表格上方 chips，可逐个移除。'
+          : (opts.emptyText || '本页没有数据。'))
+        + '</div></td></tr>';
+    }
+
+    const blocks: { g: string | null; list: GridRow[] }[] = [];
+    if (opts.groupBy && st.grouped) {
+      const seen: string[] = [];
+      const by: Record<string, GridRow[]> = {};
+      rows.forEach((r) => {
+        const g = String(r[opts.groupBy as string] || '(未分组)');
+        if (!by[g]) { by[g] = []; seen.push(g); }
+        by[g].push(r);
+      });
+      seen.forEach((g) => blocks.push({ g, list: by[g] }));
+    } else {
+      blocks.push({ g: null, list: rows });
+    }
+
+    /* 分组视图下排序必须先作用于组内，否则「组内有序、组间无序」看起来就是乱的。
+       组顺序改用该列「合计」——与分组行上印出来的合计数同一口径，用户能对上。 */
+    if (opts.groupBy && st.grouped && st.sort.length && blocks.length > 1 && blocks[0].g !== null) {
+      const key = st.sort[0].k;
+      const col = st.cols.find((c) => c.k === key);
+      if (col && (col.type === 'money' || col.type === 'num')) {
+        const dir = st.sort[0].dir;
+        blocks.sort((a, b) => {
+          const sa = a.list.reduce((x, r) => x + (Number(r[key]) || 0), 0);
+          const sb = b.list.reduce((x, r) => x + (Number(r[key]) || 0), 0);
+          return (sa - sb) * dir;
+        });
+      }
+    }
+
+    blocks.forEach((blk) => {
+      if (blk.g !== null) {
+        const meta = opts.groupMeta ? opts.groupMeta(blk.g, blk.list) : (blk.list.length + ' 行');
+        h += '<tr class="group-row"><td colspan="' + (cols.length + (showCheck ? 1 : 0)) + '">' + esc(blk.g)
+          + '<span class="gmeta">' + meta + '</span></td></tr>';
+      }
+      blk.list.forEach((r) => {
+        const rowIdx = ri(r);
+        const rr = bodyOrder.indexOf(rowIdx);
+        const rsel = st.rowSel.has(rowIdx);
+        const selectable = opts.isRowSelectable ? opts.isRowSelectable(r) : true;
+        const trCls: string[] = [];
+        if (rsel) trCls.push('row-sel');
+        const extra = opts.rowClass ? opts.rowClass(r) : '';
+        if (extra) trCls.push(extra);
+        h += '<tr' + (trCls.length ? ' class="' + trCls.join(' ') + '"' : '') + ' data-ri="' + rowIdx + '">';
+        if (showCheck) {
+          h += '<td class="col-check' + (rsel ? ' cell-rowsel' : '') + (selectable ? '' : ' is-disabled') + (st.frozen > 0 ? ' is-frozen' : '') + '"'
+            + (st.frozen > 0 ? ' style="left:0"' : '') + '><span class="box' + (rsel ? ' on' : '') + '"'
+            + (selectable ? '' : ' data-rowsel-disabled="1"') + '>' + (rsel ? '✓' : '') + '</span></td>';
+        }
+        cols.forEach((c, ci) => {
+          let sel = false;
+          if (st.range) {
+            const r1 = Math.min(st.range.r1, st.range.r2), r2 = Math.max(st.range.r1, st.range.r2);
+            const c1 = Math.min(st.range.c1, st.range.c2), c2 = Math.max(st.range.c1, st.range.c2);
+            sel = rr >= r1 && rr <= r2 && ci >= c1 && ci <= c2;
+          }
+          const act = !!st.active && st.active.ri === rowIdx && st.active.ci === ci;
+          const hit = !!st.find && String(isEmpty(r[c.k]) ? '' : r[c.k]).toLowerCase().indexOf(st.find) >= 0;
+          const hitActive = st.findIdx >= 0 && !!st.findHits[st.findIdx]
+            && st.findHits[st.findIdx].ri === rowIdx && st.findHits[st.findIdx].ci === ci;
+          const cls: string[] = [];
+          if (c.align === 'num') cls.push('num');
+          const cfc = c.cf ? c.cf(r) : '';
+          if (cfc) cls.push(cfc);
+          if (sel) cls.push('cell-sel');
+          if (act) cls.push('cell-active');
+          if (hit) cls.push('cell-hit');
+          if (hitActive) cls.push('cell-hit-active');
+          if (ci < st.frozen) cls.push('is-frozen');
+          h += '<td class="' + cls.join(' ') + '" data-ri="' + rowIdx + '" data-ci="' + ci + '" data-k="' + c.k + '"'
+            + (ci < st.frozen ? ' style="left:' + off[c.k] + 'px"' : '') + '>' + c.cell(r) + '</td>';
+        });
+        h += '</tr>';
+      });
+    });
+    tbody!.innerHTML = h;
+  }
+
+  /* ---------- 筛选 chips ---------- */
+  function chipText(k: string, f: GridFilter) {
+    const col = st.cols.find((c) => c.k === k);
+    const title = col ? col.t : k;
+    if (f.kind === 'values') return title + ' ∈ ' + f.set.join(' / ');
+    if (f.kind === 'text') return title + ' 包含「' + f.q + '」';
+    if (f.kind === 'num') return title + ' ' + (f.min === '' || f.min === undefined ? '不限' : f.min) + ' ~ ' + (f.max === '' || f.max === undefined ? '不限' : f.max);
+    return title + ' ' + (f.from || '不限') + ' ~ ' + (f.to || '不限');
+  }
+  const chipsEl = el('chips');
+  function renderChips() {
+    if (!chipsEl) return;
+    const keys = Object.keys(st.filters);
+    chipsEl.classList.toggle('is-on', keys.length > 0);
+    chipsEl.innerHTML = !keys.length ? ''
+      : '<span class="fchip-none">仅本页生效：</span>'
+      + keys.map((k) => '<span class="fchip" data-chip="' + k + '">' + esc(chipText(k, st.filters[k]))
+        + '<button data-unfilter="' + k + '" title="移除此筛选">✕</button></span>').join('')
+      + '<button class="btn btn-sm" data-unfilter-all>全部清除</button>';
+  }
+
+  /* ---------- 状态栏 ---------- */
+  function aggregate() {
+    const out = { cells: 0, rows: 0, num: 0, sum: 0, avg: 0 };
+    const cols = visCols();
+    const order = shown().map((r) => ri(r));
+    const set = new Set<number>();
+    if (st.range) {
+      const r1 = Math.min(st.range.r1, st.range.r2), r2 = Math.max(st.range.r1, st.range.r2);
+      const c1 = Math.min(st.range.c1, st.range.c2), c2 = Math.max(st.range.c1, st.range.c2);
+      for (let r = r1; r <= r2; r++) {
+        const rowIdx = order[r];
+        if (rowIdx === undefined) continue;
+        set.add(rowIdx);
+        for (let c = c1; c <= c2; c++) {
+          const col = cols[c];
+          if (!col) continue;
+          out.cells++;
+          if (col.type === 'money' || col.type === 'num') {
+            const v = st.rows[rowIdx][col.k];
+            if (!isEmpty(v)) { out.num++; out.sum += Number(v); }
+          }
+        }
+      }
+    } else if (st.rowSel.size) {
+      st.rowSel.forEach((rowIdx) => {
+        set.add(rowIdx);
+        out.cells += cols.length;
+        cols.forEach((col) => {
+          if (col.type !== 'money' && col.type !== 'num') return;
+          const v = st.rows[rowIdx][col.k];
+          if (!isEmpty(v)) { out.num++; out.sum += Number(v); }
+        });
+      });
+    }
+    out.rows = set.size;
+    out.avg = out.num ? out.sum / out.num : 0;
+    return out;
+  }
+
+  const statusEl = el('status');
+  function renderStatus() {
+    if (!statusEl) return;
+    const rows = shown();
+    const sum = rows.reduce((a, r) => a + (Number(r[opts.sumKey]) || 0), 0);
+    const agg = aggregate();
+    let h = '';
+    h += '<span class="gs-item">本页显示 <b>' + rows.length + '</b> / ' + st.rows.length + ' 行</span>';
+    h += '<span class="gs-sep"></span><span class="gs-item">' + (opts.sumLabel || '本页可见小计')
+      + ' <b>¥ ' + num2(sum) + '</b></span>';
+    if (agg.cells > 0) {
+      h += '<span class="gs-sep"></span><span class="gs-item">已选 <b>' + agg.cells + '</b> 单元格 / <b>' + agg.rows + '</b> 行</span>';
+      if (agg.num) {
+        h += '<span class="gs-sep"></span><span class="gs-item">求和 <b>¥ ' + num2(agg.sum) + '</b></span>';
+        h += '<span class="gs-sep"></span><span class="gs-item">平均 <b>¥ ' + num2(agg.avg) + '</b></span>';
+        h += '<span class="gs-sep"></span><span class="gs-item">数字单元格 <b>' + agg.num + '</b></span>';
+      }
+      h += '<button class="btn btn-sm" data-copy-sel>复制选区（TSV）</button>';
+      h += '<button class="btn btn-sm" data-export-sel>仅导出选中 ' + agg.rows + ' 行</button>';
+    }
+    h += '<span class="gs-scope">口径：本页排序 / 本页列头筛选 / 选区汇总都只作用于本页 '
+      + st.rows.length + ' 行，不代表全量；'
+      + (totalAgg ? '「全量合计」由服务端按查询条件聚合，不含本页列头筛选。' : '') + '</span>';
+    statusEl.innerHTML = h;
+    const full = el('total-agg-label');
+    if (full && totalAgg) {
+      // 服务端没给金额聚合就只报行数，绝不拿本页求和顶上——财务会把它当成全量金额。
+      full.textContent = totalAgg.sum === undefined
+        ? '全量 ' + totalAgg.count + ' 行'
+        : '全量合计 ¥ ' + num2(totalAgg.sum) + ' · ' + totalAgg.count + ' 行';
+    }
+  }
+
+  /* ---------- 复制 TSV ---------- */
+  function raw(r: GridRow, col: GridColumn | undefined) {
+    return rawCell(r, col);
+  }
+  function copyTSV() {
+    const cols = visCols();
+    let tsv = '';
+    if (st.range) {
+      const r1 = Math.min(st.range.r1, st.range.r2), r2 = Math.max(st.range.r1, st.range.r2);
+      const c1 = Math.min(st.range.c1, st.range.c2), c2 = Math.max(st.range.c1, st.range.c2);
+      const order = shown().map((r) => ri(r));
+      for (let r = r1; r <= r2; r++) {
+        const rowIdx = order[r];
+        if (rowIdx === undefined) continue;
+        const cells: string[] = [];
+        for (let c = c1; c <= c2; c++) cells.push(raw(st.rows[rowIdx], cols[c]));
+        tsv += cells.join('\t') + '\r\n';
+      }
+    } else if (st.rowSel.size) {
+      tsv = cols.map((c) => c.t).join('\t') + '\r\n';
+      st.rows.forEach((r, i) => { if (st.rowSel.has(i)) tsv += cols.map((c) => raw(r, c)).join('\t') + '\r\n'; });
+    }
+    if (navigator.clipboard) void navigator.clipboard.writeText(tsv).catch(() => {});
+    const lines = tsv ? tsv.trim().split('\r\n').length : 0;
+    if (lines) toast('已复制 ' + lines + ' 行 × ' + (tsv.split('\r\n')[0].split('\t').length) + ' 列（TSV），可直接粘贴进 Excel');
+    return tsv;
+  }
+
+  /* ---------- 列设置浮层 ---------- */
+  const colPanelEl = el('col-panel');
+  function renderColPanel() {
+    if (!colPanelEl) return;
+    let h = '<div class="pop-head"><div><h3>列 · 顺序 · 冻结</h3>'
+      + '<div class="sub">拖动 ⋮⋮ 调列序，勾选即生效；偏好随账号保存（服务端，跨设备一致）</div></div>'
+      + '<button class="btn btn-sm" data-col-reset>恢复默认</button></div>';
+    h += '<div class="pop-body">';
+    h += '<div class="hint" style="padding:6px 8px 10px">冻结前 <span class="seg">'
+      + [0, 1, 2].map((n) => '<button data-freeze="' + n + '"' + (st.frozen === n ? ' class="is-on"' : '') + '>' + n + '</button>').join('')
+      + '</span> 列<span class="hint" style="margin-left:8px">冻结列横向滚动时保持可见</span></div>';
+    st.cols.forEach((c) => {
+      h += '<div class="colrow" data-colrow="' + c.k + '">'
+        + '<span class="drag-handle" data-coldrag="' + c.k + '" title="拖动调整列序">⋮⋮</span>'
+        + '<span class="box' + (c.on ? ' on' : '') + '" data-coltoggle="' + c.k + '">' + (c.on ? '✓' : '') + '</span>'
+        + esc(c.t)
+        + (c.req ? '<span class="badge-default">必需，不可关闭</span>' : (c.def ? '<span class="badge-default">' + c.def + '</span>' : ''))
+        + '<span style="margin-left:auto;display:flex;gap:3px">'
+        + '<button class="btn btn-sm" data-colup="' + c.k + '" title="上移">↑</button>'
+        + '<button class="btn btn-sm" data-coldown="' + c.k + '" title="下移">↓</button>'
+        + '<button class="btn btn-sm" data-colauto="' + c.k + '" title="按内容自适应列宽">⇔</button>'
+        + '</span></div>';
+    });
+    h += '</div>';
+    h += '<div class="pop-foot"><span class="hint">列宽 / 列序 / 冻结随账号保存，换电脑登录同一个账号也一样</span>'
+      + '<button class="btn btn-primary btn-sm" data-pop-close>完成</button></div>';
+    colPanelEl.innerHTML = h;
+  }
+
+  /* ---------- 视图 ---------- */
+  const viewsEl = el('views');
+  function snap(): GridSnapshot {
+    return {
+      on: visCols().map((c) => c.k),
+      order: st.cols.map((c) => c.k),
+      w: st.cols.map((c) => ({ k: c.k, w: c.w })),
+      sort: st.sort.slice(),
+      filters: JSON.parse(JSON.stringify(st.filters)) as Record<string, GridFilter>,
+      density: st.density,
+      frozen: st.frozen,
+      view: st.view,
+      views: JSON.parse(JSON.stringify(st.views)) as GridView[],
+    };
+  }
+  function applyState(v: Partial<GridView> & Partial<GridSnapshot>) {
+    if (v.order && v.order.length) st.cols.sort((a, b) => v.order!.indexOf(a.k) - v.order!.indexOf(b.k));
+    if (v.on) st.cols.forEach((c) => { c.on = c.req ? true : v.on!.indexOf(c.k) >= 0; });
+    (v.w || []).forEach((x) => { const c = st.cols.find((y) => y.k === x.k); if (c) c.w = x.w; });
+    if (v.sort) st.sort = v.sort.slice();
+    if (v.filters) st.filters = JSON.parse(JSON.stringify(v.filters)) as Record<string, GridFilter>;
+    st.density = v.density || 'compact';
+    st.frozen = v.frozen || 0;
+  }
+  function applyView(v: GridView) {
+    applyState(v);
+    st.view = v.name;
+    renderAll();
+    toast('已应用视图「' + v.name + '」：' + visCols().length + ' 列 · ' + (st.sort.length ? st.sort.length + ' 列排序' : '默认序'));
+  }
+  function renderViews() {
+    if (!viewsEl) return;
+    let h = '<div class="pop-head"><div><h3>我的视图</h3>'
+      + '<div class="sub">列 + 列序 + 列宽 + 排序 + 本页筛选 + 密度 的组合，随账号保存</div></div></div>';
+    h += '<div class="pop-body">';
+    if (!st.views.length) h += '<div class="hint" style="padding:8px">还没有保存的视图。调好列与排序后点下方按钮保存。</div>';
+    st.views.forEach((v, i) => {
+      h += '<div class="viewrow' + (st.view === v.name ? ' is-on' : '') + '" data-view="' + i + '">'
+        + '<span><span class="vn">' + esc(v.name) + '</span><span class="vd"> · ' + esc(v.desc) + '</span></span>'
+        + '<span class="va"><button data-view-del="' + i + '">删除</button></span></div>';
+    });
+    h += '</div>';
+    h += '<div class="pop-foot"><button class="btn btn-sm" data-view-save>保存当前为视图</button>'
+      + '<button class="btn btn-primary btn-sm" data-pop-close>完成</button></div>';
+    viewsEl.innerHTML = h;
+  }
+
+  /* ---------- 自适应列宽 ---------- */
+  function autoFit(k: string) {
+    const col = st.cols.find((c) => c.k === k);
+    if (!col) return;
+    const idx = visCols().indexOf(col);
+    let max = col.t.length * 13 + 46;
+    tbody!.querySelectorAll<HTMLTableRowElement>('tr[data-ri]').forEach((tr) => {
+      const td = tr.querySelectorAll('td')[idx + 1];
+      if (td) max = Math.max(max, (td as HTMLElement).scrollWidth + 26);
+    });
+    col.w = Math.min(Math.max(Math.round(max), 74), 420);
+    renderAll();
+  }
+
+  /* ---------- 全量渲染 ---------- */
+  let notifySnapshot = false;
+  function renderAll() {
+    bodyOrder = shown().map((r) => ri(r));
+    renderHead();
+    renderBody();
+    renderChips();
+    renderStatus();
+    renderColPanel();
+    renderViews();
+    table!.classList.toggle('is-dense', st.density === 'compact');
+    table!.classList.toggle('is-grouped', !!(opts.groupBy && st.grouped));
+    const sw = el('group-switch');
+    if (sw) sw.classList.toggle('is-on', st.grouped);
+    const ds = el('density-seg');
+    if (ds) ds.querySelectorAll('button').forEach((b, i) => b.classList.toggle('is-on', i === (st.density === 'compact' ? 0 : 1)));
+    const fl = el('freeze-label');
+    if (fl) fl.textContent = st.frozen ? '冻结 ' + st.frozen + ' 列' : '未冻结';
+    const vl = el('view-label');
+    if (vl) vl.textContent = st.view || '默认视图';
+    renderExportLabel();
+    if (notifySnapshot && opts.onSnapshotChange) opts.onSnapshotChange(snap());
+  }
+
+  /* ---------- 排序 ---------- */
+  function toggleSort(k: string, additive: boolean) {
+    const cur = st.sort.find((s) => s.k === k);
+    if (!additive) {
+      // 与 Excel 一致的三态循环：升 → 降 → 取消
+      if (cur && cur.dir === 1) st.sort = [{ k, dir: -1 }];
+      else if (cur && cur.dir === -1) st.sort = [];
+      else st.sort = [{ k, dir: 1 }];
+    } else if (cur) {
+      if (cur.dir === 1) cur.dir = -1;
+      else st.sort = st.sort.filter((s) => s.k !== k);
+    } else st.sort.push({ k, dir: 1 });
+    renderAll();
+  }
+
+  /* ---------- 筛选浮层 ---------- */
+  const filterHost = el('filter-pop');
+  function openFilter(k: string, trigger: HTMLElement | null) {
+    if (!filterHost) return;
+    const col = st.cols.find((c) => c.k === k);
+    if (!col) return;
+    const cur = st.filters[k];
+    const distinct: string[] = [];
+    st.rows.forEach((r) => {
+      const s = isBlank(col, r[k]) ? '(空)' : String(r[k]);
+      if (distinct.indexOf(s) < 0) distinct.push(s);
+    });
+    distinct.sort();
+    let kinds: GridFilterKind[];
+    if (col.filter === 'value') kinds = ['values'];
+    else if (col.filter === 'text') kinds = ['values', 'text'];
+    else if (col.filter === 'num') kinds = ['num'];
+    else if (col.filter === 'date') kinds = ['date'];
+    else kinds = [];
+    let kind: GridFilterKind = (cur && cur.kind) || kinds[0];
+
+    let h = '<div class="pop-head"><div><h3>筛选「' + esc(col.t) + '」</h3>'
+      + '<div class="sub">仅作用于本页 ' + st.rows.length + ' 行（服务端分页口径）</div></div>'
+      + '<button class="btn btn-sm" data-fclear>清除</button></div>';
+    h += '<div class="fp-body">';
+    if (kinds.length > 1) {
+      h += '<div class="fp-kind">' + kinds.map((x) => '<button data-fkind="' + x + '"' + (x === kind ? ' class="is-on"' : '') + '>'
+        + ({ values: '按值勾选', text: '文本包含', num: '数值区间', date: '日期区间' } as Record<string, string>)[x] + '</button>').join('') + '</div>';
+    }
+    h += '<div class="fp-stage"></div></div>';
+    h += '<div class="pop-foot"><span class="hint">Esc 关闭</span><button class="btn btn-primary btn-sm" data-fapply>应用</button></div>';
+    filterHost.innerHTML = h;
+    // 列头会随排序/筛选重排，所以筛选浮层用 fixed 定位，按触发器实时算位置
+    if (trigger) {
+      const r = trigger.getBoundingClientRect();
+      const w = filterHost.offsetWidth || 268;
+      filterHost.style.left = Math.max(8, Math.min(r.right - w, window.innerWidth - w - 12)) + 'px';
+      filterHost.style.top = Math.min(r.bottom + 6, window.innerHeight - 320) + 'px';
+    }
+    function renderStage() {
+      const stage = filterHost!.querySelector('.fp-stage');
+      if (!stage) return;
+      if (kind === 'values') {
+        const set = (cur && cur.kind === 'values' && cur.set) || null;
+        stage.innerHTML = distinct.map((v) => {
+          const on = !set || set.indexOf(v) >= 0;
+          return '<div class="fp-val" data-fval="' + esc(v) + '"><span class="box' + (on ? ' on' : '') + '">' + (on ? '✓' : '') + '</span>' + esc(v) + '</div>';
+        }).join('');
+        stage.querySelectorAll('.fp-val').forEach((node) => {
+          node.addEventListener('click', () => {
+            const box = node.querySelector('.box');
+            if (!box) return;
+            box.classList.toggle('on');
+            box.textContent = box.classList.contains('on') ? '✓' : '';
+          });
+        });
+      } else if (kind === 'text') {
+        stage.innerHTML = '<div class="fp-text"><input type="text" placeholder="包含文本，如 货款" value="'
+          + esc(cur && cur.kind === 'text' ? cur.q : '') + '"></div>';
+      } else if (kind === 'num') {
+        stage.innerHTML = '<div class="fp-range"><input type="number" placeholder="最小值" value="'
+          + esc(cur && cur.kind === 'num' ? cur.min : '') + '"><span>~</span><input type="number" placeholder="最大值" value="'
+          + esc(cur && cur.kind === 'num' ? cur.max : '') + '"></div>';
+      } else {
+        stage.innerHTML = '<div class="fp-range"><input type="date" value="'
+          + esc(cur && cur.kind === 'date' ? cur.from : '') + '"><span>~</span><input type="date" value="'
+          + esc(cur && cur.kind === 'date' ? cur.to : '') + '"></div>';
+      }
+    }
+    renderStage();
+
+    filterHost.querySelectorAll<HTMLElement>('[data-fkind]').forEach((b) => {
+      b.addEventListener('click', () => {
+        kind = b.dataset.fkind as Exclude<GridFilterKind, null>;
+        filterHost!.querySelectorAll('[data-fkind]').forEach((x) => x.classList.toggle('is-on', x === b));
+        renderStage();
+      });
+    });
+    filterHost.querySelector('[data-fclear]')?.addEventListener('click', () => {
+      delete st.filters[k];
+      closePops();
+      renderAll();
+      toast('已清除「' + col.t + '」的本页筛选');
+    });
+    filterHost.querySelector('[data-fapply]')?.addEventListener('click', () => {
+      const stage = filterHost.querySelector('.fp-stage');
+      if (!stage) return;
+      if (kind === 'values') {
+        const set = Array.from(stage.querySelectorAll<HTMLElement>('.fp-val'))
+          .filter((node) => node.querySelector('.box')?.classList.contains('on')).map((node) => node.dataset.fval || '');
+        if (set.length === distinct.length) delete st.filters[k];
+        else st.filters[k] = { kind: 'values', set };
+      } else if (kind === 'text') {
+        const input = stage.querySelector('input');
+        const q = (input?.value || '').trim();
+        if (!q) delete st.filters[k]; else st.filters[k] = { kind: 'text', q };
+      } else if (kind === 'num') {
+        const ins = stage.querySelectorAll('input');
+        if (ins[0].value === '' && ins[1].value === '') delete st.filters[k];
+        else st.filters[k] = { kind: 'num', min: ins[0].value, max: ins[1].value };
+      } else {
+        const ins = stage.querySelectorAll('input');
+        if (!ins[0].value && !ins[1].value) delete st.filters[k];
+        else st.filters[k] = { kind: 'date', from: ins[0].value, to: ins[1].value };
+      }
+      closePops();
+      renderAll();
+      toast('已应用本页筛选 → 本页 ' + shown().length + ' 行' + (shown().length ? '' : '（无命中）'));
+    });
+  }
+
+  /* ---------- 表头事件 ---------- */
+  let resized = false;
+  const onHeadMouseDown = (e: MouseEvent) => {
+    const target = e.target as HTMLElement;
+    const handle = target.closest<HTMLElement>('[data-resize]');
+    if (!handle) return;
+    e.preventDefault();
+    resized = true;
+    const col = st.cols.find((c) => c.k === handle.dataset.resize);
+    if (!col) return;
+    const x0 = e.clientX;
+    const w0 = col.w;
+    const move = (ev: MouseEvent) => { col.w = Math.max(74, Math.round(w0 + (ev.clientX - x0))); renderAll(); };
+    const up = () => {
+      document.removeEventListener('mousemove', move);
+      document.removeEventListener('mouseup', up);
+      setTimeout(() => { resized = false; }, 0);
+    };
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup', up);
+  };
+  const onHeadDblClick = (e: MouseEvent) => {
+    const handle = (e.target as HTMLElement).closest<HTMLElement>('[data-resize]');
+    if (handle?.dataset.resize) { autoFit(handle.dataset.resize); toast('已按内容自适应列宽'); }
+  };
+  const onHeadClick = (e: MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (resized || target.closest('[data-resize]')) return;
+    const fb = target.closest<HTMLElement>('[data-filter]');
+    if (fb) {
+      // 必须 stopPropagation：document 级的「点外部关浮层」在冒泡末端，否则刚开的浮层会被立刻关掉
+      e.stopPropagation();
+      const k = fb.dataset.filter as string;
+      const wasOn = !!filterHost && filterHost.classList.contains('is-on') && filterHost.dataset.k === k;
+      closePops();
+      if (!wasOn && filterHost) {
+        openFilter(k, fb);
+        filterHost.dataset.k = k;
+        filterHost.classList.add('is-on');
+      }
+      return;
+    }
+    if (target.closest('.col-check')) {
+      const all = shown();
+      if (all.length && st.rowSel.size === all.length) st.rowSel.clear();
+      else st.rowSel = new Set(all.map((r) => ri(r)).filter((idx) => {
+        const row = st.rows[idx];
+        return !opts.isRowSelectable || opts.isRowSelectable(row);
+      }));
+      st.range = null;
+      renderAll();
+      notifySelection();
+      return;
+    }
+    const th = target.closest<HTMLElement>('th[data-k]');
+    if (!th?.dataset.k) return;
+    toggleSort(th.dataset.k, e.shiftKey);
+  };
+  thead.addEventListener('mousedown', onHeadMouseDown);
+  thead.addEventListener('dblclick', onHeadDblClick);
+  thead.addEventListener('click', onHeadClick);
+
+  /* ---------- 选区 ---------- */
+  /* 单元格内可能放交互控件（复制标签、行内按钮）。若在 mousedown 就重渲染，
+     被点元素会被换掉 → click 事件根本不派发，控件静默失效。必须先在 mousedown 放行。 */
+  const NO_SELECT = 'button, a, input, select, textarea, label, .btn, .copy-chip, [data-row-action]';
+  let dragging = false;
+  const onBodyMouseDown = (e: MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest(NO_SELECT)) return;
+    const td = target.closest<HTMLElement>('td[data-ri]');
+    if (!td || target.closest('.col-check')) return;
+    const ci = Number(td.dataset.ci);
+    const rowIdx = Number(td.dataset.ri);
+    const rr = bodyOrder.indexOf(rowIdx);
+    if (e.shiftKey && st.active) {
+      st.range = { r1: st.active.r, c1: st.active.ci, r2: rr, c2: ci };
+    } else {
+      st.active = { r: rr, ri: rowIdx, ci };
+      st.range = { r1: rr, c1: ci, r2: rr, c2: ci };
+      dragging = true;
+    }
+    st.rowSel.clear();
+    renderAll();
+  };
+  const onBodyMouseMove = (e: MouseEvent) => {
+    if (!dragging) return;
+    const td = (e.target as HTMLElement).closest<HTMLElement>('td[data-ri]');
+    if (!td || !st.range) return;
+    const rr = bodyOrder.indexOf(Number(td.dataset.ri));
+    const ci = Number(td.dataset.ci);
+    if (st.range.r2 === rr && st.range.c2 === ci) return;
+    st.range.r2 = rr;
+    st.range.c2 = ci;
+    renderAll();
+  };
+  const onBodyClick = (e: MouseEvent) => {
+    const target = e.target as HTMLElement;
+    const copy = target.closest<HTMLElement>('[data-copy]');
+    if (copy?.dataset.copy) {
+      if (navigator.clipboard) void navigator.clipboard.writeText(copy.dataset.copy).catch(() => {});
+      toast('已复制：' + copy.dataset.copy);
+      return;
+    }
+    const action = target.closest<HTMLElement>('[data-row-action]');
+    if (action) {
+      const tr = action.closest<HTMLTableRowElement>('tr[data-ri]');
+      const rowIdx = tr ? Number(tr.dataset.ri) : -1;
+      if (rowIdx >= 0 && opts.onRowAction) opts.onRowAction(action.dataset.rowAction as string, st.rows[rowIdx]);
+      return;
+    }
+    const box = target.closest<HTMLElement>('.col-check .box');
+    if (!box) return;
+    if (box.dataset.rowselDisabled) {
+      const tr0 = box.closest<HTMLTableRowElement>('tr[data-ri]');
+      const r0 = tr0 ? st.rows[Number(tr0.dataset.ri)] : undefined;
+      const hint = opts.disabledRowHint;
+      toast(typeof hint === 'function' ? hint((r0 || {}) as GridRow) : (hint || '该行不可勾选'));
+      return;
+    }
+    const tr = box.closest<HTMLTableRowElement>('tr[data-ri]');
+    if (!tr) return;
+    const rowIdx = Number(tr.dataset.ri);
+    if (st.rowSel.has(rowIdx)) st.rowSel.delete(rowIdx); else st.rowSel.add(rowIdx);
+    st.range = null;
+    renderAll();
+    notifySelection();
+  };
+  const onDocMouseUp = () => { dragging = false; };
+  tbody.addEventListener('mousedown', onBodyMouseDown);
+  tbody.addEventListener('mousemove', onBodyMouseMove);
+  tbody.addEventListener('click', onBodyClick);
+  document.addEventListener('mouseup', onDocMouseUp);
+
+  /* ---------- 列设置事件（含拖拽列序） ---------- */
+  let dragKey: string | null = null;
+  const onColDragStart = (e: DragEvent) => {
+    const row = (e.target as HTMLElement).closest<HTMLElement>('.colrow');
+    if (!row) return;
+    dragKey = row.dataset.colrow || null;
+    row.classList.add('is-dragging');
+  };
+  const onColDragOver = (e: DragEvent) => {
+    const row = (e.target as HTMLElement).closest<HTMLElement>('.colrow');
+    if (!row || !dragKey) return;
+    e.preventDefault();
+    colPanelEl!.querySelectorAll('.colrow').forEach((r) => r.classList.remove('drop-before', 'drop-after'));
+    const box = row.getBoundingClientRect();
+    row.classList.add(e.clientY < box.top + box.height / 2 ? 'drop-before' : 'drop-after');
+  };
+  const onColDrop = (e: DragEvent) => {
+    const row = (e.target as HTMLElement).closest<HTMLElement>('.colrow');
+    if (!row || !dragKey) return;
+    e.preventDefault();
+    const targetKey = row.dataset.colrow;
+    const before = row.classList.contains('drop-before');
+    if (targetKey === dragKey) { dragKey = null; return; }
+    const from = st.cols.findIndex((c) => c.k === dragKey);
+    const moved = st.cols.splice(from, 1)[0];
+    let to = st.cols.findIndex((c) => c.k === targetKey);
+    if (!before) to += 1;
+    st.cols.splice(to, 0, moved);
+    dragKey = null;
+    renderAll();
+    toast('已调整列序');
+  };
+  const onColDragEnd = () => {
+    dragKey = null;
+    colPanelEl?.querySelectorAll('.colrow').forEach((r) => r.classList.remove('is-dragging', 'drop-before', 'drop-after'));
+  };
+  const onColPanelClick = (e: MouseEvent) => {
+    const target = e.target as HTMLElement;
+    const t = target.closest<HTMLElement>('[data-coltoggle]');
+    if (t) {
+      const c = st.cols.find((x) => x.k === t.dataset.coltoggle);
+      if (!c) return;
+      if (c.req && c.on) { toast('「' + c.t + '」是必需列：藏起来会让未采集账户看起来像正常数据'); return; }
+      c.on = !c.on;
+      if (!st.cols.some((x) => x.on)) { c.on = true; toast('至少要保留 1 列'); }
+      renderAll();
+      return;
+    }
+    const up = target.closest<HTMLElement>('[data-colup]');
+    if (up?.dataset.colup) { moveCol(up.dataset.colup, -1); return; }
+    const dn = target.closest<HTMLElement>('[data-coldown]');
+    if (dn?.dataset.coldown) { moveCol(dn.dataset.coldown, 1); return; }
+    const au = target.closest<HTMLElement>('[data-colauto]');
+    if (au?.dataset.colauto) { autoFit(au.dataset.colauto); return; }
+    const fz = target.closest<HTMLElement>('[data-freeze]');
+    if (fz) {
+      st.frozen = Number(fz.dataset.freeze);
+      renderAll();
+      toast(st.frozen ? '已冻结前 ' + st.frozen + ' 列（横向滚动时保持可见）' : '已取消列冻结');
+      return;
+    }
+    if (target.closest('[data-col-reset]')) {
+      st.cols = baseCols.map((c) => ({ ...c }));
+      st.frozen = 0;
+      renderAll();
+      toast('列已恢复默认');
+    }
+  };
+  function moveCol(k: string, d: number) {
+    const i = st.cols.findIndex((c) => c.k === k);
+    const j = i + d;
+    if (i < 0 || j < 0 || j >= st.cols.length) return;
+    const tmp = st.cols[i];
+    st.cols[i] = st.cols[j];
+    st.cols[j] = tmp;
+    renderAll();
+  }
+  if (colPanelEl) {
+    colPanelEl.addEventListener('dragstart', onColDragStart);
+    colPanelEl.addEventListener('dragover', onColDragOver);
+    colPanelEl.addEventListener('drop', onColDrop);
+    colPanelEl.addEventListener('dragend', onColDragEnd);
+    colPanelEl.addEventListener('click', onColPanelClick);
+  }
+
+  /* ---------- 视图事件 ---------- */
+  const onViewsClick = (e: MouseEvent) => {
+    const target = e.target as HTMLElement;
+    const del = target.closest<HTMLElement>('[data-view-del]');
+    if (del) {
+      const idx = Number(del.dataset.viewDel);
+      const v = st.views[idx];
+      st.views.splice(idx, 1);
+      if (st.view === v.name) st.view = null;
+      renderAll();
+      toast('已删除视图「' + v.name + '」');
+      return;
+    }
+    if (target.closest('[data-view-save]')) {
+      const name = '自定义视图 ' + (st.views.length + 1);
+      st.views.push({
+        name,
+        desc: visCols().length + ' 列 · ' + (st.sort.length ? st.sort.length + ' 列排序' : '默认序'),
+        on: visCols().map((c) => c.k),
+        order: st.cols.map((c) => c.k),
+        w: st.cols.map((c) => ({ k: c.k, w: c.w })),
+        sort: st.sort.slice(),
+        filters: JSON.parse(JSON.stringify(st.filters)) as Record<string, GridFilter>,
+        density: st.density,
+        frozen: st.frozen,
+      });
+      st.view = name;
+      renderAll();
+      toast('已保存为「' + name + '」，随账号同步');
+      return;
+    }
+    const row = target.closest<HTMLElement>('[data-view]');
+    if (row) {
+      const v = st.views[Number(row.dataset.view)];
+      if (v) applyView(v);
+    }
+  };
+  if (viewsEl) viewsEl.addEventListener('click', onViewsClick);
+
+  /* ---------- 状态栏事件 ---------- */
+  const onStatusClick = (e: MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-copy-sel]')) copyTSV();
+    if (target.closest('[data-export-sel]')) {
+      const agg = aggregate();
+      const picked = st.rows.filter((_, i) => st.rowSel.has(i));
+      if (opts.onExportRows && picked.length) opts.onExportRows(picked);
+      else toast('导出选中 ' + agg.rows + ' 行 / ' + agg.cells + ' 个单元格为 CSV');
+    }
+  };
+  if (statusEl) statusEl.addEventListener('click', onStatusClick);
+
+  /* ---------- chips 事件（就近委托，不用 document 级，避免多实例互相干扰） ---------- */
+  const onChipsClick = (e: MouseEvent) => {
+    const target = e.target as HTMLElement;
+    const one = target.closest<HTMLElement>('[data-unfilter]');
+    if (one?.dataset.unfilter) { delete st.filters[one.dataset.unfilter]; renderAll(); return; }
+    if (target.closest('[data-unfilter-all]')) {
+      st.filters = {};
+      renderAll();
+      toast('已清除全部本页筛选');
+    }
+  };
+  if (chipsEl) chipsEl.addEventListener('click', onChipsClick);
+
+  /* ---------- 视图开关 ---------- */
+  const densitySegEl = el('density-seg');
+  const onDensityClick = (e: MouseEvent) => {
+    const b = (e.target as HTMLElement).closest('button');
+    if (!b || !densitySegEl) return;
+    const btns = densitySegEl.querySelectorAll('button');
+    st.density = b === btns[0] ? 'compact' : 'comfortable';
+    renderAll();
+  };
+  if (densitySegEl) densitySegEl.addEventListener('click', onDensityClick);
+
+  const groupSwitchEl = el('group-switch');
+  const onGroupSwitch = () => { st.grouped = !st.grouped; renderAll(); };
+  if (groupSwitchEl) groupSwitchEl.addEventListener('click', onGroupSwitch);
+
+  const totalAggBtn = el('total-agg');
+  const onTotalAgg = () => toast('全量口径＝服务端按查询条件聚合，不含本页列头筛选与排序'
+    + (totalAgg
+      ? '：' + totalAgg.count + ' 行'
+        + (totalAgg.sum === undefined ? '（金额合计当前接口未提供，需要时请用导出 CSV 汇总）' : ' / ¥ ' + num2(totalAgg.sum))
+      : ''));
+  if (totalAggBtn) totalAggBtn.addEventListener('click', onTotalAgg);
+
+  /* ---------- 查找 ---------- */
+  const findInput = el('find') as HTMLInputElement | null;
+  function next() {
+    if (!st.findHits.length) return;
+    st.findIdx = (st.findIdx + 1) % st.findHits.length;
+    renderAll();
+  }
+  function runFind(q: string) {
+    st.find = String(q || '').toLowerCase();
+    st.findHits = [];
+    if (st.find) {
+      shown().forEach((r) => {
+        const rowIdx = ri(r);
+        visCols().forEach((c, ci) => {
+          if (String(isEmpty(r[c.k]) ? '' : r[c.k]).toLowerCase().indexOf(st.find) >= 0) st.findHits.push({ ri: rowIdx, ci });
+        });
+      });
+    }
+    st.findIdx = st.findHits.length ? 0 : -1;
+    renderAll();
+  }
+  const onFindInput = () => runFind(findInput!.value);
+  const onFindKeyDown = (e: KeyboardEvent) => { if (e.key === 'Enter') { e.preventDefault(); next(); } };
+  if (findInput) {
+    findInput.addEventListener('input', onFindInput);
+    findInput.addEventListener('keydown', onFindKeyDown);
+  }
+  const findNextBtn = el('find-next');
+  const onFindNext = () => next();
+  if (findNextBtn) findNextBtn.addEventListener('click', onFindNext);
+
+  /* ---------- 导出（口径④：默认当前查询条件全量；有选中行时切「仅导出选中行」） ---------- */
+  const exportBtn = el('export');
+  const exportLabelEl = el('export-label');
+  const pickedRows = () => st.rows.filter((_, i) => st.rowSel.has(i));
+  const onExport = () => {
+    const picked = pickedRows();
+    if (picked.length) {
+      if (opts.onExportRows) opts.onExportRows(picked);
+      else toast('导出选中 ' + picked.length + ' 行（选区优先于全量）');
+      return;
+    }
+    if (opts.onExport) opts.onExport();
+    else toast('导出 CSV：当前查询条件全量 ' + (totalAgg ? totalAgg.count : '—')
+      + ' 行（服务端流式导出，不是本页 ' + st.rows.length + ' 行）');
+  };
+  if (exportBtn) exportBtn.addEventListener('click', onExport);
+  function renderExportLabel() {
+    if (!exportLabelEl) return;
+    const n = st.rowSel.size;
+    exportLabelEl.textContent = n
+      ? '仅导出选中 ' + n + ' 行'
+      : (opts.exportLabel || '导出 CSV');
+  }
+
+  /* ---------- 浮层关闭 ---------- */
+  const onPopClose = (e: MouseEvent) => {
+    if ((e.target as HTMLElement).closest('[data-pop-close]')) closePops();
+  };
+  colPanelEl?.addEventListener('click', onPopClose);
+  viewsEl?.addEventListener('click', onPopClose);
+
+  renderAll();
+
+  return {
+    state: st,
+    setRows(rows: GridRow[]) {
+      st.rows = rows.slice();
+      st.rowSel.clear();
+      st.range = null;
+      st.active = null;
+      // 行变了，旧的 selection 索引全部失效；列头筛选保留（它按值匹配，与行序无关）
+      renderAll();
+      notifySelection();
+    },
+    setCols(cols: GridColumn[]) {
+      // 保留用户已有的可见性 / 列宽（同 key 搬迁），新增列取声明默认值 ——
+      // 页面在跨公司权限变化时会增删「公司主体」列，不能把用户调好的列序冲掉。
+      const previous = new Map(st.cols.map((c) => [c.k, c]));
+      st.cols = cols.map((c) => {
+        const old = previous.get(c.k);
+        return old ? { ...c, on: c.req ? true : old.on, w: old.w } : { ...c };
+      });
+      baseCols = cols.map((c) => ({ ...c }));
+      renderAll();
+    },
+    setTotalAgg(totals?: GridTotals) {
+      totalAgg = totals;
+      renderStatus();
+    },
+    snapshot: snap,
+    enableSnapshotNotify() { notifySnapshot = true; },
+    applySnapshot(snapshot: Partial<GridSnapshot>) {
+      applyState(snapshot);
+      if (snapshot.views) st.views = JSON.parse(JSON.stringify(snapshot.views)) as GridView[];
+      st.view = snapshot.view ?? null;
+      renderAll();
+    },
+    destroy() {
+      thead.removeEventListener('mousedown', onHeadMouseDown);
+      thead.removeEventListener('dblclick', onHeadDblClick);
+      thead.removeEventListener('click', onHeadClick);
+      tbody.removeEventListener('mousedown', onBodyMouseDown);
+      tbody.removeEventListener('mousemove', onBodyMouseMove);
+      tbody.removeEventListener('click', onBodyClick);
+      document.removeEventListener('mouseup', onDocMouseUp);
+      if (colPanelEl) {
+        colPanelEl.removeEventListener('dragstart', onColDragStart);
+        colPanelEl.removeEventListener('dragover', onColDragOver);
+        colPanelEl.removeEventListener('drop', onColDrop);
+        colPanelEl.removeEventListener('dragend', onColDragEnd);
+        colPanelEl.removeEventListener('click', onColPanelClick);
+        colPanelEl.removeEventListener('click', onPopClose);
+      }
+      if (viewsEl) {
+        viewsEl.removeEventListener('click', onViewsClick);
+        viewsEl.removeEventListener('click', onPopClose);
+      }
+      if (statusEl) statusEl.removeEventListener('click', onStatusClick);
+      if (chipsEl) chipsEl.removeEventListener('click', onChipsClick);
+      if (densitySegEl) densitySegEl.removeEventListener('click', onDensityClick);
+      if (groupSwitchEl) groupSwitchEl.removeEventListener('click', onGroupSwitch);
+      if (totalAggBtn) totalAggBtn.removeEventListener('click', onTotalAgg);
+      if (findInput) {
+        findInput.removeEventListener('input', onFindInput);
+        findInput.removeEventListener('keydown', onFindKeyDown);
+      }
+      if (findNextBtn) findNextBtn.removeEventListener('click', onFindNext);
+      if (exportBtn) exportBtn.removeEventListener('click', onExport);
+    },
+  };
+}
+
+export { money, num2, last4, isEmpty };

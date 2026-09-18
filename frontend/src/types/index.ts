@@ -24,6 +24,7 @@ export type {
   BankSyncLogRow,
   StatementTransferResult,
   BankSyncScheduleRow,
+  AccountPreference,
 } from '../modules/bank-access/types';
 export type {
   StatementRecordInput,

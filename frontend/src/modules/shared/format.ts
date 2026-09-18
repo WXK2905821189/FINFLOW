@@ -52,8 +52,11 @@ export const statusColor = (status?: string) => {
   if (/DIRECT_CONNECTED/.test(status)) return 'green';
   if (/ONBOARDED/.test(status)) return 'gold';
   if (/NOT_CONNECTED/.test(status)) return 'red';
-  if (/(APPROVED|PUSHED|COMPLETED|VALID|SUCCESS)/.test(status)) return 'green';
-  if (/(PENDING|PROCESSING|NOT_PUSHED)/.test(status)) return 'gold';
+  // 失败与「未推送」必须先判：INVALID 里含子串 VALID、NOT_PUSHED 里含子串 PUSHED，
+  // 若先跑绿色规则，会把「校验未通过」「未推送」渲染成绿色（银行投影层真的会出 INVALID）。
   if (/(REJECTED|INVALID|FAILED|ERROR)/.test(status)) return 'red';
+  if (/NOT_PUSHED/.test(status)) return 'gold';
+  if (/(APPROVED|PUSHED|COMPLETED|VALID|SUCCESS)/.test(status)) return 'green';
+  if (/(PENDING|PROCESSING)/.test(status)) return 'gold';
   return 'blue';
 };

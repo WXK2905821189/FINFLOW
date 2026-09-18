@@ -66,6 +66,10 @@ export const STATUS_TAG_TEXT: Record<string, string> = {
   ...SYNC_STATUS_TEXT,
   ...LOG_LEVEL_TEXT,
   ...LOG_RESULT_EXTENDED_TEXT,
+  // 银行数据投影层的**逐行校验状态**（BankDataSyncExecutor 写 VALID / INVALID），
+  // 与 statement_record 的 PASSED / FAILED 是两个域，命名不同，不要互相套用。
+  VALID: '校验通过',
+  INVALID: '校验未通过',
 };
 
 /** 通用兜底查表：空值返回空串，未收录返回原文。 */
