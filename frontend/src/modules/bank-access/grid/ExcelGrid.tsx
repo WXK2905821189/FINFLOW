@@ -3,6 +3,7 @@ import {
   createGrid,
   type GridColumn,
   type GridDensity,
+  type GridFilter,
   type GridInstance,
   type GridRow,
   type GridSnapshot,
@@ -77,6 +78,8 @@ export interface ExcelGridProps {
   initialSnapshot?: Partial<GridSnapshot> | null;
   /** 快照变化（列显隐 / 列序 / 列宽 / 排序 / 本页筛选 / 密度 / 冻结 / 视图）→ 落服务端。 */
   onSnapshotChange?: (snapshot: GridSnapshot) => void;
+  /** V36 筛选服务端化：列头筛选集合变化 → 页面映射查询参数重新请求（详见 kernel.ts）。 */
+  onFilterChange?: (filters: Record<string, GridFilter>) => void;
   toast?: (message: string) => void;
   /** 表格下方（分页器等）。 */
   footer?: ReactNode;
@@ -142,6 +145,7 @@ export function ExcelGrid(props: ExcelGridProps) {
       onExport: () => read().onExport?.(),
       onExportRows: (picked) => read().onExportRows?.(picked),
       onSnapshotChange: (snapshot) => read().onSnapshotChange?.(snapshot),
+      onFilterChange: (filters) => read().onFilterChange?.(filters),
       toast: (message) => read().toast?.(message),
       onClosePops: () => closePops(),
     });
@@ -206,6 +210,7 @@ export function ExcelGrid(props: ExcelGridProps) {
   const showGroupSwitch = props.showGroupSwitch ?? Boolean(groupBy);
   const sortScopeHint = [
     '仅本页排序',
+    '列头筛选【全量】＝服务端口径',
     pageSize ? `${pageSize} 行/页` : '',
     groupBy ? '分组时按合计排组' : '',
   ].filter(Boolean).join(' · ');
@@ -227,7 +232,7 @@ export function ExcelGrid(props: ExcelGridProps) {
         <div className="actions">
           <div
             className="sort-scope"
-            title="排序 / 列头筛选 / 选区汇总都只作用于已加载的本页行，不代表全量。分组视图下：排序先作用于组内，组顺序按该列合计排列。"
+            title="排序 / 选区汇总只作用于已加载的本页行，不代表全量。列头筛选按 chips 标注的口径生效：【全量】＝服务端全量（翻页 / 导出同口径），其余＝仅本页。分组视图下：排序先作用于组内，组顺序按该列合计排列。"
           >
             <span className="dot" />{sortScopeHint}
           </div>

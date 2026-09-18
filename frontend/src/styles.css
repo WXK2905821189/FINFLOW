@@ -179,6 +179,13 @@ a {
   min-width: 0;
 }
 
+/* V36：顶栏右侧动作区（主体切换器 + 用户菜单） */
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .mobile-navigation-button {
   display: none;
 }
@@ -203,6 +210,88 @@ a {
 .profile-button .ant-avatar {
   background: #d7ebe3;
   color: #21614e;
+}
+
+/* ==================================================================
+   V36 D3：顶栏全局主体作用域切换器（对照 docs/ui-v34-demo.html 第二版）
+   ================================================================== */
+.scope-wrap { position: relative; }
+.scope-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 4px 10px;
+  border: 1px solid #dce5e5;
+  border-radius: 8px;
+  background: #fbfdfd;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.scope-btn:hover { border-color: #2d7d64; }
+.scope-btn.is-static { cursor: default; background: #f4f7f7; }
+.scope-btn .scope-ico { color: #2d7d64; font-size: 16px; }
+.scope-btn.is-static .scope-ico { color: #8aa0a5; }
+.scope-btn .scope-text { display: flex; flex-direction: column; max-width: 210px; line-height: 1.2; text-align: left; }
+.scope-btn .scope-text b { font-size: 13px; font-weight: 700; color: #17272d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scope-btn .scope-text > span { color: #668187; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scope-btn.is-scoped { border-color: #b6ddcd; background: #eef7f2; }
+.scope-btn.is-scoped .scope-text b { color: #21614e; }
+.scope-btn .scope-count {
+  min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px;
+  display: inline-grid; place-items: center;
+  background: #e3eeea; color: #21614e; font-size: 11.5px; font-weight: 700;
+}
+.scope-btn.is-scoped .scope-count { background: #2d7d64; color: #fff; }
+.scope-btn .caret { width: 0; height: 0; border: 4px solid transparent; border-top-color: #9fb3b8; transform: translateY(2px); }
+.scope-pop {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 100;
+  width: 400px; max-width: calc(100vw - 32px);
+  background: #fff; border: 1px solid #dce5e5; border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(22, 38, 43, .16);
+}
+.scope-pop-head { padding: 12px 12px 8px; }
+.scope-chips { padding: 0 12px 8px; }
+.scope-chips-label { display: block; margin-bottom: 6px; color: #668187; font-size: 11.5px; font-weight: 650; }
+.scope-chips-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.scope-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  max-width: 100%; padding: 3px 8px; border: 1px solid #dce5e5; border-radius: 999px;
+  background: #f4f7f7; color: #43595f; font-size: 12px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.scope-chip.is-on { border-color: #b6ddcd; background: #eef7f2; color: #21614e; font-weight: 650; }
+.scope-chip button { border: 0; background: transparent; color: inherit; cursor: pointer; font-size: 11px; padding: 0; }
+.scope-favrow { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 0 12px 8px; }
+.scope-favrow .lbl { color: #668187; font-size: 11.5px; font-weight: 650; }
+.fav-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px; border: 1px solid #dce5e5; border-radius: 999px; background: #fff;
+  color: #43595f; font-size: 12px; cursor: pointer; max-width: 190px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.fav-chip .anticon-star-filled { color: #d9a514; }
+.fav-chip.is-on { border-color: #2d7d64; background: #eef7f2; color: #21614e; font-weight: 650; }
+.scope-list { max-height: 300px; overflow: auto; padding: 4px 8px; border-top: 1px solid #eef2f2; }
+.srow { display: flex; align-items: center; gap: 9px; padding: 7px 6px; border-radius: 6px; cursor: pointer; }
+.srow:hover { background: #f4f7f7; }
+.srow.is-on { background: #eef7f2; }
+.srow .box {
+  flex: 0 0 auto; width: 16px; height: 16px; border: 1px solid #c4d3d6; border-radius: 4px;
+  display: inline-grid; place-items: center; background: #fff;
+  color: #fff; font-size: 11px; line-height: 1;
+}
+.srow.is-on .box { border-color: #2d7d64; background: #2d7d64; }
+.srow-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; color: #213237; }
+.srow .star { border: 0; background: transparent; cursor: pointer; color: #b9c8cc; font-size: 13px; padding: 2px 4px; }
+.srow .star.is-on, .srow .star:hover { color: #d9a514; }
+.scope-loading { padding: 24px 0; text-align: center; }
+.scope-empty { padding: 20px 0; text-align: center; color: #668187; font-size: 12.5px; }
+.scope-pop-foot { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-top: 1px solid #eef2f2; }
+.scope-pop-foot .hint { flex: 1; color: #668187; font-size: 11.5px; }
+@media (max-width: 980px) {
+  .scope-btn .scope-text > span { display: none; }
+  .scope-btn .scope-text { max-width: 120px; }
 }
 
 .page-content {

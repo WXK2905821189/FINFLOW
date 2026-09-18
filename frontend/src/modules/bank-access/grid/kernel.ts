@@ -56,6 +56,14 @@ export interface GridColumn {
   align?: GridCellAlign;
   type: GridColumnType;
   filter?: GridFilterDecl;
+  /**
+   * V36 筛选服务端化：该列筛选由服务端执行 —— 内核通过 onFilterChange 把筛选集合交给页面，
+   * 页面映射成查询参数重新请求；内核本身**不再做本地过滤**（本地再过一遍会与「服务端已过滤」
+   * 的行集口径分裂，全量合计与翻页会对不上）。chips 上标【全量】，筛选浮层副标题同步改口径。
+   */
+  filterServer?: boolean;
+  /** 列头筛选输入框的占位文案（缺省「包含文本，如 货款」；账号尾号这类后缀语义列必须显式声明）。 */
+  filterPlaceholder?: string;
   /** 「无发生额」的 0 视同空值（借贷双轨列）。 */
   emptyZero?: boolean;
   /** 单元格 HTML。 */
@@ -158,6 +166,12 @@ export interface GridOptions {
   onClosePops?: () => void;
   /** 快照变化时回调（口径③：由调用方落服务端账号级偏好）。 */
   onSnapshotChange?: (snapshot: GridSnapshot) => void;
+  /**
+   * V36 筛选服务端化：筛选集合变化时回调（应用 / 清除 / 全部清除 / 视图与偏好恢复都会触发；
+   * 挂载首渲染不触发）。页面把可服务端化的列映射成查询参数重新请求，
+   * 不可映射的列仍按「仅本页」在内核本地过滤。
+   */
+  onFilterChange?: (filters: Record<string, GridFilter>) => void;
 }
 
 export interface GridState {
@@ -280,7 +294,12 @@ export function createGrid(opts: GridOptions): GridInstance | null {
 
   /* ---------- 过滤 / 排序（作用域＝本页） ---------- */
   function filtered(): GridRow[] {
-    const keys = Object.keys(st.filters);
+    // V36：filterServer 列的筛选已随请求参数在服务端生效，本地再过一遍会把服务端
+    // 放行的行（如 CNY 展开 {CNY,10,01}）二次过滤掉，全量合计与本页行数对不上。
+    const keys = Object.keys(st.filters).filter((k) => {
+      const col = st.cols.find((c) => c.k === k);
+      return !(col && col.filterServer);
+    });
     if (!keys.length) return st.rows.slice();
     return st.rows.filter((r) => keys.every((k) => {
       const f = st.filters[k];
@@ -365,7 +384,7 @@ export function createGrid(opts: GridOptions): GridInstance | null {
         + '<span class="th-inner"><span class="th-t">' + esc(c.t) + '</span>'
         + '<span class="sort-ind"><i></i><i></i></span>'
         + '<span class="sort-rank">' + (st.sort.length > 1 && s ? st.sort.indexOf(s) + 1 : '') + '</span>'
-        + (c.filter ? '<button class="filter-btn' + (st.filters[c.k] ? ' is-on' : '') + '" data-filter="' + c.k + '" title="筛选「' + esc(c.t) + '」（仅本页）">'
+        + (c.filter ? '<button class="filter-btn' + (st.filters[c.k] ? ' is-on' : '') + '" data-filter="' + c.k + '" title="筛选「' + esc(c.t) + '」（' + (c.filterServer ? '全量' : '仅本页') + '）">'
           + '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M3 5h18M6 12h12M10 19h4"/></svg></button>' : '')
         + '</span><span class="col-resize" data-resize="' + c.k + '" title="拖动调宽 / 双击自适应"></span></th>';
     });
@@ -471,7 +490,7 @@ export function createGrid(opts: GridOptions): GridInstance | null {
   /* ---------- 筛选 chips ---------- */
   function chipText(k: string, f: GridFilter) {
     const col = st.cols.find((c) => c.k === k);
-    const title = col ? col.t : k;
+    const title = (col && col.filterServer ? '【全量】' : '') + (col ? col.t : k);
     if (f.kind === 'values') return title + ' ∈ ' + f.set.join(' / ');
     if (f.kind === 'text') return title + ' 包含「' + f.q + '」';
     if (f.kind === 'num') return title + ' ' + (f.min === '' || f.min === undefined ? '不限' : f.min) + ' ~ ' + (f.max === '' || f.max === undefined ? '不限' : f.max);
@@ -481,9 +500,13 @@ export function createGrid(opts: GridOptions): GridInstance | null {
   function renderChips() {
     if (!chipsEl) return;
     const keys = Object.keys(st.filters);
+    const hasServer = keys.some((k) => st.cols.find((c) => c.k === k)?.filterServer);
+    const hasLocal = keys.length > keys.filter((k) => st.cols.find((c) => c.k === k)?.filterServer).length;
+    const label = hasServer && hasLocal ? '筛选生效（【全量】＝服务端口径，其余仅本页）：'
+      : hasServer ? '全量生效（服务端口径，翻页 / 导出同口径）：' : '仅本页生效：';
     chipsEl.classList.toggle('is-on', keys.length > 0);
     chipsEl.innerHTML = !keys.length ? ''
-      : '<span class="fchip-none">仅本页生效：</span>'
+      : '<span class="fchip-none">' + label + '</span>'
       + keys.map((k) => '<span class="fchip" data-chip="' + k + '">' + esc(chipText(k, st.filters[k]))
         + '<button data-unfilter="' + k + '" title="移除此筛选">✕</button></span>').join('')
       + '<button class="btn btn-sm" data-unfilter-all>全部清除</button>';
@@ -548,9 +571,9 @@ export function createGrid(opts: GridOptions): GridInstance | null {
       h += '<button class="btn btn-sm" data-copy-sel>复制选区（TSV）</button>';
       h += '<button class="btn btn-sm" data-export-sel>仅导出选中 ' + agg.rows + ' 行</button>';
     }
-    h += '<span class="gs-scope">口径：本页排序 / 本页列头筛选 / 选区汇总都只作用于本页 '
-      + st.rows.length + ' 行，不代表全量；'
-      + (totalAgg ? '「全量合计」由服务端按查询条件聚合，不含本页列头筛选。' : '') + '</span>';
+    h += '<span class="gs-scope">口径：本页排序 / 选区汇总只作用于本页 '
+      + st.rows.length + ' 行；列头筛选按标注生效（【全量】＝服务端全量、翻页导出同口径，其余＝仅本页）。'
+      + (totalAgg ? '「全量合计」由服务端按当前查询条件聚合（含【全量】列筛选，不含仅本页的列筛选）。' : '') + '</span>';
     statusEl.innerHTML = h;
     const full = el('total-agg-label');
     if (full && totalAgg) {
@@ -681,6 +704,9 @@ export function createGrid(opts: GridOptions): GridInstance | null {
 
   /* ---------- 全量渲染 ---------- */
   let notifySnapshot = false;
+  /* 筛选集合的通知走 renderAll 的 diff：apply / 清除 / chips 移除 / 视图与偏好恢复
+     全部经 renderAll 落地，在这里统一拦截不会漏。初值与首渲染对齐 → 挂载不回调。 */
+  let lastFiltersJson = JSON.stringify(st.filters);
   function renderAll() {
     bodyOrder = shown().map((r) => ri(r));
     renderHead();
@@ -700,6 +726,11 @@ export function createGrid(opts: GridOptions): GridInstance | null {
     const vl = el('view-label');
     if (vl) vl.textContent = st.view || '默认视图';
     renderExportLabel();
+    const filtersJson = JSON.stringify(st.filters);
+    if (filtersJson !== lastFiltersJson) {
+      lastFiltersJson = filtersJson;
+      if (opts.onFilterChange) opts.onFilterChange(JSON.parse(filtersJson) as Record<string, GridFilter>);
+    }
     if (notifySnapshot && opts.onSnapshotChange) opts.onSnapshotChange(snap());
   }
 
@@ -739,8 +770,11 @@ export function createGrid(opts: GridOptions): GridInstance | null {
     else kinds = [];
     let kind: GridFilterKind = (cur && cur.kind) || kinds[0];
 
+    const serverScoped = !!col.filterServer;
     let h = '<div class="pop-head"><div><h3>筛选「' + esc(col.t) + '」</h3>'
-      + '<div class="sub">仅作用于本页 ' + st.rows.length + ' 行（服务端分页口径）</div></div>'
+      + '<div class="sub">' + (serverScoped
+        ? '服务端全量口径：作用于全部数据，翻页 / 导出同口径'
+        : '仅作用于本页 ' + st.rows.length + ' 行（服务端分页口径）') + '</div></div>'
       + '<button class="btn btn-sm" data-fclear>清除</button></div>';
     h += '<div class="fp-body">';
     if (kinds.length > 1) {
@@ -775,7 +809,8 @@ export function createGrid(opts: GridOptions): GridInstance | null {
           });
         });
       } else if (kind === 'text') {
-        stage.innerHTML = '<div class="fp-text"><input type="text" placeholder="包含文本，如 货款" value="'
+        stage.innerHTML = '<div class="fp-text"><input type="text" placeholder="'
+          + esc(col?.filterPlaceholder || '包含文本，如 货款') + '" value="'
           + esc(cur && cur.kind === 'text' ? cur.q : '') + '"></div>';
       } else if (kind === 'num') {
         stage.innerHTML = '<div class="fp-range"><input type="number" placeholder="最小值" value="'
@@ -841,10 +876,12 @@ export function createGrid(opts: GridOptions): GridInstance | null {
     if (!col) return;
     const x0 = e.clientX;
     const w0 = col.w;
+    setSelecting(true);
     const move = (ev: MouseEvent) => { col.w = Math.max(74, Math.round(w0 + (ev.clientX - x0))); renderAll(); };
     const up = () => {
       document.removeEventListener('mousemove', move);
       document.removeEventListener('mouseup', up);
+      setSelecting(false);
       setTimeout(() => { resized = false; }, 0);
     };
     document.addEventListener('mousemove', move);
@@ -896,6 +933,11 @@ export function createGrid(opts: GridOptions): GridInstance | null {
      被点元素会被换掉 → click 事件根本不派发，控件静默失效。必须先在 mousedown 放行。 */
   const NO_SELECT = 'button, a, input, select, textarea, label, .btn, .copy-chip, [data-row-action]';
   let dragging = false;
+  /* V36：拖选 / 拖列宽生命周期内给根容器 toggle .xgrid-selecting（CSS 禁文字选取），
+     再用 selectstart 兜底拦截 —— 之前数据区拖动选区会同时触发浏览器文字选取变蓝。 */
+  const setSelecting = (on: boolean) => root.classList.toggle('xgrid-selecting', on);
+  const onDocSelectStart = (e: Event) => { if (dragging) e.preventDefault(); };
+  document.addEventListener('selectstart', onDocSelectStart);
   const onBodyMouseDown = (e: MouseEvent) => {
     const target = e.target as HTMLElement;
     if (target.closest(NO_SELECT)) return;
@@ -912,6 +954,7 @@ export function createGrid(opts: GridOptions): GridInstance | null {
       dragging = true;
     }
     st.rowSel.clear();
+    setSelecting(true);
     renderAll();
   };
   const onBodyMouseMove = (e: MouseEvent) => {
@@ -957,7 +1000,7 @@ export function createGrid(opts: GridOptions): GridInstance | null {
     renderAll();
     notifySelection();
   };
-  const onDocMouseUp = () => { dragging = false; };
+  const onDocMouseUp = () => { dragging = false; setSelecting(false); };
   tbody.addEventListener('mousedown', onBodyMouseDown);
   tbody.addEventListener('mousemove', onBodyMouseMove);
   tbody.addEventListener('click', onBodyClick);
@@ -1242,6 +1285,7 @@ export function createGrid(opts: GridOptions): GridInstance | null {
       tbody.removeEventListener('mousemove', onBodyMouseMove);
       tbody.removeEventListener('click', onBodyClick);
       document.removeEventListener('mouseup', onDocMouseUp);
+      document.removeEventListener('selectstart', onDocSelectStart);
       if (colPanelEl) {
         colPanelEl.removeEventListener('dragstart', onColDragStart);
         colPanelEl.removeEventListener('dragover', onColDragOver);

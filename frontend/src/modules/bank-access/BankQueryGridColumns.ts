@@ -83,7 +83,10 @@ export const balanceGridColumns = ({ canCrossCompany }: { canCrossCompany: boole
       text: balance((r) => bankName(r.bankCode)),
     },
     {
-      k: 'account', t: '账号', w: 220, on: true, req: true, def: '必需，不可关闭', type: 'text', filter: 'text',
+      // V36 筛选服务端化：账号文本 → accountNoSuffix（bank_account_no LIKE '%后缀'）。
+      // 「后缀」而非「包含」——占位文案写清，避免用户输前缀后误判为无数据。
+      k: 'account', t: '账号', w: 220, on: true, req: true, def: '必需，不可关闭', type: 'text', filter: 'text', filterServer: true,
+      filterPlaceholder: '账号后缀，如后 4 / 6 位',
       // 藏掉账号会让「没采集到账号」的账户看起来像正常数据，故设为必需列（同 demo 的直连状态）。
       cell: balance((r) => accountCell(r.accountMasked, r.bankAccountNo)),
       text: balance((r) => String(r.accountMasked || r.bankAccountNo || '')),
@@ -94,6 +97,9 @@ export const balanceGridColumns = ({ canCrossCompany }: { canCrossCompany: boole
       text: balance((r) => dateTime(r.asOfTime)),
     },
     {
+      // 币种列**有意**保持「仅本页」口径（不设 filterServer）：服务端 currency=CNY 会展开命中
+      // {CNY,10,01}（银行码与 ISO 并存），而值勾选集合是原始代码的精确匹配——两边口径对不上，
+      // 服务端化后会出现「全量合计 ≠ 本页行数」。等后端支持多代码集合参数后再迁。
       k: 'currency', t: '币种', w: 96, on: true, def: '默认', type: 'text', filter: 'value',
       cell: balance((r) => esc(currencyText(r.vendorCurrencyCode, r.currency))),
       text: balance((r) => currencyText(r.vendorCurrencyCode, r.currency)),
@@ -179,7 +185,8 @@ export const statementGridColumns = ({ canCrossCompany }: { canCrossCompany: boo
       text: statement((r) => dateTime(r.transactionTime)),
     },
     {
-      k: 'loanCode', t: '借贷', w: 96, on: true, def: '默认', type: 'text', filter: 'value',
+      // V36 筛选服务端化：借贷值勾选 → 请求参数 loanCode（C/D 互斥，服务端语义完全一致）。
+      k: 'loanCode', t: '借贷', w: 96, on: true, def: '默认', type: 'text', filter: 'value', filterServer: true,
       cell: statement((r) => (r.loanCode
         ? '<span class="dir-tag ' + (r.loanCode === 'D' ? 'dir-debit' : 'dir-credit') + '">'
           + esc(LOAN_CODE_TEXT[r.loanCode] || r.loanCode) + '</span>'
@@ -206,12 +213,14 @@ export const statementGridColumns = ({ canCrossCompany }: { canCrossCompany: boo
       cf: statement((r) => moneyCf(r.acctOnlineBal)),
     },
     {
-      k: 'statementNo', t: '流水号', w: 180, on: true, def: '默认', type: 'text', filter: 'text',
+      // V36 筛选服务端化：流水号文本 → statementNo（服务端模糊匹配，包含语义一致）。
+      k: 'statementNo', t: '流水号', w: 180, on: true, def: '默认', type: 'text', filter: 'text', filterServer: true,
       cell: statement((r) => (r.statementNo ? '<span class="mono">' + esc(r.statementNo) + '</span>' : '<span class="mono">--</span>')),
       text: statement((r) => String(r.statementNo || '')),
     },
     {
-      k: 'counterparty', t: '收付方', w: 230, on: true, def: '默认', type: 'text', filter: 'text',
+      // V36 筛选服务端化：收付方文本 → counterparty（服务端模糊匹配，包含语义一致）。
+      k: 'counterparty', t: '收付方', w: 230, on: true, def: '默认', type: 'text', filter: 'text', filterServer: true,
       cell: statement((r) => esc(displayValue(r.counterpartyName))
         + (r.ctpAcctNbr ? '<span class="row-2 mono">' + esc(r.ctpAcctNbr) + '</span>' : '')),
       text: statement((r) => String(r.counterpartyName || '')),
@@ -222,6 +231,7 @@ export const statementGridColumns = ({ canCrossCompany }: { canCrossCompany: boo
       text: statement((r) => cleanText(r.businessText || r.remarkTextClt || r.summary || r.extendedRemark)),
     },
     {
+      // 币种列**有意**保持「仅本页」口径：同余额页注释（服务端 CNY 展开 {CNY,10,01} 与值勾选精确匹配口径不一致）。
       k: 'currency', t: '币种', w: 90, on: true, def: '默认', type: 'text', filter: 'value',
       cell: statement((r) => esc(currencyText(r.vendorCurrencyCode ?? r.currency, r.currency))),
       text: statement((r) => currencyText(r.vendorCurrencyCode ?? r.currency, r.currency)),
@@ -235,12 +245,16 @@ export const statementGridColumns = ({ canCrossCompany }: { canCrossCompany: boo
       cf: statement((r) => (r.validationStatus && r.validationStatus !== 'VALID' ? 'cf-late' : '')),
     },
     {
-      k: 'signedAmount', t: '金额（带符号）', w: 160, on: false, align: 'num', type: 'money', filter: 'num',
+      // V36 筛选服务端化：带符号金额区间 → minAmount / maxAmount（服务端同口径：收款为正付款为负）。
+      k: 'signedAmount', t: '金额（带符号）', w: 160, on: false, align: 'num', type: 'money', filter: 'num', filterServer: true,
       // 银行原文带符号金额，与银行导出的交易明细逐列比对的锚点，默认收起但保留。
       cell: statement((r) => money(r.signedAmount)),
     },
     {
-      k: 'accountLabel', t: '本方账户', w: 210, on: false, type: 'text', filter: 'text',
+      // V36 筛选服务端化：本方账户文本 → accountNoSuffix（bank_account_no LIKE '%后缀'）。
+      // 注意是「后缀」不是「包含」——输入框占位文案必须写清，防止用户输前缀后误判为无数据。
+      k: 'accountLabel', t: '本方账户', w: 210, on: false, type: 'text', filter: 'text', filterServer: true,
+      filterPlaceholder: '账号后缀，如后 4 / 6 位',
       cell: statement((r) => accountCell(r.accountMasked, r.bankAccountNo)),
       text: statement((r) => String(r.accountMasked || r.bankAccountNo || '')),
     },

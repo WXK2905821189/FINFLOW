@@ -51,10 +51,11 @@ export function PageLoading() {
 }
 export function PhaseOneNotice({ status, message }: { status?: string; message?: string }) {
   // 服务端已连接真实直联（如 REAL）时无需警示；未连接/未配置/禁用等一律红色明确提示，不再展示模拟数据。
+  // V36 需求 2：压缩为细条（banner）——错误必须报，但不再占一大块版面。
   if (status && !/(DISABLED|UNAVAILABLE|NOT_ENABLED|NOT_CONFIGURED|SIMULATED|MOCK|未启用|不可用)/i.test(status)) {
     return null;
   }
-  return <Alert className="phase-one-notice" type="error" showIcon message="真实银行直联未连接" description={<span>服务端未启用真实银行适配器，本区域不提供模拟数据。{status && <> 当前服务端状态：<StatusTag status={status} />。</>}{message && <> {message}</>}</span>} />;
+  return <Alert type="error" banner showIcon message={<span>真实银行直联未连接 · 服务端未启用真实银行适配器{status ? `（当前状态：${statusTagText(status)}）` : ''}{message ? `：${message}` : ''}</span>} />;
 }
 
 export function PreservedFinancePage({ title, description }: { title: string; description: string }) {

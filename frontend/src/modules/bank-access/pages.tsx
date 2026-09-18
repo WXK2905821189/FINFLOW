@@ -50,9 +50,10 @@ export function BankAccountPage() {
   const { data, loading, error, reload } = useRemote<BankAccount[]>(loader, [loader]);
   const overviewLoader = useCallback(() => operationsApi.connectionOverview(), []);
   const { data: overview } = useRemote<ConnectionOverview>(overviewLoader, [overviewLoader]);
-  // Provider-level flag: only used for the page banner. Each row's own status comes from the
-  // account itself (directStatus), so a connected bank never turns other banks' rows green.
-  const connected = overview?.status === 'REAL';
+  // V36 需求 2：成功态「已连接真实银行直联」横幅整删；错误态压缩为细条保留（必须报错）。
+  const banner = overview && (overview.status !== 'REAL')
+    ? <Alert type="error" banner showIcon message={`真实银行直联未连接 · ${overview.message || '服务端未装配真实银行适配器，当前无法获取银行数据。'}`} />
+    : null;
   const companyOptionsLoader = useCallback(() => bankPipelineApi.companyOptions(), []);
   const { data: companyOptions } = useRemote<CompanyOption[]>(companyOptionsLoader, [companyOptionsLoader]);
 
@@ -117,9 +118,6 @@ export function BankAccountPage() {
       ),
     }] : []),
   ];
-  const banner = overview ? (connected
-    ? <Alert className="phase-one-notice" type="success" showIcon message="已连接真实银行直联" description={overview.message || '余额/流水查询走真实银行接口。'} />
-    : <Alert className="phase-one-notice" type="error" showIcon message="真实银行直联未连接" description={overview.message || '服务端未装配真实银行适配器，当前无法获取银行数据。'} />) : null;
   return <>
     <div className="page-heading">
       <div>

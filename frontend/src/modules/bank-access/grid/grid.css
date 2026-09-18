@@ -300,3 +300,8 @@
   border: 1px solid var(--border-strong); border-radius: var(--radius-s); background: #fff;
 }
 .xgrid .find-input { flex: 1; min-width: 0; border: 0; outline: 0; font: inherit; font-size: 12.5px; background: transparent; color: var(--text); }
+
+/* ---------- 拖选 / 拖列宽期间禁文字选取（V36） ----------
+   内核在拖选生命周期内 toggle .xgrid-selecting；user-select 需要同时压住容器与
+   全部后代（td 内的 mono/span 无显式 user-select，但继承链必须显式覆盖浏览器默认）。 */
+.xgrid.xgrid-selecting, .xgrid.xgrid-selecting * { user-select: none; -webkit-user-select: none; }
