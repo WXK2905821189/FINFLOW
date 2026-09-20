@@ -9,7 +9,7 @@ FINFLOW 是一个前后端分离的企业财务管理平台。前端提供登录
 
 ## 本地启动
 
-准备 Java 17 或更高版本、Maven 3.9+、Node.js 18+ 和 npm。
+准备 Java 17 或更高版本、Maven 3.9+、Node.js 18+ 和 pnpm（仓库用 `frontend/pnpm-lock.yaml` 锁定依赖，CI 亦用 pnpm）。
 
 后端使用开发环境的内嵌 H2 数据库，不需要先安装 MySQL：
 
@@ -24,8 +24,8 @@ mvn spring-boot:run
 
 ```powershell
 cd frontend
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 ```
 
 浏览器打开 `http://localhost:5173`。Vite 已将 `/api` 代理到后端的 `http://localhost:8080`。
@@ -94,8 +94,36 @@ mvn install:install-file -Dfile='C:\path\to\citic-sdk.jar' -DgroupId=com.citic.b
 
 ```powershell
 mvn -f backend/pom.xml clean package
-npm --prefix frontend install
-npm --prefix frontend run build
+pnpm --dir frontend install --frozen-lockfile
+pnpm --dir frontend run build
 ```
 
 Flyway 会在后端启动时自动执行 `V1__init_rbac_and_bank_accounts.sql`，建立 RBAC 和银行账户基础表及演示数据。
+
+## CI 与验证边界（务必知晓）
+
+`gh run list` 显示的「CI 绿」**不等于全路径可用**。`.github/workflows/ci.yml` 有 5 个 job：`release-contract`、`h2-migration`、`mysql-migration`、`backend`、`frontend`。后端 job 实际执行的是：
+
+```
+mvn --batch-mode --no-transfer-progress -P '!citic-sdk' verify
+```
+
+| 边界 | 后果 |
+| --- | --- |
+| `-P '!citic-sdk'` + CI runner 的 `~/.m2` 里没有 vendor jar，而 `citic-sdk` / `kingdee-sdk` 两个 profile 是**按「jar 文件存在」激活**的（见 `backend/pom.xml`） | **`backend/src/{citic-sdk,kingdee-sdk}/java`（8 个文件 / 约 1334 行）在 CI 中根本不参与编译**，其测试类也不执行；CI 验证的是占位实现路径（`UnavailableCiticDlinkSdk` 的 `501` 边界） |
+| 覆盖率**只上报、不设阈值**（无 `COVEREDRATIO` 校验），报告作为 `backend-jacoco-report` 构件上传 | 覆盖率退化有信号、但不拦提交；需看日志摘要或下载构件 |
+| `release-contract` job 是约 104 条 `grep -q` 静态断言，其中 9 条 pin 在 `.java` 源码字面量上 | **重构命名 / 搬包 / 改字符串时它会变红**。先判断是「断言过期」还是「真回归」，不要一律当回归处理 |
+
+### 因此
+
+- **改动触及真实银行 / 金蝶 SDK 路径时，必须在本机跑全路径测试**（本机 `~/.m2` 装有 vendor jar，两个 profile 会激活）：
+  ```powershell
+  cd backend; mvn.cmd -o test
+  ```
+  只看 CI 绿是不够的 —— 那条路径 CI 根本没编译。要覆盖真实 SDK 路径，需本地跑，或按需为 CI 注入 vendor jar。
+- **覆盖率**：CI 日志会打印「总体指令覆盖率」与「覆盖率最低 10 个包」。本项目当前约 **80%**，已知低覆盖区为 `feishu`、`bankdata.adapter.citic.dlink` 适配器、`statement.collector`。
+
+### 本地验证与 CI 的差异（踩过）
+
+- **前端 lint**：CI 跑 `pnpm run lint`（= `eslint .`）。本地若存在 `frontend/tmp/` 之类**被 gitignore、但不在 eslint ignores 内**的目录，`eslint .` 会报大量假错误（eslint 不读 `.gitignore`）→ 本地验证请用 `eslint src`。
+- **JaCoCo 与中文路径**：仓库路径含中文时，JaCoCo agent 会让 fork 出的 JVM 崩溃（报 `The forked VM terminated without properly saying goodbye`，且 `Tests run: 0`，极易误判为「没匹配到测试」）。本机需把 agent 放 ASCII 路径并显式覆盖 `-DargLine`（备忘见 `docs/architecture-review-*.md`）；CI 在 Ubuntu 上无此问题。

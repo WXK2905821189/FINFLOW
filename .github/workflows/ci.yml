@@ -385,8 +385,42 @@ jobs:
           cache: maven
           cache-dependency-path: backend/pom.xml
 
-      - name: Build and test
-        run: mvn --batch-mode --no-transfer-progress -P '!citic-sdk' verify -Djacoco.skip=true
+      # ── CI 覆盖边界（2026-09-20 结构审阅登记，务必知晓）──────────────────────
+      # 本 job 显式 `-P '!citic-sdk'`，且 runner 的 ~/.m2 里没有 vendor jar，而
+      # citic-sdk / kingdee-sdk 两个 profile 是按「jar 文件存在」激活的
+      # （pom.xml:168-173）。因此：
+      #   · `src/citic-sdk/java`、`src/kingdee-sdk/java`（8 文件 / 1334 行）
+      #     在 CI 中【不参与编译】，其测试类也不执行；
+      #   · CI 验证的是占位实现路径（UnavailableCiticDlinkSdk 的 501 边界）。
+      # ⇒ 「CI 绿 ≠ 全路径可编译」。要覆盖真实 SDK 路径，须本地跑裸 `mvn.cmd test`
+      #   （全局 ~/.m2 有 vendor jar），或按需为 CI 注入 vendor jar。
+      # 覆盖率只上报、不设阈值（无 COVEREDRATIO 校验）：目的是让退化可见，而非拦提交。
+      # ────────────────────────────────────────────────────────────────────────
+      - name: Build and test (coverage reported, no threshold)
+        run: mvn --batch-mode --no-transfer-progress -P '!citic-sdk' verify
+
+      - name: Print instruction coverage summary
+        if: always()
+        run: |
+          CSV=target/site/jacoco/jacoco.csv
+          if [ ! -f "$CSV" ]; then echo "未生成 $CSV（JaCoCo 未执行）"; exit 0; fi
+          awk -F, 'NR>1 {m+=$4; c+=$5} END {
+            if (m+c == 0) { print "覆盖率数据为空"; exit }
+            printf "\n总体指令覆盖率: %.1f%%  (covered %d / total %d)\n", 100*c/(m+c), c, m+c
+          }' "$CSV"
+          echo "--- 覆盖率最低 10 个包（关注退化）---"
+          awk -F, 'NR>1 {im[$2]+=$4; ic[$2]+=$5} END {
+            for (p in im) if (im[p]+ic[p] > 0) printf "%.1f%%  %s\n", 100*ic[p]/(im[p]+ic[p]), p
+          }' "$CSV" | sort -n | head -10
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-jacoco-report
+          path: backend/target/site/jacoco/
+          if-no-files-found: warn
+          retention-days: 14
 
   frontend:
     name: Frontend (Node 20 / pnpm)
