@@ -78,20 +78,30 @@ bc416d5 补漏           → 绿（run 34188075685）
 - 前端主 chunk 稳定在 ~498 kB / gzip 167 kB（600 kB 警告线内），无回归。
 - `tmp/` 的 `ci-verify.log`、`test-sched6.log`（12:38）说明并行会话有自己的验证流程在跑。
 
-## 七、待确认：`tmp/` 清理清单（P1）
+## 七、待确认：`tmp/` 清理清单（P1）——✅ 已执行（2026-09-08 15:00，用户确认后）
 
 以下全部未被 git 跟踪，删除零代码风险（历史交付 jar 均已在 ECS 部署，无需本地保留）：
 
-| 类别 | 项 | 体积 |
-| --- | --- | --- |
-| 历史后端 jar ×7 | FINFLOW-backend-*.jar（09-03/09-04 各批次） | ~560M |
-| 部署目录 ×3 | deploy-bee5ca9 / finflow-deploy-20260902 / finflow-release-20260904-mockclean | ~320M |
-| release 镜像 | finflow-release-20260903-1745 / finflow-backend-jar-20260903(+.tar.gz) | ~230M |
-| 金蝶 SDK 解压 | kd-sdk-java11/ + .zip（已 vendor 进 ~/.m2） | ~17M |
-| 杂项 | 各类 *.log、tmp-mvn-full0917.txt、cmb-to-md.py 等过程脚本 | 少量 |
-| 根目录部署包 ×4 | finflow-web-dist-*.tar.gz | 1.9M |
+| 类别 | 项 | 体积 | 结果 |
+| --- | --- | --- | --- |
+| 历史后端 jar ×7 | FINFLOW-backend-*.jar（09-03/09-04 各批次） | ~560M | ✅ 已删 |
+| 部署目录 ×3 | deploy-bee5ca9 / finflow-deploy-20260902 / finflow-release-20260904-mockclean | ~320M | ✅ 已删 |
+| release 镜像 | finflow-release-20260903-1745 / finflow-backend-jar-20260903(+.tar.gz) | ~230M | ✅ 已删 |
+| 金蝶 SDK 解压 | kd-sdk-java11/ + .zip（已 vendor 进 ~/.m2） | ~17M | ✅ 已删 |
+| 杂项 | 各类 *.log、tmp-mvn-full0917.txt、cmb-to-md.py 等过程脚本 | 少量 | ✅ 已删 |
+| 根目录部署包 ×4 | finflow-web-dist-*.tar.gz | 1.9M | ✅ 挪入 tmp/deploy-artifacts/ + gitignore 防散落 |
 
-保留建议：今天（09-08）的部署目录若对应线上当前版本可暂留备份；其余可全清。**确认后我按清单执行（走回收站机制）。**
+**结果：tmp/ 1.2G / 1357 文件 → 29M / 17 文件**（保留今日验证日志）。删除前核查过唯一性风险：citi txt 原料已有整理版 `docs/citic-bank-interface-dev-guide.md`，金蝶探针结论已沉淀 docs/，SDK 已 vendor 进 ~/.m2。
+
+### P2 同批清偿（commit `ab04e85`，已推送 master）
+
+| # | 行动 | 结果 |
+| --- | --- | --- |
+| 1 | 部署包归置 + gitignore | ✅ `/finflow-web-dist-*.tar.gz`、`/finflow-backend-*.jar` 根目录防护规则 |
+| 2 | pathspec 防漏流程 | ✅ `.git/hooks/pre-commit`：提交时强制输出「已暂存/未暂存源码/未跟踪源码」复核（对本工作区所有会话生效）；本批提交时已实际拦截复核 |
+| 3 | `BankDataQueryService` 949→**649** 行 | ✅ 拆出 `BankDataTaskScope`（任务范围/血缘/账户标签/权限共享支撑）+ `BankDataExportService`（CSV 导出块，含 36 列对账契约与 2 万行上限）；Controller 改注入 |
+| 4 | 前端 `BankDataQueryPage` 588→**373** 行 | ✅ 列定义/详情抽屉拆 `BankDataQueryColumns.tsx`，银行码文案映射拆 `bankQueryTexts.ts` |
+| 5 | 回归验证 | ✅ 后端 203 测试全绿（双真实 SDK profile）、前端 tsc/eslint/build 全绿、主 chunk 498.60 kB 不变 |
 
 ## 八、环境备忘（本次新增/复证）
 

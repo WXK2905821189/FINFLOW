@@ -106,3 +106,31 @@
 - **附带说明**：任务计数口径——raw/normalized 计数**含余额快照**（STATEMENT 拉取每窗口附 1 条 NTQADINF 余额），所以 raw=10=9 流水+1 余额；重复判定键为 company_id+bank_account_id+statement_no+transaction_time+amount 五元组。前端任务详情"服务端摘要"如需易读可一并展示该口径。
 
 > **FIX-004 处置记录（2026-09-07）**：`BankDataSyncExecutor.java` SYNC_COMPLETED 文案已改为中性 "Bank data synchronization completed"（含注释溯源）。无测试断言该文案，改动零波及。已提交 master；按既定判断不单独部署，随下一次构建自然生效。
+
+---
+
+## FIX-005（P3 · 架构演进预留：金蝶凭据多账号化，非阻塞）2026-09-16 登记
+
+> 触发：用户提出「未来多账号之后，不同人登录系统使用的金蝶云凭证不同」。经鉴权模型澄清后定调为**公司级凭据 + 用户名映射**，当前单账套阶段不实现，多公司接入时启动。
+
+### 现状
+- `KingdeeSdkClient` 用全局 `KingdeeProperties`（环境变量）构建唯一 `IdentifyInfo`（AcctID/AppID/AppSec/王一霏）——全系统单身份。
+- 接缝已就绪：`pushVoucher(id, operatorId)` 链路自带 `companyId`（companyScope 解析）+ `operatorId`；`StatementRecord` 自带 `companyId`，网关接口 `push(statement)` **无需改动**。
+
+### 鉴权模型结论（设计依据）
+| 层 | 归属 | 多账号方案 |
+|---|---|---|
+| AppID/AppSec | 第三方应用级（金蝶管理员建一次） | **按公司/账套分**（不同账套=不同 AcctID），不按人分 |
+| 授权用户名 | 决定金蝶侧操作身份（权限+审计日志） | **按人映射**：同一 AppID 绑定多个金蝶用户，`FINFLOW user → kingdee_username` 映射表 |
+| 账簿/组织 | 凭证挂哪个主体 | 已按 companyId，改 env 为按公司解析 |
+
+### 实施方向（方案 A，已对比否决纯用户级 B / 维持现状 C）
+1. 新增 `kingdee_provider_config` 表按公司存 AcctID/AppID/AppSec（AES-256-GCM 加密落库，复用 V29 飞书向导的加密存储模式），查不到回落 env 默认（向后兼容）。
+2. 新增 `FINFLOW 用户 → 金蝶用户名` 映射表；金蝶管理员在 Finflow 应用下绑定多用户即可，AppSec 不动。
+3. 连接测试按钮（`pingKingdee`）同步按公司探测。
+4. 工作量预估 2~3 天；触发时机 = 第二家真实账套接入时，或财务要求金蝶侧审计区分到人时（仅做第 2 步，半天）。
+
+### 验收标准（实施时）
+- 不同 companyId 的流水推送走各自账套（凭据加密落库、接口回显仅尾 4 位 hint）；
+- 未配置的公司回落现有 env 凭据不中断；
+- `pingKingdee` 按公司返回各自连接状态。

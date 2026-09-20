@@ -33,6 +33,21 @@ KINGDEE_DEFAULT_BANK_ACCOUNT_NUMBER=<我方账户 CN_BANKACNT 编码>
 **fail-closed 三态**（任一不满足即降级，不会半开）：
 `mock-mode=true` → Mock；`false` + `real-enabled≠true` → Unavailable(501)；两者满足 + SDK 在 → Real。
 
+**PowerShell 版启动（本地 real 模式一键注入）**：在 `start-finflow.ps1` 之前执行——
+
+```powershell
+$env:KINGDEE_MOCK_MODE="false"; $env:KINGDEE_REAL_ENABLED="true"
+$env:KINGDEE_SERVER_URL="https://xyrc.ik3cloud.com/k3cloud/"
+$env:KINGDEE_ACCT_ID="20210801002010962"
+$env:KINGDEE_APP_ID="241784_4Yfq1xFo4JC5RfSJTc0qUbSqVtX9XpNG"
+$env:KINGDEE_APP_SEC="<私密输入，严禁入库>"
+$env:KINGDEE_USER_NAME="王一霏"; $env:KINGDEE_LCID="2052"
+$env:KINGDEE_ORG_NUMBER="400"
+$env:KINGDEE_DEFAULT_BANK_ACCOUNT_NUMBER="11050160520009100036"
+```
+
+**连接验证（9/10 新增，推荐先用）**： websites「金蝶制证」页右上「连接测试」按钮 → `GET /api/statements/kingdee/ping`（只读 ExecuteBillQuery，零账套写入）。Real 模式返回「已连接金蝶（主机，账套，组织，BD_Customer 查询行数）」；Mock 模式明确提示未连接真实金蝶。
+
 ## 三、已校准字段速查表（演示环境实证）
 
 | 字段 | 结论 | 实证方式 |
