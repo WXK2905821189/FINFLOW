@@ -272,6 +272,9 @@ export type BankDataProjectionPage<T> = PageResponse<T> & {
   requestId?: string;
   sourceSystem?: string;
   lastSyncedAt?: string;
+  /** W8（2026-09-20）：服务端全量金额合计（与本次查询同 WHERE 聚合，随筛选实时变化）。
+   *  余额页：availableBalance/onlineBalance/frozenBalance；流水页：debitAmount/creditAmount/signedAmount。 */
+  totals?: Record<string, number | null>;
 };
 
 /** 一条已留存的银行原始响应（列表项，刻意不含报文体）。 */

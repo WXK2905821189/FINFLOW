@@ -225,11 +225,13 @@ function AccountsTab() {
       >
         <Alert type="info" showIcon message={PASSWORD_NOTICE} style={{ marginBottom: 16 }} />
         <Form form={form} layout="vertical">
+          {/* W8：用户名/邮箱放开编辑（后端 updateUser 本就全量更新并做唯一性校验；
+              user:manage 权限者均可改，改用户名不影响在线会话，下次登录用新名）。 */}
           <Form.Item name="username" label="用户名" rules={[{ required: true, min: 3, max: 64, message: '用户名 3-64 个字符' }]}>
-            <Input disabled={!isCreate} placeholder="登录用户名（支持中文姓名）" />
+            <Input placeholder="登录用户名（支持中文姓名）" />
           </Form.Item>
           <Form.Item name="email" label="邮箱" rules={[{ required: true, type: 'email', message: '邮箱格式不正确' }]}>
-            <Input disabled={!isCreate} placeholder="name@company.com" />
+            <Input placeholder="name@company.com" />
           </Form.Item>
           <Form.Item name="phone" label="手机号"><Input placeholder="选填" /></Form.Item>
           <Form.Item name="status" label="状态" rules={[{ required: true }]}>

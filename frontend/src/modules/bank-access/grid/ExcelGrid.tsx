@@ -44,9 +44,7 @@ export interface ExcelGridProps {
   showGroupSwitch?: boolean;
   groupMeta?: (group: string, rows: GridRow[]) => string;
 
-  /* ---- 合计（口径②：状态栏＝本页可见小计 / 工具栏＝服务端全量） ---- */
-  sumKey: string;
-  sumLabel?: string;
+  /* ---- 合计（W8：状态栏本页小计已移除；工具栏＝服务端全量合计） ---- */
   totalAgg?: GridTotals;
 
   /* ---- 视图 / 密度 / 冻结 ---- */
@@ -124,8 +122,6 @@ export function ExcelGrid(props: ExcelGridProps) {
       rows: read().rows,
       groupBy: read().groupBy,
       groupedDefault: read().groupedDefault,
-      sumKey: read().sumKey,
-      sumLabel: read().sumLabel,
       totalAgg: read().totalAgg,
       groupMeta: read().groupMeta,
       views: read().views,

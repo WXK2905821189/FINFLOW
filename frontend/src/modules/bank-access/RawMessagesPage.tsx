@@ -3,6 +3,7 @@ import { Alert, Button, Card, DatePicker, Descriptions, Drawer, Empty, Input, Pa
 import { CopyOutlined, DownloadOutlined, SearchOutlined, SyncOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { bankPipelineApi } from '../../services/api';
+import { copyText } from './grid/kernel';
 import { useRemote, ResourceFailure } from '../shared/components';
 import { dateTime, displayValue } from '../shared/format';
 import type { PageResponse } from '../shared/api';
@@ -107,12 +108,9 @@ export function RawMessagesPage() {
   };
 
   const copyPayload = async (payload: string) => {
-    try {
-      await navigator.clipboard.writeText(payload);
-      message.success('报文已复制到剪贴板');
-    } catch {
-      message.error('浏览器拒绝了剪贴板访问，请手动选中复制');
-    }
+    // W8：http 环境 navigator.clipboard 为 undefined（await 会抛错），统一走 kernel 的降级复制。
+    copyText(payload);
+    message.success('报文已复制到剪贴板');
   };
 
   const downloadPayload = (row: BankRawMessageDetail) => {

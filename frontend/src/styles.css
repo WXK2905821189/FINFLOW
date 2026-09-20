@@ -953,6 +953,27 @@ a {
   text-decoration: none;
 }
 
+/* W8：服务端全量金额合计条（余额/流水查询页，表格上方）。 */
+.totals-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border: 1px solid #e3ecea;
+  border-radius: 8px;
+  background: #f6faf9;
+  color: #47605d;
+  font-size: 12.5px;
+}
+
+.totals-bar b {
+  font-size: 13.5px;
+  color: #123f34;
+}
+
+
 .bank-query-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

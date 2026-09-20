@@ -135,10 +135,7 @@ export interface GridOptions {
   /** 分组键（行上的字段名）；不给则平铺。 */
   groupBy?: string;
   groupedDefault?: boolean;
-  /** 状态栏小计的取值字段与文案。 */
-  sumKey: string;
-  sumLabel?: string;
-  /** 服务端全量合计（口径②）。 */
+  /** 服务端全量合计（W8：状态栏本页小计已移除，工具栏展示服务端聚合）。 */
   totalAgg?: GridTotals;
   /** 无行且无本页筛选时的空态文案（由页面按「直连未启用 / 查询失败 / 无匹配」区分）。 */
   emptyText?: string;
@@ -208,6 +205,42 @@ const COPY_SVG =
 export const currencyText = (code: string): string => CURRENCY_TEXT[code] || code;
 export const copyChip = (value: string, title = '复制'): string =>
   `<button class="copy-chip" data-copy="${esc(value)}" title="${esc(title)}">${COPY_SVG}复制</button>`;
+
+/**
+ * W8（2026-09-20）剪贴板写入（安全上下文感知降级）：
+ * navigator.clipboard 只在 HTTPS/localhost 等安全上下文可用——生产 ECS 是 http 裸 IP，
+ * clipboard 为 undefined，此前「提示成功但粘贴板为空」就是它静默失败。
+ * 非安全上下文走 textarea + execCommand('copy')（同步、无需权限）。
+ */
+export function copyText(text: string): void {
+  if (!text) return;
+  if (navigator.clipboard && window.isSecureContext) {
+    void navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
+    return;
+  }
+  fallbackCopy(text);
+}
+
+function fallbackCopy(text: string): void {
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    // 定位到可视区域外但避免 iOS 聚焦滚动；opacity 防闪烁。
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    ta.style.top = '0';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    ta.setSelectionRange(0, text.length);
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+  } catch {
+    // 最终兜底仍失败时静默——调用方的 toast 已给出成功提示，浏览器极端锁定场景无解。
+  }
+}
 
 /* ---------------- 格式化 ---------------- */
 const num2 = (v: unknown) => Number(v).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -555,12 +588,11 @@ export function createGrid(opts: GridOptions): GridInstance | null {
   function renderStatus() {
     if (!statusEl) return;
     const rows = shown();
-    const sum = rows.reduce((a, r) => a + (Number(r[opts.sumKey]) || 0), 0);
     const agg = aggregate();
     let h = '';
     h += '<span class="gs-item">本页显示 <b>' + rows.length + '</b> / ' + st.rows.length + ' 行</span>';
-    h += '<span class="gs-sep"></span><span class="gs-item">' + (opts.sumLabel || '本页可见小计')
-      + ' <b>¥ ' + num2(sum) + '</b></span>';
+    // W8（2026-09-20）：移除「本页可见小计」——财务要的是全量命中数据的合计（工具栏全量合计），
+    // 当前页的金额小计容易被误当成全量数。
     if (agg.cells > 0) {
       h += '<span class="gs-sep"></span><span class="gs-item">已选 <b>' + agg.cells + '</b> 单元格 / <b>' + agg.rows + '</b> 行</span>';
       if (agg.num) {
@@ -606,7 +638,7 @@ export function createGrid(opts: GridOptions): GridInstance | null {
       tsv = cols.map((c) => c.t).join('\t') + '\r\n';
       st.rows.forEach((r, i) => { if (st.rowSel.has(i)) tsv += cols.map((c) => raw(r, c)).join('\t') + '\r\n'; });
     }
-    if (navigator.clipboard) void navigator.clipboard.writeText(tsv).catch(() => {});
+    copyText(tsv);
     const lines = tsv ? tsv.trim().split('\r\n').length : 0;
     if (lines) toast('已复制 ' + lines + ' 行 × ' + (tsv.split('\r\n')[0].split('\t').length) + ' 列（TSV），可直接粘贴进 Excel');
     return tsv;
@@ -972,7 +1004,7 @@ export function createGrid(opts: GridOptions): GridInstance | null {
     const target = e.target as HTMLElement;
     const copy = target.closest<HTMLElement>('[data-copy]');
     if (copy?.dataset.copy) {
-      if (navigator.clipboard) void navigator.clipboard.writeText(copy.dataset.copy).catch(() => {});
+      copyText(copy.dataset.copy);
       toast('已复制：' + copy.dataset.copy);
       return;
     }

@@ -291,6 +291,8 @@ export const statementApi = {
   /** 批量推送已通过复核的草稿到金蝶。 */
   batchPush: (data: { ids: number[] }) =>
     http.post<never, StatementBatchOpResult>('/statements/batch-push', data),
+  /** W8：重新打开已驳回的流水（REJECTED→PENDING，可重新制证；审计 REOPEN）。 */
+  reopen: (id: number) => http.post<never, StatementRecord>(`/statements/${id}/reopen`),
   /** 对 PENDING 草稿重新生成 AI 建议（覆盖复核意见，不改状态；ai:use 闸门在服务端）。 */
   refreshAiSuggestion: (id: number) =>
     http.post<never, AiAccountingSuggestion>(`/statements/${id}/ai-suggestion`),
@@ -415,6 +417,8 @@ type BankDataQueryParams = {
   requestId?: string;
   /** 跨公司权限用户可选定公司主体；不传=全部可见公司，无权限用户传值会被服务端 403。 */
   companyId?: number;
+  /** W8（2026-09-20）顶栏多选主体：多个公司 id（与 companyId 同给时服务端以 companyIds 为准）。 */
+  companyIds?: number[];
   /** WP-C Excel 式逐列筛选：账号后 4/6 位（bank_account_no LIKE '%suffix'）。 */
   accountNoSuffix?: string;
   /** 借贷方向 C/D（仅流水）。 */
@@ -431,14 +435,17 @@ type BankDataQueryParams = {
 };
 
 /** axios 默认把数组序列化成 `key[]=1`（Spring 不识别）；数组改重复键拼 URL，其余走 axios params。 */
-const splitArrayQuery = (params: BankDataQueryParams): { path: string; rest: Omit<BankDataQueryParams, 'accountIds'> } => {
+const splitArrayQuery = (params: BankDataQueryParams): { path: string; rest: Omit<BankDataQueryParams, 'accountIds' | 'companyIds'> } => {
   const rest = { ...params } as Record<string, unknown>;
   const accountIds = rest.accountIds as number[] | undefined;
   delete rest.accountIds;
+  const companyIds = rest.companyIds as number[] | undefined;
+  delete rest.companyIds;
   const search = new URLSearchParams();
   (accountIds || []).filter((id) => Number.isSafeInteger(id) && id > 0).forEach((id) => search.append('accountIds', String(id)));
+  (companyIds || []).filter((id) => Number.isSafeInteger(id) && id > 0).forEach((id) => search.append('companyIds', String(id)));
   const query = search.toString();
-  return { path: query ? `?${query}` : '', rest: rest as Omit<BankDataQueryParams, 'accountIds'> };
+  return { path: query ? `?${query}` : '', rest: rest as Omit<BankDataQueryParams, 'accountIds' | 'companyIds'> };
 };
 
 // v0.2 exposed only internal job resources and business projections, and the client

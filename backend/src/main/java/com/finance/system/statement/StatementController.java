@@ -165,6 +165,15 @@ public class StatementController {
         return ApiResponse.success("Voucher push completed", statementService.pushVoucher(id, principal.getId()));
     }
 
+    /** W8（2026-09-20）：重新打开已驳回的流水（REJECTED→PENDING），使其可重新制证；审计 REOPEN。 */
+    @PostMapping("/statements/{id}/reopen")
+    @PreAuthorize("hasAuthority('voucher:push')")
+    @Operation(summary = "Reopen a rejected statement so it can be re-vouchered (audit: REOPEN)")
+    public ApiResponse<StatementResponse> reopen(@PathVariable Long id,
+                                                  @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success("流水已重新打开，可重新制证", statementService.reopen(id, principal.getId()));
+    }
+
     @GetMapping("/reconciliation/dashboard")
     @PreAuthorize("hasAuthority('reconciliation:view')")
     @Operation(summary = "Get statement reconciliation dashboard totals")

@@ -97,7 +97,17 @@ public class KingdeeRuleImportService {
         boolean aiAvailable = config != null;
         List<KingdeeRuleGroupResponse.ImportPreviewRow> rows = new ArrayList<>();
         int mapped = 0;
-        for (int i = 1; i < matrix.size(); i++) {
+        // W8：模板升级为「说明横幅 + 表头 + 示例行」。数据起点 = 首个以「规则名称」开头的
+        // 表头行的下一行；找不到表头则维持旧口径（跳过首行，兼容用户自制表头在最前的文件）。
+        // 横幅与表头行不进 AI 映射；示例行仍会被解析（横幅已提示删除），保持既有口径。
+        int start = 1;
+        for (int i = 0; i < matrix.size(); i++) {
+            if (!matrix.get(i).isEmpty() && "规则名称".equals(matrix.get(i).get(0))) {
+                start = i + 1;
+                break;
+            }
+        }
+        for (int i = start; i < matrix.size(); i++) {
             List<String> cells = matrix.get(i);
             if (cells.stream().allMatch(c -> c == null || c.isBlank())) {
                 continue;
@@ -125,16 +135,65 @@ public class KingdeeRuleImportService {
         return ruleService.confirmImport(request.rows(), request.defaultGroupId());
     }
 
-    /** 模板 Excel（首个 sheet 写示例表头 + 2 行示例）。 */
+    /**
+     * 模板 Excel（W8 美化，2026-09-20）：
+     *  · Sheet1「规则导入模板」：说明横幅 + 加粗底色表头 + 2 行示例（黄底提示行）+ 11 列定宽；
+     *  · 「方向」列数据验证下拉（EXPENSE/INCOME），防手填枚举外取值；
+     *  · Sheet2「填写说明」：逐列说明 + 必填标记 + 枚举取值 + 常见错误。
+     */
     public byte[] template() {
         try (org.apache.poi.xssf.usermodel.XSSFWorkbook workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook()) {
             org.apache.poi.ss.usermodel.Sheet sheet = workbook.createSheet("规则导入模板");
             String[] headers = {"规则名称", "业务类型", "大类", "方向", "摘要关键词", "对方单位关键词",
                     "借方科目编码", "借方科目名称", "贷方科目编码", "贷方科目名称", "备注"};
-            org.apache.poi.ss.usermodel.Row header = sheet.createRow(0);
+
+            // ---- 样式 ----
+            org.apache.poi.ss.usermodel.Font titleFont = workbook.createFont();
+            titleFont.setBold(true);
+            titleFont.setFontHeightInPoints((short) 12);
+            org.apache.poi.ss.usermodel.CellStyle titleStyle = workbook.createCellStyle();
+            titleStyle.setFont(titleFont);
+            org.apache.poi.ss.usermodel.Font headerFont = workbook.createFont();
+            headerFont.setBold(true);
+            headerFont.setColor(org.apache.poi.ss.usermodel.IndexedColors.WHITE.getIndex());
+            org.apache.poi.ss.usermodel.CellStyle headerStyle = workbook.createCellStyle();
+            headerStyle.setFont(headerFont);
+            headerStyle.setFillForegroundColor(org.apache.poi.ss.usermodel.IndexedColors.GREY_40_PERCENT.getIndex());
+            headerStyle.setFillPattern(org.apache.poi.ss.usermodel.FillPatternType.SOLID_FOREGROUND);
+            headerStyle.setBorderBottom(org.apache.poi.ss.usermodel.BorderStyle.THIN);
+            headerStyle.setBorderTop(org.apache.poi.ss.usermodel.BorderStyle.THIN);
+            headerStyle.setBorderLeft(org.apache.poi.ss.usermodel.BorderStyle.THIN);
+            headerStyle.setBorderRight(org.apache.poi.ss.usermodel.BorderStyle.THIN);
+            headerStyle.setAlignment(org.apache.poi.ss.usermodel.HorizontalAlignment.CENTER);
+            org.apache.poi.ss.usermodel.CellStyle sampleStyle = workbook.createCellStyle();
+            sampleStyle.setFillForegroundColor(org.apache.poi.ss.usermodel.IndexedColors.LIGHT_YELLOW.getIndex());
+            sampleStyle.setFillPattern(org.apache.poi.ss.usermodel.FillPatternType.SOLID_FOREGROUND);
+            sampleStyle.setBorderBottom(org.apache.poi.ss.usermodel.BorderStyle.THIN);
+            sampleStyle.setBorderTop(org.apache.poi.ss.usermodel.BorderStyle.THIN);
+            sampleStyle.setBorderLeft(org.apache.poi.ss.usermodel.BorderStyle.THIN);
+            sampleStyle.setBorderRight(org.apache.poi.ss.usermodel.BorderStyle.THIN);
+            org.apache.poi.ss.usermodel.CellStyle bodyStyle = workbook.createCellStyle();
+            bodyStyle.setBorderBottom(org.apache.poi.ss.usermodel.BorderStyle.THIN);
+            bodyStyle.setBorderTop(org.apache.poi.ss.usermodel.BorderStyle.THIN);
+            bodyStyle.setBorderLeft(org.apache.poi.ss.usermodel.BorderStyle.THIN);
+            bodyStyle.setBorderRight(org.apache.poi.ss.usermodel.BorderStyle.THIN);
+
+            // ---- 第 0 行：说明横幅 ----
+            org.apache.poi.ss.usermodel.Row banner = sheet.createRow(0);
+            org.apache.poi.ss.usermodel.Cell bannerCell = banner.createCell(0);
+            bannerCell.setCellValue("填写说明见第二个工作表「填写说明」；黄色示例行仅供参照，导入时会被解析为规则，请在正式数据前删除");
+            bannerCell.setCellStyle(titleStyle);
+            sheet.addMergedRegion(new org.apache.poi.ss.util.CellRangeAddress(0, 0, 0, headers.length - 1));
+
+            // ---- 第 1 行：表头 ----
+            org.apache.poi.ss.usermodel.Row header = sheet.createRow(1);
             for (int i = 0; i < headers.length; i++) {
-                header.createCell(i).setCellValue(headers[i]);
+                org.apache.poi.ss.usermodel.Cell cell = header.createCell(i);
+                cell.setCellValue(headers[i]);
+                cell.setCellStyle(headerStyle);
             }
+
+            // ---- 第 2-3 行：示例（黄底）----
             String[][] samples = {
                     {"办公室租金", "租金", "租赁费", "EXPENSE", "租金", "", "660203", "租赁费",
                             "100201", "银行存款", "按月支付办公室租金"},
@@ -142,14 +201,70 @@ public class KingdeeRuleImportService {
                             "600101", "主营业务收入", "客户回款"},
             };
             for (int r = 0; r < samples.length; r++) {
-                org.apache.poi.ss.usermodel.Row row = sheet.createRow(r + 1);
+                org.apache.poi.ss.usermodel.Row row = sheet.createRow(r + 2);
                 for (int c = 0; c < samples[r].length; c++) {
-                    row.createCell(c).setCellValue(samples[r][c]);
+                    org.apache.poi.ss.usermodel.Cell cell = row.createCell(c);
+                    cell.setCellValue(samples[r][c]);
+                    cell.setCellStyle(sampleStyle);
                 }
             }
-            for (int i = 0; i < headers.length; i++) {
-                sheet.autoSizeColumn(i);
+
+            // ---- 数据验证：「方向」列 D3:D500 下拉 ----
+            org.apache.poi.ss.usermodel.DataValidationHelper helper = sheet.getDataValidationHelper();
+            org.apache.poi.ss.usermodel.DataValidationConstraint constraint =
+                    helper.createExplicitListConstraint(new String[]{"EXPENSE", "INCOME"});
+            org.apache.poi.ss.util.CellRangeAddressList range = new org.apache.poi.ss.util.CellRangeAddressList(2, 500, 3, 3);
+            org.apache.poi.ss.usermodel.DataValidation validation = helper.createValidation(constraint, range);
+            validation.setShowErrorBox(true);
+            validation.createErrorBox("方向取值无效", "方向仅允许 EXPENSE（支出/付款）或 INCOME（收入/收款）");
+            ((org.apache.poi.xssf.usermodel.XSSFSheet) sheet).addValidationData(validation);
+
+            // ---- 列宽（autoSize 对中文在无头环境不稳定，改显式宽度；1 字符 ≈ 256）----
+            int[] widths = {22, 14, 16, 12, 20, 24, 14, 16, 14, 16, 26};
+            for (int i = 0; i < widths.length; i++) {
+                sheet.setColumnWidth(i, widths[i] * 256);
             }
+            sheet.createFreezePane(0, 2);
+
+            // ---- Sheet2：填写说明 ----
+            org.apache.poi.ss.usermodel.Sheet guide = workbook.createSheet("填写说明");
+            String[][] guideRows = {
+                    {"列名", "是否必填", "填写说明"},
+                    {"规则名称", "必填", "规则的业务名称，导入后展示在规则中心列表，如「办公室租金」"},
+                    {"业务类型", "必填", "业务的粗分类，如 租金 / 货款 / 工资 / 水电费，用于按类型归组"},
+                    {"大类", "必填", "凭证大类（与规则中心「大类规则」一致），如 租赁费 / 销售收入 / 薪酬"},
+                    {"方向", "必填", "仅允许两个取值（本列有下拉校验）：EXPENSE = 支出/付款；INCOME = 收入/收款"},
+                    {"摘要关键词", "选填", "匹配银行流水摘要（businessText/摘要列）包含该关键词即命中；与「对方单位关键词」至少填一个"},
+                    {"对方单位关键词", "选填", "匹配收付方名称包含该关键词即命中；两个关键词都填时为「且」关系"},
+                    {"借方科目编码", "必填", "金蝶科目编码，需与账套科目一致，如 660203"},
+                    {"借方科目名称", "选填", "科目名称仅用于核对展示，匹配以编码为准"},
+                    {"贷方科目编码", "必填", "同借方科目编码"},
+                    {"贷方科目名称", "选填", "同借方科目名称"},
+                    {"备注", "选填", "规则备注，导入后展示在规则详情"},
+                    {"", "", ""},
+                    {"常见错误", "", ""},
+                    {"方向填了「支出/收入」", "", "必须用枚举值 EXPENSE / INCOME（可点击单元格用下拉选择）"},
+                    {"关键词全空", "", "摘要关键词与对方单位关键词至少填一个，否则该行无法命中任何流水"},
+                    {"科目编码不存在", "", "编码需为金蝶账套中真实存在的科目；导入确认页会按科目编码回显科目名称供核对"},
+            };
+            org.apache.poi.ss.usermodel.Font guideHeaderFont = workbook.createFont();
+            guideHeaderFont.setBold(true);
+            org.apache.poi.ss.usermodel.CellStyle guideHeaderStyle = workbook.createCellStyle();
+            guideHeaderStyle.setFont(guideHeaderFont);
+            for (int r = 0; r < guideRows.length; r++) {
+                org.apache.poi.ss.usermodel.Row row = guide.createRow(r);
+                for (int c = 0; c < guideRows[r].length; c++) {
+                    org.apache.poi.ss.usermodel.Cell cell = row.createCell(c);
+                    cell.setCellValue(guideRows[r][c]);
+                    if (r == 0) {
+                        cell.setCellStyle(guideHeaderStyle);
+                    }
+                }
+            }
+            guide.setColumnWidth(0, 24 * 256);
+            guide.setColumnWidth(1, 10 * 256);
+            guide.setColumnWidth(2, 90 * 256);
+
             try (var out = new java.io.ByteArrayOutputStream()) {
                 workbook.write(out);
                 return out.toByteArray();

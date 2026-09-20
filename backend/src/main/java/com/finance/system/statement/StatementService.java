@@ -402,6 +402,33 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
         return summarize(rows);
     }
 
+    /**
+     * W8（2026-09-20）：重新打开已驳回的流水（REJECTED → PENDING），使其可重新制证。
+     * 原语义「驳回=终态」是为了防篡改；本端点提供**显式、留痕**的重开动作（仅凭证推送权限者，
+     * 端点层 @PreAuthorize 控制），审计 REOPEN 完整记录操作人。上次的驳回意见保留，
+     * 便于重开后的复核人看到驳回原因。重开后可直接走既有制证链路（草稿/一键制证）。
+     */
+    @Transactional
+    public StatementResponse reopen(Long id, Long operatorId) {
+        CompanyView view = viewFor(operatorId);
+        StatementRecord existing = require(id, view);
+        if (!REVIEW_REJECTED.equals(existing.getReviewStatus())) {
+            throw new BusinessException(409, "仅已驳回的流水可重新打开（当前 " + existing.getReviewStatus() + "）");
+        }
+        int updated = baseMapper.update(null, new LambdaUpdateWrapper<StatementRecord>()
+                .set(StatementRecord::getReviewStatus, REVIEW_PENDING)
+                .eq(StatementRecord::getId, id)
+                .eq(!view.crossCompany(), StatementRecord::getCompanyId, view.ownCompanyId())
+                .eq(StatementRecord::getReviewStatus, REVIEW_REJECTED));
+        if (updated != 1) {
+            throw new BusinessException(409, "Statement review status has changed");
+        }
+        StatementRecord result = require(id, view);
+        audit(result, "REOPEN", "SUCCESS", REVIEW_REJECTED, result.getReviewStatus(), operatorId,
+                "已驳回流水重新打开，可重新制证");
+        return toResponse(result);
+    }
+
     private StatementBatchOpRowResult failureRow(Long id, CompanyView view, String outcome, String message) {
         String statementNo = null;
         try {

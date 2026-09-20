@@ -6,6 +6,17 @@ import type { VoucherGroupFilter, VoucherRuleLine } from './types';
  */
 
 /** 凭证中心状态签（与后端 VoucherGroupService bucket 对齐）。 */
+export function voucherStatusTag(row: { pushStatus: string | null; reviewStatus: string; voucherNo: string | null }):
+  { color: string; text: string } {
+  // W8：补 GL_FAILED（规则引擎推送失败）——此前落进「待推送」，失败行被当成可推送的新行，
+  // 用户看不出它推送过且失败了（pushMessage 只在 tooltip 里）。
+  if (row.pushStatus === 'PUSHED' || row.pushStatus === 'GL_PUSHED') return { color: 'green', text: '已推送' };
+  if (row.pushStatus === 'FAILED' || row.pushStatus === 'GL_FAILED') return { color: 'red', text: '推送失败' };
+  if (row.reviewStatus === 'APPROVED') return { color: 'orange', text: '待推送' };
+  if (row.reviewStatus === 'PENDING') return { color: 'blue', text: '待复核' };
+  if (row.reviewStatus === 'REJECTED') return { color: 'red', text: '已驳回' };
+  return { color: 'default', text: row.reviewStatus || '--' };
+}
 export const VOUCHER_GROUP_FILTERS: Array<{ key: VoucherGroupFilter; label: string }> = [
   { key: 'ALL', label: '全部' },
   { key: 'DRAFT', label: '待复核' },
@@ -13,16 +24,6 @@ export const VOUCHER_GROUP_FILTERS: Array<{ key: VoucherGroupFilter; label: stri
   { key: 'PUSHED', label: '已推送' },
   { key: 'FAILED', label: '推送失败' },
 ];
-
-export function voucherStatusTag(row: { pushStatus: string | null; reviewStatus: string; voucherNo: string | null }):
-  { color: string; text: string } {
-  if (row.pushStatus === 'PUSHED') return { color: 'green', text: '已推送' };
-  if (row.pushStatus === 'FAILED') return { color: 'red', text: '推送失败' };
-  if (row.reviewStatus === 'APPROVED') return { color: 'orange', text: '待推送' };
-  if (row.reviewStatus === 'PENDING') return { color: 'blue', text: '待复核' };
-  if (row.reviewStatus === 'REJECTED') return { color: 'red', text: '已驳回' };
-  return { color: 'default', text: row.reviewStatus || '--' };
-}
 
 /** 大写金额（人民币），支持到分；零与空值显式处理。例：286400 → 贰拾捌万陆仟肆佰元整 */
 export function toChineseAmount(value: number | string | null | undefined): string {

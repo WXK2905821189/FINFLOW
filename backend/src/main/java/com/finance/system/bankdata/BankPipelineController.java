@@ -36,6 +36,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import com.finance.system.common.exception.BusinessException;
 
 @RestController
 @RequestMapping("/api")
@@ -126,6 +127,8 @@ public class BankPipelineController {
             @RequestParam(required = false) String syncJobNo,
             @RequestParam(required = false) String requestId,
             @RequestParam(required = false) Long companyId,
+            // W8（2026-09-20）顶栏多选主体：companyIds=1,2,3（逗号分隔）；与 companyId 同给时以 companyIds 为准。
+            @RequestParam(required = false) List<Long> companyIds,
             // WP-C（2026-09-17）Excel 式逐列筛选：账号后缀/借贷/收付方/流水号/金额区间/币种。
             @RequestParam(required = false) String accountNoSuffix,
             @RequestParam(required = false) String loanCode,
@@ -142,7 +145,8 @@ public class BankPipelineController {
         BankDataExtraFilter extra = new BankDataExtraFilter(accountNoSuffix, loanCode, counterparty,
                 statementNo, minAmount, maxAmount, currency).normalize();
         return ApiResponse.success(queryService.queryProjection(principal.getId(), resource, page, size, status,
-                accountIds, keyword, from, to, sourceSystem, syncJobNo, requestId, companyId, extra));
+                accountIds, keyword, from, to, sourceSystem, syncJobNo, requestId, companyId,
+                normalizeCompanyIds(companyIds), extra));
     }
 
     /**
@@ -163,6 +167,8 @@ public class BankPipelineController {
             @RequestParam(required = false) String syncJobNo,
             @RequestParam(required = false) String requestId,
             @RequestParam(required = false) Long companyId,
+            // W8：导出与屏幕查询同一主体口径（多选支持）。
+            @RequestParam(required = false) List<Long> companyIds,
             // WP-C：导出与屏幕查询同一筛选口径（账号后缀/借贷/收付方/流水号/金额区间/币种）。
             @RequestParam(required = false) String accountNoSuffix,
             @RequestParam(required = false) String loanCode,
@@ -178,8 +184,18 @@ public class BankPipelineController {
         }
         BankDataExtraFilter extra = new BankDataExtraFilter(accountNoSuffix, loanCode, counterparty,
                 statementNo, minAmount, maxAmount, currency).normalize();
+        // W8：CSV 布局镜像银行单文件（无公司列），多主体混导会破坏与银行文件逐列对账的锚点——
+        // 故导出保持单主体语义：多主体请求显式 400，请按主体分别导出（前端同步置灰）。
+        List<Long> wantedCompanies = normalizeCompanyIds(companyIds);
+        Long exportCompanyId = companyId;
+        if (wantedCompanies != null && wantedCompanies.size() > 1) {
+            throw new BusinessException(400, "多主体导出请按主体分别导出（CSV 与银行单文件逐列对账）");
+        }
+        if (wantedCompanies != null && wantedCompanies.size() == 1) {
+            exportCompanyId = wantedCompanies.get(0);
+        }
         BankDataExportService.BankDataExport export = exportService.export(principal.getId(), resource, status,
-                accountIds, keyword, from, to, syncJobNo, requestId, companyId, extra);
+                accountIds, keyword, from, to, syncJobNo, requestId, exportCompanyId, extra);
         // RFC 6266 / RFC 5987: the ASCII fallback keeps old clients working, filename* carries
         // the Chinese name Excel actually shows.
         String encoded = URLEncoder.encode(export.filename(), StandardCharsets.UTF_8).replace("+", "%20");
@@ -226,5 +242,11 @@ public class BankPipelineController {
                 "reconciliations", "bankdata:reconciliation:view",
                 "payroll", "bankdata:payroll:view"
         ).getOrDefault(resource == null ? "" : resource.trim().toLowerCase(Locale.ROOT), "bankdata:invalid");
+    }
+
+    /** W8：companyIds 空列表归 null（走「全部可见主体」语义），避免与不传区分不开。 */
+    private static List<Long> normalizeCompanyIds(List<Long> companyIds) {
+        return companyIds == null || companyIds.isEmpty() ? null
+                : companyIds.stream().filter(java.util.Objects::nonNull).filter(id -> id > 0).distinct().toList();
     }
 }

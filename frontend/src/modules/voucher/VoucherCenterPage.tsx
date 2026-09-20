@@ -37,6 +37,8 @@ export function VoucherCenterPage() {
   const [rejectRow, setRejectRow] = useState<VoucherGroupRow>();
   const [rejectComment, setRejectComment] = useState('');
   const [busyRowId, setBusyRowId] = useState<number>();
+  // W8：批量重推——勾选可推送行（已复核且未推送成功，含推送失败行）一次提交。
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
   const loader = useCallback(() => voucherGroupApi.list({ page, size: 20, status: filter, keyword: keyword || undefined }),
     [page, filter, keyword]);
@@ -67,12 +69,26 @@ export function VoucherCenterPage() {
   };
 
   const push = (row: VoucherGroupRow) => {
+    const failed = row.pushStatus === 'FAILED' || row.pushStatus === 'GL_FAILED';
     Modal.confirm({
-      title: `确认推送金蝶（${row.statementNo}）`,
-      content: '只推送「已复核通过」的行；推送幂等，此前已推送的行不会重复推送。',
-      okText: '确认推送',
+      title: `确认${failed ? '重试推送' : '推送'}金蝶（${row.statementNo}）`,
+      content: failed
+        ? '该凭证此前推送失败，重试将重新提交金蝶（幂等，已推送的行不会重复）。失败原因见状态列提示。'
+        : '只推送「已复核通过」的行；推送幂等，此前已推送的行不会重复推送。',
+      okText: failed ? '确认重试' : '确认推送',
       cancelText: '取消',
-      onOk: () => withBusy(row, () => statementApi.batchPush({ ids: [row.statementId] }), '已提交推送'),
+      onOk: () => withBusy(row, () => statementApi.batchPush({ ids: [row.statementId] }), failed ? '已重新提交推送' : '已提交推送'),
+    });
+  };
+
+  /** W8：重新打开已驳回的流水（REJECTED→PENDING），之后可重新制证。 */
+  const reopen = (row: VoucherGroupRow) => {
+    Modal.confirm({
+      title: `重新打开已驳回流水（${row.statementNo}）`,
+      content: '驳回状态将复位为「待复核」，可重新生成凭证草稿（一键 AI 制证 / 人工存草稿）。上次驳回意见保留可追溯；该操作写入审计。',
+      okText: '确认重新打开',
+      cancelText: '取消',
+      onOk: () => withBusy(row, () => statementApi.reopen(row.statementId), '流水已重新打开，可重新制证'),
     });
   };
 
@@ -105,8 +121,12 @@ export function VoucherCenterPage() {
         {canReview && row.reviewStatus === 'PENDING' && (
           <Button type="link" size="small" disabled={busyRowId != null} onClick={() => { setRejectComment(''); setRejectRow(row); }}>驳回</Button>
         )}
-        {canPush && row.reviewStatus === 'APPROVED' && row.pushStatus !== 'PUSHED' && (
-          <Button type="link" size="small" disabled={busyRowId != null} onClick={() => push(row)}>推送</Button>
+        {canPush && row.reviewStatus === 'APPROVED' && row.pushStatus !== 'PUSHED' && row.pushStatus !== 'GL_PUSHED' && (
+          <Button type="link" size="small" disabled={busyRowId != null}
+            onClick={() => push(row)}>{row.pushStatus === 'FAILED' || row.pushStatus === 'GL_FAILED' ? '重试推送' : '推送'}</Button>
+        )}
+        {canPush && row.reviewStatus === 'REJECTED' && (
+          <Button type="link" size="small" disabled={busyRowId != null} onClick={() => reopen(row)}>重新打开</Button>
         )}
         <Button type="link" size="small" onClick={() => setTrace(row)}>追溯</Button>
       </Space>,
@@ -124,7 +144,28 @@ export function VoucherCenterPage() {
         </p>
       </div>
       <Space wrap>
-        <Button icon={<ReloadOutlined />} onClick={() => void reload()}>刷新</Button>
+        <Button icon={<ReloadOutlined />} onClick={() => { setSelectedIds([]); void reload(); }}>刷新</Button>
+        {canPush && selectedIds.length > 0 && (
+          <Button type="primary" onClick={() => {
+            const ids = [...selectedIds];
+            Modal.confirm({
+              title: `批量推送 ${ids.length} 行到金蝶`,
+              content: '推送幂等：已推送的行自动跳过，失败的行保留原因可再次重试。',
+              okText: '确认批量推送',
+              cancelText: '取消',
+              onOk: async () => {
+                try {
+                  const result = await statementApi.batchPush({ ids });
+                  message.success(`批量推送完成：成功 ${result.successCount} / 跳过 ${result.skippedCount} / 失败 ${result.failedCount}`);
+                  setSelectedIds([]);
+                  await reload();
+                } catch (reason) {
+                  message.error(reason instanceof Error ? reason.message : '批量推送未能完成');
+                }
+              },
+            });
+          }}>批量推送（{selectedIds.length}）</Button>
+        )}
       </Space>
     </div>
     <Space wrap style={{ marginBottom: 12 }} size={12}>
@@ -152,6 +193,14 @@ export function VoucherCenterPage() {
           pagination={false}
           locale={{ emptyText: <Empty description="暂无对应状态的凭证记录" /> }}
           scroll={{ x: 1480 }}
+          rowSelection={canPush ? {
+            selectedRowKeys: selectedIds,
+            onChange: (keys) => setSelectedIds(keys.map(Number)),
+            getCheckboxProps: (row: VoucherGroupRow) => ({
+              // 仅「已复核且未推送成功」的行可批量推送（待推送 + 推送失败）。
+              disabled: !(row.reviewStatus === 'APPROVED' && row.pushStatus !== 'PUSHED' && row.pushStatus !== 'GL_PUSHED'),
+            }),
+          } : undefined}
         />
         {data && data.total > data.size && (
           <Pagination className="table-pagination" current={data.page} pageSize={data.size} total={data.total} showSizeChanger={false} onChange={setPage} />

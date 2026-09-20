@@ -75,8 +75,21 @@ const accountCell = (masked?: string, bankNo?: string) => {
    余额查询
    ================================================================== */
 
-export const balanceGridColumns = ({ canCrossCompany }: { canCrossCompany: boolean }): GridColumn[] => {
-  const cols: GridColumn[] = [
+/**
+ * W8（2026-09-20）：余额行派生字段——「银行」「账号」列的 k（bankName/account）与真实行
+ * 字段（bankCode/accountMasked）错位，内核筛选/排序/值勾选都读 row[col.k]，读到 undefined
+ * 导致银行列筛选候选全是「(空)」（用户报障：银行字段读取不了，无法筛选）。
+ * 灌数据前补派生字段（不改列 k，避免破坏已保存的列偏好）。
+ */
+export function decorateBalanceRows(rows: BankDataBalanceRow[]): (BankDataBalanceRow & { bankName: string; account: string })[] {
+  return rows.map((row) => ({
+    ...row,
+    bankName: row.bankCode ? (BANK_NAME_TEXT[row.bankCode] || row.bankCode) : '',
+    account: String(row.accountMasked || row.bankAccountNo || ''),
+  }));
+}
+
+export const balanceGridColumns = ({ canCrossCompany }: { canCrossCompany: boolean }): GridColumn[] => {  const cols: GridColumn[] = [
     {
       k: 'bankName', t: '银行', w: 110, on: true, def: '默认', type: 'text', filter: 'value',
       cell: balance((r) => esc(displayValue(bankName(r.bankCode)))),
@@ -105,13 +118,16 @@ export const balanceGridColumns = ({ canCrossCompany }: { canCrossCompany: boole
       text: balance((r) => currencyText(r.vendorCurrencyCode, r.currency)),
     },
     {
+      // W8：余额旁「复制」小标签——复制纯数值（不带千分位），方便粘到对账单/Excel。
       k: 'availableBalance', t: '可用余额', w: 170, on: true, def: '默认', align: 'num', type: 'money', filter: 'num',
-      cell: balance((r) => money(r.availableBalance)),
+      cell: balance((r) => money(r.availableBalance)
+        + (isNum(r.availableBalance) ? copyChip(String(r.availableBalance), '复制余额数值') : '')),
       cf: balance((r) => moneyCf(r.availableBalance)),
     },
     {
       k: 'onlineBalance', t: '联机余额', w: 150, on: false, align: 'num', type: 'money', filter: 'num',
-      cell: balance((r) => money(r.onlineBalance)),
+      cell: balance((r) => money(r.onlineBalance)
+        + (isNum(r.onlineBalance) ? copyChip(String(r.onlineBalance), '复制余额数值') : '')),
       cf: balance((r) => moneyCf(r.onlineBalance)),
     },
     {
@@ -165,14 +181,16 @@ export type StatementGridRow = BankDataStatementRow & { debitAmount: number; cre
  * 借贷双轨列（借方发生额 / 贷方发生额）需要行上真的有这两个字段：内核排序、区间筛选、
  * 值勾选、TSV 复制都直接读 row[col.k]，所以必须在**灌数据前**把派生字段写进行对象。
  * 0 表示「这一侧没有发生额」，靠列的 emptyZero 归入空值口径（排序恒沉底、区间筛不命中）。
+ * W8：补灌 accountLabel（本方账户列 k 与真实字段错位，同余额页 bankName/account）。
  */
-export function decorateStatementRows<T extends BankDataStatementRow>(rows: T[]): (T & { debitAmount: number; creditAmount: number })[] {
+export function decorateStatementRows<T extends BankDataStatementRow>(rows: T[]): (T & { debitAmount: number; creditAmount: number; accountLabel: string })[] {
   return rows.map((row) => {
     const magnitude = isNum(row.amount) ? Number(row.amount) : Math.abs(Number(row.signedAmount) || 0);
     return {
       ...row,
       debitAmount: row.loanCode === 'D' ? magnitude : 0,
       creditAmount: row.loanCode === 'C' ? magnitude : 0,
+      accountLabel: String(row.accountMasked || row.bankAccountNo || ''),
     };
   });
 }

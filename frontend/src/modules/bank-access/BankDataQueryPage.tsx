@@ -7,9 +7,9 @@ import { bankPipelineApi, bankApi } from '../../services/api';
 import { useAuthStore } from '../../store/auth';
 import { useSubjectScope } from '../../store/scope';
 import { useRemote, ResourceFailure, StatusTag } from '../shared/components';
-import { dateTime, displayValue, isUnavailableStatus, isFailedStatus } from '../shared/format';
+import { dateTime, displayValue, isUnavailableStatus, isFailedStatus, money } from '../shared/format';
 import { BankProjectionState, StatementDetail, BalanceDetail, type BankQueryRow } from './BankDataQueryColumns';
-import { balanceGridColumns, statementGridColumns, decorateStatementRows } from './BankQueryGridColumns';
+import { balanceGridColumns, statementGridColumns, decorateStatementRows, decorateBalanceRows } from './BankQueryGridColumns';
 import { ExcelGrid } from './grid/ExcelGrid';
 import { rawCell, num2, type GridColumn, type GridFilter, type GridInstance, type GridRow, type GridTotals } from './grid/kernel';
 import { useGridPreference } from './grid/useGridPreference';
@@ -59,8 +59,9 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
   // 跨公司查看（V24）：仅持有 bankdata:cross-company:view 权限的用户可用顶栏主体切换器。
   const canCrossCompany = hasPermission('bankdata:cross-company:view');
   // V36 D3：主体范围来自顶栏全局切换器（全站生效），不再是页内筛选字段。
-  const scopeCompanyId = useSubjectScope((state) => state.companyId);
-  const setScopeCompany = useSubjectScope((state) => state.setCompany);
+  // W8（2026-09-20）多选化：companyIds 数组（空数组=全部主体）。
+  const scopeCompanyIds = useSubjectScope((state) => state.companyIds);
+  const setScopeCompanies = useSubjectScope((state) => state.setCompanyIds);
   const [page, setPage] = useState(1);
   const [size, setSize] = useState(20);
   const [syncTriggering, setSyncTriggering] = useState(false);
@@ -129,27 +130,31 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
   }, [accounts, companyNameById, companyName]);
   const treeSelectedKeys = useMemo(() => [
     ...filters.accountIds.map((id) => `account:${id}`),
-    ...(canCrossCompany && scopeCompanyId ? [`company:${scopeCompanyId}`] : []),
-  ], [filters.accountIds, canCrossCompany, scopeCompanyId]);
+    ...(canCrossCompany ? scopeCompanyIds.map((id) => `company:${id}`) : []),
+  ], [filters.accountIds, canCrossCompany, scopeCompanyIds]);
   const applyFilter = (patch: Partial<BankQueryFilters>) => {
     setPage(1);
     setFilters((current) => ({ ...current, ...patch }));
   };
+  // W8 多选树：公司节点可多选（联动顶栏 chips，双向同步）；账户节点维持单选语义
+  // （手动同步/详情都按单账户设计），点不同账户 = 切换，点已选账户 = 取消。
   const onTreeSelect = (keys: readonly Key[]) => {
-    const active = keys[keys.length - 1];
-    if (typeof active !== 'string') {
+    const companyKeys = keys.filter((k): k is string => typeof k === 'string' && k.startsWith('company:'))
+      .map((k) => k.slice('company:'.length))
+      .filter((id) => id !== 'unassigned');
+    const accountKeys = keys.filter((k): k is string => typeof k === 'string' && k.startsWith('account:'))
+      .map((k) => k.slice('account:'.length));
+    if (companyKeys.length) {
+      // 未归属节点与「全部主体」同效果，不进 companyIds；其余按本次勾选集合整体生效。
+      setScopeCompanies(canCrossCompany ? companyKeys : []);
       applyFilter({ accountIds: [] });
       return;
     }
-    if (active.startsWith('account:')) {
-      applyFilter({ accountIds: [active.slice('account:'.length)] });
-    } else if (active.startsWith('company:')) {
-      const company = active.slice('company:'.length);
-      // 未归属账户没有主体可指（与「全部主体」同一效果）；再次点击同一主体 = 恢复全部。
-      const next = company === 'unassigned' || company === scopeCompanyId ? null : company;
-      setScopeCompany(next);
-      applyFilter({ accountIds: [] });
+    if (accountKeys.length) {
+      applyFilter({ accountIds: [accountKeys[accountKeys.length - 1]] });
+      return;
     }
+    applyFilter({ accountIds: [] });
   };
 
   /* ==================================================================
@@ -225,10 +230,12 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
       accountIds: filters.accountIds.map(Number).filter((id) => Number.isSafeInteger(id) && id > 0),
       from: filters.from || undefined,
       to: filters.to || undefined,
-      companyId: canCrossCompany && scopeCompanyId ? Number(scopeCompanyId) : undefined,
+      companyIds: canCrossCompany && scopeCompanyIds.length
+        ? scopeCompanyIds.map(Number).filter((id) => Number.isSafeInteger(id) && id > 0)
+        : undefined,
       ...serverFilterParams,
     });
-  }, [resource, page, size, filters, canCrossCompany, scopeCompanyId, serverFilterParams, gridPreferenceReady]);
+  }, [resource, page, size, filters, canCrossCompany, scopeCompanyIds, serverFilterParams, gridPreferenceReady]);
   const { data, loading, error, reload } = useRemote<BankDataProjectionPage<BankQueryRow>>(loader, [loader]);
   // 借贷双轨派生字段必须在灌数据前写进行对象：内核排序 / 区间筛选 / 值勾选 / TSV 复制
   // 都直接读 row[col.k]，派生列没有真实字段就是空的。这里 memo 住，避免每次渲染换新数组
@@ -238,11 +245,16 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
     if (!records) return [];
     return isStatement
       ? decorateStatementRows(records as BankDataStatementRow[])
-      : (records as GridRow[]);
+      : decorateBalanceRows(records as BankDataBalanceRow[]);
   }, [data, isStatement]);
 
-  // 全量口径只拿得到行数：投影接口没有返回金额聚合。宁可只报行数，也绝不拿本页求和冒充全量合计。
-  const gridTotalAgg = useMemo<GridTotals | undefined>(() => (data ? { count: data.total } : undefined), [data]);
+  // W8：服务端已返回全量金额合计（totals，与本次查询同 WHERE 聚合），填进内核工具栏；
+  // totals 缺失（空页/未连接）时退回只报行数——绝不拿本页求和冒充全量合计。
+  const gridTotalAgg = useMemo<GridTotals | undefined>(() => {
+    if (!data) return undefined;
+    const sum = data.totals?.[isStatement ? 'signedAmount' : 'availableBalance'];
+    return { count: data.total, sum: typeof sum === 'number' ? sum : undefined };
+  }, [data, isStatement]);
   const gridGroupBy = isStatement ? 'accountMasked' : 'companyName';
   const gridGroupMeta = useMemo(() => {
     if (isStatement) {
@@ -301,14 +313,17 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
   };
   // 导出 = 当前查询条件的全量结果（口径④）：关键字 / 账户 / 时间 / 主体范围 / 服务端列筛选
   // 全部随请求下发，翻页与导出永远同口径。
+  // W8：CSV 布局镜像银行单文件（无公司列），多主体混导会破坏与银行文件逐列对账——
+  // 单选主体时随请求下发该主体；多选时导出按钮置灰提示按主体分别导出（后端同样 400 兜底）。
   const exportQuery = useMemo(() => ({
     keyword: filters.keyword || undefined,
     accountIds: filters.accountIds.map(Number).filter((id) => Number.isSafeInteger(id) && id > 0),
     from: filters.from || undefined,
     to: filters.to || undefined,
-    companyId: canCrossCompany && scopeCompanyId ? Number(scopeCompanyId) : undefined,
+    companyId: canCrossCompany && scopeCompanyIds.length === 1 ? Number(scopeCompanyIds[0]) : undefined,
     ...serverFilterParams,
-  }), [filters, canCrossCompany, scopeCompanyId, serverFilterParams]);
+  }), [filters, canCrossCompany, scopeCompanyIds, serverFilterParams]);
+  const multiCompanyExportBlocked = canCrossCompany && scopeCompanyIds.length > 1;
   const exportCsv = async () => {
     setExporting(true);
     try {
@@ -320,10 +335,15 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
       setExporting(false);
     }
   };
-  /** 导出按钮的统一入口：直连未启用时导出必然 503，先在按钮层给明确原因，别让用户白等一次失败。 */
+  /** 导出按钮的统一入口：直连未启用时导出必然 503，先在按钮层给明确原因，别让用户白等一次失败。
+   *  W8：多选主体时提示按主体分别导出（CSV 无公司列，混导无法与银行单文件对账）。 */
   const exportAll = () => {
     if (directLinkOff) {
       message.warning('真实银行直联未连接，服务端暂无可导出的数据');
+      return;
+    }
+    if (multiCompanyExportBlocked) {
+      message.warning('当前勾选了多个主体：CSV 与银行单文件逐列对账，请通过顶栏切换器选择单个主体后分别导出');
       return;
     }
     void exportCsv();
@@ -470,22 +490,39 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
               <div style={{ width: 260, flexShrink: 0, borderRight: '1px solid #f0f0f0', paddingRight: 12, overflow: 'auto', maxHeight: 680 }}>
                 <div className="muted" style={{ marginBottom: 8 }}>
                   公司主体 / 账户
-                  {canCrossCompany && <span className="table-sub">（范围：{scopeCompanyId ? (companyNameById.get(Number(scopeCompanyId)) || `主体 #${scopeCompanyId}`) : '全部主体'}）</span>}
+                  {canCrossCompany && (
+                    <span className="table-sub">（范围：{scopeCompanyIds.length === 0
+                      ? '全部主体'
+                      : scopeCompanyIds.length === 1
+                        ? (companyNameById.get(Number(scopeCompanyIds[0])) || `主体 #${scopeCompanyIds[0]}`)
+                        : `${scopeCompanyIds.length} 个主体`}）</span>
+                  )}
                 </div>
                 {subjectTreeData.length ? (
                   <Tree
                     blockNode
+                    multiple
                     defaultExpandAll
                     selectedKeys={treeSelectedKeys}
                     onSelect={onTreeSelect}
                     treeData={subjectTreeData}
                   />
                 ) : <Spin size="small" />}
-                <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>点选主体＝设置全站主体范围（顶栏同步生效）；点选账户＝本页账户筛选。再次点击取消。</p>
+                <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>点选主体＝加入/移出全站主体范围（可多选，顶栏同步生效）；点选账户＝本页账户筛选。再次点击取消。</p>
               </div>
             )}
             <div style={{ flex: 1, minWidth: 0 }}>
               <BankProjectionState data={data} />
+              {/* W8：服务端全量金额合计（与本次查询同 WHERE 聚合，随筛选/时间窗实时变化）。
+                  取代原状态栏「本页可见小计」——财务要的是全部命中数据的合计，不是当前页的。 */}
+              {data?.totals && (
+                <div className="totals-bar" data-totals="server">
+                  {isStatement
+                    ? <>借方合计 <b className="mono">{money(data.totals.debitAmount ?? undefined)}</b> · 贷方合计 <b className="mono">{money(data.totals.creditAmount ?? undefined)}</b> · 净额（贷−借） <b className="mono">{money(data.totals.signedAmount ?? undefined)}</b></>
+                    : <>可用余额合计 <b className="mono">{money(data.totals.availableBalance ?? undefined)}</b> · 联机余额合计 <b className="mono">{money(data.totals.onlineBalance ?? undefined)}</b> · 冻结合计 <b className="mono">{money(data.totals.frozenBalance ?? undefined)}</b></>}
+                  <span className="table-sub">（服务端全量合计，随筛选与时间窗实时变化）</span>
+                </div>
+              )}
               {data?.requestId && <div className="query-request-id">请求编号：<span className="mono">{data.requestId}</span><Link to={`/operations/logs?requestId=${encodeURIComponent(data.requestId)}`}>查看脱敏审计追溯</Link></div>}
               <ExcelGrid
                 id={resource}
@@ -499,8 +536,6 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
                 showGroupSwitch={isStatement || canCrossCompany}
                 groupSwitchLabel={isStatement ? '按本方账户分组' : '按主体分组'}
                 groupMeta={gridGroupMeta}
-                sumKey={isStatement ? 'signedAmount' : 'availableBalance'}
-                sumLabel={isStatement ? '本页金额净额（贷−借）' : '本页可见小计'}
                 totalAgg={gridTotalAgg}
                 selectable={canAiVoucher}
                 isRowSelectable={isStatement

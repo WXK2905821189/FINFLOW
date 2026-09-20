@@ -131,7 +131,8 @@ public class BankDataQueryService {
                 sourceSystem, syncJobNo, requestId, companyIdFilter, BankDataExtraFilter.none());
     }
 
-    /** WP-C（2026-09-17）：Excel 式逐列筛选走 {@link BankDataExtraFilter}，导出与查询同口径。 */
+    /** WP-C（2026-09-17）：Excel 式逐列筛选走 {@link BankDataExtraFilter}，导出与查询同口径。
+     *  W8：companyIdsFilter（多主体，逗号拆分后传入）优先于单值 companyIdFilter。 */
     public BankDataProjectionPageResponse<?> queryProjection(Long userId, String resource,
                                                              int page, int size, String status,
                                                              List<Long> bankAccountIds, String keyword,
@@ -139,13 +140,25 @@ public class BankDataQueryService {
                                                              String sourceSystem, String syncJobNo,
                                                              String requestId, Long companyIdFilter,
                                                              BankDataExtraFilter extraFilter) {
+        return queryProjection(userId, resource, page, size, status, bankAccountIds, keyword, from, to,
+                sourceSystem, syncJobNo, requestId, companyIdFilter, null, extraFilter);
+    }
+
+    public BankDataProjectionPageResponse<?> queryProjection(Long userId, String resource,
+                                                             int page, int size, String status,
+                                                             List<Long> bankAccountIds, String keyword,
+                                                             LocalDateTime from, LocalDateTime to,
+                                                             String sourceSystem, String syncJobNo,
+                                                             String requestId, Long companyIdFilter,
+                                                             List<Long> companyIdsFilter,
+                                                             BankDataExtraFilter extraFilter) {
         BankDataExtraFilter extra = extraFilter == null ? BankDataExtraFilter.none() : extraFilter;
         String normalized = resource == null ? "" : resource.trim().toLowerCase(Locale.ROOT);
         if (!List.of("balances", "statements").contains(normalized)) {
             throw new BusinessException(404,
                     "银行侧未开通该功能；当前仅支持 balances(余额查询) / statements(流水查询)");
         }
-        List<Long> companyIds = projectionScope(userId, companyIdFilter);
+        List<Long> companyIds = projectionScope(userId, companyIdFilter, companyIdsFilter);
         String normalizedSource = sourceSystem == null || sourceSystem.isBlank()
                 ? null : sourceSystem.trim().toUpperCase(Locale.ROOT);
         if (normalizedSource != null && !"BANKDATA".equals(normalizedSource)) {
@@ -166,6 +179,7 @@ public class BankDataQueryService {
         if ("balances".equals(normalized)) {
             PageResponse<BankDataBalanceResponse> balances = listBalances(companyIds, page, size, bankAccountIds,
                     status, from, to, taskIds, extra);
+            Map<String, BigDecimal> totals = balanceTotals(companyIds, bankAccountIds, status, from, to, taskIds, extra);
             Map<Long, BankDataSyncTask> tasksById = taskScope.tasksById(companyIds,
                     balances.records().stream().map(BankDataBalanceResponse::taskId).toList());
             // 公司主体列锚定<b>账户当前归属</b>（bank_account.company_id，单一事实源）：
@@ -183,7 +197,7 @@ public class BankDataQueryService {
                     .toList();
             return projectionPage(balances.page(), balances.size(), balances.total(), records,
                     companyIds.get(0), "BANKDATA", balances.records().stream().map(BankDataBalanceResponse::createdAt)
-                            .max(LocalDateTime::compareTo).orElse(null));
+                            .max(LocalDateTime::compareTo).orElse(null), totals);
         }
         LambdaQueryWrapper<BankDataStatement> query = new LambdaQueryWrapper<BankDataStatement>()
                 .in(BankDataStatement::getCompanyId, companyIds)
@@ -245,7 +259,8 @@ public class BankDataQueryService {
                 .toList();
         return projectionPage(result.getCurrent(), result.getSize(), result.getTotal(), records,
                 companyIds.get(0), "BANKDATA", result.getRecords().stream().map(BankDataStatement::getCreatedAt)
-                        .filter(java.util.Objects::nonNull).max(LocalDateTime::compareTo).orElse(null));
+                        .filter(java.util.Objects::nonNull).max(LocalDateTime::compareTo).orElse(null),
+                statementTotals(companyIds, bankAccountIds, status, from, to, taskIds, keyword, extra));
     }
 
 
@@ -306,6 +321,86 @@ public class BankDataQueryService {
         return "CNY".equals(code) ? List.of("CNY", "10", "01") : List.of(code);
     }
 
+    /* ==================== W8 服务端全量金额合计 ====================
+       两个聚合方法的 WHERE 条件必须与上方分页查询逐条同参同义——
+       改任何一侧的过滤条件时另一侧必须同步，否则「合计 ≠ 明细口径」。 */
+
+    /** 余额页全量合计（available/online/frozen），键与 {@link BankDataBalanceResponse} 字段同名。 */
+    private Map<String, BigDecimal> balanceTotals(Collection<Long> companyIds, List<Long> bankAccountIds,
+                                                  String validationStatus, LocalDateTime from, LocalDateTime to,
+                                                  List<Long> taskIds, BankDataExtraFilter extra) {
+        BankDataExtraFilter f = extra == null ? BankDataExtraFilter.none() : extra;
+        QueryWrapper<BankDataBalance> agg = new QueryWrapper<BankDataBalance>()
+                .select("IFNULL(SUM(available_balance),0) AS a0",
+                        "IFNULL(SUM(online_balance),0) AS a1",
+                        "IFNULL(SUM(frozen_balance),0) AS a2")
+                .in("company_id", companyIds)
+                .in(bankAccountIds != null && !bankAccountIds.isEmpty(), "bank_account_id", bankAccountIds)
+                .in(taskIds != null && !taskIds.isEmpty(), "task_id", taskIds)
+                .eq(validationStatus != null && !validationStatus.isBlank(), "validation_status",
+                        validationStatus == null ? null : validationStatus.trim().toUpperCase(Locale.ROOT))
+                .ge(from != null, "as_of_time", from)
+                .le(to != null, "as_of_time", to)
+                .likeLeft(f.accountNoSuffix() != null, "bank_account_no", f.accountNoSuffix());
+        if (f.currency() != null) {
+            List<String> codes = currencyCodes(f.currency());
+            agg.and(nested -> nested.in("vendor_currency_code", codes).or().eq("currency", codes.get(0)));
+        }
+        Map<String, Object> row = balanceMapper.selectMaps(agg).stream().findFirst().orElse(Map.of());
+        return Map.of(
+                "availableBalance", toBigDecimal(row.get("a0")),
+                "onlineBalance", toBigDecimal(row.get("a1")),
+                "frozenBalance", toBigDecimal(row.get("a2")));
+    }
+
+    /** 流水页全量合计（借方/贷方/带符号净额），键与前端派生列同名（debitAmount/creditAmount/signedAmount）。 */
+    private Map<String, BigDecimal> statementTotals(Collection<Long> companyIds, List<Long> bankAccountIds,
+                                                    String validationStatus, LocalDateTime from, LocalDateTime to,
+                                                    List<Long> taskIds, String keyword, BankDataExtraFilter extra) {
+        BankDataExtraFilter f = extra == null ? BankDataExtraFilter.none() : extra;
+        QueryWrapper<BankDataStatement> agg = new QueryWrapper<BankDataStatement>()
+                .select("IFNULL(SUM(CASE WHEN loan_code = 'D' THEN amount ELSE 0 END),0) AS d0",
+                        "IFNULL(SUM(CASE WHEN loan_code = 'C' THEN amount ELSE 0 END),0) AS c0",
+                        "IFNULL(SUM(signed_amount),0) AS s0")
+                .in("company_id", companyIds)
+                .in(bankAccountIds != null && !bankAccountIds.isEmpty(), "bank_account_id", bankAccountIds)
+                .in(taskIds != null && !taskIds.isEmpty(), "task_id", taskIds)
+                .eq(validationStatus != null && !validationStatus.isBlank(), "validation_status",
+                        validationStatus == null ? null : validationStatus.trim().toUpperCase(Locale.ROOT))
+                .ge(from != null, "transaction_time", from)
+                .le(to != null, "transaction_time", to)
+                .likeLeft(f.accountNoSuffix() != null, "bank_account_no", f.accountNoSuffix())
+                .eq(f.loanCode() != null, "loan_code", f.loanCode())
+                .like(f.counterparty() != null, "counterparty_name", f.counterparty())
+                .like(f.statementNo() != null, "statement_no", f.statementNo())
+                .ge(f.minAmount() != null, "signed_amount", f.minAmount())
+                .le(f.maxAmount() != null, "signed_amount", f.maxAmount());
+        if (f.currency() != null) {
+            List<String> codes = currencyCodes(f.currency());
+            agg.and(nested -> nested.in("vendor_currency_code", codes).or().eq("currency", codes.get(0)));
+        }
+        if (keyword != null && !keyword.isBlank()) {
+            String kw = keyword.trim();
+            agg.and(nested -> nested.like("statement_no", kw)
+                    .or().like("summary", kw)
+                    .or().like("counterparty_name", kw)
+                    .or().like("business_text", kw)
+                    .or().like("remark_text_clt", kw)
+                    .or().like("yur_ref", kw)
+                    .or().like("bill_number", kw)
+                    .or().like("bank_request_no", kw));
+        }
+        Map<String, Object> row = statementMapper.selectMaps(agg).stream().findFirst().orElse(Map.of());
+        return Map.of(
+                "debitAmount", toBigDecimal(row.get("d0")),
+                "creditAmount", toBigDecimal(row.get("c0")),
+                "signedAmount", toBigDecimal(row.get("s0")));
+    }
+
+    private static BigDecimal toBigDecimal(Object value) {
+        return value == null ? BigDecimal.ZERO : new BigDecimal(String.valueOf(value));
+    }
+
 
     /** 公司主体显示名（按 id 批量）；用于跨公司投影行的归属列。 */
     private Map<Long, String> companyNames(Collection<Long> companyIds) {
@@ -325,22 +420,35 @@ public class BankDataQueryService {
     }
 
     /**
-     * Projection scope resolution (2026-09-07 cross-company):
-     * explicit companyId filter → requires the cross-company permission (403 otherwise);
+     * Projection scope resolution (2026-09-07 cross-company; W8 multi-company):
+     * explicit companyIds filter → each id must exist and the caller must hold the cross-company
+     * permission (403/404 otherwise); explicit single companyId → same rules (backward compat);
      * no filter + permission → every ACTIVE company (group view);
      * no filter + no permission → the user's own company only (unchanged behavior).
      */
-    private List<Long> projectionScope(Long userId, Long companyIdFilter) {
+    private List<Long> projectionScope(Long userId, Long companyIdFilter, List<Long> companyIdsFilter) {
         long own = companyScope.companyIdForUser(userId);
-        if (companyIdFilter != null) {
+        boolean explicit = companyIdFilter != null || (companyIdsFilter != null && !companyIdsFilter.isEmpty());
+        if (explicit) {
             if (!taskScope.hasCrossCompanyPermission(userId)) {
                 throw new BusinessException(403, "跨公司查询需要 " + CROSS_COMPANY_PERMISSION + " 权限");
             }
-            Company company = companyMapper.selectById(companyIdFilter);
-            if (company == null) {
-                throw new BusinessException(404, "公司不存在");
+            // 多值优先；去重 + 过滤非法值。两个参数都给时以 companyIds 为准（Controller 已保证互斥）。
+            List<Long> wanted = companyIdsFilter != null && !companyIdsFilter.isEmpty()
+                    ? companyIdsFilter.stream().filter(java.util.Objects::nonNull).filter(id -> id > 0)
+                            .distinct().toList()
+                    : List.of(companyIdFilter);
+            if (wanted.isEmpty()) {
+                throw new BusinessException(400, "companyIds 参数为空：请提供至少一个主体编号，或不传以查询全部可见主体");
             }
-            return List.of(company.getId());
+            List<Company> found = companyMapper.selectList(new LambdaQueryWrapper<Company>()
+                    .in(Company::getId, wanted));
+            if (found.size() < wanted.size()) {
+                Set<Long> known = found.stream().map(Company::getId).collect(Collectors.toSet());
+                Long missing = wanted.stream().filter(id -> !known.contains(id)).findFirst().orElse(wanted.get(0));
+                throw new BusinessException(404, "公司不存在：" + missing);
+            }
+            return found.stream().map(Company::getId).toList();
         }
         if (taskScope.hasCrossCompanyPermission(userId)) {
             return companyMapper.selectList(new LambdaQueryWrapper<Company>()
@@ -391,7 +499,7 @@ public class BankDataQueryService {
      */
     public PageResponse<BankDataSyncLogResponse> listSyncLogs(Long userId, int page, int size,
                                                               String status, String requestId, String level) {
-        List<Long> companyIds = projectionScope(userId, null);
+        List<Long> companyIds = projectionScope(userId, null, null);
         LambdaQueryWrapper<BankDataSyncLog> query = new LambdaQueryWrapper<BankDataSyncLog>()
                 .in(BankDataSyncLog::getCompanyId, companyIds)
                 .orderByDesc(BankDataSyncLog::getCreatedAt)
@@ -419,11 +527,19 @@ public class BankDataQueryService {
                                                                   List<T> records,
                                                                   long companyId, String sourceSystem,
                                                                   LocalDateTime lastSyncedAt) {
+        return projectionPage(page, size, total, records, companyId, sourceSystem, lastSyncedAt, null);
+    }
+
+    private <T> BankDataProjectionPageResponse<T> projectionPage(long page, long size, long total,
+                                                                  List<T> records,
+                                                                  long companyId, String sourceSystem,
+                                                                  LocalDateTime lastSyncedAt,
+                                                                  Map<String, BigDecimal> totals) {
         String message = records.isEmpty()
                 ? "已连接真实银行直联；当前筛选无数据，请先发起同步或调整条件"
                 : "已连接真实银行直联，以下为银行返回的真实数据";
         return new BankDataProjectionPageResponse<>(page, size, total, records, true, "REAL",
-                message, null, sourceSystem, lastSyncedAt);
+                message, null, sourceSystem, lastSyncedAt, totals);
     }
 
     /** Real bank direct link is connected but nothing matched the criteria (or no sync ran yet). */
