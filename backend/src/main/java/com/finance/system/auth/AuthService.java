@@ -60,10 +60,15 @@ public class AuthService {
                     new UsernamePasswordAuthenticationToken(request.username(), request.password())).getPrincipal();
             SysUser user = userService.getById(principal.getId());
             String token = jwtService.generateToken(principal);
-            authSessionService.create(user.getId(), jwtService.extractTokenId(token), principal.getTokenVersion(),
+            String tokenId = jwtService.extractTokenId(token);
+            authSessionService.create(user.getId(), tokenId, principal.getTokenVersion(),
                     jwtService.extractExpiration(token));
+            // W10：单点登录 —— 新登录踢掉此前活跃会话（必须先落新会话再踢，避免空窗）。
+            // 被踢端下一次请求即 401（isActive 校验失败），前端提示「账号已在别处登录」。
+            int kicked = authSessionService.revokeOtherActive(user.getId(), tokenId);
             throttleService.recordSuccess(request.username());
-            auditService.record(user.getId(), "LOGIN_SUCCESS", "AUTH", user.getUsername(), null, "SUCCESS", "ip=" + clientIp);
+            auditService.record(user.getId(), "LOGIN_SUCCESS", "AUTH", user.getUsername(), null, "SUCCESS",
+                    "ip=" + clientIp + (kicked > 0 ? "; kickedSessions=" + kicked : ""));
             return new AuthTokenResponse(
                     token,
                     "Bearer",

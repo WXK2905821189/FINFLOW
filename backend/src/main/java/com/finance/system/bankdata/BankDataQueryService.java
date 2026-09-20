@@ -394,7 +394,12 @@ public class BankDataQueryService {
                 .toList();
         if (statementNos.isEmpty()) return Set.of();
         return statementRecordMapper.selectList(new LambdaQueryWrapper<StatementRecord>()
-                        .in(StatementRecord::getStatementNo, statementNos))
+                        .in(StatementRecord::getStatementNo, statementNos)
+                        // W10：已撤回（WITHDRAWN，V39）的凭证不算「已转入」——流水回池、重新可选。
+                        // review_status 可能为 NULL（历史行），必须显式包含 NULL：SQL 三值逻辑下
+                        // `review_status <> 'WITHDRAWN'` 对 NULL 求值为 UNKNOWN，会静默漏掉这些行。
+                        .and(w -> w.isNull(StatementRecord::getReviewStatus)
+                                .or().ne(StatementRecord::getReviewStatus, "WITHDRAWN")))
                 .stream()
                 .map(r -> r.getCompanyId() + ":" + r.getStatementNo())
                 .collect(Collectors.toSet());

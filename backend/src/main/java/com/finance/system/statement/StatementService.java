@@ -62,6 +62,10 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
     private static final String REVIEW_PENDING = "PENDING";
     private static final String REVIEW_APPROVED = "APPROVED";
     private static final String REVIEW_REJECTED = "REJECTED";
+    /** V39（W10）：凭证撤回状态 —— 记录保留（追溯+审计），流水回池可重新制证。 */
+    private static final String REVIEW_WITHDRAWN = "WITHDRAWN";
+    /** 金蝶侧已成功接单的状态：置为此二者后不允许撤回。 */
+    private static final java.util.Set<String> PUSH_COMPLETED = java.util.Set.of("PUSHED", "GL_PUSHED");
     private static final String PUSH_NOT_STARTED = "NOT_PUSHED";
     private static final String PUSH_PROCESSING = "PROCESSING";
     private static final String PUSHED = "PUSHED";
@@ -426,6 +430,42 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
         StatementRecord result = require(id, view);
         audit(result, "REOPEN", "SUCCESS", REVIEW_REJECTED, result.getReviewStatus(), operatorId,
                 "已驳回流水重新打开，可重新制证");
+        return toResponse(result);
+    }
+
+    /**
+     * V39（W10）：凭证撤回 —— 未成功推送金蝶（push_status ∉ {PUSHED, GL_PUSHED}）的凭证可撤回。
+     *
+     * <p>撤回 = review_status 置 {@link #REVIEW_WITHDRAWN}，记录与凭证号保留（追溯），
+     * withdrawn_at / withdrawn_by 记录操作痕迹，审计落 WITHDRAW；银行数据层的「已转入」判定
+     * 排除 WITHDRAWN → 流水立即回池、重新可选，重新制证时同一记录被复活为 PENDING
+     * （statement_record 有 uk_statement_record_company_no 唯一约束，不会产生重复记录）。</p>
+     *
+     * <p>条件更新只用主键 + 公司域：review_status 可能为 null（历史行），用 {@code ne} 会因
+     * SQL 三值逻辑（NULL &lt;&gt; 'WITHDRAWN' 为 UNKNOWN）静默不匹配，因此状态校验放在读后判断。</p>
+     */
+    @Transactional
+    public StatementResponse withdraw(Long id, Long operatorId) {
+        CompanyView view = viewFor(operatorId);
+        StatementRecord existing = require(id, view);
+        if (REVIEW_WITHDRAWN.equals(existing.getReviewStatus())) {
+            throw new BusinessException(409, "该凭证已撤回，无需重复操作");
+        }
+        if (PUSH_COMPLETED.contains(existing.getPushStatus())) {
+            throw new BusinessException(409, "已推送金蝶的凭证不可撤回（请在金蝶侧处理）");
+        }
+        int updated = baseMapper.update(null, new LambdaUpdateWrapper<StatementRecord>()
+                .set(StatementRecord::getReviewStatus, REVIEW_WITHDRAWN)
+                .set(StatementRecord::getWithdrawnAt, LocalDateTime.now())
+                .set(StatementRecord::getWithdrawnBy, operatorId)
+                .eq(StatementRecord::getId, id)
+                .eq(!view.crossCompany(), StatementRecord::getCompanyId, view.ownCompanyId()));
+        if (updated != 1) {
+            throw new BusinessException(409, "凭证状态已变化，请刷新后重试");
+        }
+        StatementRecord result = require(id, view);
+        audit(result, "WITHDRAW", "SUCCESS", existing.getReviewStatus(), REVIEW_WITHDRAWN, operatorId,
+                "撤回凭证（未推送金蝶），流水回池可重新制证");
         return toResponse(result);
     }
 

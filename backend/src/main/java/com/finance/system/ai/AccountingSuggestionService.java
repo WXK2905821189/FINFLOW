@@ -81,8 +81,11 @@ public class AccountingSuggestionService {
         AiEffectiveConfig config = gatewayService.auditedGuard(CAPABILITY, userId);
         StatementRecord statement = requireInCompanyScope(statementId, userId);
         // W9：系统提示词支持超管在页面覆盖（ai_prompt_override），无覆盖回落 SYSTEM_PROMPT。
+        // W10：max_tokens 512 → 2048。原 512 会让「含 entries 分录 + rationale/riskNotes 的中文 JSON」
+        // 被截断（线上 call-logs 实测 completionTokens 多次正好卡 512、responseSummary 为空），
+        // 截断的半截 JSON 解析失败 → 业务层降级为「AI 建议不可用」，是用户反馈 AI 不可用的真因。
         LlmChatRequest request = new LlmChatRequest(CAPABILITY, promptService.resolve(CAPABILITY),
-                buildUserPrompt(statement), 0.2, 512);
+                buildUserPrompt(statement), 0.2, 2048);
         LlmChatResult result = gatewayService.auditedChat(CAPABILITY, userId, config, request);
         JsonNode json = parseSuggestionJson(result.content());
         return new AiAccountingSuggestionResponse(

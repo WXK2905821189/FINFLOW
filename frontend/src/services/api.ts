@@ -317,6 +317,8 @@ export const statementApi = {
     http.post<never, StatementBatchOpResult>('/statements/batch-push', data),
   /** W8：重新打开已驳回的流水（REJECTED→PENDING，可重新制证；审计 REOPEN）。 */
   reopen: (id: number) => http.post<never, StatementRecord>(`/statements/${id}/reopen`),
+  /** W10（V39）：撤回未推送金蝶的凭证（标记已撤回 + 流水回池可重新制证；审计 WITHDRAW）。 */
+  withdraw: (id: number) => http.post<never, StatementRecord>(`/statements/${id}/withdraw`),
   /** 对 PENDING 草稿重新生成 AI 建议（覆盖复核意见，不改状态；ai:use 闸门在服务端）。 */
   refreshAiSuggestion: (id: number) =>
     http.post<never, AiAccountingSuggestion>(`/statements/${id}/ai-suggestion`),

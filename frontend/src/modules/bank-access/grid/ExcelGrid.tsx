@@ -174,6 +174,28 @@ export function ExcelGrid(props: ExcelGridProps) {
     gridRef.current?.setRows(rows);
   }, [rows]);
 
+  // W10：selectable 实时同步 —— 页面传入值派生自权限（canAiVoucher），权限异步就绪后 React 重渲染，
+  // 内核必须重渲染才能补上行首复选框列（旧实现只在挂载时快照一次，导致须 Ctrl+F5 才出现复选框）。
+  const lastSelectableRef = useRef(props.selectable);
+  useEffect(() => {
+    if (lastSelectableRef.current === props.selectable) return;
+    lastSelectableRef.current = props.selectable;
+    gridRef.current?.setSelectable(props.selectable !== false);
+  }, [props.selectable]);
+
+  // W10：空态文案 / 导出按钮文案实时同步 —— 二者原为挂载时快照。若页面在首屏加载期挂载，
+  // emptyText 会被永久锁成「正在加载……」（关键字无匹配等 0 行场景全显示它，用户误解为卡住）；
+  // exportLabel 同理吞掉「导出中…」状态。
+  const lastLabelsRef = useRef({ emptyText: props.emptyText, exportLabel: props.exportLabel });
+  useEffect(() => {
+    const prev = lastLabelsRef.current;
+    const instance = gridRef.current;
+    if (!instance) return;
+    if (prev.emptyText !== props.emptyText) instance.setEmptyText(props.emptyText || '');
+    if (prev.exportLabel !== props.exportLabel) instance.setExportLabel(props.exportLabel || '');
+    lastLabelsRef.current = { emptyText: props.emptyText, exportLabel: props.exportLabel };
+  }, [props.emptyText, props.exportLabel]);
+
   // 点空白处收起浮层。锚点内的点击放行（否则刚点开就被关掉）。
   useEffect(() => {
     const onDocClick = (event: MouseEvent) => {

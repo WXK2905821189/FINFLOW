@@ -176,6 +176,13 @@ export interface GridInstance {
   state: GridState;
   setRows: (rows: GridRow[]) => void;
   setCols: (cols: GridColumn[]) => void;
+  /** W10：行首复选框列的开关（页面权限异步就绪后调用，补齐挂载时缺失的列）。 */
+  setSelectable: (v: boolean) => void;
+  /** W10：空态文案实时更新 —— 原为挂载时快照，首屏加载期挂载会把「正在加载……」永久锁死，
+      导致关键字无匹配等 0 行场景一直显示加载中文案（用户反馈的误解来源）。 */
+  setEmptyText: (text: string) => void;
+  /** W10：导出按钮文案实时更新（「导出中…」状态原先同样被挂载快照吞掉）。 */
+  setExportLabel: (text: string) => void;
   snapshot: () => GridSnapshot;
   applySnapshot: (snapshot: Partial<GridSnapshot>) => void;
   /** 打开快照回调。必须在「已从服务端载入偏好」之后再调用 —— 否则首次挂载会用
@@ -300,7 +307,11 @@ export function createGrid(opts: GridOptions): GridInstance | null {
   };
 
   /* 勾选列：余额页没有制证语义，整列不渲染（否则会多出一个永远用不上的复选框列）。 */
-  const showCheck = opts.selectable !== false;
+  /* W10：selectable 改为实时求值（原为 createGrid 时的布尔快照）。
+     页面传入的 selectable 派生自权限（canAiVoucher），权限异步就绪时 React 会重渲染，
+     但内核不重建 → 快照值永远是 false → 行首复选框列永久缺失，用户须 Ctrl+F5（权限已缓存、
+     首帧即真）才能看见。改为函数后由 setSelectable() 触发重渲染即可补齐该列。 */
+  const hasCheck = () => opts.selectable !== false;
   /* 「恢复默认」的基准：setCols 会随权限变化增删列（如跨公司主体列），必须同步，
      否则恢复默认会把新增列一并抹掉。 */
   let baseCols = opts.cols.map((c) => ({ ...c }));
@@ -369,11 +380,23 @@ export function createGrid(opts: GridOptions): GridInstance | null {
   }
 
   const shown = () => sorted(filtered());
+  /* W10：勾选口径统一 —— 「本页可选行」= 当前展示行中通过 isRowSelectable 的行。
+     禁选行（已转入标准流水 / 纯人工制证账户）不参与全选判定：旧口径用 shown().length 比较，
+     页内存在禁选行时 rowSel.size 永远小于它，导致 ①表头全选框不显示勾选态
+     ②第二次点击无法清空全选（用户反馈「点第二次无法清除」的真因）。 */
+  const selectableShown = () => {
+    const rows = shown();
+    return opts.isRowSelectable ? rows.filter((r) => opts.isRowSelectable!(r)) : rows;
+  };
+  const allSelectableSelected = () => {
+    const idx = selectableShown().map((r) => ri(r));
+    return idx.length > 0 && idx.every((i) => st.rowSel.has(i));
+  };
 
   /* ---------- 冻结偏移 ---------- */
   function frozenOffsets() {
     const cols = visCols();
-    let left = showCheck ? 40 : 0;
+    let left = hasCheck() ? 40 : 0;
     const map: Record<string, number> = {};
     cols.forEach((c, i) => { if (i < st.frozen) { map[c.k] = left; left += c.w; } });
     return map;
@@ -383,10 +406,9 @@ export function createGrid(opts: GridOptions): GridInstance | null {
   function renderHead() {
     const cols = visCols();
     const off = frozenOffsets();
-    const all = shown();
-    const allSel = all.length > 0 && st.rowSel.size === all.length;
+    const allSel = allSelectableSelected();
     let h = '<tr>';
-    if (showCheck) {
+    if (hasCheck()) {
       h += '<th class="col-check' + (st.frozen > 0 ? ' is-frozen' : '') + '"'
         + (st.frozen > 0 ? ' style="left:0"' : '') + ' title="全选 / 清空本页可选行；点行首方框勾选单行">'
         + '<span class="box' + (allSel ? ' on' : '') + '">' + (allSel ? '✓' : '') + '</span></th>';
@@ -420,7 +442,7 @@ export function createGrid(opts: GridOptions): GridInstance | null {
     let h = '';
 
     if (!rows.length) {
-      h += '<tr class="empty-row"><td colspan="' + (cols.length + (showCheck ? 1 : 0)) + '">'
+      h += '<tr class="empty-row"><td colspan="' + (cols.length + (hasCheck() ? 1 : 0)) + '">'
         + '<div class="grid-empty">'
         + (Object.keys(st.filters).length
           ? '当前本页列头筛选没有命中任何行。已生效筛选见表格上方 chips，可逐个移除。'
@@ -460,7 +482,7 @@ export function createGrid(opts: GridOptions): GridInstance | null {
     blocks.forEach((blk) => {
       if (blk.g !== null) {
         const meta = opts.groupMeta ? opts.groupMeta(blk.g, blk.list) : (blk.list.length + ' 行');
-        h += '<tr class="group-row"><td colspan="' + (cols.length + (showCheck ? 1 : 0)) + '">' + esc(blk.g)
+        h += '<tr class="group-row"><td colspan="' + (cols.length + (hasCheck() ? 1 : 0)) + '">' + esc(blk.g)
           + '<span class="gmeta">' + meta + '</span></td></tr>';
       }
       blk.list.forEach((r) => {
@@ -473,7 +495,7 @@ export function createGrid(opts: GridOptions): GridInstance | null {
         const extra = opts.rowClass ? opts.rowClass(r) : '';
         if (extra) trCls.push(extra);
         h += '<tr' + (trCls.length ? ' class="' + trCls.join(' ') + '"' : '') + ' data-ri="' + rowIdx + '">';
-        if (showCheck) {
+        if (hasCheck()) {
           h += '<td class="col-check' + (rsel ? ' cell-rowsel' : '') + (selectable ? '' : ' is-disabled') + (st.frozen > 0 ? ' is-frozen' : '') + '"'
             + (st.frozen > 0 ? ' style="left:0"' : '') + '><span class="box' + (rsel ? ' on' : '') + '"'
             + (selectable ? '' : ' data-rowsel-disabled="1"') + '>' + (rsel ? '✓' : '') + '</span></td>';
@@ -920,12 +942,10 @@ export function createGrid(opts: GridOptions): GridInstance | null {
       return;
     }
     if (target.closest('.col-check')) {
-      const all = shown();
-      if (all.length && st.rowSel.size === all.length) st.rowSel.clear();
-      else st.rowSel = new Set(all.map((r) => ri(r)).filter((idx) => {
-        const row = st.rows[idx];
-        return !opts.isRowSelectable || opts.isRowSelectable(row);
-      }));
+      // W10：toggle 判定改用「可选行」口径（旧 size===shown().length 在含禁选行的页永不成立，
+      // 导致第二次点击无法清空）。全选也只选可选行。
+      if (allSelectableSelected()) st.rowSel.clear();
+      else st.rowSel = new Set(selectableShown().map((r) => ri(r)));
       st.range = null;
       renderAll();
       notifySelection();
@@ -949,6 +969,12 @@ export function createGrid(opts: GridOptions): GridInstance | null {
   const setSelecting = (on: boolean) => root.classList.toggle('xgrid-selecting', on);
   const onDocSelectStart = (e: Event) => { if (dragging) e.preventDefault(); };
   document.addEventListener('selectstart', onDocSelectStart);
+  /* W10：单击勾选 / 拖动选区。
+     用户诉求「点行内任意单元格即勾选该行」与原有「单击=选区起点、拖动=框选复制」冲突。
+     方案：mousedown 挂起 pendingClick 并照旧建立单格选区（保留点击反馈），期间若发生移动
+     则升级为拖动选区（moved=true，不再触发勾选）；未移动则在 mouseup 时 toggle 该行勾选。
+     拖动不再清空已勾选行 —— 避免「只想复制一段文本，勾选却被清掉」。 */
+  let pendingClick: { ri: number; moved: boolean } | null = null;
   const onBodyMouseDown = (e: MouseEvent) => {
     const target = e.target as HTMLElement;
     if (target.closest(NO_SELECT)) return;
@@ -959,12 +985,13 @@ export function createGrid(opts: GridOptions): GridInstance | null {
     const rr = bodyOrder.indexOf(rowIdx);
     if (e.shiftKey && st.active) {
       st.range = { r1: st.active.r, c1: st.active.ci, r2: rr, c2: ci };
+      pendingClick = null;
     } else {
       st.active = { r: rr, ri: rowIdx, ci };
       st.range = { r1: rr, c1: ci, r2: rr, c2: ci };
       dragging = true;
+      pendingClick = { ri: rowIdx, moved: false };
     }
-    st.rowSel.clear();
     setSelecting(true);
     renderAll();
   };
@@ -977,6 +1004,7 @@ export function createGrid(opts: GridOptions): GridInstance | null {
     if (st.range.r2 === rr && st.range.c2 === ci) return;
     st.range.r2 = rr;
     st.range.c2 = ci;
+    if (pendingClick) pendingClick.moved = true;
     renderAll();
   };
   const onBodyClick = (e: MouseEvent) => {
@@ -1011,7 +1039,27 @@ export function createGrid(opts: GridOptions): GridInstance | null {
     renderAll();
     notifySelection();
   };
-  const onDocMouseUp = () => { dragging = false; setSelecting(false); };
+  const onDocMouseUp = () => {
+    const pending = pendingClick;
+    pendingClick = null;
+    dragging = false;
+    setSelecting(false);
+    if (!pending || pending.moved) return;   // 拖动结束 → 只保留选区，不勾选
+    // W10：单击（未拖动）→ 勾选/取消勾选该行
+    const row = st.rows[pending.ri];
+    const selectable = !opts.isRowSelectable || opts.isRowSelectable(row);
+    if (!selectable) {
+      const hint = opts.disabledRowHint;
+      toast(typeof hint === 'function' ? hint(row) : (hint || '该行不可勾选'));
+      st.range = null;
+      renderAll();
+      return;
+    }
+    if (st.rowSel.has(pending.ri)) st.rowSel.delete(pending.ri); else st.rowSel.add(pending.ri);
+    st.range = null;   // 单击语义是「勾选该行」，收起单格选区高亮
+    renderAll();
+    notifySelection();
+  };
   tbody.addEventListener('mousedown', onBodyMouseDown);
   tbody.addEventListener('mousemove', onBodyMouseMove);
   tbody.addEventListener('click', onBodyClick);
@@ -1255,6 +1303,23 @@ export function createGrid(opts: GridOptions): GridInstance | null {
       // 行变了，旧的 selection 索引全部失效；列头筛选保留（它按值匹配，与行序无关）
       renderAll();
       notifySelection();
+    },
+    setEmptyText(text: string) {
+      if (opts.emptyText === text) return;
+      opts.emptyText = text;
+      renderAll();
+    },
+    setExportLabel(text: string) {
+      if (opts.exportLabel === text) return;
+      opts.exportLabel = text;
+      renderAll();
+    },
+    setSelectable(v: boolean) {
+      // W10：权限就绪后补齐行首复选框列。仅当开关真的变化时才重渲染（React 会多次重渲染）。
+      if ((opts.selectable !== false) === v) return;
+      opts.selectable = v;
+      if (!v) { st.rowSel.clear(); notifySelection(); }
+      renderAll();
     },
     setCols(cols: GridColumn[]) {
       // 保留用户已有的可见性 / 列宽（同 key 搬迁），新增列取声明默认值 ——

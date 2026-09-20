@@ -231,10 +231,56 @@ class VoucherDraftIntegrationTest {
                 .andExpect(status().isConflict());
     }
 
+    /** W10（V39）：撤回未推送凭证 → WITHDRAWN + 撤回时间/人落库 + 审计 WITHDRAW；记录保留可追溯。 */
+    @Test
+    void withdrawMarksRecordAndKeepsItForTrace() throws Exception {
+        String token = login("admin", "Admin@123");
+        long id = seedStatement("WD-" + suffix());
+
+        MvcResult res = mockMvc.perform(post("/api/statements/" + id + "/withdraw")
+                        .header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andReturn();
+        assertEquals("WITHDRAWN",
+                objectMapper.readTree(res.getResponse().getContentAsString(StandardCharsets.UTF_8))
+                        .get("data").get("reviewStatus").asText());
+
+        StatementRecord record = statementMapper.selectById(id);
+        assertEquals("WITHDRAWN", record.getReviewStatus());
+        assertNotNull(record.getWithdrawnAt(), "撤回时间必须落库（追溯）");
+        assertNotNull(record.getWithdrawnBy(), "撤回人必须落库（追溯）");
+        assertNotNull(record.getStatementNo(), "记录与流水号保留（唯一约束下不产生重复行）");
+
+        assertTrue(auditMapper.selectCount(new LambdaQueryWrapper<StatementAuditEvent>()
+                .eq(StatementAuditEvent::getStatementId, id)
+                .eq(StatementAuditEvent::getAction, "WITHDRAW")) >= 1, "审计须落 WITHDRAW");
+    }
+
+    /** W10（V39）：已推送金蝶不可撤回（409）；重复撤回同样 409。 */
+    @Test
+    void pushedOrAlreadyWithdrawnCannotBeWithdrawn() throws Exception {
+        String token = login("admin", "Admin@123");
+        long pushed = seedStatement("WDP-" + suffix());
+        statementMapper.update(null,
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<StatementRecord>()
+                        .set(StatementRecord::getPushStatus, "GL_PUSHED")
+                        .eq(StatementRecord::getId, pushed));
+        mockMvc.perform(post("/api/statements/" + pushed + "/withdraw")
+                        .header("Authorization", bearer(token)))
+                .andExpect(status().isConflict());
+
+        long fresh = seedStatement("WD2-" + suffix());
+        mockMvc.perform(post("/api/statements/" + fresh + "/withdraw")
+                        .header("Authorization", bearer(token)))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/statements/" + fresh + "/withdraw")
+                        .header("Authorization", bearer(token)))
+                .andExpect(status().isConflict());
+    }
+
     // ---- helpers ----
 
-    private void saveEnabledConfig(String token) throws Exception {
-        configMapper.deleteById(1L);
+    private void saveEnabledConfig(String token) throws Exception {        configMapper.deleteById(1L);
         mockMvc.perform(put("/api/ai/config")
                         .header("Authorization", bearer(token))
                         .contentType(MediaType.APPLICATION_JSON)

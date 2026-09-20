@@ -3,7 +3,7 @@ import {
   Button, Card, Empty, Input, Modal, Pagination, Segmented, Space, Table, Tag, Tooltip, message,
   type TableColumnsType,
 } from 'antd';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { ReloadOutlined } from '@ant-design/icons';
 import { statementApi, voucherGroupApi } from '../../services/api';
 import { useAuthStore } from '../../store/auth';
@@ -26,6 +26,7 @@ const sourceFlowTag = (count: number) => (
 );
 
 export function VoucherCenterPage() {
+  const navigate = useNavigate();
   const hasPermission = useAuthStore((state) => state.hasPermission);
   const canReview = hasPermission('statement:review');
   const canPush = hasPermission('voucher:push');
@@ -92,6 +93,22 @@ export function VoucherCenterPage() {
     });
   };
 
+  /** 金蝶侧已成功接单 —— 不可撤回（PUSHED / GL_PUSHED 双拼写域）。 */
+  const pushCompleted = (row: VoucherGroupRow) => row.pushStatus === 'PUSHED' || row.pushStatus === 'GL_PUSHED';
+
+  /** W10（V39）：撤回未推送金蝶的凭证 —— 标记「已撤回」+ 流水回池可重新制证。 */
+  const withdraw = (row: VoucherGroupRow) => {
+    Modal.confirm({
+      title: `撤回凭证（${row.statementNo}）`,
+      content: '仅未推送金蝶的凭证可撤回。撤回后该凭证标记「已撤回」（记录与凭证号保留、可追溯，操作写入审计），'
+        + '对应流水回到「未制证」状态并可重新制证。已推送金蝶的凭证不可撤回（请在金蝶侧处理）。',
+      okText: '确认撤回',
+      okButtonProps: { danger: true },
+      cancelText: '取消',
+      onOk: () => withBusy(row, () => statementApi.withdraw(row.statementId), '凭证已撤回，流水可重新制证'),
+    });
+  };
+
   const columns: TableColumnsType<VoucherGroupRow> = [
     {
       title: '来源流水', dataIndex: 'statementNo', width: 210,
@@ -112,23 +129,27 @@ export function VoucherCenterPage() {
       },
     },
     {
-      title: '操作', fixed: 'right', width: 250,
-      render: (_, row) => <Space size={0} wrap>
-        <Link to={`/statements/voucher-doc/${row.statementId}`}>查看凭证</Link>
+      title: '操作', fixed: 'right', width: 350,
+      render: (_, row) => <Space size={4} wrap>
+        <Button size="small" onClick={() => navigate(`/statements/voucher-doc/${row.statementId}`)}>查看凭证</Button>
         {canReview && row.reviewStatus === 'PENDING' && (
-          <Button type="link" size="small" disabled={busyRowId != null} onClick={() => approve(row)}>通过</Button>
+          <Button size="small" disabled={busyRowId != null} onClick={() => approve(row)}>通过</Button>
         )}
         {canReview && row.reviewStatus === 'PENDING' && (
-          <Button type="link" size="small" disabled={busyRowId != null} onClick={() => { setRejectComment(''); setRejectRow(row); }}>驳回</Button>
+          <Button size="small" disabled={busyRowId != null} onClick={() => { setRejectComment(''); setRejectRow(row); }}>驳回</Button>
         )}
         {canPush && row.reviewStatus === 'APPROVED' && row.pushStatus !== 'PUSHED' && row.pushStatus !== 'GL_PUSHED' && (
-          <Button type="link" size="small" disabled={busyRowId != null}
+          <Button size="small" disabled={busyRowId != null}
             onClick={() => push(row)}>{row.pushStatus === 'FAILED' || row.pushStatus === 'GL_FAILED' ? '重试推送' : '推送'}</Button>
         )}
         {canPush && row.reviewStatus === 'REJECTED' && (
-          <Button type="link" size="small" disabled={busyRowId != null} onClick={() => reopen(row)}>重新打开</Button>
+          <Button size="small" disabled={busyRowId != null} onClick={() => reopen(row)}>重新打开</Button>
         )}
-        <Button type="link" size="small" onClick={() => setTrace(row)}>追溯</Button>
+        {/* W10（V39）：未推送金蝶的凭证可撤回（标记已撤回，流水回池可重新制证） */}
+        {canPush && row.reviewStatus !== 'WITHDRAWN' && !pushCompleted(row) && (
+          <Button size="small" danger disabled={busyRowId != null} onClick={() => withdraw(row)}>撤回</Button>
+        )}
+        <Button size="small" onClick={() => setTrace(row)}>追溯</Button>
       </Space>,
     },
   ];

@@ -97,8 +97,10 @@ public class AiCompanyClassifierService {
         String userPrompt = buildUserPrompt(unfiled, companies);
         // W9：系统提示词支持超管在页面覆盖（ai_prompt_override），无覆盖回落 SYSTEM_PROMPT。
         String systemPrompt = promptService.resolve(CAPABILITY);
+        // W10：max_tokens 2048 → 4096。输出量随「未归类账户数」线性增长，线上 call-logs 实测
+        // 出现过 completionTokens 正好卡 2048（截顶）的记录，截断会使本次归类整体解析失败。
         LlmChatResult result = gatewayService.auditedChat(CAPABILITY, userId, config,
-                new LlmChatRequest(CAPABILITY, systemPrompt, userPrompt, 0.1, 2048));
+                new LlmChatRequest(CAPABILITY, systemPrompt, userPrompt, 0.1, 4096));
         List<AiCompanySuggestionResponse.Suggestion> suggestions;
         try {
             suggestions = parseSuggestions(result.content(), unfiled);
@@ -107,7 +109,7 @@ public class AiCompanyClassifierService {
             log.warn("AI 归类建议首次解析失败，自动重试：{}", first.getMessage());
             LlmChatResult retry = gatewayService.auditedChat(CAPABILITY, userId, config,
                     new LlmChatRequest(CAPABILITY, systemPrompt,
-                            userPrompt + RETRY_NUDGE.formatted(first.getMessage()), 0.1, 2048));
+                            userPrompt + RETRY_NUDGE.formatted(first.getMessage()), 0.1, 4096));
             try {
                 suggestions = parseSuggestions(retry.content(), unfiled);
             } catch (BusinessException second) {

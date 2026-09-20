@@ -174,6 +174,18 @@ public class StatementController {
         return ApiResponse.success("流水已重新打开，可重新制证", statementService.reopen(id, principal.getId()));
     }
 
+    /**
+     * W10（V39）：撤回凭证 —— 未成功推送金蝶（push_status ∉ {PUSHED, GL_PUSHED}）的可撤。
+     * 撤回后凭证标记「已撤回」（记录保留可追溯），流水回池可重新制证；审计 WITHDRAW。
+     */
+    @PostMapping("/statements/{id}/withdraw")
+    @PreAuthorize("hasAuthority('voucher:push')")
+    @Operation(summary = "Withdraw a not-yet-pushed voucher so the statement returns to the pool (audit: WITHDRAW)")
+    public ApiResponse<StatementResponse> withdraw(@PathVariable Long id,
+                                                    @AuthenticationPrincipal UserPrincipal principal) {
+        return ApiResponse.success("凭证已撤回，流水已回到可制证状态", statementService.withdraw(id, principal.getId()));
+    }
+
     @GetMapping("/reconciliation/dashboard")
     @PreAuthorize("hasAuthority('reconciliation:view')")
     @Operation(summary = "Get statement reconciliation dashboard totals")

@@ -10,6 +10,8 @@ export function voucherStatusTag(row: { pushStatus: string | null; reviewStatus:
   { color: string; text: string } {
   // W8：补 GL_FAILED（规则引擎推送失败）——此前落进「待推送」，失败行被当成可推送的新行，
   // 用户看不出它推送过且失败了（pushMessage 只在 tooltip 里）。
+  // W10（V39）：已撤回 —— 终态，优先于推送/复核状态判定（撤回行可能保留 FAILED 的推送痕迹）
+  if (row.reviewStatus === 'WITHDRAWN') return { color: 'default', text: '已撤回' };
   if (row.pushStatus === 'PUSHED' || row.pushStatus === 'GL_PUSHED') return { color: 'green', text: '已推送' };
   if (row.pushStatus === 'FAILED' || row.pushStatus === 'GL_FAILED') return { color: 'red', text: '推送失败' };
   if (row.reviewStatus === 'APPROVED') return { color: 'orange', text: '待推送' };

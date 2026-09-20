@@ -36,6 +36,9 @@ public class StatementRecord {
     private String voucherNo;
     private String pushMessage;
     private LocalDateTime pushedAt;
+    /** V39（W10）：凭证撤回 —— 撤回时间/操作人（review_status 置 WITHDRAWN 时写入）。 */
+    private LocalDateTime withdrawnAt;
+    private Long withdrawnBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -87,6 +90,10 @@ public class StatementRecord {
     public void setPushMessage(String pushMessage) { this.pushMessage = pushMessage; }
     public LocalDateTime getPushedAt() { return pushedAt; }
     public void setPushedAt(LocalDateTime pushedAt) { this.pushedAt = pushedAt; }
+    public LocalDateTime getWithdrawnAt() { return withdrawnAt; }
+    public void setWithdrawnAt(LocalDateTime withdrawnAt) { this.withdrawnAt = withdrawnAt; }
+    public Long getWithdrawnBy() { return withdrawnBy; }
+    public void setWithdrawnBy(Long withdrawnBy) { this.withdrawnBy = withdrawnBy; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }

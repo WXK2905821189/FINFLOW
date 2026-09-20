@@ -540,7 +540,9 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
                 exportLabel={exporting ? '导出中…' : '导出 CSV'}
                 exportBadge={<Tag color="green" style={{ height: 18, lineHeight: '16px', fontSize: 11 }}>筛选全量 {data?.total ?? 0} 行</Tag>}
                 findPlaceholder={isStatement ? 'Ctrl+F 流水号 / 收付方' : 'Ctrl+F 账号 / 户名'}
-                emptyText={loading && !data ? '正在加载……' : emptyDescription}
+                emptyText={filters.keyword
+                  ? `没有匹配「${filters.keyword}」的银行数据。`
+                  : loading && !data ? '正在加载……' : emptyDescription}
                 preferenceReady={gridPreferenceReady}
                 initialSnapshot={gridSnapshot}
                 onSnapshotChange={saveGridPreference}

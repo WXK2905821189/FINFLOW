@@ -151,7 +151,8 @@ public class OpenAiCompatibleLlmGateway implements LlmGateway {
             throw new BusinessException(502, "LLM 响应缺少 choices 字段（OpenAI 兼容协议），响应开头："
                     + snippet(responseBody));
         }
-        JsonNode message = choices.get(0).path("message");
+        JsonNode choice = choices.get(0);
+        JsonNode message = choice.path("message");
         String content = extractText(message.path("content"));
         if (content == null && !message.path("reasoning_content").isMissingNode()
                 && !message.path("reasoning_content").asText().isBlank()) {
@@ -161,6 +162,13 @@ public class OpenAiCompatibleLlmGateway implements LlmGateway {
         if (content == null) {
             throw new BusinessException(502, "LLM 响应缺少 message.content 字段，响应开头："
                     + snippet(responseBody));
+        }
+        // W10：截断检测。finish_reason=length 表示输出被 max_tokens 砍断，截断的 JSON 解析必然失败，
+        // 若放行会在业务层退化成模糊的「AI 建议不可用」（W10 排查根因）。此处提前给出可诊断原因。
+        // 供应商未返回 finish_reason 时不判（避免误报）。
+        if ("length".equals(choice.path("finish_reason").asText(""))) {
+            throw new BusinessException(502, "LLM 输出被 max_tokens 截断（finish_reason=length）——"
+                    + "请调大该能力的 max_tokens 或精简输出要求；已收到内容开头：" + snippet(content));
         }
         JsonNode usage = root.path("usage");
         return new LlmChatResult(

@@ -55,6 +55,8 @@ class AiGatewayIntegrationTest {
     private static final AtomicBoolean FAIL_NEXT = new AtomicBoolean(false);
     private static final java.util.concurrent.atomic.AtomicInteger FAIL_REMAINING =
             new java.util.concurrent.atomic.AtomicInteger(0);
+    /** W10：下一次调用返回 finish_reason=length 的截断响应（用于验证截断检测）。 */
+    private static final AtomicBoolean TRUNCATE_NEXT = new AtomicBoolean(false);
     private static HttpServer mockLlm;
     private static int mockPort;
 
@@ -90,6 +92,16 @@ class AiGatewayIntegrationTest {
                         || FAIL_REMAINING.getAndUpdate(x -> Math.max(0, x - 1)) > 0;
                 if (failing) {
                     respond(exchange, 500, "{\"error\":{\"message\":\"provider exploded\"}}");
+                    return;
+                }
+                // W10：截断响应——HTTP 200 但 finish_reason=length、content 是半截 JSON。
+                // gateway 必须把它识别成失败（否则业务层会退化成模糊的「AI 建议不可用」）。
+                if (TRUNCATE_NEXT.getAndSet(false)) {
+                    respond(exchange, 200, """
+                            {"id":"mock-trunc","model":"mock-model","choices":[{"index":0,\
+                            "message":{"role":"assistant","content":"{\\"businessCategory\\":\\"往来款\\""},\
+                            "finish_reason":"length"}],\
+                            "usage":{"prompt_tokens":21,"completion_tokens":512,"total_tokens":533}}""");
                     return;
                 }
                 respond(exchange, 200, """
@@ -160,6 +172,28 @@ class AiGatewayIntegrationTest {
                         .orderByDesc(AiCallLog::getId))
                 .get(0);
         assertTrue(failedRow.getErrorMessage().contains("500"), "failure diagnosis carries the provider status");
+    }
+
+    @Test
+    void truncatedOutputIsReportedInsteadOfSilentlySucceeding() throws Exception {
+        String token = login("admin", "Admin@123");
+        // HTTP 200 + finish_reason=length + 半截 JSON：必须显式失败，不能当成功放行
+        TRUNCATE_NEXT.set(true);
+        MvcResult res = mockMvc.perform(post("/api/ai/self-test")
+                        .header("Authorization", bearer(token)))
+                .andExpect(status().isBadGateway())
+                .andReturn();
+        String body = res.getResponse().getContentAsString(StandardCharsets.UTF_8);
+        assertTrue(body.contains("截断"), "truncation is named explicitly: " + body);
+        assertTrue(body.contains("max_tokens"), "diagnosis points at max_tokens: " + body);
+
+        // 审计行同样带截断原因，便于事后排查
+        AiCallLog row = callLogMapper.selectList(new LambdaQueryWrapper<AiCallLog>()
+                        .eq(AiCallLog::getCapability, AiGatewayService.SELF_TEST)
+                        .eq(AiCallLog::getStatus, "FAILED")
+                        .orderByDesc(AiCallLog::getId))
+                .get(0);
+        assertTrue(row.getErrorMessage().contains("截断"), "audit row carries the truncation reason");
     }
 
     @Test
