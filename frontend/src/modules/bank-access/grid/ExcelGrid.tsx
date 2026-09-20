@@ -7,7 +7,6 @@ import {
   type GridInstance,
   type GridRow,
   type GridSnapshot,
-  type GridTotals,
   type GridView,
 } from './kernel';
 import './grid.css';
@@ -43,9 +42,6 @@ export interface ExcelGridProps {
   /** 默认随 groupBy 是否存在自动显示。 */
   showGroupSwitch?: boolean;
   groupMeta?: (group: string, rows: GridRow[]) => string;
-
-  /* ---- 合计（W8：状态栏本页小计已移除；工具栏＝服务端全量合计） ---- */
-  totalAgg?: GridTotals;
 
   /* ---- 视图 / 密度 / 冻结 ---- */
   views?: GridView[];
@@ -89,7 +85,7 @@ export interface ExcelGridProps {
 
 export function ExcelGrid(props: ExcelGridProps) {
   const {
-    cols, rows, totalAgg,
+    cols, rows,
     pageSize, groupBy, groupSwitchLabel, findPlaceholder,
     exportLabel, exportBadge, toolbarStart, footer, className, style,
   } = props;
@@ -122,7 +118,6 @@ export function ExcelGrid(props: ExcelGridProps) {
       rows: read().rows,
       groupBy: read().groupBy,
       groupedDefault: read().groupedDefault,
-      totalAgg: read().totalAgg,
       groupMeta: read().groupMeta,
       views: read().views,
       density: read().density,
@@ -178,13 +173,6 @@ export function ExcelGrid(props: ExcelGridProps) {
     lastRowsRef.current = rows;
     gridRef.current?.setRows(rows);
   }, [rows]);
-
-  const lastTotalsRef = useRef(totalAgg);
-  useEffect(() => {
-    if (lastTotalsRef.current === totalAgg) return;
-    lastTotalsRef.current = totalAgg;
-    gridRef.current?.setTotalAgg(totalAgg);
-  }, [totalAgg]);
 
   // 点空白处收起浮层。锚点内的点击放行（否则刚点开就被关掉）。
   useEffect(() => {
@@ -265,15 +253,6 @@ export function ExcelGrid(props: ExcelGridProps) {
             </button>
             <div className={openPop === 'col-panel' ? 'pop is-on' : 'pop'} data-grid-role="col-panel" />
           </div>
-
-          <button
-            className="btn"
-            type="button"
-            data-grid-role="total-agg"
-            title="服务端按查询条件聚合的全量口径（行数），不含本页列头筛选与排序"
-          >
-            <span data-grid-role="total-agg-label">全量合计</span>
-          </button>
 
           <button className="btn btn-primary" type="button" data-grid-role="export">
             <span data-grid-role="export-label">{exportLabel || '导出 CSV'}</span>

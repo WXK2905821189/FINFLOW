@@ -42,10 +42,11 @@ public class KingdeeRuleImportService {
     private static final Logger log = LoggerFactory.getLogger(KingdeeRuleImportService.class);
 
     /** 审计能力名（ai_call_log.action 维度）；开关复用 accounting-suggestion。 */
-    private static final String AUDIT_CAPABILITY = "rule-import";
+    public static final String AUDIT_CAPABILITY = "rule-import";
     private static final String GUARD_CAPABILITY = "accounting-suggestion";
 
-    private static final String SYSTEM_PROMPT = """
+    /** 系统默认提示词（W9 起可被 ai_prompt_override 覆盖，见 AiPromptCatalog）。 */
+    public static final String SYSTEM_PROMPT = """
             你是 FINFLOW 财务系统的规则导入助手。输入是 Excel 一行的单元格文本数组（财务原始映射表），
             请把它映射为一条金蝶凭证规则，只输出一个 JSON 对象（不要 markdown 围栏）：
             {
@@ -64,13 +65,16 @@ public class KingdeeRuleImportService {
 
     private final KingdeeVoucherRuleService ruleService;
     private final AiGatewayService aiGatewayService;
+    private final com.finance.system.ai.AiPromptService aiPromptService;
     private final ObjectMapper objectMapper;
 
     public KingdeeRuleImportService(KingdeeVoucherRuleService ruleService,
                                     AiGatewayService aiGatewayService,
+                                    com.finance.system.ai.AiPromptService aiPromptService,
                                     ObjectMapper objectMapper) {
         this.ruleService = ruleService;
         this.aiGatewayService = aiGatewayService;
+        this.aiPromptService = aiPromptService;
         this.objectMapper = objectMapper;
     }
 
@@ -311,8 +315,10 @@ public class KingdeeRuleImportService {
                                                                 com.finance.system.ai.AiEffectiveConfig config) {
         String userPrompt = "Excel 行数据（JSON 数组）：" + writeJson(cells);
         try {
+            // W9：系统提示词支持超管在页面覆盖（ai_prompt_override），无覆盖回落 SYSTEM_PROMPT。
             LlmChatResult result = aiGatewayService.auditedChat(AUDIT_CAPABILITY, operatorId,
-                    config, new LlmChatRequest(AUDIT_CAPABILITY, SYSTEM_PROMPT, userPrompt, 0.1, 1024));
+                    config, new LlmChatRequest(AUDIT_CAPABILITY, aiPromptService.resolve(AUDIT_CAPABILITY),
+                            userPrompt, 0.1, 1024));
             JsonNode json = objectMapper.readTree(result.content());
             KingdeeRuleGroupResponse.RuleUpsertRequest mapped = toUpsert(json, cells);
             Double confidence = json.path("confidence").isNumber() ? json.path("confidence").asDouble() : null;

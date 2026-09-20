@@ -210,6 +210,30 @@ export const aiApi = {
     http.post<never, AiAccountingSuggestion>('/ai/accounting-suggestion', { statementId }),
 };
 
+// ---- V38 AI 提示词配置（W9 需求 4；ai:config 仅超管）----
+
+export type AiPromptCapability = 'accounting-suggestion' | 'company-classification' | 'rule-import';
+
+export type AiPromptView = {
+  capability: string;
+  name: string;
+  description: string;
+  /** 当前生效的系统提示词（有覆盖 = 覆盖值，否则 = 默认值）。 */
+  effectivePrompt: string;
+  customized: boolean;
+  /** 系统默认提示词（「恢复默认」的基准）。 */
+  defaultPrompt: string;
+  updatedBy: string | null;
+  updatedAt: string | null;
+};
+
+export const aiPromptApi = {
+  list: () => http.get<never, AiPromptView[]>('/ai/prompts'),
+  save: (capability: AiPromptCapability, systemPrompt: string) =>
+    http.put<never, AiPromptView>(`/ai/prompts/${capability}`, { systemPrompt }),
+  reset: (capability: AiPromptCapability) => http.delete<never, void>(`/ai/prompts/${capability}`),
+};
+
 // ---- V28 AI 在线配置（设置页）----
 
 export type AiConfigPayload = {

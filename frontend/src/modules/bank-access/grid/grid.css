@@ -108,13 +108,18 @@
 .xgrid .row-2 { display: block; margin-top: 2px; color: var(--text-3); font-size: 12px; }
 .xgrid .cell-strong { font-weight: 650; }
 
-/* 选择列 */
-.xgrid .col-check { width: 34px; text-align: center; }
+/* 选择列。W9：此前边框用 var(--border-strong)（#d3dede，极浅）+ 15px 小框，
+   在浅色表格里几乎不可见——用户反馈「看不到复选框」。现在加深边框、
+   加大一号、给 hover 反馈；选中行整行淡绿底已有（tr.row-sel）。 */
+.xgrid .col-check { width: 36px; text-align: center; }
 .xgrid .col-check.is-disabled { opacity: .45; }
 .xgrid .box {
-  display: inline-grid; place-items: center; width: 15px; height: 15px; flex: 0 0 15px;
-  border: 1px solid var(--border-strong); border-radius: 3px; background: #fff; vertical-align: middle;
+  display: inline-grid; place-items: center; width: 16px; height: 16px; flex: 0 0 16px;
+  border: 1.5px solid #9fb3b3; border-radius: 3px; background: #fff; vertical-align: middle;
+  cursor: pointer; font-size: 11px; font-weight: 700; line-height: 1;
+  transition: border-color .12s ease, background-color .12s ease;
 }
+.xgrid .col-check:hover .box:not(.on) { border-color: var(--brand); }
 .xgrid .box.on { border-color: var(--brand); background: var(--brand); color: #fff; }
 
 /* ---------- 标签 ---------- */

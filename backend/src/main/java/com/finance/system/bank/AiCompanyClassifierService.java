@@ -53,7 +53,8 @@ public class AiCompanyClassifierService {
     /** 错误消息中携带的模型响应片段上限（UI 即时定位根因用，完整原文看调用审计）。 */
     private static final int SNIPPET_LIMIT = 200;
 
-    private static final String SYSTEM_PROMPT = """
+    /** 系统默认提示词（W9 起可被 ai_prompt_override 覆盖，见 AiPromptCatalog）。 */
+    public static final String SYSTEM_PROMPT = """
             你是中国企业的财务数据治理助手，负责把银行账户归入正确的公司主体档案。你会收到：
             1) 待归档的银行账户列表（账户名称、银行、账号后4位、币种）；2) 系统中已有的公司主体名列表。
             银行账户名称通常包含公司主体线索（如「XX科技有限公司-招行基本户」应归入「XX科技有限公司」）。
@@ -65,13 +66,17 @@ public class AiCompanyClassifierService {
             suggestions 必须覆盖输入的每一个账户，accountId 原样使用输入值。""";
 
     private final AiGatewayService gatewayService;
+    private final com.finance.system.ai.AiPromptService promptService;
     private final BankAccountMapper bankAccountMapper;
     private final CompanyMapper companyMapper;
     private final ObjectMapper objectMapper;
 
-    public AiCompanyClassifierService(AiGatewayService gatewayService, BankAccountMapper bankAccountMapper,
+    public AiCompanyClassifierService(AiGatewayService gatewayService,
+                                      com.finance.system.ai.AiPromptService promptService,
+                                      BankAccountMapper bankAccountMapper,
                                       CompanyMapper companyMapper, ObjectMapper objectMapper) {
         this.gatewayService = gatewayService;
+        this.promptService = promptService;
         this.bankAccountMapper = bankAccountMapper;
         this.companyMapper = companyMapper;
         this.objectMapper = objectMapper;
@@ -90,8 +95,10 @@ public class AiCompanyClassifierService {
                 .orderByAsc(Company::getId));
         AiEffectiveConfig config = gatewayService.auditedGuard(CAPABILITY, userId);
         String userPrompt = buildUserPrompt(unfiled, companies);
+        // W9：系统提示词支持超管在页面覆盖（ai_prompt_override），无覆盖回落 SYSTEM_PROMPT。
+        String systemPrompt = promptService.resolve(CAPABILITY);
         LlmChatResult result = gatewayService.auditedChat(CAPABILITY, userId, config,
-                new LlmChatRequest(CAPABILITY, SYSTEM_PROMPT, userPrompt, 0.1, 2048));
+                new LlmChatRequest(CAPABILITY, systemPrompt, userPrompt, 0.1, 2048));
         List<AiCompanySuggestionResponse.Suggestion> suggestions;
         try {
             suggestions = parseSuggestions(result.content(), unfiled);
@@ -99,7 +106,7 @@ public class AiCompanyClassifierService {
             // 自动重试一次：LLM 偶发格式漂移（输出说明文字/改用中文键/单对象），纠正指令后再试。
             log.warn("AI 归类建议首次解析失败，自动重试：{}", first.getMessage());
             LlmChatResult retry = gatewayService.auditedChat(CAPABILITY, userId, config,
-                    new LlmChatRequest(CAPABILITY, SYSTEM_PROMPT,
+                    new LlmChatRequest(CAPABILITY, systemPrompt,
                             userPrompt + RETRY_NUDGE.formatted(first.getMessage()), 0.1, 2048));
             try {
                 suggestions = parseSuggestions(retry.content(), unfiled);

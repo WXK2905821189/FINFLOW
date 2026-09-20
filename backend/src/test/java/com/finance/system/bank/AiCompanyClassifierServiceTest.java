@@ -59,7 +59,11 @@ class AiCompanyClassifierServiceTest {
         gatewayService = mock(AiGatewayService.class);
         bankAccountMapper = mock(BankAccountMapper.class);
         companyMapper = mock(CompanyMapper.class);
-        service = new AiCompanyClassifierService(gatewayService, bankAccountMapper, companyMapper,
+        // W9：提示词走 AiPromptService.resolve——单测里 mock 成系统默认值（覆盖逻辑在 AiPromptServiceTest 单测）。
+        com.finance.system.ai.AiPromptService promptService = mock(com.finance.system.ai.AiPromptService.class);
+        when(promptService.resolve(AiCompanyClassifierService.CAPABILITY))
+                .thenReturn(AiCompanyClassifierService.SYSTEM_PROMPT);
+        service = new AiCompanyClassifierService(gatewayService, promptService, bankAccountMapper, companyMapper,
                 new ObjectMapper());
         config = new AiEffectiveConfig(true, "https://llm.example", "k-secret", "test-model",
                 30_000, 1, Map.of("company-classification", true), "openai-compatible", "在线配置");

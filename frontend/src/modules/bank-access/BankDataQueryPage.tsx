@@ -7,13 +7,14 @@ import { bankPipelineApi, bankApi } from '../../services/api';
 import { useAuthStore } from '../../store/auth';
 import { useSubjectScope } from '../../store/scope';
 import { useRemote, ResourceFailure, StatusTag } from '../shared/components';
-import { dateTime, displayValue, isUnavailableStatus, isFailedStatus, money } from '../shared/format';
+import { dateTime, displayValue, isUnavailableStatus, isFailedStatus } from '../shared/format';
 import { BankProjectionState, StatementDetail, BalanceDetail, type BankQueryRow } from './BankDataQueryColumns';
 import { balanceGridColumns, statementGridColumns, decorateStatementRows, decorateBalanceRows } from './BankQueryGridColumns';
 import { ExcelGrid } from './grid/ExcelGrid';
-import { rawCell, num2, type GridColumn, type GridFilter, type GridInstance, type GridRow, type GridTotals } from './grid/kernel';
+import { rawCell, num2, type GridColumn, type GridFilter, type GridInstance, type GridRow } from './grid/kernel';
 import { useGridPreference } from './grid/useGridPreference';
 import { prettyPayload } from './bankQueryTexts';
+import { PromptSettingButton } from '../admin/PromptSettingModal';
 import type { BankAccount, CompanyOption, BankDataBalanceRow, BankDataProjectionPage, BankDataStatementRow, BankRawMessageDetail, AiVoucherBatchResult, AiVoucherRowResult } from '../../types';
 
 export const bankDataResources = {
@@ -94,6 +95,8 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
   const isStatement = resource === 'statements';
   // 一键 AI 制证（2026-09-16）：流水 tab 专属，终局闸门 voucher:push（复核已内化进服务端并留审计）。
   const canAiVoucher = isStatement && hasPermission('voucher:push');
+  // W9：AI 提示词设置入口（仅超管；提示词全局生效）。
+  const canConfigAi = hasPermission('ai:config');
   // 账户数据源：主体树（公司 → 账户）与 AI 制证的 MANUAL 账户判定共用。
   const accountsLoader = useCallback(() => bankApi.accounts(), []);
   const { data: accounts } = useRemote<BankAccount[]>(accountsLoader, [accountsLoader]);
@@ -248,13 +251,6 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
       : decorateBalanceRows(records as BankDataBalanceRow[]);
   }, [data, isStatement]);
 
-  // W8：服务端已返回全量金额合计（totals，与本次查询同 WHERE 聚合），填进内核工具栏；
-  // totals 缺失（空页/未连接）时退回只报行数——绝不拿本页求和冒充全量合计。
-  const gridTotalAgg = useMemo<GridTotals | undefined>(() => {
-    if (!data) return undefined;
-    const sum = data.totals?.[isStatement ? 'signedAmount' : 'availableBalance'];
-    return { count: data.total, sum: typeof sum === 'number' ? sum : undefined };
-  }, [data, isStatement]);
   const gridGroupBy = isStatement ? 'accountMasked' : 'companyName';
   const gridGroupMeta = useMemo(() => {
     if (isStatement) {
@@ -479,7 +475,8 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
               <span>查询结果</span>
               <Button size="small" type="primary" icon={<RobotOutlined />} disabled={!selectedStatementIds.length} loading={aiVoucherRunning} onClick={() => aiVoucherSelected('DRAFT')}>AI 制证为草稿{selectedStatementIds.length ? `（${selectedStatementIds.length}）` : ''}</Button>
               <Button size="small" type="primary" ghost icon={<ThunderboltOutlined />} disabled={!selectedStatementIds.length} loading={aiVoucherRunning} onClick={() => aiVoucherSelected('PUSH')}>AI 制证并推送{selectedStatementIds.length ? `（${selectedStatementIds.length}）` : ''}</Button>
-              <span className="muted">草稿：AI 预填后在「凭证草稿与制证」页人工审核推送；推送：复核内化后直送金蝶。已推送行与纯人工制证账户不可选</span>
+              {canConfigAi && <PromptSettingButton capability="accounting-suggestion" hint="设置「智能入账建议」的系统提示词（全局生效，仅超管）" />}
+              <span className="muted">草稿：AI 预填后在「凭证草稿与制证」页人工审核推送；推送：复核内化后直送金蝶。行首方框勾选要制证的流水；已推送行与纯人工制证账户不可选</span>
             </Space>
           : '查询结果'}
       >
@@ -513,16 +510,6 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
             )}
             <div style={{ flex: 1, minWidth: 0 }}>
               <BankProjectionState data={data} />
-              {/* W8：服务端全量金额合计（与本次查询同 WHERE 聚合，随筛选/时间窗实时变化）。
-                  取代原状态栏「本页可见小计」——财务要的是全部命中数据的合计，不是当前页的。 */}
-              {data?.totals && (
-                <div className="totals-bar" data-totals="server">
-                  {isStatement
-                    ? <>借方合计 <b className="mono">{money(data.totals.debitAmount ?? undefined)}</b> · 贷方合计 <b className="mono">{money(data.totals.creditAmount ?? undefined)}</b> · 净额（贷−借） <b className="mono">{money(data.totals.signedAmount ?? undefined)}</b></>
-                    : <>可用余额合计 <b className="mono">{money(data.totals.availableBalance ?? undefined)}</b> · 联机余额合计 <b className="mono">{money(data.totals.onlineBalance ?? undefined)}</b> · 冻结合计 <b className="mono">{money(data.totals.frozenBalance ?? undefined)}</b></>}
-                  <span className="table-sub">（服务端全量合计，随筛选与时间窗实时变化）</span>
-                </div>
-              )}
               {data?.requestId && <div className="query-request-id">请求编号：<span className="mono">{data.requestId}</span><Link to={`/operations/logs?requestId=${encodeURIComponent(data.requestId)}`}>查看脱敏审计追溯</Link></div>}
               <ExcelGrid
                 id={resource}
@@ -536,7 +523,6 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
                 showGroupSwitch={isStatement || canCrossCompany}
                 groupSwitchLabel={isStatement ? '按本方账户分组' : '按主体分组'}
                 groupMeta={gridGroupMeta}
-                totalAgg={gridTotalAgg}
                 selectable={canAiVoucher}
                 isRowSelectable={isStatement
                   ? (row) => !row.transferred && !manualAccountIds.has(Number(row.bankAccountId))

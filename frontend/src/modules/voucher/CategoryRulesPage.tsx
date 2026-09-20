@@ -5,6 +5,8 @@ import {
 } from 'antd';
 import { DownloadOutlined, PlusOutlined, ReloadOutlined, UploadOutlined } from '@ant-design/icons';
 import { kingdeeRuleApi } from '../../services/api';
+import { useAuthStore } from '../../store/auth';
+import { PromptSettingButton } from '../admin/PromptSettingModal';
 import { useRemote, ResourceFailure } from '../shared/components';
 import { lineSummary } from './voucherTexts';
 import type {
@@ -50,6 +52,8 @@ const parseJsonField = (text: string, label: string): unknown => {
 
 export function CategoryRulesPage() {
   const [activeTab, setActiveTab] = useState<'rules' | 'validation'>('rules');
+  // W9：AI 提示词设置入口（仅超管；rule-import 能力全局生效）。
+  const canConfigAi = useAuthStore((state) => state.hasPermission)('ai:config');
 
   // ---------------- 规则与分组数据 ----------------
   const loader = useCallback(() => kingdeeRuleApi.list(), []);
@@ -384,6 +388,8 @@ export function CategoryRulesPage() {
         extra={<Space wrap>
           <Button icon={<DownloadOutlined />} onClick={() => void kingdeeRuleApi.downloadTemplate()}>下载模板</Button>
           <Button icon={<UploadOutlined />} onClick={openWizard}>导入 Excel</Button>
+          {/* W9：规则导入 AI 映射的提示词设置入口（仅超管）。 */}
+          {canConfigAi && <PromptSettingButton capability="rule-import" hint="设置「规则导入映射」的系统提示词（全局生效，仅超管）" />}
           <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>新增规则</Button>
         </Space>}>
         {error ? <ResourceFailure error={error} onRetry={reload} /> : <Table

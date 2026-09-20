@@ -103,16 +103,6 @@ export interface GridView {
 
 export type GridDensity = 'compact' | 'comfortable';
 
-export interface GridTotals {
-  /** 服务端按查询条件统计的全量行数。 */
-  count: number;
-  /**
-   * 服务端全量金额合计。**没拿到就别填** —— 拿本页求和冒充全量合计，
-   * 正是口径②（两个合计口径必须分得清）要防的事。缺省时只显示行数。
-   */
-  sum?: number;
-}
-
 /** 持久化快照（口径③：存服务端账号级）。 */
 export interface GridSnapshot {
   on: string[];
@@ -135,8 +125,6 @@ export interface GridOptions {
   /** 分组键（行上的字段名）；不给则平铺。 */
   groupBy?: string;
   groupedDefault?: boolean;
-  /** 服务端全量合计（W8：状态栏本页小计已移除，工具栏展示服务端聚合）。 */
-  totalAgg?: GridTotals;
   /** 无行且无本页筛选时的空态文案（由页面按「直连未启用 / 查询失败 / 无匹配」区分）。 */
   emptyText?: string;
   groupMeta?: (group: string, rows: GridRow[]) => string;
@@ -188,7 +176,6 @@ export interface GridInstance {
   state: GridState;
   setRows: (rows: GridRow[]) => void;
   setCols: (cols: GridColumn[]) => void;
-  setTotalAgg: (totals?: GridTotals) => void;
   snapshot: () => GridSnapshot;
   applySnapshot: (snapshot: Partial<GridSnapshot>) => void;
   /** 打开快照回调。必须在「已从服务端载入偏好」之后再调用 —— 否则首次挂载会用
@@ -312,7 +299,6 @@ export function createGrid(opts: GridOptions): GridInstance | null {
     findIdx: -1,
   };
 
-  let totalAgg = opts.totalAgg;
   /* 勾选列：余额页没有制证语义，整列不渲染（否则会多出一个永远用不上的复选框列）。 */
   const showCheck = opts.selectable !== false;
   /* 「恢复默认」的基准：setCols 会随权限变化增删列（如跨公司主体列），必须同步，
@@ -402,7 +388,8 @@ export function createGrid(opts: GridOptions): GridInstance | null {
     let h = '<tr>';
     if (showCheck) {
       h += '<th class="col-check' + (st.frozen > 0 ? ' is-frozen' : '') + '"'
-        + (st.frozen > 0 ? ' style="left:0"' : '') + '><span class="box' + (allSel ? ' on' : '') + '">' + (allSel ? '✓' : '') + '</span></th>';
+        + (st.frozen > 0 ? ' style="left:0"' : '') + ' title="全选 / 清空本页可选行；点行首方框勾选单行">'
+        + '<span class="box' + (allSel ? ' on' : '') + '">' + (allSel ? '✓' : '') + '</span></th>';
     }
     cols.forEach((c, i) => {
       const s = st.sort.find((x) => x.k === c.k);
@@ -604,16 +591,8 @@ export function createGrid(opts: GridOptions): GridInstance | null {
       h += '<button class="btn btn-sm" data-export-sel>仅导出选中 ' + agg.rows + ' 行</button>';
     }
     h += '<span class="gs-scope">口径：本页排序 / 选区汇总只作用于本页 '
-      + st.rows.length + ' 行；列头筛选按标注生效（【全量】＝服务端全量、翻页导出同口径，其余＝仅本页）。'
-      + (totalAgg ? '「全量合计」由服务端按当前查询条件聚合（含【全量】列筛选，不含仅本页的列筛选）。' : '') + '</span>';
+      + st.rows.length + ' 行；列头筛选按标注生效（【全量】＝服务端全量、翻页导出同口径，其余＝仅本页）。</span>';
     statusEl.innerHTML = h;
-    const full = el('total-agg-label');
-    if (full && totalAgg) {
-      // 服务端没给金额聚合就只报行数，绝不拿本页求和顶上——财务会把它当成全量金额。
-      full.textContent = totalAgg.sum === undefined
-        ? '全量 ' + totalAgg.count + ' 行'
-        : '全量合计 ¥ ' + num2(totalAgg.sum) + ' · ' + totalAgg.count + ' 行';
-    }
   }
 
   /* ---------- 复制 TSV ---------- */
@@ -1203,14 +1182,6 @@ export function createGrid(opts: GridOptions): GridInstance | null {
   const onGroupSwitch = () => { st.grouped = !st.grouped; renderAll(); };
   if (groupSwitchEl) groupSwitchEl.addEventListener('click', onGroupSwitch);
 
-  const totalAggBtn = el('total-agg');
-  const onTotalAgg = () => toast('全量口径＝服务端按查询条件聚合，不含本页列头筛选与排序'
-    + (totalAgg
-      ? '：' + totalAgg.count + ' 行'
-        + (totalAgg.sum === undefined ? '（金额合计当前接口未提供，需要时请用导出 CSV 汇总）' : ' / ¥ ' + num2(totalAgg.sum))
-      : ''));
-  if (totalAggBtn) totalAggBtn.addEventListener('click', onTotalAgg);
-
   /* ---------- 查找 ---------- */
   const findInput = el('find') as HTMLInputElement | null;
   function next() {
@@ -1254,8 +1225,7 @@ export function createGrid(opts: GridOptions): GridInstance | null {
       return;
     }
     if (opts.onExport) opts.onExport();
-    else toast('导出 CSV：当前查询条件全量 ' + (totalAgg ? totalAgg.count : '—')
-      + ' 行（服务端流式导出，不是本页 ' + st.rows.length + ' 行）');
+    else toast('导出 CSV：当前查询条件全量（服务端流式导出，不是本页 ' + st.rows.length + ' 行）');
   };
   if (exportBtn) exportBtn.addEventListener('click', onExport);
   function renderExportLabel() {
@@ -1297,10 +1267,6 @@ export function createGrid(opts: GridOptions): GridInstance | null {
       baseCols = cols.map((c) => ({ ...c }));
       renderAll();
     },
-    setTotalAgg(totals?: GridTotals) {
-      totalAgg = totals;
-      renderStatus();
-    },
     snapshot: snap,
     enableSnapshotNotify() { notifySnapshot = true; },
     applySnapshot(snapshot: Partial<GridSnapshot>) {
@@ -1334,7 +1300,6 @@ export function createGrid(opts: GridOptions): GridInstance | null {
       if (chipsEl) chipsEl.removeEventListener('click', onChipsClick);
       if (densitySegEl) densitySegEl.removeEventListener('click', onDensityClick);
       if (groupSwitchEl) groupSwitchEl.removeEventListener('click', onGroupSwitch);
-      if (totalAggBtn) totalAggBtn.removeEventListener('click', onTotalAgg);
       if (findInput) {
         findInput.removeEventListener('input', onFindInput);
         findInput.removeEventListener('keydown', onFindKeyDown);

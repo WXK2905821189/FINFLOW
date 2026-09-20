@@ -17,6 +17,7 @@ import {
 import { ApiOutlined, ReloadOutlined, SaveOutlined } from '@ant-design/icons';
 import { aiApi } from '../../services/api';
 import type { AiConfigView } from '../../services/api';
+import { PromptSettingButton } from './PromptSettingModal';
 import { useRemote, ResourceFailure } from '../shared/components';
 import { dateTime } from '../shared/format';
 
@@ -161,6 +162,9 @@ export function AiSettingsPage() {
           </p>
         </div>
         <Space>
+          <PromptSettingButton capability="accounting-suggestion" hint="设置「智能入账建议」的系统提示词（全局生效）" />
+          <PromptSettingButton capability="company-classification" hint="设置「公司主体归类」的系统提示词（全局生效）" />
+          <PromptSettingButton capability="rule-import" hint="设置「规则导入映射」的系统提示词（全局生效）" />
           <Button icon={<ReloadOutlined />} onClick={() => void reload()}>刷新</Button>
         </Space>
       </div>

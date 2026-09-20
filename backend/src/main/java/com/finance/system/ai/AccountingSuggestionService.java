@@ -35,7 +35,8 @@ public class AccountingSuggestionService {
     /** 能力名：AI 设置页能力开关与审计表中的 capability 标识。 */
     public static final String CAPABILITY = "accounting-suggestion";
 
-    private static final String SYSTEM_PROMPT = """
+    /** 系统默认提示词（W9 起可被 ai_prompt_override 覆盖，见 AiPromptCatalog）。 */
+    public static final String SYSTEM_PROMPT = """
             你是中国小企业的资深财务会计，负责银行流水的人工复核辅助。你会收到一条银行流水
             （方向、金额、币种、交易时间、对手方名称、摘要）。请基于财务常识推断这笔交易最可能的
             业务性质，并给出金蝶入账的预填建议。你必须只输出一个 JSON 对象，不要输出任何其它
@@ -61,13 +62,16 @@ public class AccountingSuggestionService {
             之和必须借贷相等（都等于流水金额）；一般两行，确需拆分时才多行且必须借贷平衡。""";
 
     private final AiGatewayService gatewayService;
+    private final AiPromptService promptService;
     private final StatementRecordMapper statementMapper;
     private final CompanyScopeService companyScope;
     private final ObjectMapper objectMapper;
 
-    public AccountingSuggestionService(AiGatewayService gatewayService, StatementRecordMapper statementMapper,
+    public AccountingSuggestionService(AiGatewayService gatewayService, AiPromptService promptService,
+                                       StatementRecordMapper statementMapper,
                                        CompanyScopeService companyScope, ObjectMapper objectMapper) {
         this.gatewayService = gatewayService;
+        this.promptService = promptService;
         this.statementMapper = statementMapper;
         this.companyScope = companyScope;
         this.objectMapper = objectMapper;
@@ -76,7 +80,8 @@ public class AccountingSuggestionService {
     public AiAccountingSuggestionResponse suggest(Long statementId, Long userId) {
         AiEffectiveConfig config = gatewayService.auditedGuard(CAPABILITY, userId);
         StatementRecord statement = requireInCompanyScope(statementId, userId);
-        LlmChatRequest request = new LlmChatRequest(CAPABILITY, SYSTEM_PROMPT,
+        // W9：系统提示词支持超管在页面覆盖（ai_prompt_override），无覆盖回落 SYSTEM_PROMPT。
+        LlmChatRequest request = new LlmChatRequest(CAPABILITY, promptService.resolve(CAPABILITY),
                 buildUserPrompt(statement), 0.2, 512);
         LlmChatResult result = gatewayService.auditedChat(CAPABILITY, userId, config, request);
         JsonNode json = parseSuggestionJson(result.content());

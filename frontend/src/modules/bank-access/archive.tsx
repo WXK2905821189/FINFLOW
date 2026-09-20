@@ -6,6 +6,7 @@ import { useAuthStore } from '../../store/auth';
 import { useRemote, ResourceFailure } from '../shared/components';
 import { dateTime } from '../shared/format';
 import { BANK_NAME_TEXT } from './bankQueryTexts';
+import { PromptSettingButton } from '../admin/PromptSettingModal';
 import type { AiCompanyApplyResponse, AiCompanyApplyRow, AiCompanySuggestion, BankAccountCreatePayload, BankConnectionTestResult, CompanyArchiveAccount, CompanyArchiveCompany, CompanyArchiveView } from '../../types';
 
 /**
@@ -47,6 +48,8 @@ function ArchiveBoard() {
   const [testResult, setTestResult] = useState<{ accountName: string; result: BankConnectionTestResult }>();
   // AI 智能归类（V32）：建议 → 预览（公司名可编辑/行可勾选）→ 批量应用。
   const canAi = canManage && hasPermission('ai:use');
+  // W9：AI 提示词设置入口（仅超管）。
+  const canConfigAi = hasPermission('ai:config');
   const [aiSuggesting, setAiSuggesting] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<AiCompanySuggestion[]>([]);
@@ -436,6 +439,10 @@ function ArchiveBoard() {
           >
             AI 智能归类
           </Button>
+        )}
+        {/* W9：AI 提示词设置入口（仅超管可见；company-classification 能力全局生效）。 */}
+        {canConfigAi && (
+          <PromptSettingButton capability="company-classification" hint="设置「公司主体归类」的系统提示词（全局生效，仅超管）" />
         )}
       </div>
       {error
