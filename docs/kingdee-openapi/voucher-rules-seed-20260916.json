@@ -1,0 +1,269 @@
+{
+  "_meta": {
+    "version": "v1-20260916",
+    "source": "财务系统金蝶模块规则映射表(1).xlsx Sheet1（22 条，2026-09-16 财务侧提供）",
+    "usage": "银行流水 → 金蝶 GL_VOUCHER 规则引擎 seed。规则后续由财务补充后追加；本文件为初始导入数据，实装时入库 kingdee_voucher_rule 表。",
+    "orgAliasMap": {
+      "即设": "300 北京即设科技有限公司",
+      "雪云": "400 北京雪云锐创科技有限公司",
+      "海南": "900 海南即设科技有限公司",
+      "长沙": "710 北京雪云锐创科技有限公司长沙分公司",
+      "广州": "720 北京雪云锐创科技有限公司广州分公司",
+      "_note": "对照 2026-09-16 ORG_Organizations 实查（23 个组织）；即设含境外 100/200 系但银行流水范围仅境内主体"
+    },
+    "dimensionSourceTypes": {
+      "NONE": "无辅助维度",
+      "BANK_ACCOUNT": "银行账号维度 = 流水所属 FINFLOW 账户 → CN_BANKACNT 映射表",
+      "ORG": "组织机构维度 = 流水所属主体",
+      "EMPLOYEE": "员工维度 = 对手方个人姓名 / 人工选择",
+      "SUPPLIER": "供应商维度 = 对手方自动建档 FNumber",
+      "CUSTOMER": "客户维度 = 对手方自动建档 FNumber",
+      "COUNTERPARTY": "客/商通用（按对手方建档类型自动）",
+      "FIXED": "固定值（见 value）",
+      "BY_SUMMARY_BRANCH": "按摘要分支选择不同供应商（见 branches）"
+    },
+    "shareStrategies": {
+      "FULL": "全额单科目",
+      "EQUAL": "均分到多科目",
+      "MANUAL": "人工拆分输入（推送确认页逐科目填金额）"
+    }
+  },
+  "rules": [
+    {
+      "id": 1, "businessType": "即时行乐报销", "category": "费用类", "priority": 20,
+      "scope": { "orgs": ["300"], "bankChannels": ["CITIC"] },
+      "match": { "logic": "ALL", "conditions": [
+        { "field": "SUMMARY", "op": "CONTAINS", "values": ["报销"] },
+        { "field": "COUNTERPARTY_NAME", "op": "EMPLOYEE_NAME", "values": [] } ] },
+      "direction": "EXPENSE",
+      "debitLines": [ { "account": "2241.04", "name": "其他应付款_员工往来", "dimension": "FIXED", "value": "部门=1001/项目=即时行乐", "share": "FULL" } ],
+      "creditLines": [ { "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" } ],
+      "extraVoucher": {
+        "note": "直接确认费用（第二张凭证）",
+        "debitLines": [ { "account": "6602.11", "name": "管理费用_福利费", "dimension": "FIXED", "value": "部门=综合管理部；项目=即时行乐", "share": "FULL" } ],
+        "creditLines": [ { "account": "2241.04", "name": "其他应付款_员工往来", "dimension": "EMPLOYEE", "share": "FULL" } ] },
+      "raw": "主体银行=即设中信；识别=员工个人名字；维度列原文「1001/即时行乐」"
+    },
+    {
+      "id": 2, "businessType": "集团主体往来", "category": "往来类", "priority": 30,
+      "scope": { "orgs": ["ALL"], "bankChannels": [] },
+      "match": { "logic": "ALL", "conditions": [
+        { "field": "COUNTERPARTY_NAME", "op": "IN_ORG_LIST", "values": ["ORG_NAMES"] } ] },
+      "direction": "ANY",
+      "debitLines": [ { "account": "2241.05", "name": "其他应付款_内部往来", "dimension": "ORG", "share": "FULL" } ],
+      "creditLines": [ { "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" } ],
+      "raw": "主体银行=所有主体；识别=对手方为集团内部主体；维度=组织机构。收入方向（收到内部往来款）借贷对调：借1002/贷2241.05"
+    },
+    {
+      "id": 3, "businessType": "备款到薪福通", "category": "往来类", "priority": 25,
+      "scope": { "orgs": ["300", "400", "710", "720"], "bankChannels": ["CMB"] },
+      "match": { "logic": "ALL", "conditions": [
+        { "field": "COUNTERPARTY_NAME", "op": "CONTAINS", "values": ["招商银行", "应付代发业务清算款"] } ] },
+      "direction": "ANY",
+      "debitLines": [ { "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" } ],
+      "creditLines": [ { "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "value": "对方账户=该主体薪福通账户映射", "share": "FULL" } ],
+      "raw": "主体银行=即设、雪云、长沙、广州；维度=各主体对应的薪福通账号（银行↔银行内部划转，依赖账户映射表）"
+    },
+    {
+      "id": 4, "businessType": "购买理财/结构性存款", "category": "理财类", "priority": 20,
+      "scope": { "orgs": ["300"], "bankChannels": ["CITIC"] },
+      "match": { "logic": "ALL", "conditions": [
+        { "field": "SUMMARY", "op": "CONTAINS", "values": ["购买理财", "结构性存款"] } ] },
+      "direction": "EXPENSE",
+      "debitLines": [ { "account": "1101.01", "name": "交易性金融资产_成本", "dimension": "NONE", "share": "FULL" } ],
+      "creditLines": [ { "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" } ]
+    },
+    {
+      "id": 5, "businessType": "员工借款", "category": "借款类", "priority": 20,
+      "scope": { "orgs": ["300"], "bankChannels": ["CITIC"] },
+      "match": { "logic": "ALL", "conditions": [
+        { "field": "SUMMARY", "op": "CONTAINS", "values": ["借款"] } ] },
+      "direction": "EXPENSE",
+      "debitLines": [ { "account": "1221.02", "name": "其他应收款_员工借款", "dimension": "EMPLOYEE", "share": "FULL" } ],
+      "creditLines": [ { "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" } ]
+    },
+    {
+      "id": 6, "businessType": "支付银行手续费", "category": "费用类", "priority": 20,
+      "scope": { "orgs": ["300", "400"], "bankChannels": ["CITIC"] },
+      "match": { "logic": "ALL", "conditions": [
+        { "field": "SUMMARY", "op": "CONTAINS", "values": ["手续费", "银行服务费", "银行收费"] } ] },
+      "direction": "EXPENSE",
+      "debitLines": [ { "account": "6603.04", "name": "财务费用_手续费", "dimension": "NONE", "share": "FULL" } ],
+      "creditLines": [ { "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" } ]
+    },
+    {
+      "id": 7, "businessType": "API用量采购", "category": "预付类", "priority": 20,
+      "scope": { "orgs": ["300", "400"], "bankChannels": ["CITIC"] },
+      "match": { "logic": "ALL", "conditions": [
+        { "field": "SUMMARY", "op": "CONTAINS", "values": ["API用量采购"] } ] },
+      "direction": "EXPENSE",
+      "debitLines": [ { "account": "1123.01", "name": "预付账款_外部往来", "dimension": "SUPPLIER", "value": "项目=图虫", "share": "FULL" } ],
+      "creditLines": [ { "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" } ]
+    },
+    {
+      "id": 8, "businessType": "支付房租", "category": "预付类", "priority": 20,
+      "scope": { "orgs": ["300", "710", "720"], "bankChannels": ["CITIC", "CMB"] },
+      "match": { "logic": "ALL", "conditions": [
+        { "field": "SUMMARY", "op": "CONTAINS", "values": ["租金", "房租"] },
+        { "field": "COUNTERPARTY_NAME", "op": "CONTAINS_ANY", "values": ["北京柏豪置业", "长沙中电产业园", "天银科创"] } ] },
+      "direction": "EXPENSE",
+      "debitLines": [ { "account": "2601.01", "name": "租赁负债_租赁付款额", "dimension": "SUPPLIER", "share": "FULL" } ],
+      "creditLines": [ { "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" } ]
+    },
+    {
+      "id": 9, "businessType": "支付物业", "category": "预付类", "priority": 20,
+      "scope": { "orgs": ["300", "710"], "bankChannels": ["CITIC", "CMB"] },
+      "match": { "logic": "ALL", "conditions": [
+        { "field": "SUMMARY", "op": "CONTAINS", "values": ["物业"] },
+        { "field": "COUNTERPARTY_NAME", "op": "CONTAINS", "values": ["北京柏豪达美物业"] } ] },
+      "direction": "EXPENSE",
+      "debitLines": [ { "account": "2241.06", "name": "其他应付款_外部往来", "dimension": "SUPPLIER", "share": "FULL" } ],
+      "creditLines": [ { "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" } ]
+    },
+    {
+      "id": 10, "businessType": "缴纳社保（金额大）", "category": "五险一金", "priority": 15,
+      "scope": { "orgs": ["300", "400", "900"], "bankChannels": ["CITIC"] },
+      "match": { "logic": "ALL", "conditions": [
+        { "field": "SUMMARY", "op": "CONTAINS", "values": ["扣国地税"] } ],
+        "amountGate": "与规则11同附言，靠金额区分：社保=金额大。阈值待财务提供，落地前两条均进人工确认队列" },
+      "direction": "EXPENSE",
+      "debitLines": [
+        { "account": "2241.02.01", "name": "其他应付款_社保_养老", "dimension": "NONE", "share": "MANUAL" },
+        { "account": "2241.02.03", "name": "其他应付款_社保_医疗", "dimension": "NONE", "share": "MANUAL" },
+        { "account": "2241.02.02", "name": "其他应付款_社保_失业", "dimension": "NONE", "share": "MANUAL" },
+        { "account": "2211.02.01", "name": "应付职工薪酬_社保_养老", "dimension": "NONE", "share": "MANUAL" },
+        { "account": "2211.02.05", "name": "应付职工薪酬_社保_医疗", "dimension": "NONE", "share": "MANUAL" },
+        { "account": "2211.02.02", "name": "应付职工薪酬_社保_失业", "dimension": "NONE", "share": "MANUAL" },
+        { "account": "2211.02.03", "name": "应付职工薪酬_社保_工伤", "dimension": "NONE", "share": "MANUAL" },
+        { "account": "2211.02.04", "name": "应付职工薪酬_社保_生育", "dimension": "NONE", "share": "MANUAL" } ],
+      "creditLines": [ { "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" } ],
+      "raw": "社保各科目录入的金额需要按照上月工资表（人工拆分，8 借方科目）"
+    },
+    {
+      "id": 11, "businessType": "缴纳个税（金额小）", "category": "五险一金", "priority": 15,
+      "scope": { "orgs": ["300"], "bankChannels": ["CITIC"] },
+      "match": { "logic": "ALL", "conditions": [
+        { "field": "SUMMARY", "op": "CONTAINS", "values": ["扣国地税"] } ],
+        "amountGate": "个税=金额小；阈值待财务提供" },
+      "direction": "EXPENSE",
+      "debitLines": [ { "account": "2221.06", "name": "应交税费_代扣个人所得税", "dimension": "NONE", "share": "FULL" } ],
+      "creditLines": [ { "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" } ]
+    },
+    {
+      "id": 12, "businessType": "缴纳公积金", "category": "五险一金", "priority": 20,
+      "scope": { "orgs": ["300", "710"], "bankChannels": ["CITIC", "CMB"] },
+      "match": { "logic": "ALL", "conditions": [
+        { "field": "COUNTERPARTY_NAME", "op": "CONTAINS", "values": ["住房公积金"] } ] },
+      "direction": "EXPENSE",
+      "debitLines": [
+        { "account": "2211.03", "name": "应付职工薪酬_公积金", "dimension": "NONE", "share": "EQUAL" },
+        { "account": "2241.03", "name": "其他应付款_公积金", "dimension": "NONE", "share": "EQUAL" } ],
+      "creditLines": [ { "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" } ],
+      "raw": "两个科目金额均分"
+    },
+    {
+      "id": 13, "businessType": "交保证金", "category": "保证金", "priority": 20,
+      "scope": { "orgs": ["300"], "bankChannels": ["CITIC"] },
+      "match": { "logic": "ALL", "conditions": [
+        { "field": "SUMMARY", "op": "CONTAINS", "values": ["保证金"] } ] },
+      "direction": "EXPENSE",
+      "debitLines": [ { "account": "1221.01", "name": "其他应收款_保证金", "dimension": "SUPPLIER", "share": "FULL" } ],
+      "creditLines": [ { "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" } ]
+    },
+    {
+      "id": 14, "businessType": "常规对公付款-福利费/办公费", "category": "费用类", "priority": 20,
+      "scope": { "orgs": ["300", "400"], "bankChannels": ["CITIC"] },
+      "match": { "logic": "ALL", "conditions": [
+        { "field": "SUMMARY", "op": "CONTAINS", "values": ["服务费"] } ],
+        "note": "业务类型列另提「雪糕饮料、运动」，当前条件仅按表内识别列【服务费】" },
+      "direction": "EXPENSE",
+      "debitLines": [ { "account": "2241.06", "name": "其他应付款_外部往来", "dimension": "SUPPLIER", "share": "FULL" } ],
+      "creditLines": [ { "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" } ],
+      "extraVoucher": {
+        "note": "直接确认费用（第二张凭证）",
+        "debitLines": [
+          { "account": "6602.11", "name": "管理费用_福利费", "dimension": "FIXED", "value": "部门=综合管理部；项目=运动福利/日常福利/节日福利（人工选）", "share": "MANUAL" },
+          { "account": "6602.02.07.01", "name": "管理费用_行政费用_办公费_日常办公费", "dimension": "FIXED", "value": "部门=综合管理部", "share": "MANUAL" } ],
+        "creditLines": [ { "account": "2241.06", "name": "其他应付款_外部往来", "dimension": "SUPPLIER", "share": "FULL" } ] }
+    },
+    {
+      "id": 15, "businessType": "企业滴滴充值", "category": "其他货币资金", "priority": 20,
+      "scope": { "orgs": ["300"], "bankChannels": ["CITIC"] },
+      "match": { "logic": "ALL", "conditions": [
+        { "field": "SUMMARY", "op": "CONTAINS", "values": ["滴滴"] } ] },
+      "direction": "EXPENSE",
+      "debitLines": [ { "account": "1012", "name": "其他货币资金", "dimension": "BANK_ACCOUNT", "share": "FULL" } ],
+      "creditLines": [ { "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" } ]
+    },
+    {
+      "id": 16, "businessType": "灵活用工", "category": "费用类", "priority": 20,
+      "scope": { "orgs": ["400"], "bankChannels": ["CITIC"] },
+      "match": { "logic": "ALL", "conditions": [
+        { "field": "SUMMARY", "op": "CONTAINS", "values": ["劳务费"] } ] },
+      "direction": "EXPENSE",
+      "debitLines": [ { "account": "2241.06", "name": "其他应付款_外部往来", "dimension": "SUPPLIER", "value": "项目=wegic", "share": "FULL" } ],
+      "creditLines": [ { "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" } ]
+    },
+    {
+      "id": 17, "businessType": "支付服务器费（非腾讯云）", "category": "预付类", "priority": 20,
+      "scope": { "orgs": ["400"], "bankChannels": ["CITIC"] },
+      "match": { "logic": "ALL", "conditions": [
+        { "field": "SUMMARY", "op": "CONTAINS", "values": ["云服务费"] },
+        { "field": "COUNTERPARTY_NAME", "op": "CONTAINS_ANY", "values": ["阿里云", "百度网讯", "优刻得"] } ] },
+      "direction": "EXPENSE",
+      "debitLines": [ { "account": "1123.01", "name": "预付账款_外部往来", "dimension": "SUPPLIER", "share": "FULL" } ],
+      "creditLines": [ { "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" } ]
+    },
+    {
+      "id": 18, "businessType": "支付服务器费（腾讯云）", "category": "预付类", "priority": 20,
+      "scope": { "orgs": ["400"], "bankChannels": ["CITIC"] },
+      "match": { "logic": "ALL", "conditions": [
+        { "field": "SUMMARY", "op": "CONTAINS", "values": ["云服务费"] },
+        { "field": "COUNTERPARTY_NAME", "op": "CONTAINS", "values": ["腾讯云"] } ] },
+      "direction": "EXPENSE",
+      "debitLines": [ { "account": "2241.06", "name": "其他应付款_外部往来", "dimension": "BY_SUMMARY_BRANCH",
+        "branches": [
+          { "whenSummaryContains": "图虫账号", "supplier": "腾讯云计算（北京）有限责任公司-图虫" },
+          { "whenSummaryContains": "即时账号", "supplier": "腾讯云计算（北京）有限责任公司-即时" } ],
+        "share": "FULL" } ],
+      "creditLines": [ { "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" } ]
+    },
+    {
+      "id": 19, "businessType": "支付工资", "category": "薪资", "priority": 20,
+      "scope": { "orgs": ["900"], "bankChannels": ["CITIC"] },
+      "match": { "logic": "ALL", "conditions": [
+        { "field": "SUMMARY", "op": "CONTAINS", "values": ["工资薪金"] } ] },
+      "direction": "EXPENSE",
+      "debitLines": [ { "account": "2211.01", "name": "应付职工薪酬_工资", "dimension": "NONE", "share": "FULL" } ],
+      "creditLines": [ { "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" } ]
+    },
+    {
+      "id": 20, "businessType": "归还员工借款", "category": "借款类", "priority": 20,
+      "scope": { "orgs": ["300", "400"], "bankChannels": ["CITIC"] },
+      "match": { "logic": "ALL", "conditions": [
+        { "field": "SUMMARY", "op": "CONTAINS", "values": ["归还借款"] } ] },
+      "direction": "EXPENSE",
+      "debitLines": [ { "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" } ],
+      "creditLines": [ { "account": "1221.02", "name": "其他应收款_员工借款", "dimension": "EMPLOYEE", "share": "FULL" } ]
+    },
+    {
+      "id": 21, "businessType": "对公收入", "category": "收入类", "priority": 30,
+      "scope": { "orgs": ["300", "400"], "bankChannels": ["CITIC"] },
+      "match": { "logic": "ANY", "conditions": [
+        { "field": "SUMMARY", "op": "CONTAINS", "values": ["收入", "转入", "打款"] } ] },
+      "direction": "INCOME",
+      "debitLines": [ { "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" } ],
+      "creditLines": [ { "account": "1122.01", "name": "应收账款_外部往来", "dimension": "COUNTERPARTY", "share": "FULL" } ],
+      "raw": "附言写【收入、转入、打款】等（宽泛兜底规则，优先级低于精确规则）"
+    },
+    {
+      "id": 22, "businessType": "收到实名验证款", "category": "费用类", "priority": 20,
+      "scope": { "orgs": ["300", "400"], "bankChannels": ["CITIC"] },
+      "match": { "logic": "ALL", "conditions": [
+        { "field": "SUMMARY", "op": "CONTAINS", "values": ["实名验证"] } ] },
+      "direction": "INCOME",
+      "debitLines": [ { "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" } ],
+      "creditLines": [ { "account": "6603.04", "name": "财务费用_手续费", "dimension": "NONE", "share": "FULL" } ]
+    }
+  ]
+}
