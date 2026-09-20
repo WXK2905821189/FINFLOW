@@ -6,8 +6,15 @@ import com.finance.system.ai.dto.AiAccountingSuggestionResponse;
 import com.finance.system.ai.dto.VoucherEntry;
 import com.finance.system.common.exception.BusinessException;
 import com.finance.system.common.tenant.CompanyScopeService;
+import com.finance.system.domain.entity.BankAccount;
+import com.finance.system.domain.entity.Company;
 import com.finance.system.domain.entity.StatementRecord;
+import com.finance.system.domain.mapper.BankAccountMapper;
+import com.finance.system.domain.mapper.CompanyMapper;
 import com.finance.system.domain.mapper.StatementRecordMapper;
+import com.finance.system.statement.voucherrule.KingdeeVoucherMatchingService;
+import com.finance.system.statement.voucherrule.dto.KingdeeVoucherEntryDraft;
+import com.finance.system.statement.voucherrule.dto.KingdeeVoucherRulePreview;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -59,33 +66,52 @@ public class AccountingSuggestionService {
             entries 分录规则：收入（银行收款）→ 借：银行存款（DEBIT），贷：业务科目（CREDIT）；
             支出（银行付款）→ 借：业务科目（DEBIT），贷：银行存款（CREDIT）。银行存款行科目
             通常就是“银行存款”，置信度给 1.0；业务科目行给出你的判断与置信度。各分录 amount
-            之和必须借贷相等（都等于流水金额）；一般两行，确需拆分时才多行且必须借贷平衡。""";
+            之和必须借贷相等（都等于流水金额）；一般两行，确需拆分时才多行且必须借贷平衡。
+            如果用户消息里出现了「本笔流水命中的企业入账规则」，说明服务端规则引擎已经确定了借贷科目：
+            你必须原样采用规则给出的科目名与方向（R{businessType} 与分录不得改写，金额等于流水金额），
+            只负责补全 businessCategory / suggestedSummary / counterpartyType / settlementMethod /
+            riskNotes，并在 rationale 开头写「命中规则 R{规则号}」；没有规则命中时按上面的财务常识独立判断。""";
 
     private final AiGatewayService gatewayService;
     private final AiPromptService promptService;
     private final StatementRecordMapper statementMapper;
     private final CompanyScopeService companyScope;
     private final ObjectMapper objectMapper;
+    /** W10（WP-5）：规则引擎 —— 命中规则注入提示词，实现「规则优先、AI 兜底」。 */
+    private final KingdeeVoucherMatchingService matchingService;
+    private final BankAccountMapper bankAccountMapper;
+    private final CompanyMapper companyMapper;
+
+    /** 注入提示词的命中规则上限（token 预算控制）。 */
+    private static final int MAX_HIT_RULES = 3;
 
     public AccountingSuggestionService(AiGatewayService gatewayService, AiPromptService promptService,
                                        StatementRecordMapper statementMapper,
-                                       CompanyScopeService companyScope, ObjectMapper objectMapper) {
+                                       CompanyScopeService companyScope, ObjectMapper objectMapper,
+                                       KingdeeVoucherMatchingService matchingService,
+                                       BankAccountMapper bankAccountMapper,
+                                       CompanyMapper companyMapper) {
         this.gatewayService = gatewayService;
         this.promptService = promptService;
         this.statementMapper = statementMapper;
         this.companyScope = companyScope;
         this.objectMapper = objectMapper;
+        this.matchingService = matchingService;
+        this.bankAccountMapper = bankAccountMapper;
+        this.companyMapper = companyMapper;
     }
 
     public AiAccountingSuggestionResponse suggest(Long statementId, Long userId) {
         AiEffectiveConfig config = gatewayService.auditedGuard(CAPABILITY, userId);
         StatementRecord statement = requireInCompanyScope(statementId, userId);
+        // W10（WP-5）：先跑服务端规则引擎，把命中规则作为强约束注入提示词 —— 规则优先、AI 兜底。
+        List<KingdeeVoucherRulePreview.Candidate> hits = hitRules(statement);
         // W9：系统提示词支持超管在页面覆盖（ai_prompt_override），无覆盖回落 SYSTEM_PROMPT。
         // W10：max_tokens 512 → 2048。原 512 会让「含 entries 分录 + rationale/riskNotes 的中文 JSON」
         // 被截断（线上 call-logs 实测 completionTokens 多次正好卡 512、responseSummary 为空），
         // 截断的半截 JSON 解析失败 → 业务层降级为「AI 建议不可用」，是用户反馈 AI 不可用的真因。
         LlmChatRequest request = new LlmChatRequest(CAPABILITY, promptService.resolve(CAPABILITY),
-                buildUserPrompt(statement), 0.2, 2048);
+                buildUserPrompt(statement, hits), 0.2, 2048);
         LlmChatResult result = gatewayService.auditedChat(CAPABILITY, userId, config, request);
         JsonNode json = parseSuggestionJson(result.content());
         return new AiAccountingSuggestionResponse(
@@ -100,7 +126,35 @@ public class AccountingSuggestionService {
                 text(json, "rationale"),
                 result.model(),
                 result.durationMillis(),
-                parseEntries(json, statement));
+                parseEntries(json, statement),
+                hits.stream()
+                        .map(hit -> new AiAccountingSuggestionResponse.HitRule(
+                                hit.ruleNo(), hit.businessType(), hit.category()))
+                        .toList());
+    }
+
+    /**
+     * 服务端规则引擎预检（WP-5）：返回命中的入账规则（最多 {@link #MAX_HIT_RULES} 条，按规则优先级）。
+     *
+     * <p>规则引擎异常一律降级为空命中 —— 规则配置问题不应让整条 AI 制证链路失败，
+     * 此时退化为纯 AI 建议（与 WP-5 之前的行为一致）。</p>
+     */
+    private List<KingdeeVoucherRulePreview.Candidate> hitRules(StatementRecord statement) {
+        try {
+            BankAccount account = statement.getBankAccountId() == null
+                    ? null : bankAccountMapper.selectById(statement.getBankAccountId());
+            Company company = statement.getCompanyId() == null
+                    ? null : companyMapper.selectById(statement.getCompanyId());
+            KingdeeVoucherRulePreview preview = matchingService.preview(statement, account, company);
+            List<KingdeeVoucherRulePreview.Candidate> candidates = preview.candidates();
+            if (candidates == null || candidates.isEmpty()) {
+                return List.of();
+            }
+            return candidates.stream().limit(MAX_HIT_RULES).toList();
+        } catch (Exception e) {
+            log.warn("规则引擎预检失败，降级为纯 AI 建议：{}", e.getMessage());
+            return List.of();
+        }
     }
 
     /** 公司域校验：跨公司流水一律 404（不暴露存在性）。 */
@@ -114,15 +168,40 @@ public class AccountingSuggestionService {
         return statement;
     }
 
-    /** 脱敏上下文：不含对手方账号、不含原始报文、不含公司主体。 */
-    private String buildUserPrompt(StatementRecord s) {
-        return "流水信息：\n"
+    /** 脱敏上下文：不含对手方账号、不含原始报文、不含公司主体；命中规则时附规则分录作为强约束。 */
+    private String buildUserPrompt(StatementRecord s, List<KingdeeVoucherRulePreview.Candidate> hits) {
+        StringBuilder prompt = new StringBuilder("流水信息：\n"
                 + "- 方向：" + ("CREDIT".equalsIgnoreCase(s.getDirection()) ? "收入（借：银行存款）" : "支出")
                 + "\n- 金额：" + s.getAmount() + " " + (s.getCurrency() == null ? "CNY" : s.getCurrency())
                 + "\n- 交易时间：" + s.getTransactionTime()
                 + "\n- 对手方名称：" + nullSafe(s.getCounterpartyName())
-                + "\n- 摘要：" + nullSafe(s.getSummary())
-                + "\n请输出 JSON 建议。";
+                + "\n- 摘要：" + nullSafe(s.getSummary()));
+        if (hits != null && !hits.isEmpty()) {
+            prompt.append("\n\n本笔流水命中的企业入账规则（服务端规则引擎判定，分录必须采用）：");
+            for (KingdeeVoucherRulePreview.Candidate hit : hits) {
+                prompt.append("\n- 规则 R").append(hit.ruleNo())
+                        .append("（业务类型：").append(nullSafe(hit.businessType()))
+                        .append("；类别：").append(nullSafe(hit.category()))
+                        .append("；优先级 ").append(hit.priority()).append("）");
+                appendRuleLines(prompt, "借", hit.debitLines());
+                appendRuleLines(prompt, "贷", hit.creditLines());
+            }
+            prompt.append("\n请以上述规则的科目名与方向为准输出 entries，并在 rationale 开头注明命中规则号。");
+        }
+        prompt.append("\n请输出 JSON 建议。");
+        return prompt.toString();
+    }
+
+    /** 规则分录行文本化（科目名 + 编码 + 金额口径），供提示词引用。 */
+    private void appendRuleLines(StringBuilder prompt, String side,
+                                 List<KingdeeVoucherEntryDraft> lines) {
+        if (lines == null) return;
+        for (KingdeeVoucherEntryDraft line : lines) {
+            prompt.append("\n    ").append(side).append("：")
+                    .append(nullSafe(line.accountName()))
+                    .append(line.account() == null || line.account().isBlank() ? "" : "（" + line.account() + "）")
+                    .append(line.manual() ? "【金额待人工确认】" : "");
+        }
     }
 
     /** 严格解析：剥掉可能的 markdown 围栏后必须命中全部固定字段，否则 502。 */

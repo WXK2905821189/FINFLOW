@@ -145,8 +145,12 @@ export function VoucherStatements() {
   const refreshAi = async (row: StatementRecord) => {
     setAiBusyId(row.id);
     try {
-      await statementApi.refreshAiSuggestion(row.id);
-      message.success('AI 建议已更新');
+      const suggestion = await statementApi.refreshAiSuggestion(row.id);
+      // W10（WP-5）：规则引擎命中时提示「已按规则生成」，让用户知道 AI 建议受规则约束
+      const hits = suggestion?.hitRules || [];
+      message.success(hits.length
+        ? `AI 建议已更新 · 按命中规则生成（${hits.map((hit) => `R${hit.ruleNo} ${hit.businessType}`).join('、')}）`
+        : 'AI 建议已更新（无命中规则，AI 独立判断）');
       await reload();
     } catch (reason) {
       message.error(reason instanceof Error ? reason.message : 'AI 建议刷新失败');

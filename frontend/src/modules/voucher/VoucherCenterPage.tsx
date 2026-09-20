@@ -1,29 +1,26 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
-  Button, Card, Empty, Input, Modal, Pagination, Segmented, Space, Table, Tag, Tooltip, message,
-  type TableColumnsType,
+  Button, Card, Input, Modal, Pagination, Segmented, Space, message,
 } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { ReloadOutlined } from '@ant-design/icons';
 import { statementApi, voucherGroupApi } from '../../services/api';
 import { useAuthStore } from '../../store/auth';
 import { useRemote, ResourceFailure } from '../shared/components';
-import { dateTime, money } from '../shared/format';
+import { ExcelGrid } from '../bank-access/grid/ExcelGrid';
+import type { GridRow } from '../bank-access/grid/kernel';
 import { AuditDrawer } from '../statements/pages';
-import { VOUCHER_GROUP_FILTERS, voucherStatusTag } from './voucherTexts';
+import { VOUCHER_GROUP_FILTERS } from './voucherTexts';
+import { voucherCenterColumns, toVoucherGridRows } from './VoucherCenterGridColumns';
 import type { VoucherGroupFilter, VoucherGroupRow } from './types';
 
 /**
- * V34 ⑦ 凭证中心（凭证管线一等视图）：
+ * V34 ⑦ 凭证中心（凭证管线一等视图）：W10（WP-6）由 antd Table 迁移至 Excel 内核。
  *  - 列表行 = 凭证记录（一期推送链路 1 笔流水 → 1 张凭证，「来源流水」列写明 N 笔 → 1 张单据）；
- *  - 状态四签（待复核/待推送/已推送/推送失败）同时覆盖 AI 制证与规则引擎两条推送链路；
- *  - 行内操作：通过/驳回（待复核）、推送金蝶（待推送）、查看凭证（独立单据页，可打印）、追溯；
- *  - 取代原「凭证草稿与制证」页（/statements/vouchers 路由保留，组件替换）。
+ *  - 状态四签（待复核/待推送/已推送/推送失败/已撤回）同时覆盖 AI 制证与规则引擎两条推送链路；
+ *  - 行内操作（内核 data-row-action）：通过/驳回、推送、重新打开、撤回、查看凭证、追溯；
+ *  - 内核带来列宽拖拽 / 本页排序 / 列头筛选 / TSV 复制 / 列显隐 / CSV 导出。
  */
-
-const sourceFlowTag = (count: number) => (
-  <Tag color="geekblue">{count} 笔 → 1 张单据</Tag>
-);
 
 export function VoucherCenterPage() {
   const navigate = useNavigate();
@@ -43,7 +40,7 @@ export function VoucherCenterPage() {
 
   const loader = useCallback(() => voucherGroupApi.list({ page, size: 20, status: filter, keyword: keyword || undefined }),
     [page, filter, keyword]);
-  const { data, loading, error, reload } = useRemote(loader, [loader]);
+  const { data, error, reload } = useRemote(loader, [loader]);
 
   const withBusy = async (row: VoucherGroupRow, action: () => Promise<unknown>, done: string) => {
     if (busyRowId != null) return;
@@ -93,9 +90,6 @@ export function VoucherCenterPage() {
     });
   };
 
-  /** 金蝶侧已成功接单 —— 不可撤回（PUSHED / GL_PUSHED 双拼写域）。 */
-  const pushCompleted = (row: VoucherGroupRow) => row.pushStatus === 'PUSHED' || row.pushStatus === 'GL_PUSHED';
-
   /** W10（V39）：撤回未推送金蝶的凭证 —— 标记「已撤回」+ 流水回池可重新制证。 */
   const withdraw = (row: VoucherGroupRow) => {
     Modal.confirm({
@@ -109,50 +103,26 @@ export function VoucherCenterPage() {
     });
   };
 
-  const columns: TableColumnsType<VoucherGroupRow> = [
-    {
-      title: '来源流水', dataIndex: 'statementNo', width: 210,
-      render: (value: string, row) => <Space size={4} wrap><span className="mono">{value}</span>{sourceFlowTag(row.statementCount)}</Space>,
-    },
-    { title: '业务日期', dataIndex: 'businessDate', width: 110, render: (value: string) => dateTime(value) },
-    { title: '公司主体', dataIndex: 'companyName', ellipsis: true, render: (value: string | null) => value || '--' },
-    { title: '银行账户', dataIndex: 'bankAccount', ellipsis: true, render: (value: string | null) => value ? <span className="mono">{value}</span> : '--' },
-    { title: '方向', dataIndex: 'direction', width: 70, render: (value: string) => value === 'INCOME' ? <Tag color="green">收</Tag> : value === 'EXPENSE' ? <Tag color="orange">付</Tag> : value || '--' },
-    { title: '金额', dataIndex: 'amount', align: 'right', width: 120, render: (value) => money(value) },
-    { title: '摘要', dataIndex: 'summary', ellipsis: true, render: (value: string | null) => value || '--' },
-    { title: '金蝶凭证号', dataIndex: 'voucherNo', width: 130, render: (value: string | null) => value ? <span className="mono">{value}</span> : '--' },
-    {
-      title: '状态', width: 130,
-      render: (_, row) => {
-        const tag = voucherStatusTag(row);
-        return <>{<Tag color={tag.color}>{tag.text}</Tag>}{row.pushMessage && <Tooltip title={row.pushMessage}><span className="table-sub">{row.pushMessage}</span></Tooltip>}</>;
-      },
-    },
-    {
-      title: '操作', fixed: 'right', width: 350,
-      render: (_, row) => <Space size={4} wrap>
-        <Button size="small" onClick={() => navigate(`/statements/voucher-doc/${row.statementId}`)}>查看凭证</Button>
-        {canReview && row.reviewStatus === 'PENDING' && (
-          <Button size="small" disabled={busyRowId != null} onClick={() => approve(row)}>通过</Button>
-        )}
-        {canReview && row.reviewStatus === 'PENDING' && (
-          <Button size="small" disabled={busyRowId != null} onClick={() => { setRejectComment(''); setRejectRow(row); }}>驳回</Button>
-        )}
-        {canPush && row.reviewStatus === 'APPROVED' && row.pushStatus !== 'PUSHED' && row.pushStatus !== 'GL_PUSHED' && (
-          <Button size="small" disabled={busyRowId != null}
-            onClick={() => push(row)}>{row.pushStatus === 'FAILED' || row.pushStatus === 'GL_FAILED' ? '重试推送' : '推送'}</Button>
-        )}
-        {canPush && row.reviewStatus === 'REJECTED' && (
-          <Button size="small" disabled={busyRowId != null} onClick={() => reopen(row)}>重新打开</Button>
-        )}
-        {/* W10（V39）：未推送金蝶的凭证可撤回（标记已撤回，流水回池可重新制证） */}
-        {canPush && row.reviewStatus !== 'WITHDRAWN' && !pushCompleted(row) && (
-          <Button size="small" danger disabled={busyRowId != null} onClick={() => withdraw(row)}>撤回</Button>
-        )}
-        <Button size="small" onClick={() => setTrace(row)}>追溯</Button>
-      </Space>,
-    },
-  ];
+  // W10（WP-6）：内核列（cell 为 HTML 字符串），操作按钮走 data-row-action 回投到本组件。
+  // 必须 memo：ExcelGrid 以引用比较做增量同步，每次渲染都给新数组会触发 setRows → 清空行勾选。
+  const gridColumns = useMemo(() => voucherCenterColumns({ canReview, canPush }), [canReview, canPush]);
+  const gridRows = useMemo(() => toVoucherGridRows(data?.records || []), [data]);
+
+  /** 内核行内动作 → 既有处理函数（visible 规则在列定义里，这里只做分发）。 */
+  const onRowAction = (action: string, row: GridRow) => {
+    const target = row as unknown as VoucherGroupRow;
+    switch (action) {
+      case 'doc': navigate(`/statements/voucher-doc/${target.statementId}`); break;
+      case 'approve': approve(target); break;
+      case 'reject': setRejectComment(''); setRejectRow(target); break;
+      case 'push': push(target); break;
+      case 'reopen': reopen(target); break;
+      case 'withdraw': withdraw(target); break;
+      case 'trace': setTrace(target); break;
+      default: break;
+    }
+  };
+
 
   return <>
     <div className="page-heading">
@@ -206,22 +176,28 @@ export function VoucherCenterPage() {
     </Space>
     <Card>
       {error ? <ResourceFailure error={error} onRetry={reload} /> : <>
-        <Table
-          rowKey="statementId"
-          loading={loading}
-          columns={columns}
-          dataSource={data?.records || []}
-          pagination={false}
-          locale={{ emptyText: <Empty description="暂无对应状态的凭证记录" /> }}
-          scroll={{ x: 1480 }}
-          rowSelection={canPush ? {
-            selectedRowKeys: selectedIds,
-            onChange: (keys) => setSelectedIds(keys.map(Number)),
-            getCheckboxProps: (row: VoucherGroupRow) => ({
-              // 仅「已复核且未推送成功」的行可批量推送（待推送 + 推送失败）。
-              disabled: !(row.reviewStatus === 'APPROVED' && row.pushStatus !== 'PUSHED' && row.pushStatus !== 'GL_PUSHED'),
-            }),
-          } : undefined}
+        <ExcelGrid
+          id="voucher.center"
+          cols={gridColumns}
+          rows={gridRows}
+          pageSize={data?.size || 20}
+          // 批量推送只针对「已复核且未推送成功」的行（与旧 rowSelection.getCheckboxProps 同口径）
+          selectable={canPush}
+          isRowSelectable={(row) => {
+            const r = row as unknown as VoucherGroupRow;
+            return r.reviewStatus === 'APPROVED' && r.pushStatus !== 'PUSHED' && r.pushStatus !== 'GL_PUSHED';
+          }}
+          disabledRowHint={(row) => {
+            const r = row as unknown as VoucherGroupRow;
+            return r.pushStatus === 'PUSHED' || r.pushStatus === 'GL_PUSHED'
+              ? '该凭证已推送金蝶，不能重复推送'
+              : '仅「已复核且未推送成功」的凭证可批量推送';
+          }}
+          onSelectionChange={(picked) => setSelectedIds(picked.map((row) => Number((row as unknown as VoucherGroupRow).statementId)))}
+          onRowAction={onRowAction}
+          emptyText="暂无对应状态的凭证记录"
+          findPlaceholder="Ctrl+F 凭证号 / 流水号 / 摘要"
+          toast={(text) => message.success(text)}
         />
         {data && data.total > data.size && (
           <Pagination className="table-pagination" current={data.page} pageSize={data.size} total={data.total} showSizeChanger={false} onChange={setPage} />

@@ -285,6 +285,8 @@ export type AiAccountingSuggestion = {
   rationale: string | null;
   model: string;
   durationMillis: number;
+  /** W10（WP-5）：命中的入账规则（服务端规则引擎判定，非空表示建议受规则约束）。 */
+  hitRules?: Array<{ ruleNo: number; businessType: string | null; category: string | null }>;
 };
 
 type StatementListParams = {

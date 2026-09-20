@@ -1,14 +1,18 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
   Button, Card, Drawer, Empty, Form, Input, InputNumber, Modal, Popconfirm, Segmented,
-  Select, Space, Steps, Switch, Table, Tag, Tooltip, Upload, message, type TableColumnsType,
+  Select, Space, Steps, Switch, Table, Tag, Upload, message, type TableColumnsType,
 } from 'antd';
 import { DownloadOutlined, PlusOutlined, ReloadOutlined, UploadOutlined } from '@ant-design/icons';
 import { kingdeeRuleApi } from '../../services/api';
 import { useAuthStore } from '../../store/auth';
 import { PromptSettingButton } from '../admin/PromptSettingModal';
 import { useRemote, ResourceFailure } from '../shared/components';
-import { lineSummary } from './voucherTexts';
+import { ExcelGrid } from '../bank-access/grid/ExcelGrid';
+import type { GridRow } from '../bank-access/grid/kernel';
+import {
+  categoryRulesColumns, toRuleGridRows,
+} from './CategoryRulesGridColumns';
 import type {
   VoucherRuleGroup, VoucherRuleImportPreview, VoucherRuleImportRow,
   VoucherRuleLine, VoucherRuleRow, VoucherRuleUpsertPayload,
@@ -16,25 +20,40 @@ import type {
 import { ValidationEmbedded } from '../statements/ValidationPage';
 
 /**
- * W4 规则中心（2026-09-18，V36 六需求之 ④）：
- *  - 「大类规则」与「科目与往来规则」（/validation）合并为单页双 Tab；
- *  - 凭证规则从只读视图升级为维护面：CRUD + 分组管理 + Excel 导入三步
- *    （上传 → AI 映射预览 → 人工勾选/修正确认入库；AI fail-closed 不阻断）；
- *  - UI 对齐 docs/ui-v34-demo.html category 屏：全宽表格 + 行内编辑抽屉。
+ * W4 规则中心（2026-09-18，V36 六需求之 ④）；W10（WP-6/WP-7）升级：
+ *  - 规则清单由 antd Table 迁 Excel 内核（列宽/本页排序/列头筛选/复制/列显隐/导出）；
+ *  - 分组改为**左侧侧边栏**（筛选 + 拖拽换组：拖规则行首「⠿」到分组即可）；
+ *  - 原「大类规则」与「科目与往来规则」（/validation）仍是单页双 Tab；
+ *  - Excel 导入三步向导保留 antd 实现（向导内表格非主表格，不迁内核）。
  */
 
-const ORG_NAMES: Record<string, string> = {
-  '300': '即设',
-  '400': '雪云',
-  '710': '长沙',
-  '720': '广州',
-  '900': '海南',
-};
+/** 「未分组」筛选哨兵（activeGroupId = null 表示「全部规则」）。 */
+const UNGROUPED = 'NONE' as const;
+type GroupFilterValue = number | null | typeof UNGROUPED;
 
-const orgText = (orgs: string[]) => {
-  if (!orgs || !orgs.length || orgs.includes('ALL')) return '全部主体';
-  return orgs.map((org) => ORG_NAMES[org] || org).join(' / ');
-};
+/**
+ * 规则行 → 全量更新载荷（PUT /kingdee/voucher-rules/{id} 是全量语义）。
+ * 换组与启停共用：只覆盖 patch 里的字段，其余照抄行内现值，避免误清字段。
+ */
+const rulePayload = (rule: VoucherRuleRow, patch: Partial<VoucherRuleUpsertPayload>): VoucherRuleUpsertPayload => ({
+  ruleNo: rule.ruleNo,
+  businessType: rule.businessType,
+  category: rule.category,
+  direction: rule.direction,
+  priority: rule.priority,
+  scopeOrgs: rule.scopeOrgs,
+  scopeBankChannels: rule.scopeBankChannels,
+  amountMin: rule.amountMin,
+  amountMax: rule.amountMax,
+  match: rule.match,
+  debitLines: rule.debitLines,
+  creditLines: rule.creditLines,
+  extraVoucher: rule.extraVoucher ?? null,
+  enabled: rule.enabled,
+  remark: rule.remark,
+  groupId: rule.groupId ?? null,
+  ...patch,
+});
 
 const directionTag = (direction: string) => direction === 'INCOME'
   ? <Tag color="green">收</Tag>
@@ -57,16 +76,47 @@ export function CategoryRulesPage() {
 
   // ---------------- 规则与分组数据 ----------------
   const loader = useCallback(() => kingdeeRuleApi.list(), []);
-  const { data, loading, error, reload } = useRemote<VoucherRuleRow[]>(loader, [loader]);
+  const { data, error, reload } = useRemote<VoucherRuleRow[]>(loader, [loader]);
   const groupsLoader = useCallback(() => kingdeeRuleApi.groups(), []);
   const { data: groupsData, reload: reloadGroups } = useRemote<VoucherRuleGroup[]>(groupsLoader, [groupsLoader]);
   const groups = groupsData ?? [];
-  const [activeGroupId, setActiveGroupId] = useState<number | null>(null);
+  const [activeGroupId, setActiveGroupId] = useState<GroupFilterValue>(null);
 
   const rules = useMemo(() => {
     const all = data || [];
-    return activeGroupId == null ? all : all.filter((rule) => rule.groupId === activeGroupId);
+    if (activeGroupId == null) return all;
+    if (activeGroupId === UNGROUPED) return all.filter((rule) => rule.groupId == null);
+    return all.filter((rule) => rule.groupId === activeGroupId);
   }, [data, activeGroupId]);
+
+  // W10（WP-7）：拖拽换组 —— 拖起规则行首「⠿」，落到左侧分组项完成换组。
+  const [dragRuleId, setDragRuleId] = useState<number | null>(null);
+  /** 拖拽起点委托在表格容器上：只有命中 [data-drag-rule] 手柄才进入拖拽态。 */
+  const onGridDragStart = (event: React.DragEvent) => {
+    const handle = (event.target as HTMLElement).closest<HTMLElement>('[data-drag-rule]');
+    if (!handle?.dataset.dragRule) return;
+    const id = Number(handle.dataset.dragRule);
+    setDragRuleId(id);
+    event.dataTransfer.effectAllowed = 'move';
+    // Firefox 必须 setData 才会真正启动拖拽
+    event.dataTransfer.setData('text/plain', String(id));
+  };
+  /** 换组：PUT 全量更新（后端为全量语义），成功后同时刷新规则与分组计数。 */
+  const moveRuleTo = async (groupId: number | null) => {
+    const id = dragRuleId;
+    setDragRuleId(null);
+    if (id == null) return;
+    const rule = (data || []).find((item) => item.id === id);
+    if (!rule || (rule.groupId ?? null) === groupId) return;
+    try {
+      await kingdeeRuleApi.update(id, rulePayload(rule, { groupId }));
+      const target = groupId == null ? '未分组' : `「${groups.find((g) => g.id === groupId)?.name || ''}」`;
+      message.success(`规则 ${rule.ruleNo} 已移入${target}`);
+      await Promise.all([reload(), reloadGroups()]);
+    } catch (reason) {
+      message.error(reason instanceof Error ? reason.message : '换组未能完成');
+    }
+  };
 
   const withTemplate = rules.filter((rule) => (rule.debitLines?.length || 0) + (rule.creditLines?.length || 0) > 0).length;
   const enabledCount = rules.filter((rule) => rule.enabled).length;
@@ -223,7 +273,8 @@ export function CategoryRulesPage() {
     setPreview(null);
     setSelectedRows([]);
     setEditedMap(new Map());
-    setImportGroupId(activeGroupId);
+    // activeGroupId 可能是「未分组」哨兵，导入向导只接受具体分组 id
+    setImportGroupId(typeof activeGroupId === 'number' ? activeGroupId : null);
     setWizardOpen(true);
   };
 
@@ -294,45 +345,28 @@ export function CategoryRulesPage() {
     }
   };
 
-  // ---------------- 规则表格列 ----------------
-  const columns: TableColumnsType<VoucherRuleRow> = [
-    { title: '规则号', dataIndex: 'ruleNo', width: 70, render: (value: number) => <span className="mono">{value}</span> },
-    { title: '业务大类', dataIndex: 'businessType', ellipsis: true },
-    { title: '类别', dataIndex: 'category', width: 100, ellipsis: true },
-    { title: '方向', dataIndex: 'direction', width: 64, render: (value: string) => directionTag(value) },
-    { title: '分组', dataIndex: 'groupName', width: 110, ellipsis: true, render: (value: string | null) => value || <Tag>未分组</Tag> },
-    {
-      title: '匹配关键词', ellipsis: true, width: 160,
-      render: (_, row) => row.match?.conditions?.length
-        ? row.match.conditions.map((condition) => condition.values.join('/')).join('；')
-        : '--',
-    },
-    {
-      title: '默认借方', ellipsis: true,
-      render: (_, row) => lineSummary(row.debitLines?.[0]) + (row.debitLines?.length > 1 ? ` 等 ${row.debitLines.length} 行` : ''),
-    },
-    {
-      title: '默认贷方', ellipsis: true,
-      render: (_, row) => lineSummary(row.creditLines?.[0]) + (row.creditLines?.length > 1 ? ` 等 ${row.creditLines.length} 行` : ''),
-    },
-    { title: '优先级', dataIndex: 'priority', width: 70 },
-    { title: '主体', width: 100, render: (_, row) => orgText(row.scopeOrgs) },
-    {
-      title: '状态', width: 92, render: (_, row) => row.enabled
-        ? <Tag color="green">启用</Tag>
-        : <Tooltip title="规则已停用，匹配器自动跳过"><Tag>已停用</Tag></Tooltip>,
-    },
-    {
-      title: '操作', width: 170, fixed: 'right',
-      render: (_, row) => <Space size={0}>
-        <Button type="link" size="small" onClick={() => openEdit(row)}>编辑</Button>
-        <Button type="link" size="small" onClick={() => void toggleEnabled(row)}>{row.enabled ? '停用' : '启用'}</Button>
-        <Popconfirm title={`确定删除规则 ${row.ruleNo}（${row.businessType}）？`} onConfirm={() => void deleteRule(row)}>
-          <Button type="link" size="small" danger>删除</Button>
-        </Popconfirm>
-      </Space>,
-    },
-  ];
+  // ---------------- 规则表格（W10/WP-6：Excel 内核）----------------
+  // 列定义返回 HTML 字符串；删除的二次确认改由 Modal.confirm 承担（内核无 Popconfirm）。
+  // 两个 memo 必填：ExcelGrid 以引用比较做增量同步，新数组会触发 setRows → 清空勾选/滚动位置。
+  const ruleColumns = useMemo(() => categoryRulesColumns(), []);
+  const ruleRows = useMemo(() => toRuleGridRows(rules), [rules]);
+
+  /** 内核行内动作 → 既有处理函数（编辑抽屉 / 启停 / 删除二次确认）。 */
+  const onRuleAction = (action: string, row: GridRow) => {
+    const target = row as unknown as VoucherRuleRow;
+    if (action === 'edit') { openEdit(target); return; }
+    if (action === 'toggle') { void toggleEnabled(target); return; }
+    if (action === 'delete') {
+      Modal.confirm({
+        title: `确定删除规则 ${target.ruleNo}（${target.businessType}）？`,
+        content: '删除后不可恢复；若要保留历史请改用「停用」。该操作写入审计。',
+        okText: '确认删除',
+        okButtonProps: { danger: true },
+        cancelText: '取消',
+        onOk: () => deleteRule(target),
+      });
+    }
+  };
 
   const groupStats = useMemo(() => {
     const byGroup = new Map<number, number>();
@@ -341,6 +375,18 @@ export function CategoryRulesPage() {
     });
     return byGroup;
   }, [data]);
+
+  /** W10（WP-7）：未分组规则数（侧边栏「未分组」筛选项的计数，与后端 ruleCount 语义不同）。 */
+  const ungroupedCount = useMemo(
+    () => (data || []).filter((rule) => rule.groupId == null).length, [data]);
+
+  /** 打开分组管理弹窗（新建/重命名/删除统一入口，侧边栏与空组场景共用）。 */
+  const openGroupManage = () => {
+    setGroupEditingId(null);
+    setGroupName('');
+    setGroupDesc('');
+    setGroupModalOpen(true);
+  };
 
   return <>
     <div className="page-heading">
@@ -363,27 +409,6 @@ export function CategoryRulesPage() {
     </div>
 
     {activeTab === 'rules' ? <>
-      <Card size="small" style={{ marginBottom: 12 }}>
-        <Space wrap>
-          <Tag style={{ margin: 0 }}>分组：</Tag>
-          <Button
-            size="small" type={activeGroupId == null ? 'primary' : 'default'}
-            onClick={() => setActiveGroupId(null)}
-          >全部（{data?.length || 0}）</Button>
-          {groups.map((group) => <Button
-            key={group.id}
-            size="small"
-            type={activeGroupId === group.id ? 'primary' : 'default'}
-            onClick={() => setActiveGroupId(group.id)}
-          >{group.name}（{groupStats.get(group.id) ?? group.ruleCount}）</Button>)}
-          <Button size="small" icon={<PlusOutlined />} onClick={() => {
-            setGroupEditingId(null);
-            setGroupName('');
-            setGroupDesc('');
-            setGroupModalOpen(true);
-          }}>管理分组</Button>
-        </Space>
-      </Card>
       <Card title={<>规则清单 <span className="table-sub">共 {rules.length} 条 · {withTemplate} 条已配模板 · 启用 {enabledCount} 条</span></>}
         extra={<Space wrap>
           <Button icon={<DownloadOutlined />} onClick={() => void kingdeeRuleApi.downloadTemplate()}>下载模板</Button>
@@ -392,15 +417,67 @@ export function CategoryRulesPage() {
           {canConfigAi && <PromptSettingButton capability="rule-import" hint="设置「规则导入映射」的系统提示词（全局生效，仅超管）" />}
           <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>新增规则</Button>
         </Space>}>
-        {error ? <ResourceFailure error={error} onRetry={reload} /> : <Table
-          rowKey="id"
-          loading={loading}
-          columns={columns}
-          dataSource={rules}
-          pagination={false}
-          locale={{ emptyText: <Empty description="暂无凭证规则" /> }}
-          scroll={{ x: 1400 }}
-        />}
+        {error ? <ResourceFailure error={error} onRetry={reload} /> : (
+          <div className="rule-center-layout">
+            {/* W10（WP-7）：分组侧边栏 —— 点选筛选 + 作为拖拽落点换组 */}
+            <aside className="rule-groups" onDragOver={(event) => event.preventDefault()}>
+              <div className="rule-groups-head">
+                <span>分组</span>
+                <Button
+                  size="small" type="text" icon={<PlusOutlined />} title="新建分组"
+                  onClick={openGroupManage}
+                />
+              </div>
+              <button
+                type="button"
+                className={'rule-group-item' + (activeGroupId === null ? ' is-active' : '')}
+                onClick={() => setActiveGroupId(null)}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={() => void moveRuleTo(null)}
+              >
+                <span className="name">全部规则</span><span className="cnt">{data?.length || 0}</span>
+              </button>
+              <button
+                type="button"
+                className={'rule-group-item' + (activeGroupId === UNGROUPED ? ' is-active' : '')}
+                onClick={() => setActiveGroupId(UNGROUPED)}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={() => void moveRuleTo(null)}
+                title="拖到这里可移出分组"
+              >
+                <span className="name">未分组</span><span className="cnt">{ungroupedCount}</span>
+              </button>
+              {groups.map((group) => (
+                <button
+                  type="button"
+                  key={group.id}
+                  className={'rule-group-item' + (activeGroupId === group.id ? ' is-active' : '')}
+                  onClick={() => setActiveGroupId(group.id)}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={() => void moveRuleTo(group.id)}
+                >
+                  <span className="name">{group.name}</span>
+                  <span className="cnt">{groupStats.get(group.id) ?? group.ruleCount}</span>
+                </button>
+              ))}
+              <Button size="small" block onClick={openGroupManage} style={{ marginTop: 8 }}>管理分组</Button>
+              <p className="muted rule-groups-tip">拖动规则行首「⠿」到分组即可换组；点分组名筛选。</p>
+            </aside>
+            <div className="rule-grid-wrap" onDragStart={onGridDragStart}>
+              <ExcelGrid
+                id="voucher.rules"
+                cols={ruleColumns}
+                rows={ruleRows}
+                pageSize={Math.max(ruleRows.length, 20)}
+                onRowAction={onRuleAction}
+                emptyText={activeGroupId == null ? '暂无凭证规则' : '该分组下暂无规则'}
+                findPlaceholder="Ctrl+F 规则号 / 业务大类 / 关键词"
+                exportLabel="导出 CSV"
+                toast={(text) => message.success(text)}
+              />
+            </div>
+          </div>
+        )}
       </Card>
     </> : <ValidationEmbedded />}
 

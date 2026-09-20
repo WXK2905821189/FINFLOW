@@ -1367,3 +1367,90 @@ a {
     background: #fff;
   }
 }
+
+/* ============ W10（WP-6/WP-7）：规则中心 —— 分组侧边栏 + Excel 内核表格 ============ */
+.rule-center-layout {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+/* 分组侧边栏：固定宽度，作为拖拽落点（拖规则行首「⠿」进来换组） */
+.rule-groups {
+  flex: 0 0 212px;
+  width: 212px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-right: 10px;
+  border-right: 1px solid #e8efef;
+}
+
+.rule-groups-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 6px 6px;
+  font-size: 12px;
+  color: #7c8b8b;
+}
+
+.rule-group-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 13px;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.rule-group-item:hover {
+  background: #f4f8f8;
+}
+
+.rule-group-item.is-active {
+  font-weight: 600;
+  background: #e9f4f4;
+  border-color: #bfe0e0;
+}
+
+.rule-group-item .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rule-group-item .cnt {
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: #7c8b8b;
+  font-variant-numeric: tabular-nums;
+}
+
+.rule-grid-wrap {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.rule-groups-tip {
+  margin: 8px 6px 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* 拖拽手柄：draggable 元素，光标提示可拖 */
+.drag-handle {
+  cursor: grab;
+  user-select: none;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}

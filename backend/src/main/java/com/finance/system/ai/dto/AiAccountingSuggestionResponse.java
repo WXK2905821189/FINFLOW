@@ -11,6 +11,8 @@ package com.finance.system.ai.dto;
  * @param counterpartyType 建议对手方类型：CUSTOMER / SUPPLIER / EMPLOYEE / OTHER
  * @param confidence       0.0~1.0 的置信度自评
  * @param entries          结构化分录预填（可能为空：AI 不可用或降级失败）
+ * @param hitRules         W10（WP-5）：本笔流水命中的入账规则（服务端规则引擎判定，最多 3 条）。
+ *                        非空表示 AI 是在「规则强约束」下生成的建议，前端可提示「已按规则生成」。
  */
 public record AiAccountingSuggestionResponse(
         Long statementId,
@@ -24,5 +26,10 @@ public record AiAccountingSuggestionResponse(
         String rationale,
         String model,
         Long durationMillis,
-        java.util.List<VoucherEntry> entries) {
+        java.util.List<VoucherEntry> entries,
+        java.util.List<HitRule> hitRules) {
+
+    /** 命中的规则摘要（规则号 + 业务类型 + 类别）。 */
+    public record HitRule(Integer ruleNo, String businessType, String category) {
+    }
 }

@@ -203,8 +203,12 @@ function VoucherEditor({ statement, suggestion, onSaved, onClose }: {
     if (!canAi) return;
     setBusy(true);
     try {
-      await statementApi.refreshAiSuggestion(statement.id);
-      message.success('AI 建议已重新生成');
+      const suggestion = await statementApi.refreshAiSuggestion(statement.id);
+      // W10（WP-5）：命中规则时明确提示 AI 建议受规则约束
+      const hits = suggestion?.hitRules || [];
+      message.success(hits.length
+        ? `AI 建议已重新生成 · 按命中规则（${hits.map((hit) => `R${hit.ruleNo} ${hit.businessType}`).join('、')}）`
+        : 'AI 建议已重新生成（无命中规则）');
       onSaved();
     } catch (reason) {
       message.error(reason instanceof Error ? reason.message : 'AI 建议刷新失败');
