@@ -22,7 +22,6 @@ const Login = lazy(() => import('./modules/auth/LoginPage').then((module) => ({ 
 const Forbidden = lazy(() => import('./modules/auth/ForbiddenPage').then((module) => ({ default: module.Forbidden })));
 
 const Dashboard = lazy(() => import('./modules/dashboard/pages').then((module) => ({ default: module.Dashboard })));
-const ValidationPage = lazy(() => import('./modules/statements/ValidationPage').then((module) => ({ default: module.ValidationPage })));
 const BankAccountPage = lazy(() => import('./modules/bank-access/pages').then((module) => ({ default: module.BankAccountPage })));
 const OperationLogs = lazy(() => import('./modules/bank-access/operations').then((module) => ({ default: module.OperationLogs })));
 const OperationTasks = lazy(() => import('./modules/bank-access/operations').then((module) => ({ default: module.OperationTasks })));
@@ -67,9 +66,6 @@ function AppRoutes() {
           <Route element={<PermissionGuard permissions={['audit:view']} />}>
             <Route path="/audit" element={<AuditCenterPage />} />
           </Route>
-          <Route element={<PermissionGuard permissions={['validation:view', 'validation:manage']} />}>
-            <Route path="/validation" element={<ValidationPage />} />
-          </Route>
           <Route element={<PermissionGuard permissions={['closing:view', 'closing:manage']} />}>
             <Route path="/closing" element={<ClosingPage />} />
           </Route>
@@ -88,13 +84,15 @@ function AppRoutes() {
           <Route element={<PermissionGuard permissions={['voucher:push']} />}>
             <Route path="/voucher-rules" element={<CategoryRulesPage />} />
           </Route>
-          {/* 已下线页面（2026-09-16 流程精简 + 2026-09-17 V34 ⑥ 三方对账并入工作台）：
-              导入流水/标准流水/人工复核/三方对账/对账核对各页删除或并入。 */}
+          {/* 已下线页面（2026-09-16 流程精简 + 2026-09-17 V34 ⑥ 三方对账并入工作台
+              + W4 规则中心合并）：导入流水/标准流水/人工复核/三方对账/对账核对/校验与入账映射
+              各页已删除或并入他处，此处只保留旧书签与旧深链的兼容重定向。 */}
           <Route path="/statements/import" element={<Navigate to="/bank-access/data/statements" replace />} />
           <Route path="/statements/batches" element={<Navigate to="/statements/vouchers" replace />} />
           <Route path="/statements/review" element={<Navigate to="/bank-access/data/statements" replace />} />
           <Route path="/reconciliation/dashboard" element={<Navigate to="/dashboard" replace />} />
           <Route path="/statements/reconciliation" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/validation" element={<Navigate to="/voucher-rules" replace />} />
           <Route element={<PermissionGuard permissions={['bank:view']} />}>
             <Route path="/bank-access/accounts" element={<BankAccountPage />} />
           </Route>

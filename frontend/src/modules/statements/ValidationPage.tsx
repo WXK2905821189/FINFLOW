@@ -1,5 +1,4 @@
 import { useCallback, useState } from 'react';
-import { Navigate } from 'react-router-dom';
 import { Button, Card, Empty, Form, Input, InputNumber, Modal, Pagination, Space, Table, message, type TableColumnsType } from 'antd';
 import { SettingOutlined } from '@ant-design/icons';
 import { validationApi } from '../../services/api';
@@ -8,14 +7,12 @@ import { useRemote, ResourceFailure, StatusTag } from '../shared/components';
 import type { PageResponse, ValidationRule, AccountingMapping } from '../../types';
 
 /**
- * W4 规则中心（2026-09-18）合并改造：
- *  - /validation 路由重定向到规则中心（/voucher-rules 的「校验与入账映射」Tab）；
- *  - 本页主体抽成 ValidationEmbedded 供规则中心嵌入（去 page-heading 与过时告警条）。
+ * W4 规则中心（2026-09-18）合并改造：本模块的内容主体是 {@link ValidationEmbedded}，由规则中心
+ * （`/voucher-rules`）的「校验与入账映射」Tab 内嵌渲染（去 page-heading 与过时告警条）。
+ *
+ * 旧路径 `/validation` 的兼容重定向已上移到 `App.tsx` 的「已下线页面」重定向块统一管理；
+ * 本文件不再导出页面组件（原先的 `ValidationPage` 只是个 `<Navigate>` 壳，已删除）。
  */
-export function ValidationPage() {
-  return <Navigate to="/voucher-rules" replace />;
-}
-
 export function ValidationEmbedded() {
   const canManage = useAuthStore((state) => state.hasPermission('validation:manage'));
   const [tab, setTab] = useState<'rules' | 'mappings'>('rules');
