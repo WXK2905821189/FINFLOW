@@ -52,8 +52,17 @@ public class BankDataExportService {
     private static final List<String> BALANCE_EXPORT_HEADERS = List.of(
             "快照时间", "账号", "账号名称", "币种", "可用余额", "联机余额", "冻结余额",
             "上日余额", "科目", "分行号", "客户关系号", "银行请求号", "同步任务号");
-    /** 已知币种代码；其余原样输出（附录码表未随文档镜像，不猜测）。 */
-    private static final Map<String, String> CURRENCY_TEXT = Map.of("10", "人民币");
+    /**
+     * 已知币种代码；其余原样输出（附录码表未随文档镜像，不猜测）。
+     *
+     * <p>⚠️ 2026-09-21 口径统一：屏幕侧（前端 `bankQueryTexts.ts` 的 `CURRENCY_TEXT`）认 `10` / `01` / `CNY`，
+     * 而这里原先只有 `10` ⇒ 银行返回 `01` 或 `CNY` 时 CSV 会输出「01」，与屏幕显示的「人民币」不一致。
+     * 两处必须保持一致（下一轮计划改为字典中心 `currency` 类型，届时只留兜底）。</p>
+     */
+    private static final Map<String, String> CURRENCY_TEXT = Map.of(
+            "10", "人民币",
+            "01", "人民币",
+            "CNY", "人民币");
 
     private final BankDataTaskScope taskScope;
     private final CompanyScopeService companyScope;

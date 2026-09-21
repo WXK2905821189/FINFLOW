@@ -191,12 +191,11 @@ export interface GridInstance {
   destroy: () => void;
 }
 
-const CURRENCY_TEXT: Record<string, string> = { CNY: '人民币', USD: '美元', EUR: '欧元', HKD: '港币', JPY: '日元' };
-
 const COPY_SVG =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>';
 
-export const currencyText = (code: string): string => CURRENCY_TEXT[code] || code;
+// 2026-09-21 口径统一：删除本文件里那份只认 ISO 码的 CURRENCY_TEXT / currencyText（死代码，无人 import）。
+// 币种中文名的唯一来源是 `bankQueryTexts.ts`（屏幕用）与后端 `BankDataExportService`（导出用），两者已对齐。
 export const copyChip = (value: string, title = '复制'): string =>
   `<button class="copy-chip" data-copy="${esc(value)}" title="${esc(title)}">${COPY_SVG}复制</button>`;
 
