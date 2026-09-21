@@ -81,7 +81,7 @@ public class KingdeeVoucherMatchingService {
                 .filter(r -> directionMatches(r.direction(), statement.getDirection()))
                 .filter(r -> orgMatches(r.scopeOrgs(), orgCode))
                 .filter(r -> channelMatches(r.scopeBankChannels(), bankCode))
-                .filter(r -> conditionsMatch(r.match(), statement))
+                .filter(r -> conditionsMatch(r.match(), statement, orgCode))
                 .filter(r -> amountGatePasses(r, statement.getAmount()))
                 .toList();
 
@@ -287,19 +287,21 @@ public class KingdeeVoucherMatchingService {
         return bankCode != null && scopeChannels.stream().anyMatch(c -> normalize(c).equals(bankCode));
     }
 
-    private boolean conditionsMatch(KingdeeVoucherRuleResponse.Match match, StatementRecord statement) {
+    private boolean conditionsMatch(KingdeeVoucherRuleResponse.Match match, StatementRecord statement,
+                                    String orgCode) {
         if (match == null || match.conditions() == null || match.conditions().isEmpty()) {
             return false; // malformed — fail closed
         }
         boolean logicAny = "ANY".equals(match.logic());
         List<Boolean> results = match.conditions().stream()
-                .map(c -> conditionMatches(c, statement))
+                .map(c -> conditionMatches(c, statement, orgCode))
                 .toList();
         return logicAny ? results.stream().anyMatch(Boolean::booleanValue)
                 : results.stream().allMatch(Boolean::booleanValue);
     }
 
-    private boolean conditionMatches(KingdeeVoucherRuleResponse.Condition c, StatementRecord statement) {
+    private boolean conditionMatches(KingdeeVoucherRuleResponse.Condition c, StatementRecord statement,
+                                     String orgCode) {
         if (c == null || c.field() == null || c.op() == null) {
             return false;
         }
@@ -316,8 +318,22 @@ public class KingdeeVoucherMatchingService {
                     .anyMatch(v -> v != null && haystack.contains(v));
             case "IN_ORG_LIST" -> orgResolver.isGroupInternalName(haystack);
             case "EMPLOYEE_NAME" -> isPersonalName(haystack);
+            // ---- V42（2026-09-21）图虫侧规则需要的「查表存在性」算子 ----
+            // 语义：对手方（或摘要片段）能在维度映射表里查到金蝶档案编码 → 视为命中。
+            // 数据源是 kingdee_dimension_mapping（界面可维护），因此名单月更不必改代码。
+            case "IN_SUPPLIER_LIST" -> mappedIn(haystack, KingdeeDimensionMappingService.SUPPLIER, orgCode);
+            case "IN_EMPLOYEE_LIST" -> mappedIn(haystack, KingdeeDimensionMappingService.EMPLOYEE, orgCode);
+            case "IN_CUSTOMER_MAPPING" -> mappedIn(haystack, KingdeeDimensionMappingService.CUSTOMER, orgCode);
             default -> false; // unknown op — never auto-match
         };
+    }
+
+    /** 「查表存在性」判定：来源值在该维度映射表里有启用行即命中（组织消歧同 resolveValue）。 */
+    private boolean mappedIn(String sourceKey, String dimensionType, String orgCode) {
+        if (sourceKey == null || sourceKey.isBlank()) {
+            return false;
+        }
+        return dimensionService.resolveValue(dimensionType, sourceKey, orgCode) != null;
     }
 
     private static boolean amountGatePasses(KingdeeVoucherRuleResponse rule, BigDecimal amount) {

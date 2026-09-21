@@ -177,7 +177,60 @@ class KingdeeVoucherMatchingDimensionsTest {
                 "主体不匹配（400 ≠ 410）时不得误用图虫规则");
     }
 
+    // ---------------- 查表存在性算子（V42 新增） ----------------
+
+    @Test
+    void inSupplierListMatchesOnlyWhenMappingExists() {
+        when(ruleService.listRules(true)).thenReturn(List.of(ruleWithOp("COUNTERPARTY_NAME", "IN_SUPPLIER_LIST",
+                List.of())));
+        when(dimensionService.resolveValue(eq("SUPPLIER"), anyString(), any())).thenReturn("VEN00001");
+        assertEquals(KingdeeVoucherMatchingService.ST_AUTO_FILL,
+                preview("服务费", "某某科技有限公司").status(), "名单里有该对手方 → 命中");
+
+        when(dimensionService.resolveValue(eq("SUPPLIER"), anyString(), any())).thenReturn(null);
+        assertEquals(KingdeeVoucherMatchingService.ST_UNMATCHED,
+                preview("服务费", "某新对手方").status(), "名单里查不到 → 不猜，交人工");
+    }
+
+    @Test
+    void inEmployeeListUsesEmployeeDimension() {
+        when(ruleService.listRules(true)).thenReturn(List.of(ruleWithOp("COUNTERPARTY_NAME", "IN_EMPLOYEE_LIST",
+                List.of())));
+        when(dimensionService.resolveValue(eq("EMPLOYEE"), anyString(), any())).thenReturn("001");
+        assertEquals(KingdeeVoucherMatchingService.ST_AUTO_FILL, preview("报销", "李国锐").status());
+    }
+
+    @Test
+    void inCustomerMappingUsesCustomerDimension() {
+        when(ruleService.listRules(true)).thenReturn(List.of(ruleWithOp("SUMMARY", "IN_CUSTOMER_MAPPING",
+                List.of("回款"))));
+        when(dimensionService.resolveValue(eq("CUSTOMER"), anyString(), any())).thenReturn("KH0001");
+        assertEquals(KingdeeVoucherMatchingService.ST_AUTO_FILL, preview("客户回款", "某客户").status());
+    }
+
+    @Test
+    void unknownOperatorNeverAutoMatches() {
+        when(ruleService.listRules(true)).thenReturn(List.of(ruleWithOp("SUMMARY", "SOME_FUTURE_OP",
+                List.of("服务费"))));
+        assertEquals(KingdeeVoucherMatchingService.ST_UNMATCHED, preview("服务费", "某对手方").status(),
+                "未知算子 fail-closed，绝不自动命中");
+    }
+
     // ---------------- fixtures ----------------
+
+    private KingdeeVoucherRulePreview preview(String summary, String counterparty) {
+        return service.preview(statement(summary, counterparty), account("CMB"), company("上海图虫网络科技有限公司"));
+    }
+
+    /** 构造一条只含单个匹配条件的规则（借方一行、无贷方，仅用于验证条件求值）。 */
+    private static KingdeeVoucherRuleResponse ruleWithOp(String field, String op, List<String> values) {
+        return new KingdeeVoucherRuleResponse(1L, 99, "测试业务", "费用类", 10,
+                List.of("ALL"), List.of(), "EXPENSE", null, null,
+                new KingdeeVoucherRuleResponse.Match("ALL", List.of(
+                        new KingdeeVoucherRuleResponse.Condition(field, op, values))),
+                List.of(new KingdeeVoucherRuleResponse.LineTemplate("6602.11", "管理费用", null, null, null, "FULL")),
+                List.of(), null, true, "单测夹具", null, null);
+    }
 
     private KingdeeVoucherEntryDraft firstDebit(String summary, String counterparty) {
         return firstDebit(summary, counterparty, account("CMB"));

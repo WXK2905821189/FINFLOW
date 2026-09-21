@@ -6,7 +6,7 @@ import {
 import { PlusOutlined, ReloadOutlined, UploadOutlined } from '@ant-design/icons';
 import { kingdeeDimensionApi } from '../../services/api';
 import type {
-  DimensionMappingRow, DimensionMappingUpsertPayload, DimensionSlotRow, DimensionSlotUpsertPayload,
+  DimensionMappingRow, DimensionMappingUpsertPayload, DimensionSlotRow,
 } from '../../types';
 import { ResourceFailure, useRemote } from '../shared/components';
 

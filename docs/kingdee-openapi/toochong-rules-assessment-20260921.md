@@ -145,7 +145,7 @@
 | 缺口 | 状态 | 落地物 |
 |---|---|---|
 | 缺口 1：新维度类型（档案编码语义） | ✅ 部分 | `KingdeeDimensionMappingService`（来源值→金蝶档案编码，组织消歧）；单维度路径「编码优先、名称兜底」保持零回归 |
-| 缺口 2：3 个新匹配算子（`IN_SUPPLIER_LIST` 等） | ⏳ 待做 | 依赖规则入库批次；映射表已就绪，算子实现只需查本表 |
+| 缺口 2：3 个新匹配算子（`IN_SUPPLIER_LIST` 等） | ✅ 完成 | `IN_SUPPLIER_LIST` / `IN_EMPLOYEE_LIST` / `IN_CUSTOMER_MAPPING` 三个算子已实现——语义为「来源值在 `kingdee_dimension_mapping` 里有启用行即命中」，**名单月更不必改代码**；未知算子 fail-closed |
 | 缺口 3：多核算维度注入 | ✅ 完成 | `extraDimensions` + builder 多槽位 + 槽位台账实证 |
 | 缺口 4：`KingdeeOrgResolver` 扩展 | ✅ 完成 | 图虫系 4 主体 + 单测覆盖顺序敏感 |
 | 槽位配置 / 值映射的界面维护 | ✅ 完成 | V42 两张表 + `KingdeeDimensionMappingController` + 前端「核算维度配置」页（含批量粘贴导入） |

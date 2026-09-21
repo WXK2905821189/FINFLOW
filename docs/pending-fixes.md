@@ -375,10 +375,10 @@ GL（默认）→ 委托 `KingdeeVoucherEngineService.pushAiVoucher()`（与 AI 
 按依赖顺序排列；能力侧（维度映射表 / 多维度注入 / 槽位）已于本轮完成，见
 `docs/kingdee-openapi/toochong-rules-assessment-20260921.md` 第九节。
 
-### 前置 1：匹配算子（技术侧，阻塞入库）
-- `IN_SUPPLIER_LIST` / `IN_EMPLOYEE_LIST` / `IN_CUSTOMER_MAPPING` 三个算子尚未实现。
-  数据源已就绪（`kingdee_dimension_mapping`：来源值 → 档案编码），实现只需查表判定。
-- **不做完不能入库**：含这些算子的规则会「配好但匹配不到」，属静默失效。
+### 前置 1：匹配算子（技术侧）—— ✅ 已完成（2026-09-21）
+- `IN_SUPPLIER_LIST` / `IN_EMPLOYEE_LIST` / `IN_CUSTOMER_MAPPING` 三个算子已实现：
+  语义为「来源值在 `kingdee_dimension_mapping` 里有启用行即命中」（组织消歧走同一 `resolveValue`），
+  因此**名单月更不必改代码**；未知算子 fail-closed（绝不自动命中）。单测覆盖 4 例。
 
 ### 前置 2：「业务线」维度决策（业务侧，阻塞 12 条规则）
 - 账套 `BD_FLEXITEMPROPERTY` 的 14 个维度类型里**没有「业务线」**，而图虫规则大量引用。
