@@ -110,3 +110,57 @@ export type VoucherRuleImportPreview = {
   rows: VoucherRuleImportRow[];
   aiSummary: string;
 };
+
+// ---------------- 核算维度配置（V42，2026-09-21） ----------------
+
+/**
+ * 维度类型 → 金蝶弹性域槽位（账套级配置）。
+ * slot 为空表示尚未报错驱动试出；推送时该维度不注入并提示补配置。
+ */
+export type DimensionSlotRow = {
+  id: number;
+  dimensionType: string;
+  dimensionName: string | null;
+  dimensionCode: string | null;
+  slot: string | null;
+  /** BASE_DATA / ASSIST / CUSTOM。 */
+  dimensionKind: string | null;
+  enabled: boolean | null;
+  remark: string | null;
+};
+
+/** 来源值 → 金蝶档案编码（金蝶核算维度要编码，不要名称）。 */
+export type DimensionMappingRow = {
+  id: number;
+  dimensionType: string;
+  sourceKey: string;
+  /** NAME=精确 / KEYWORD=包含 / ACCOUNT=账号 / CODE=编码。 */
+  sourceKind: string;
+  kingdeeValue: string;
+  kingdeeName: string | null;
+  /** 空串 = 通用（不限组织）。 */
+  orgCode: string;
+  enabled: boolean | null;
+  remark: string | null;
+};
+
+export type DimensionSlotUpsertPayload = {
+  dimensionType?: string;
+  dimensionName?: string | null;
+  dimensionCode?: string | null;
+  slot?: string | null;
+  dimensionKind?: string | null;
+  enabled?: boolean;
+  remark?: string | null;
+};
+
+export type DimensionMappingUpsertPayload = {
+  dimensionType: string;
+  sourceKey: string;
+  sourceKind?: string;
+  kingdeeValue: string;
+  kingdeeName?: string | null;
+  orgCode?: string | null;
+  enabled?: boolean;
+  remark?: string | null;
+};

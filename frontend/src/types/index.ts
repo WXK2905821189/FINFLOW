@@ -77,4 +77,8 @@ export type {
   VoucherRuleUpsertPayload,
   VoucherRuleImportRow,
   VoucherRuleImportPreview,
+  DimensionSlotRow,
+  DimensionMappingRow,
+  DimensionSlotUpsertPayload,
+  DimensionMappingUpsertPayload,
 } from '../modules/voucher/types';

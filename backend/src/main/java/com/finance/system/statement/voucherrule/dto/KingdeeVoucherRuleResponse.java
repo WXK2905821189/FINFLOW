@@ -47,6 +47,11 @@ public record KingdeeVoucherRuleResponse(
      * 分录模板行：dimension 为辅助维度来源（BANK_ACCOUNT/ORG/EMPLOYEE/SUPPLIER/CUSTOMER/
      * COUNTERPARTY/FIXED/BY_SUMMARY_BRANCH/NONE），share 为金额分摊策略（FULL/EQUAL/MANUAL）。
      * value 为 FIXED 维度的固定值；branches 仅供 BY_SUMMARY_BRANCH 按摘要分支选择供应商。
+     *
+     * <p>{@code dimensions}（2026-09-21 V42）为**多维度声明**：一条分录可同时带多个核算维度
+     * （图虫侧规则要求「供应商 + 部门 + 业务线」）。与单维度字段并存——单维度仍走
+     * dimension/value，多维度走本列表；两者都有时以本列表为准并追加。值一律由
+     * {@code kingdee_dimension_mapping} 翻译成金蝶档案编码。</p>
      */
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record LineTemplate(
@@ -55,7 +60,26 @@ public record KingdeeVoucherRuleResponse(
             String dimension,
             String value,
             List<SummaryBranch> branches,
-            String share) {
+            String share,
+            List<DimensionSpec> dimensions) {
+
+        /** 兼容构造器：单维度模板（V34 起的旧签名与既有 seed JSON，调用点无需改动）。 */
+        public LineTemplate(String account, String name, String dimension, String value,
+                            List<SummaryBranch> branches, String share) {
+            this(account, name, dimension, value, branches, share, null);
+        }
+    }
+
+    /**
+     * 多维度声明项（V42）。
+     *
+     * @param type   维度类型：SUPPLIER / CUSTOMER / EMPLOYEE / BANK_ACCOUNT / BUSINESS_LINE / ORG
+     * @param source 来源取值方式：NAME（对手方名称）/ EMPLOYEE_NAME / SUMMARY / ACCOUNT（我方账号）/
+     *               FIXED（用 value 固定值）
+     * @param value  source=FIXED 时的固定值（如「部门=综合管理部」这类口径值）
+     */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record DimensionSpec(String type, String source, String value) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)

@@ -87,7 +87,32 @@ public class KingdeeGlVoucherPayloadBuilder {
         ArrayNode entries = model.putArray("FEntity");
         appendSide(entries, explanation, debitLines, DC_DEBIT);
         appendSide(entries, explanation, creditLines, DC_CREDIT);
+        assertDimensionsReady(debitLines, creditLines);
         return root.toString();
+    }
+
+    /**
+     * 多维度就绪校验（V42）：分录声明了核算维度但槽位/值未配齐时**拒绝推送**并给出补齐指引。
+     *
+     * <p>为什么 fail-closed：维度缺失被金蝶按「未录入必录维度」拒绝还算好的；若科目维度非必录，
+     * 缺维度会**静默记成错账**。宁可让财务先在「维度映射」页补一行配置。</p>
+     */
+    private static void assertDimensionsReady(List<KingdeeVoucherEntryDraft> debits,
+                                             List<KingdeeVoucherEntryDraft> credits) {
+        for (List<KingdeeVoucherEntryDraft> side : List.of(debits, credits)) {
+            for (KingdeeVoucherEntryDraft line : side) {
+                if (line.extraDimensions() == null) {
+                    continue;
+                }
+                for (KingdeeVoucherEntryDraft.DimensionValue dim : line.extraDimensions()) {
+                    if (!dim.injectable()) {
+                        throw new BusinessException(400, "科目 " + line.account() + " 的核算维度「"
+                                + dim.dimension() + "」未就绪，无法推送："
+                                + (dim.note() == null ? "请在「维度映射」页补齐槽位与值映射" : dim.note()));
+                    }
+                }
+            }
+        }
     }
 
     private static BigDecimal sumSide(List<KingdeeVoucherEntryDraft> lines) {
@@ -141,15 +166,26 @@ public class KingdeeGlVoucherPayloadBuilder {
      * <p>槽位由 {@code kingdee.gl.bank-dimension-slot} 配置（默认 FF100002=银行账号 ZDY0001）。</p>
      */
     private void appendDimension(ObjectNode entry, KingdeeVoucherEntryDraft line) {
+        ObjectNode detail = null;
         String value = line.dimensionValue();
-        if (value == null || value.isBlank() || "NONE".equalsIgnoreCase(line.dimension())) {
+        boolean singleReady = value != null && !value.isBlank()
+                && !"NONE".equalsIgnoreCase(line.dimension());
+        String singleSlot = props.getGlBankDimensionSlot();
+        if (singleReady && singleSlot != null && !singleSlot.isBlank()) {
+            detail = entry.putObject("FDetailID");
+            detail.putObject("FDETAILID__" + singleSlot.trim()).put("FNumber", value.trim());
+        }
+        if (line.extraDimensions() == null || line.extraDimensions().isEmpty()) {
             return;
         }
-        String slot = props.getGlBankDimensionSlot();
-        if (slot == null || slot.isBlank()) {
-            return;
+        for (KingdeeVoucherEntryDraft.DimensionValue dim : line.extraDimensions()) {
+            if (!dim.injectable()) {
+                continue; // 未就绪项由 assertDimensionsReady 在构建前拦下；此处防御性跳过
+            }
+            if (detail == null) {
+                detail = entry.putObject("FDetailID");
+            }
+            detail.putObject("FDETAILID__" + dim.slot().trim()).put("FNumber", dim.value().trim());
         }
-        ObjectNode detail = entry.putObject("FDetailID");
-        detail.putObject("FDETAILID__" + slot.trim()).put("FNumber", value.trim());
     }
 }

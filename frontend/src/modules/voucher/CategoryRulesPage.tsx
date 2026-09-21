@@ -18,6 +18,7 @@ import type {
   VoucherRuleLine, VoucherRuleRow, VoucherRuleUpsertPayload,
 } from './types';
 import { ValidationEmbedded } from '../statements/ValidationPage';
+import { DimensionMappingPanel } from './DimensionMappingPanel';
 
 /**
  * W4 规则中心（2026-09-18，V36 六需求之 ④）；W10（WP-6/WP-7）升级：
@@ -70,7 +71,7 @@ const parseJsonField = (text: string, label: string): unknown => {
 };
 
 export function CategoryRulesPage() {
-  const [activeTab, setActiveTab] = useState<'rules' | 'validation'>('rules');
+  const [activeTab, setActiveTab] = useState<'rules' | 'validation' | 'dimensions'>('rules');
   // W9：AI 提示词设置入口（仅超管；rule-import 能力全局生效）。
   const canConfigAi = useAuthStore((state) => state.hasPermission)('ai:config');
 
@@ -401,8 +402,12 @@ export function CategoryRulesPage() {
       <Space wrap>
         <Segmented
           value={activeTab}
-          onChange={(value) => setActiveTab(value as 'rules' | 'validation')}
-          options={[{ label: '凭证大类规则', value: 'rules' }, { label: '校验与入账映射', value: 'validation' }]}
+          onChange={(value) => setActiveTab(value as 'rules' | 'validation' | 'dimensions')}
+          options={[
+            { label: '凭证大类规则', value: 'rules' },
+            { label: '校验与入账映射', value: 'validation' },
+            { label: '核算维度配置', value: 'dimensions' },
+          ]}
         />
         <Button icon={<ReloadOutlined />} onClick={() => { void reload(); reloadGroups(); }}>刷新</Button>
       </Space>
@@ -479,7 +484,7 @@ export function CategoryRulesPage() {
           </div>
         )}
       </Card>
-    </> : <ValidationEmbedded />}
+    </> : activeTab === 'validation' ? <ValidationEmbedded /> : <DimensionMappingPanel />}
 
     {/* 规则编辑抽屉 */}
     <Drawer

@@ -3,6 +3,7 @@ package com.finance.system.statement.voucherrule;
 import com.finance.system.domain.entity.BankAccount;
 import com.finance.system.domain.entity.Company;
 import com.finance.system.domain.entity.StatementRecord;
+import com.finance.system.statement.voucherrule.dto.KingdeeDimensionDtos.ResolvedDimension;
 import com.finance.system.statement.voucherrule.dto.KingdeeVoucherEntryDraft;
 import com.finance.system.statement.voucherrule.dto.KingdeeVoucherRulePreview;
 import com.finance.system.statement.voucherrule.dto.KingdeeVoucherRuleResponse;
@@ -50,11 +51,14 @@ public class KingdeeVoucherMatchingService {
 
     private final KingdeeVoucherRuleService ruleService;
     private final KingdeeOrgResolver orgResolver;
+    private final KingdeeDimensionMappingService dimensionService;
 
     public KingdeeVoucherMatchingService(KingdeeVoucherRuleService ruleService,
-                                         KingdeeOrgResolver orgResolver) {
+                                         KingdeeOrgResolver orgResolver,
+                                         KingdeeDimensionMappingService dimensionService) {
         this.ruleService = ruleService;
         this.orgResolver = orgResolver;
+        this.dimensionService = dimensionService;
     }
 
     /**
@@ -136,9 +140,62 @@ public class KingdeeVoucherMatchingService {
             drafts.add(new KingdeeVoucherEntryDraft(
                     side, t.account(), t.name(), t.dimension(),
                     resolveDimensionValue(t, statement, account, orgCode),
-                    manual ? null : shares.get(i), t.share(), manual));
+                    manual ? null : shares.get(i), t.share(), manual,
+                    resolveExtraDimensions(t, statement, account, orgCode)));
         }
         return drafts;
+    }
+
+    /**
+     * 多维度解析（2026-09-21 V42）：模板声明 {@code dimensions} 时逐项解析成「槽位 + 档案编码」。
+     *
+     * <p>与单维度路径的关键差别：<b>解析不出来也保留该项</b>（value/note 记录原因），
+     * 由 payload builder 在推送前拒绝并透出原因。因为多维度是新规则（图虫侧）专用能力，
+     * 静默少维度会直接记错账，宁可让财务先在「维度映射」页补配置。</p>
+     */
+    private List<KingdeeVoucherEntryDraft.DimensionValue> resolveExtraDimensions(
+            KingdeeVoucherRuleResponse.LineTemplate t,
+            StatementRecord statement,
+            BankAccount account,
+            String orgCode) {
+        if (t.dimensions() == null || t.dimensions().isEmpty()) {
+            return null;
+        }
+        List<KingdeeVoucherEntryDraft.DimensionValue> resolved = new ArrayList<>(t.dimensions().size());
+        for (KingdeeVoucherRuleResponse.DimensionSpec spec : t.dimensions()) {
+            String type = spec.type() == null ? "" : spec.type().trim().toUpperCase();
+            if (type.isEmpty() || "NONE".equals(type)) {
+                continue;
+            }
+            if (KingdeeDimensionMappingService.BANK_ACCOUNT.equals(type)) {
+                // 银行账号不走值映射表，取账户级 CN_BANKACNT 编码（V41）
+                String value = account == null ? null : blankToNull(account.getKingdeeAccountNumber());
+                String slot = dimensionService.slotOf(type);
+                String note = value == null
+                        ? "该流水所属我方账户未映射金蝶银行账号编码（在「银行账户」页做金蝶账户映射）"
+                        : (slot == null ? "维度 BANK_ACCOUNT 未配置弹性域槽位" : null);
+                resolved.add(new KingdeeVoucherEntryDraft.DimensionValue(type, slot, value, note));
+                continue;
+            }
+            ResolvedDimension dim = dimensionService.resolve(type, sourceKeyOf(spec, statement, account), orgCode);
+            resolved.add(new KingdeeVoucherEntryDraft.DimensionValue(
+                    type, dim.slot(), dim.value(), dim.reason()));
+        }
+        return resolved.isEmpty() ? null : resolved;
+    }
+
+    /** 维度来源取值：决定「拿流水的哪个字段去查映射表」。 */
+    private static String sourceKeyOf(KingdeeVoucherRuleResponse.DimensionSpec spec,
+                                      StatementRecord statement,
+                                      BankAccount account) {
+        String source = spec.source() == null ? "NAME" : spec.source().trim().toUpperCase();
+        return switch (source) {
+            case "SUMMARY" -> statement.getSummary();
+            case "ACCOUNT" -> account == null ? null : account.getAccountNumber();
+            case "FIXED" -> spec.value();
+            case "ORG" -> statement.getCounterpartyName(); // 内部往来：值多为主体名，由映射表消歧
+            default -> statement.getCounterpartyName();    // NAME / EMPLOYEE_NAME / COUNTERPARTY_NAME
+        };
     }
 
     /**
@@ -179,7 +236,15 @@ public class KingdeeVoucherMatchingService {
             // 由推送环节（KingdeeVoucherEngineService#push）阻断并提示补映射，预览不受影响。
             case "BANK_ACCOUNT" -> account == null ? null : blankToNull(account.getKingdeeAccountNumber());
             case "ORG" -> orgCode;
-            case "SUPPLIER", "CUSTOMER", "COUNTERPARTY", "EMPLOYEE" -> statement.getCounterpartyName();
+            // SUPPLIER/CUSTOMER/EMPLOYEE（2026-09-21 V42）：优先查「维度映射」拿金蝶档案编码
+            // （金蝶要的是 VEN00511 这类编码，不是名称）；查不到时退回名称——金蝶
+            // NumberSearch 允许按名称检索，且既有的 22 条规则此前就是这么推的，保持零回归。
+            case "SUPPLIER", "CUSTOMER", "EMPLOYEE" -> {
+                String mapped = dimensionService.resolveValue(dimension,
+                        statement.getCounterpartyName(), orgCode);
+                yield mapped != null ? mapped : statement.getCounterpartyName();
+            }
+            case "COUNTERPARTY" -> statement.getCounterpartyName();
             case "FIXED" -> t.value();
             case BRANCH_DIM -> resolveSummaryBranch(t, statement.getSummary());
             default -> null; // NONE

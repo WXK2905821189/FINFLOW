@@ -142,4 +142,52 @@ class KingdeeGlVoucherPayloadBuilderTest {
         assertTrue(credit.path("FDetailID").isMissingNode(),
                 "无维度值时不输出 FDetailID（避免空壳字段触发金蝶校验）");
     }
+
+    // ---------------- 多维度（V42，2026-09-21） ----------------
+
+    @Test
+    void multipleDimensionsShareOneDetailIdObject() throws Exception {
+        // 图虫侧规则要求一条分录同时带「供应商 + 业务线」；两个键共用一个 FDetailID 对象。
+        KingdeeVoucherEntryDraft multi = new KingdeeVoucherEntryDraft("DEBIT", "6602.11", "管理费用_福利费",
+                "NONE", null, new BigDecimal("500.00"), "FULL", false,
+                List.of(new KingdeeVoucherEntryDraft.DimensionValue("SUPPLIER", "FF100004", "VEN00511", null),
+                        new KingdeeVoucherEntryDraft.DimensionValue("BUSINESS_LINE", "FF100008", "YX001", null)));
+        String payload = builder.buildPayload("410", T, "服务费",
+                List.of(multi), List.of(line("CREDIT", "1002", "500.00")));
+
+        JsonNode detail = new ObjectMapper().readTree(payload)
+                .path("Model").path("FEntity").get(0).path("FDetailID");
+        assertTrue(detail.isObject());
+        assertEquals("VEN00511", detail.path("FDETAILID__FF100004").path("FNumber").asText());
+        assertEquals("YX001", detail.path("FDETAILID__FF100008").path("FNumber").asText());
+    }
+
+    @Test
+    void unreadyDimensionBlocksPushWithActionableMessage() {
+        KingdeeVoucherEntryDraft multi = new KingdeeVoucherEntryDraft("DEBIT", "6602.11", "管理费用",
+                "NONE", null, new BigDecimal("500.00"), "FULL", false,
+                List.of(new KingdeeVoucherEntryDraft.DimensionValue("SUPPLIER", null, null,
+                        "维度 SUPPLIER 未配置弹性域槽位（在「维度映射 › 槽位配置」补）")));
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> builder.buildPayload("410", T, "服务费",
+                        List.of(multi), List.of(line("CREDIT", "1002", "500.00"))));
+        assertEquals(400, ex.getCode());
+        assertTrue(ex.getMessage().contains("SUPPLIER"), ex.getMessage());
+        assertTrue(ex.getMessage().contains("维度映射"), "拒绝原因必须告诉用户去哪里补配置");
+    }
+
+    @Test
+    void singleAndMultipleDimensionsCoexistOnOneEntry() throws Exception {
+        // 单维度（BANK_ACCOUNT 走 kingdee.gl.bank-dimension-slot）+ 多维度列表共存
+        KingdeeVoucherEntryDraft line = new KingdeeVoucherEntryDraft("CREDIT", "1002", "银行存款",
+                "BANK_ACCOUNT", "11050160520009100036", new BigDecimal("88.00"), "FULL", false,
+                List.of(new KingdeeVoucherEntryDraft.DimensionValue("BUSINESS_LINE", "FF100008", "YX002", null)));
+        String payload = builder.buildPayload("400", T, "收款",
+                List.of(line("DEBIT", "6603.04", "88.00")), List.of(line));
+
+        JsonNode detail = new ObjectMapper().readTree(payload)
+                .path("Model").path("FEntity").get(1).path("FDetailID");
+        assertEquals("11050160520009100036", detail.path("FDETAILID__FF100002").path("FNumber").asText());
+        assertEquals("YX002", detail.path("FDETAILID__FF100008").path("FNumber").asText());
+    }
 }

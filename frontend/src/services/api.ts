@@ -53,6 +53,10 @@ import type {
   VoucherRuleRow,
   VoucherRuleUpsertPayload,
   AccountPreference,
+  DimensionSlotRow,
+  DimensionMappingRow,
+  DimensionSlotUpsertPayload,
+  DimensionMappingUpsertPayload,
 } from '../types';
 import type {
   SysPermission,
@@ -396,6 +400,40 @@ export const kingdeeRuleApi = {
     link.remove();
     URL.revokeObjectURL(url);
   },
+};
+
+/**
+ * V42 核算维度配置（voucher:push）：槽位（维度类型→弹性域键）+ 值映射（来源值→金蝶档案编码）。
+ *
+ * <p>为什么开维护面：槽位是账套级配置、只能报错驱动试出；档案编码是财务口径。
+ * 两者都要能在界面直接改，不能靠改代码发版。</p>
+ */
+export const kingdeeDimensionApi = {
+  slots: (enabledOnly?: boolean) =>
+    http.get<never, DimensionSlotRow[]>('/kingdee/dimension-slots', {
+      params: enabledOnly == null ? {} : { enabledOnly },
+    }),
+  createSlot: (data: DimensionSlotUpsertPayload) =>
+    http.post<never, DimensionSlotRow>('/kingdee/dimension-slots', data),
+  updateSlot: (id: number, data: DimensionSlotUpsertPayload) =>
+    http.put<never, DimensionSlotRow>(`/kingdee/dimension-slots/${id}`, data),
+  removeSlot: (id: number) => http.delete<never, void>(`/kingdee/dimension-slots/${id}`),
+
+  mappings: (dimensionType?: string, enabledOnly?: boolean) =>
+    http.get<never, DimensionMappingRow[]>('/kingdee/dimension-mappings', {
+      params: {
+        ...(dimensionType ? { dimensionType } : {}),
+        ...(enabledOnly == null ? {} : { enabledOnly }),
+      },
+    }),
+  createMapping: (data: DimensionMappingUpsertPayload) =>
+    http.post<never, DimensionMappingRow>('/kingdee/dimension-mappings', data),
+  updateMapping: (id: number, data: DimensionMappingUpsertPayload) =>
+    http.put<never, DimensionMappingRow>(`/kingdee/dimension-mappings/${id}`, data),
+  removeMapping: (id: number) => http.delete<never, void>(`/kingdee/dimension-mappings/${id}`),
+  /** 批量导入：同 (类型,来源值,组织) 已存在按更新处理，便于反复修订 Excel。 */
+  batchUpsert: (rows: DimensionMappingUpsertPayload[]) =>
+    http.post<never, number>('/kingdee/dimension-mappings/batch', rows),
 };
 
 type OperationListParams = { page?: number; size?: number; connectionCode?: string; status?: string; requestId?: string };

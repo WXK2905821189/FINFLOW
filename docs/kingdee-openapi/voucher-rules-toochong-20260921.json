@@ -1,0 +1,294 @@
+{
+  "_meta": {
+    "version": "toochong-v1-20260921",
+    "source": "图虫侧流水映射规则.xlsx「映射规则汇总」Sheet（19 条数据行，2026-09-21 用户提供）",
+    "usage": "银行流水 → 金蝶 GL_VOUCHER 规则引擎 seed（图虫系主体）。与 voucher-rules-seed-20260916.json（22 条，即设/雪云系）按 scope.orgs 隔离，互不覆盖。",
+    "orgAliasMap": {
+      "图虫": "410 上海图虫网络科技有限公司",
+      "映脉": "411 上海映脉文化传播有限公司",
+      "浙江": "420 图虫（浙江）网络科技有限公司",
+      "浙江北分": "421 图虫（浙江）网络科技有限公司北京分公司",
+      "_note": "对照 2026-09-21 ORG_Organizations 实查（23 个组织）；410/411/420/421 与 CN_BANKACNT 账户归属一致"
+    },
+    "idBase": 23,
+    "idNote": "id 自 23 起，接续 voucher-rules-seed-20260916.json 的 1~22",
+    "fieldLegend": {
+      "bigCategory": "xlsx 第一列（一、支出类 / 二、收款类）",
+      "sourceRow": "xlsx「映射规则汇总」Sheet 的数据行号（从表头下第 1 行算起）",
+      "match.conditions[].field": "SUMMARY=摘要 | COUNTERPARTY_NAME=识别对手方名称",
+      "match.conditions[].op": "CONTAINS=关键词包含 | IN_SUPPLIER_LIST=该对手方在图虫系供应商维度表中（附件1.x）",
+      "dimension": "NONE/BANK_ACCOUNT/ORG/SUPPLIER/EMPLOYEE/FIXED 为现有能力；SUPPLIER_CODE/EMPLOYEE_CODE/MONEY_FUND/BUSINESS_LINE/DEPARTMENT 为本次新增（见评估文档）",
+      "share": "FULL=全额 | EQUAL=按行均分 | MANUAL=需人工填金额",
+      "raw": "xlsx 原始单元格文本，供财务核对"
+    },
+    "pending": [
+      "R41（销售回款）依赖附件3「客户 mapping（月更）」，该 Sheet 当前为空 → 暂标 manual，待财务补表",
+      "附件1.1/1.2/1.3（供应商 412 条）与附件2（员工 354 行）是维度查找表，不属于规则表，落地方案见评估文档"
+    ]
+  },
+  "rules": [
+    {
+      "id": 23,
+      "sourceRow": 1,
+      "bigCategory": "一、支出类",
+      "businessType": "银行手续费及验证费支付",
+      "scope": { "orgs": ["410", "411", "420", "421"], "bankChannels": [] },
+      "match": { "logic": "ANY", "conditions": [{ "field": "SUMMARY", "op": "CONTAINS", "values": ["网银支付-跨行-异地手续费", "网银支付-跨行-本地快速手续费", "网银支付-跨行-本地普通手续费", "网上企业银行-网上企业银行服务费", "网银支付-跨行-实时手续费", "认证款"] }] },
+      "direction": "EXPENSE",
+      "debitLines": [{ "account": "6603.04", "name": "财务费用_手续费", "dimension": "NONE", "share": "FULL" }],
+      "creditLines": [{ "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" }],
+      "raw": "主体=图虫、映脉、浙江、浙江北分；摘要=网银支付-跨行-异地手续费 等 6 类 + 认证款；借 6603.04 财务费用_手续费（无维度）/ 贷 1002 银行存款；无第二张凭证"
+    },
+    {
+      "id": 24,
+      "sourceRow": 2,
+      "bigCategory": "一、支出类",
+      "businessType": "成本类供应商服务款-AIGC",
+      "scope": { "orgs": ["410", "411", "420"], "bankChannels": [] },
+      "match": { "logic": "ALL", "conditions": [{ "field": "COUNTERPARTY_NAME", "op": "IN_SUPPLIER_LIST", "values": ["附件1.1-图虫供应商", "附件1.2-映脉供应商", "附件1.3-浙江供应商"] }] },
+      "direction": "EXPENSE",
+      "debitLines": [{ "account": "2202.01", "name": "应付账款_外部往来", "dimension": "SUPPLIER_CODE", "share": "FULL" }],
+      "creditLines": [{ "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" }],
+      "extraVoucher": {
+        "note": "分录2：往来转损益",
+        "debitLines": [{ "account": "6401.12", "name": "主营业务成本_AIGC", "dimension": "SUPPLIER_CODE", "share": "FULL" }],
+        "creditLines": [{ "account": "2202.01", "name": "应付账款_外部往来", "dimension": "SUPPLIER_CODE", "share": "FULL" }]
+      },
+      "raw": "识别对手方=图虫取附件1.1、映脉取附件1.2、浙江取附件1.3（供应商维度编码+名称）；分录1 借 2202.01 / 贷 1002；分录2 借 6401.12 主营业务成本_AIGC / 贷 2202.01，均带供应商维度"
+    },
+    {
+      "id": 25,
+      "sourceRow": 3,
+      "bigCategory": "一、支出类",
+      "businessType": "成本类供应商服务款-版权",
+      "scope": { "orgs": ["410", "411", "420"], "bankChannels": [] },
+      "match": { "logic": "ALL", "conditions": [{ "field": "COUNTERPARTY_NAME", "op": "IN_SUPPLIER_LIST", "values": ["附件1.1-图虫供应商", "附件1.2-映脉供应商", "附件1.3-浙江供应商"] }] },
+      "direction": "EXPENSE",
+      "debitLines": [{ "account": "2202.01", "name": "应付账款_外部往来", "dimension": "SUPPLIER_CODE", "share": "FULL" }],
+      "creditLines": [{ "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" }],
+      "extraVoucher": {
+        "note": "分录2：往来转损益",
+        "debitLines": [{ "account": "6401.06", "name": "主营业务成本_版权", "dimension": "SUPPLIER_CODE", "share": "FULL" }],
+        "creditLines": [{ "account": "2202.01", "name": "应付账款_外部往来", "dimension": "SUPPLIER_CODE", "share": "FULL" }]
+      },
+      "raw": "同 R24 结构，损益科目为 6401.06 主营业务成本_版权"
+    },
+    {
+      "id": 26,
+      "sourceRow": 4,
+      "bigCategory": "一、支出类",
+      "businessType": "成本类供应商服务款-营销费用",
+      "scope": { "orgs": ["410", "411", "420"], "bankChannels": [] },
+      "match": { "logic": "ALL", "conditions": [{ "field": "COUNTERPARTY_NAME", "op": "IN_SUPPLIER_LIST", "values": ["附件1.1-图虫供应商", "附件1.2-映脉供应商", "附件1.3-浙江供应商"] }] },
+      "direction": "EXPENSE",
+      "debitLines": [{ "account": "2202.01", "name": "应付账款_外部往来", "dimension": "SUPPLIER_CODE_DEPT_LINE", "share": "FULL" }],
+      "creditLines": [{ "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" }],
+      "extraVoucher": {
+        "note": "分录2：往来转损益",
+        "debitLines": [{ "account": "6401.07", "name": "主营业务成本_其他商业化", "dimension": "SUPPLIER_CODE", "share": "FULL" }],
+        "creditLines": [{ "account": "2202.01", "name": "应付账款_外部往来", "dimension": "SUPPLIER_CODE_DEPT_LINE", "share": "FULL" }]
+      },
+      "raw": "同 R24 结构，损益科目 6401.07；分录1 借方与分录2 贷方维度为「供应商编码+名称+业务线+部门」（多维度），分录2 借方仅供应商维度"
+    },
+    {
+      "id": 27,
+      "sourceRow": 5,
+      "bigCategory": "一、支出类",
+      "businessType": "成本类供应商服务款-摄影师费用",
+      "scope": { "orgs": ["410", "411"], "bankChannels": [] },
+      "match": { "logic": "ANY", "conditions": [{ "field": "SUMMARY", "op": "CONTAINS", "values": ["劳务费"] }] },
+      "direction": "EXPENSE",
+      "debitLines": [{ "account": "2202.01", "name": "应付账款_外部往来", "dimension": "FIXED", "value": "VEN00511/RZ008/BM000009", "share": "FULL" }],
+      "creditLines": [{ "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" }],
+      "extraVoucher": {
+        "note": "分录2：往来转损益",
+        "debitLines": [{ "account": "6401.07", "name": "主营业务成本_其他商业化", "dimension": "FIXED", "value": "VEN00511/RZ008/BM000009", "share": "FULL" }],
+        "creditLines": [{ "account": "2202.01", "name": "应付账款_外部往来", "dimension": "FIXED", "value": "VEN00511/RZ008/BM000009", "share": "FULL" }]
+      },
+      "raw": "主体=图虫、映脉；摘要=劳务费；维度固定为 VEN00511/BM000009/RZ008（个人供应商）"
+    },
+    {
+      "id": 28,
+      "sourceRow": 6,
+      "bigCategory": "一、支出类",
+      "businessType": "费用类供应商服务款-日常支出",
+      "scope": { "orgs": ["410", "411", "420", "421"], "bankChannels": [] },
+      "match": { "logic": "ANY", "conditions": [{ "field": "SUMMARY", "op": "CONTAINS", "values": ["办公用品", "设备采购", "快递费", "水费", "租金", "房租", "电费"] }] },
+      "direction": "EXPENSE",
+      "debitLines": [{ "account": "2241.06", "name": "其他应付款_外部往来", "dimension": "SUPPLIER_CODE", "share": "FULL" }],
+      "creditLines": [{ "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" }],
+      "raw": "摘要=办公用品/设备采购/快递费/水费/租金/房租/电费；对手方取附件1.x；分录1 借 2241.06 / 贷 1002；无第二张凭证"
+    },
+    {
+      "id": 29,
+      "sourceRow": 7,
+      "bigCategory": "一、支出类",
+      "businessType": "员工借款 / 备用金支付",
+      "scope": { "orgs": ["410", "411", "420", "421"], "bankChannels": [] },
+      "match": { "logic": "ANY", "conditions": [{ "field": "SUMMARY", "op": "CONTAINS", "values": ["借款"] }] },
+      "direction": "EXPENSE",
+      "debitLines": [{ "account": "1221.02", "name": "其他应收款_员工借款", "dimension": "EMPLOYEE_CODE", "share": "FULL" }],
+      "creditLines": [{ "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" }],
+      "raw": "摘要=借款；维度=对应员工编码+姓名（附件2）"
+    },
+    {
+      "id": 30,
+      "sourceRow": 8,
+      "bigCategory": "一、支出类",
+      "businessType": "员工报销类支付",
+      "scope": { "orgs": ["410", "411", "420", "421"], "bankChannels": [] },
+      "match": { "logic": "ALL", "conditions": [{ "field": "SUMMARY", "op": "CONTAINS", "values": ["报销款"] }, { "field": "COUNTERPARTY_NAME", "op": "IN_EMPLOYEE_LIST", "values": ["附件2-员工部门信息"] }] },
+      "direction": "EXPENSE",
+      "debitLines": [{ "account": "2241.04", "name": "其他应付款_员工往来", "dimension": "EMPLOYEE_CODE", "share": "FULL" }],
+      "creditLines": [{ "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" }],
+      "raw": "摘要=报销款；对手方取附件2；维度=对应员工编码+姓名"
+    },
+    {
+      "id": 31,
+      "sourceRow": 9,
+      "bigCategory": "一、支出类",
+      "businessType": "账户间资金划转（支出）",
+      "scope": { "orgs": ["410"], "bankChannels": [] },
+      "match": { "logic": "ANY", "conditions": [{ "field": "SUMMARY", "op": "CONTAINS", "values": ["稿费备付金"] }] },
+      "direction": "EXPENSE",
+      "debitLines": [{ "account": "1012", "name": "其他货币资金", "dimension": "FIXED", "value": "2088887000018168975/PGC稿酬支付平台", "share": "FULL" }],
+      "creditLines": [{ "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" }],
+      "raw": "主体=图虫；摘要=稿费备付金；借 1012 其他货币资金（维度固定 2088887000018168975/PGC稿酬支付平台）/ 贷 1002"
+    },
+    {
+      "id": 32,
+      "sourceRow": 10,
+      "bigCategory": "一、支出类",
+      "businessType": "预付款类型",
+      "scope": { "orgs": ["410", "411", "420"], "bankChannels": [] },
+      "match": { "logic": "ANY", "conditions": [{ "field": "SUMMARY", "op": "CONTAINS", "values": ["API用量采购"] }] },
+      "direction": "EXPENSE",
+      "debitLines": [{ "account": "1123.01", "name": "预付账款_外部往来", "dimension": "SUPPLIER_CODE", "share": "FULL" }],
+      "creditLines": [{ "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" }],
+      "raw": "摘要=API用量采购；借 1123.01 预付账款_外部往来（供应商维度）/ 贷 1002"
+    },
+    {
+      "id": 33,
+      "sourceRow": 11,
+      "bigCategory": "一、支出类",
+      "businessType": "集团主体往来",
+      "scope": { "orgs": ["410", "411", "420", "421"], "bankChannels": [] },
+      "match": { "logic": "ALL", "conditions": [{ "field": "SUMMARY", "op": "CONTAINS", "values": ["往来款"] }, { "field": "COUNTERPARTY_NAME", "op": "IN_ORG_LIST", "values": ["ORG_NAMES"] }] },
+      "direction": "EXPENSE",
+      "debitLines": [{ "account": "2241.05", "name": "其他应付款_内部往来", "dimension": "ORG", "share": "FULL" }],
+      "creditLines": [{ "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" }],
+      "raw": "摘要=往来款 且 对手方为集团内公司；借 2241.05 其他应付款_内部往来（集团主体名称维度）/ 贷 1002"
+    },
+    {
+      "id": 34,
+      "sourceRow": 12,
+      "bigCategory": "一、支出类",
+      "businessType": "备款薪福通",
+      "scope": { "orgs": ["410", "411", "421"], "bankChannels": [] },
+      "match": { "logic": "ALL", "conditions": [{ "field": "SUMMARY", "op": "CONTAINS", "values": ["往来款"] }, { "field": "COUNTERPARTY_NAME", "op": "CONTAINS", "values": ["招商银行应付代发业务清算款"] }] },
+      "direction": "EXPENSE",
+      "debitLines": [{ "account": "1002", "name": "银行存款", "dimension": "MONEY_FUND", "valueFrom": "主体对应的薪福通账号", "share": "FULL" }],
+      "creditLines": [{ "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" }],
+      "raw": "摘要=往来款 且 对手方=招商银行应付代发业务清算款；借 1002（维度=各主体对应的薪福通账号）/ 贷 1002（我方账户）",
+      "conflictNote": "与 R33 同为摘要「往来款」，靠对手方区分（集团内公司 vs 招行清算款）→ R34 优先级须高于 R33"
+    },
+    {
+      "id": 35,
+      "sourceRow": 13,
+      "bigCategory": "一、支出类",
+      "businessType": "人力成本-社保",
+      "scope": { "orgs": ["410", "411", "421"], "bankChannels": [] },
+      "match": { "logic": "ANY", "conditions": [{ "field": "SUMMARY", "op": "CONTAINS", "values": ["税款"] }] },
+      "direction": "EXPENSE",
+      "debitLines": [
+        { "account": "2241.02.01", "name": "其他应付款_社保_养老", "dimension": "NONE", "share": "MANUAL" },
+        { "account": "2241.02.03", "name": "其他应付款_社保_医疗", "dimension": "NONE", "share": "MANUAL" },
+        { "account": "2241.02.02", "name": "其他应付款_社保_失业", "dimension": "NONE", "share": "MANUAL" },
+        { "account": "2211.02.01", "name": "应付职工薪酬_社保_养老", "dimension": "NONE", "share": "MANUAL" },
+        { "account": "2211.02.05", "name": "应付职工薪酬_社保_医疗", "dimension": "NONE", "share": "MANUAL" },
+        { "account": "2211.02.02", "name": "应付职工薪酬_社保_失业", "dimension": "NONE", "share": "MANUAL" },
+        { "account": "2211.02.03", "name": "应付职工薪酬_社保_工伤", "dimension": "NONE", "share": "MANUAL" },
+        { "account": "2211.02.04", "name": "应付职工薪酬_社保_生育", "dimension": "NONE", "share": "MANUAL" }
+      ],
+      "creditLines": [{ "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" }],
+      "raw": "摘要=税款；8 个借方科目须按上月工资表人工拆分（MANUAL）；贷 1002"
+    },
+    {
+      "id": 36,
+      "sourceRow": 14,
+      "bigCategory": "一、支出类",
+      "businessType": "人力成本-公积金",
+      "scope": { "orgs": ["410", "411", "421"], "bankChannels": [] },
+      "match": { "logic": "ANY", "conditions": [{ "field": "SUMMARY", "op": "CONTAINS", "values": ["公积金"] }] },
+      "direction": "EXPENSE",
+      "debitLines": [
+        { "account": "2211.03", "name": "应付职工薪酬_公积金", "dimension": "NONE", "share": "MANUAL" },
+        { "account": "2241.03", "name": "其他应付款_公积金", "dimension": "NONE", "share": "MANUAL" }
+      ],
+      "creditLines": [{ "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" }],
+      "raw": "摘要=公积金；2 个借方科目（金额拆分规则财务未给 → MANUAL）；贷 1002"
+    },
+    {
+      "id": 37,
+      "sourceRow": 15,
+      "bigCategory": "一、支出类",
+      "businessType": "OGC资源境外支付",
+      "scope": { "orgs": ["410", "411"], "bankChannels": [] },
+      "match": { "logic": "ANY", "conditions": [{ "field": "SUMMARY", "op": "CONTAINS", "values": ["PAY"] }] },
+      "direction": "EXPENSE",
+      "debitLines": [{ "account": "2202.01", "name": "应付账款_外部往来", "dimension": "SUPPLIER_CODE", "share": "FULL" }],
+      "creditLines": [{ "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" }],
+      "raw": "主体=图虫、映脉；摘要=PAY；借 2202.01（供应商维度）/ 贷 1002"
+    },
+    {
+      "id": 38,
+      "sourceRow": 16,
+      "bigCategory": "二、收款类",
+      "businessType": "微信提现收入-9225号",
+      "scope": { "orgs": ["410"], "bankChannels": [] },
+      "match": { "logic": "ALL", "conditions": [{ "field": "SUMMARY", "op": "CONTAINS", "values": ["1720219225"] }, { "field": "COUNTERPARTY_NAME", "op": "CONTAINS", "values": ["财付通支付科技有限公司"] }] },
+      "direction": "INCOME",
+      "debitLines": [{ "account": "1012", "name": "其他货币资金", "dimension": "FIXED", "value": "1720219225/上海图虫_微信支付_普通商户_CNY_1720219225", "share": "FULL" }],
+      "creditLines": [{ "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" }],
+      "raw": "主体=图虫；摘要=1720219225 且对手方=财付通；借 1012（货币资金核算维度 1720219225/上海图虫_微信支付_普通商户_CNY_1720219225）/ 贷 1002"
+    },
+    {
+      "id": 39,
+      "sourceRow": 17,
+      "bigCategory": "二、收款类",
+      "businessType": "微信提现收入-7102号",
+      "scope": { "orgs": ["410"], "bankChannels": [] },
+      "match": { "logic": "ALL", "conditions": [{ "field": "SUMMARY", "op": "CONTAINS", "values": ["SA020008提现"] }, { "field": "COUNTERPARTY_NAME", "op": "CONTAINS", "values": ["财付通支付科技有限公司"] }] },
+      "direction": "INCOME",
+      "debitLines": [{ "account": "1012", "name": "其他货币资金", "dimension": "FIXED", "value": "1447107102/上海图虫_微信支付_普通商户_CNY_1447107102", "share": "FULL" }],
+      "creditLines": [{ "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" }],
+      "raw": "主体=图虫；摘要=SA020008提现 且对手方=财付通；借 1012（维度 1447107102/上海图虫_微信支付_普通商户_CNY_1447107102）/ 贷 1002",
+      "conflictNote": "与 R40 摘要相同（SA020008提现），靠对手方区分（财付通 vs 支付宝）"
+    },
+    {
+      "id": 40,
+      "sourceRow": 18,
+      "bigCategory": "二、收款类",
+      "businessType": "支付宝提现收入",
+      "scope": { "orgs": ["410"], "bankChannels": [] },
+      "match": { "logic": "ALL", "conditions": [{ "field": "SUMMARY", "op": "CONTAINS", "values": ["SA020008提现"] }, { "field": "COUNTERPARTY_NAME", "op": "CONTAINS", "values": ["支付宝支付科技有限公司"] }] },
+      "direction": "INCOME",
+      "debitLines": [{ "account": "1012", "name": "其他货币资金", "dimension": "FIXED", "value": "luoliming/上海图虫_支付宝_普通商户_CNY_luoliming", "share": "FULL" }],
+      "creditLines": [{ "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" }],
+      "raw": "主体=图虫；摘要=SA020008提现 且对手方=支付宝；借 1012（维度 luoliming/上海图虫_支付宝_普通商户_CNY_luoliming）/ 贷 1002"
+    },
+    {
+      "id": 41,
+      "sourceRow": 19,
+      "bigCategory": "二、收款类",
+      "businessType": "销售回款",
+      "scope": { "orgs": ["410", "411", "421"], "bankChannels": [] },
+      "match": { "logic": "ALL", "conditions": [{ "field": "COUNTERPARTY_NAME", "op": "IN_CUSTOMER_MAPPING", "values": ["附件3-客户mapping（月更）"] }] },
+      "direction": "INCOME",
+      "debitLines": [{ "account": "PENDING", "name": "详见附件3 客户 mapping", "dimension": "CUSTOMER", "share": "MANUAL" }],
+      "creditLines": [{ "account": "1002", "name": "银行存款", "dimension": "BANK_ACCOUNT", "share": "FULL" }],
+      "raw": "主体=图虫、映脉、浙江北分；借方科目 mapping 规则详见附件3；附件3 当前为空 → 本条待财务补表后启用",
+      "blocked": true
+    }
+  ]
+}
