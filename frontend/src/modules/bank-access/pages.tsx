@@ -5,8 +5,8 @@ import { bankApi, bankPipelineApi, operationsApi } from '../../services/api';
 import { useAuthStore } from '../../store/auth';
 import { useRemote, ResourceFailure, StatusTag, DirectStatusTag } from '../shared/components';
 import { CompanyArchiveDrawer } from './archive';
-import { BANK_NAME_TEXT } from './bankQueryTexts';
 import { KingdeeMappingDrawer } from './kingdeeMapping';
+import { useBankNames } from './useBankNames';
 import { detectBankCode } from '../voucher/voucherTexts';
 import type { BankAccount, BankConnectionTestResult, CompanyOption, ConnectionOverview } from '../../types';
 
@@ -34,6 +34,8 @@ const CONNECTION_TONE: Record<string, { color: 'success' | 'error' | 'warning' |
 
 export function BankAccountPage() {
   const hasPermission = useAuthStore((state) => state.hasPermission);
+  // 银行中文名统一取字典中心（bank 字典类型），代码常量仅兜底：新增银行零发版。
+  const { resolve: resolveBankName, options: bankOptions } = useBankNames();
   const canManageArchive = hasPermission('bank:manage');
   const canTriggerSync = hasPermission('bankdata:sync:trigger');
   const [archiveOpen, setArchiveOpen] = useState(false);
@@ -105,7 +107,7 @@ export function BankAccountPage() {
   };
 
   const columns: TableColumnsType<BankAccount> = [
-    { title: '银行', dataIndex: 'bankCode', width: 110, render: (value) => BANK_NAME_TEXT[value] || <span className="mono">{value}</span> },
+    { title: '银行', dataIndex: 'bankCode', width: 110, render: (value) => { const name = resolveBankName(value); return name === value ? <span className="mono">{value || '--'}</span> : name; } },
     { title: '账户名称', dataIndex: 'accountName' },
     { title: '账号', dataIndex: 'maskedAccountNumber', width: 170, render: (value) => <span className="mono">{value}</span> },
     { title: '币种', dataIndex: 'currency', width: 70 },
@@ -191,7 +193,7 @@ export function BankAccountPage() {
         <Form.Item name="bankCode" rules={[{ required: true, message: '请选择银行（未识别时必选）' }]} extra={detected ? '已按账号特征自动填入，可修改。' : '账号特征未命中识别规则，请手动选择开户银行。'}>
           <Select
             placeholder="选择开户银行"
-            options={Object.entries(BANK_NAME_TEXT).map(([value, label]) => ({ value, label }))}
+            options={bankOptions}
           />
         </Form.Item>
         <Space size={12} wrap>
@@ -213,7 +215,7 @@ export function BankAccountPage() {
     </Modal>
 
     <Modal
-      title={`连通测试${testingBankCode ? ' · ' + (BANK_NAME_TEXT[testingBankCode] || testingBankCode) : ''}`}
+      title={`连通测试${testingBankCode ? ' · ' + resolveBankName(testingBankCode) : ''}`}
       open={testModalOpen}
       onCancel={() => setTestModalOpen(false)}
       footer={<Button type="primary" onClick={() => setTestModalOpen(false)}>知道了</Button>}

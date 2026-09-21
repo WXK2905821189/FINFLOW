@@ -14,6 +14,7 @@ import { ExcelGrid } from './grid/ExcelGrid';
 import { rawCell, num2, type GridColumn, type GridFilter, type GridInstance, type GridRow } from './grid/kernel';
 import { useGridPreference } from './grid/useGridPreference';
 import { prettyPayload } from './bankQueryTexts';
+import { useBankNames, bankAccountLabel } from './useBankNames';
 import { PromptSettingButton } from '../admin/PromptSettingModal';
 import type { BankAccount, CompanyOption, BankDataBalanceRow, BankDataProjectionPage, BankDataStatementRow, BankRawMessageDetail, AiVoucherBatchResult, AiVoucherRowResult } from '../../types';
 
@@ -97,6 +98,10 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
   const canAiVoucher = isStatement && hasPermission('voucher:push');
   // W9：AI 提示词设置入口（仅超管；提示词全局生效）。
   const canConfigAi = hasPermission('ai:config');
+  // 银行中文名（2026-09-21）：字典中心 `bank` 类型为唯一可维护源，代码常量仅兜底。
+  // bankRevision 放进列/行/树的 memo 依赖，字典异步到达后自动重建（内核 setCols 按 key
+  // 保留用户的可见性与列宽，不会冲掉调好的表格）。
+  const { revision: bankRevision, resolve: resolveBankName } = useBankNames();
   // 账户数据源：主体树（公司 → 账户）与 AI 制证的 MANUAL 账户判定共用。
   const accountsLoader = useCallback(() => bankApi.accounts(), []);
   const { data: accounts } = useRemote<BankAccount[]>(accountsLoader, [accountsLoader]);
@@ -124,13 +129,19 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
       return {
         key: `company:${companyKey}`,
         title: <span>{name}<span className="table-sub">（{list.length} 户）</span></span>,
-        children: list.map((account) => ({
-          key: `account:${account.id}`,
-          title: `${account.accountName}（${account.maskedAccountNumber}）`,
-        })),
+        children: list.map((account) => {
+          // 2026-09-21 用户口径：账户节点显示「银行-尾号」（如「中信银行-4821」），
+          // 银行名来自字典中心（新增银行自动跟随，无需改代码）；账户名与完整掩码账号
+          // 移到悬浮提示，既缩短节点又不丢原有的「户名」信息。
+          const label = bankAccountLabel(account.bankCode, account.maskedAccountNumber) || account.accountName;
+          return {
+            key: `account:${account.id}`,
+            title: <Tooltip title={`${account.accountName}（${account.maskedAccountNumber}）`}>{label}</Tooltip>,
+          };
+        }),
       };
     });
-  }, [accounts, companyNameById, companyName]);
+  }, [accounts, companyNameById, companyName, bankRevision]);
   const treeSelectedKeys = useMemo(() => [
     ...filters.accountIds.map((id) => `account:${id}`),
     ...(canCrossCompany ? scopeCompanyIds.map((id) => `company:${id}`) : []),
@@ -169,8 +180,8 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
   const gridColumns = useMemo<GridColumn[]>(
     () => (isStatement
       ? statementGridColumns({ canCrossCompany })
-      : balanceGridColumns({ canCrossCompany })),
-    [isStatement, canCrossCompany],
+      : balanceGridColumns({ canCrossCompany, bankNameOf: resolveBankName })),
+    [isStatement, canCrossCompany, resolveBankName, bankRevision],
   );
   const preferenceScope = isStatement ? 'bankdata.statements' : 'bankdata.balances';
   const { snapshot: gridSnapshot, ready: gridPreferenceReady, save: saveGridPreference } = useGridPreference(preferenceScope);
@@ -250,8 +261,8 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
     if (!records) return [];
     return isStatement
       ? decorateStatementRows(records as BankDataStatementRow[])
-      : decorateBalanceRows(records as BankDataBalanceRow[]);
-  }, [data, isStatement]);
+      : decorateBalanceRows(records as BankDataBalanceRow[], resolveBankName);
+  }, [data, isStatement, resolveBankName, bankRevision]);
 
   const gridGroupBy = isStatement ? 'accountMasked' : 'companyName';
   const gridGroupMeta = useMemo(() => {

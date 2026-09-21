@@ -1,7 +1,8 @@
 import { Alert, Collapse, Descriptions, Tag } from 'antd';
 import { dateTime, displayValue, cleanText, money, dateOnly, isUnavailableStatus, isFailedStatus } from '../shared/format';
 import { statusTagText } from '../shared/dict';
-import { ACCOUNT_STATUS_TEXT, accountStatusColor, BANK_NAME_TEXT, INFO_FLAG_TEXT, INTEREST_TYPE_TEXT, LOAN_CODE_TEXT, REVERSAL_TEXT, currencyText } from './bankQueryTexts';
+import { ACCOUNT_STATUS_TEXT, accountStatusColor, INFO_FLAG_TEXT, INTEREST_TYPE_TEXT, LOAN_CODE_TEXT, REVERSAL_TEXT, currencyText } from './bankQueryTexts';
+import { resolveBankName } from './useBankNames';
 import type { BankDataBalanceRow, BankDataProjectionPage, BankDataStatementRow } from '../../types';
 
 /** 投影行类型：流水与余额二选一（列定义与详情抽屉共用）。 */
@@ -82,7 +83,7 @@ export function BalanceDetail({ row }: { row: BankDataBalanceRow }) {
     <>
       <Descriptions className="projection-detail" column={1} size="small" bordered>
         <Descriptions.Item label="截止时间">{dateTime(row.asOfTime)}</Descriptions.Item>
-        <Descriptions.Item label="银行">{displayValue(row.bankCode ? (BANK_NAME_TEXT[row.bankCode] || row.bankCode) : undefined)}</Descriptions.Item>
+        <Descriptions.Item label="银行">{displayValue(row.bankCode ? resolveBankName(row.bankCode) : undefined)}</Descriptions.Item>
         <Descriptions.Item label="账号"><span className="mono">{displayValue(row.accountMasked || row.bankAccountNo)}</span></Descriptions.Item>
         <Descriptions.Item label="银行侧账号"><span className="mono">{displayValue(row.bankAccountNo)}</span></Descriptions.Item>
         <Descriptions.Item label="户名">{displayValue(row.bankAccountName)}</Descriptions.Item>

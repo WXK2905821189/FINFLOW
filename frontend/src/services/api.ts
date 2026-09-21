@@ -170,6 +170,8 @@ export const dictApi = {
   createItem: (typeId: number, data: DictItemPayload) => http.post<never, DictItemRow>(`/system/dicts/types/${typeId}/items`, data),
   updateItem: (id: number, data: DictItemPayload) => http.put<never, DictItemRow>(`/system/dicts/items/${id}`, data),
   deleteItem: (id: number) => http.delete<never, void>(`/system/dicts/items/${id}`),
+  /** 消费端点（V26）：按类型编码取**启用中**的字典项，只要求登录态；类型不存在时返回空数组。 */
+  activeItems: (typeCode: string) => http.get<never, DictItemRow[]>(`/system/dicts/${typeCode}/items`),
 };
 
 // ---- AI 能力地基（V27）：网关状态/自检/审计 ----

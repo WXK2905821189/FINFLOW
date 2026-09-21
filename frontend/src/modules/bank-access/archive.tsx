@@ -5,7 +5,7 @@ import { bankApi } from '../../services/api';
 import { useAuthStore } from '../../store/auth';
 import { useRemote, ResourceFailure } from '../shared/components';
 import { dateTime } from '../shared/format';
-import { BANK_NAME_TEXT } from './bankQueryTexts';
+import { useBankNames } from './useBankNames';
 import { PromptSettingButton } from '../admin/PromptSettingModal';
 import type { AiCompanyApplyResponse, AiCompanyApplyRow, AiCompanySuggestion, BankAccountCreatePayload, BankConnectionTestResult, CompanyArchiveAccount, CompanyArchiveCompany, CompanyArchiveView } from '../../types';
 
@@ -30,6 +30,8 @@ export function CompanyArchiveDrawer({ open, onClose }: { open: boolean; onClose
 
 function ArchiveBoard() {
   const { data: view, loading, error, reload } = useRemote<CompanyArchiveView>(() => bankApi.archive(), []);
+  // 银行中文名统一取字典中心（bank 字典类型）；档案下拉的候选集也随之自动扩展。
+  const { resolve: resolveBankName, options: bankOptions } = useBankNames();
   const hasPermission = useAuthStore((state) => state.hasPermission);
   const canManage = hasPermission('bank:manage');
   // 测试连接会发起一次真实银行调用（只读不落库），与手动同步同级管控。
@@ -358,7 +360,7 @@ function ArchiveBoard() {
         </Space>
       </div>
       <div style={{ color: '#888', fontSize: 12 }}>
-        <span className="mono">{account.maskedAccountNumber}</span> · {BANK_NAME_TEXT[account.bankCode] || account.bankCode} · {account.currency}
+        <span className="mono">{account.maskedAccountNumber}</span> · {resolveBankName(account.bankCode)} · {account.currency}
         {account.directStatus === 'DIRECT_CONNECTED' && <Tag color="green" style={{ marginLeft: 6, fontSize: 11 }}>直联</Tag>}
       </div>
     </div>
@@ -505,7 +507,7 @@ function ArchiveBoard() {
         <Space direction="vertical" style={{ width: '100%' }} size={10}>
           <Select
             value={acctDraft.bankCode}
-            options={Object.entries(BANK_NAME_TEXT).map(([value, label]) => ({ value, label }))}
+            options={bankOptions}
             onChange={(value) => setAcctDraft((current) => ({ ...current, bankCode: value }))}
             style={{ width: '100%' }}
           />

@@ -1,5 +1,6 @@
 import { copyChip, esc, money, type GridColumn, type GridRow } from './grid/kernel';
-import { ACCOUNT_STATUS_TEXT, BANK_NAME_TEXT, LOAN_CODE_TEXT, currencyText } from './bankQueryTexts';
+import { ACCOUNT_STATUS_TEXT, LOAN_CODE_TEXT, currencyText } from './bankQueryTexts';
+import { resolveBankName } from './useBankNames';
 import { cleanText, dateTime, displayValue, statusColor } from '../shared/format';
 import { statusTagText } from '../shared/dict';
 import type { BankDataBalanceRow, BankDataStatementRow } from '../../types';
@@ -41,7 +42,8 @@ const statusTag = (status?: string) => {
   return '<span class="tag ' + cls + '">' + esc(statusTagText(status)) + '</span>';
 };
 
-const bankName = (code?: string | null) => (code ? (BANK_NAME_TEXT[code] || code) : '');
+/** 银行中文名解析器：由页面把 useBankNames().resolve 透传进来（字典中心为唯一可维护源）。 */
+type BankNameOf = (code?: string | null) => string;
 
 /** 参数化列工厂：把 GridRow 收窄回真实行类型，列内部就能有类型提示。 */
 const balance = (fn: (row: BankDataBalanceRow) => string) => (row: GridRow) => fn(row as BankDataBalanceRow);
@@ -81,19 +83,22 @@ const accountCell = (masked?: string, bankNo?: string) => {
  * 导致银行列筛选候选全是「(空)」（用户报障：银行字段读取不了，无法筛选）。
  * 灌数据前补派生字段（不改列 k，避免破坏已保存的列偏好）。
  */
-export function decorateBalanceRows(rows: BankDataBalanceRow[]): (BankDataBalanceRow & { bankName: string; account: string })[] {
+export function decorateBalanceRows(
+  rows: BankDataBalanceRow[],
+  bankNameOf: BankNameOf = resolveBankName,
+): (BankDataBalanceRow & { bankName: string; account: string })[] {
   return rows.map((row) => ({
     ...row,
-    bankName: row.bankCode ? (BANK_NAME_TEXT[row.bankCode] || row.bankCode) : '',
+    bankName: bankNameOf(row.bankCode),
     account: String(row.accountMasked || row.bankAccountNo || ''),
   }));
 }
 
-export const balanceGridColumns = ({ canCrossCompany }: { canCrossCompany: boolean }): GridColumn[] => {  const cols: GridColumn[] = [
+export const balanceGridColumns = ({ canCrossCompany, bankNameOf = resolveBankName }: { canCrossCompany: boolean; bankNameOf?: BankNameOf }): GridColumn[] => {  const cols: GridColumn[] = [
     {
       k: 'bankName', t: '银行', w: 110, on: true, def: '默认', type: 'text', filter: 'value',
-      cell: balance((r) => esc(displayValue(bankName(r.bankCode)))),
-      text: balance((r) => bankName(r.bankCode)),
+      cell: balance((r) => esc(displayValue(bankNameOf(r.bankCode)))),
+      text: balance((r) => bankNameOf(r.bankCode)),
     },
     {
       // V36 筛选服务端化：账号文本 → accountNoSuffix（bank_account_no LIKE '%后缀'）。
