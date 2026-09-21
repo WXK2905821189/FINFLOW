@@ -12,6 +12,7 @@ import com.finance.system.domain.entity.StatementRecord;
 import com.finance.system.domain.mapper.BankAccountMapper;
 import com.finance.system.domain.mapper.CompanyMapper;
 import com.finance.system.domain.mapper.StatementRecordMapper;
+import com.finance.system.rbac.RbacService;
 import com.finance.system.statement.voucherrule.KingdeeVoucherMatchingService;
 import com.finance.system.statement.voucherrule.dto.KingdeeVoucherEntryDraft;
 import com.finance.system.statement.voucherrule.dto.KingdeeVoucherRulePreview;
@@ -81,6 +82,16 @@ public class AccountingSuggestionService {
     private final KingdeeVoucherMatchingService matchingService;
     private final BankAccountMapper bankAccountMapper;
     private final CompanyMapper companyMapper;
+    /**
+     * 跨公司数据权限（{@code bankdata:cross-company:view}）判定来源。
+     *
+     * <p>FIX-008（2026-09-21）：本类 {@link #requireInCompanyScope} 原先硬校验「流水公司 == 操作人公司」，
+     * 与制证链路（{@code BankDataAccountingService}）的跨公司口径冲突。实测：账户 9（上海图虫，
+     * companyId=2）的流水在 admin（companyId=1）下取 AI 建议必然 404 → 降级成模糊的
+     * 「AI 建议不可用」；同公司的账户 7 全部成功。修复后与 {@code refreshAiSuggestion} 的
+     * W3 口径（2026-09-18）完全一致。</p>
+     */
+    private final RbacService rbacService;
 
     /** 注入提示词的命中规则上限（token 预算控制）。 */
     private static final int MAX_HIT_RULES = 3;
@@ -90,7 +101,8 @@ public class AccountingSuggestionService {
                                        CompanyScopeService companyScope, ObjectMapper objectMapper,
                                        KingdeeVoucherMatchingService matchingService,
                                        BankAccountMapper bankAccountMapper,
-                                       CompanyMapper companyMapper) {
+                                       CompanyMapper companyMapper,
+                                       RbacService rbacService) {
         this.gatewayService = gatewayService;
         this.promptService = promptService;
         this.statementMapper = statementMapper;
@@ -99,6 +111,7 @@ public class AccountingSuggestionService {
         this.matchingService = matchingService;
         this.bankAccountMapper = bankAccountMapper;
         this.companyMapper = companyMapper;
+        this.rbacService = rbacService;
     }
 
     public AiAccountingSuggestionResponse suggest(Long statementId, Long userId) {
@@ -157,12 +170,20 @@ public class AccountingSuggestionService {
         }
     }
 
-    /** 公司域校验：跨公司流水一律 404（不暴露存在性）。 */
+    /**
+     * 公司域校验（FIX-008：与制证/刷新 AI 建议口径对称）。
+     *
+     * <p>持有 {@code bankdata:cross-company:view} 的用户可对他司流水取 AI 建议——制证链路本就
+     * 允许跨公司（有权限时），AI 建议若一刀切拒绝，有权限的用户在跨公司流水上会永远拿到
+     * 「AI 建议不可用」（实测现象）。无权限用户对非本公司流水仍一律 404，不暴露存在性。</p>
+     */
     private StatementRecord requireInCompanyScope(Long statementId, Long userId) {
         long companyId = companyScope.companyIdForUser(userId);
+        boolean crossCompany = rbacService.permissionCodesForUser(userId)
+                .contains("bankdata:cross-company:view");
         StatementRecord statement = statementMapper.selectById(statementId);
         if (statement == null || statement.getCompanyId() == null
-                || statement.getCompanyId() != companyId) {
+                || (statement.getCompanyId() != companyId && !crossCompany)) {
             throw new BusinessException(404, "流水不存在或不在当前公司域内");
         }
         return statement;

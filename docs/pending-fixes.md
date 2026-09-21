@@ -283,3 +283,85 @@
 - 不同 companyId 的流水推送走各自账套（凭据加密落库、接口回显仅尾 4 位 hint）；
 - 未配置的公司回落现有 env 凭据不中断；
 - `pingKingdee` 按公司返回各自连接状态。
+
+---
+
+## FIX-008（P1 · 跨公司流水的 AI 建议被误拒 → 降级「AI 建议不可用」）2026-09-21 登记并处置
+
+### 现象
+用户报「很多流水 AI 制证了，但结果提示 AI 建议不可用」（线上 W11）。
+
+### 根因（线上只读实测取证，非推测）
+`AccountingSuggestionService.requireInCompanyScope` 硬校验「流水 companyId == 操作人 companyId」，
+**漏了跨公司放行**——而同项目的 `BankDataAccountingService.refreshAiSuggestion`（W3，2026-09-18）
+已有正确口径（`record.getCompanyId() != companyId && !crossCompany`）。两个类各自实现了一遍同样的
+校验，W3 只修了其中一处。
+
+实测对照（线上 `/api/statements` + `/api/ai/call-logs`）：
+
+| 流水 | 所属账户 | 账户 companyId | 结果 |
+|---|---|---|---|
+| id=10 / 13（C0947J…） | 账户 9（CMB 尾号 0201） | **2 上海图虫网络科技** | ❌ 404「流水不存在或不在当前公司域内」→ 降级「AI 建议不可用」 |
+| id=12（BG1F07…） | 账户 7（CITIC 尾号 8042） | **1 测试公司**（= 操作人） | ✅ AI 建议正常（call-log id=18 成功） |
+
+`ai_call_logs` 佐证：最近调用全部 `SUCCEEDED`（completionTokens 727 / 818，远未贴顶 2048）
+⇒ **不是模型、密钥或截断问题**，是业务层的公司域校验误拒。且只有 `REVIEW_PENDING` 的流水会走到
+AI 建议（PUSHED / REJECTED / APPROVED 都被前置分支短路），所以「很多流水」= 全部待复核的
+**跨公司**流水。
+
+### 修复
+`requireInCompanyScope` 与 `refreshAiSuggestion` 口径对齐：持 `bankdata:cross-company:view`
+的用户可对他司流水取 AI 建议；无权限用户对非本公司流水仍 404（保持不暴露存在性）。
+
+### 验收
+- `AccountingSuggestionRuleInjectionTest` 新增 2 例（跨公司放行 / 无权限拒绝）→ 该类 5 例全绿；
+- 全量 **388 测试 0 失败**；
+- 线上验收（部署后）：对账户 9 的流水点「AI 制证为草稿」，复核意见应出现正常 AI 建议内容
+  而非「AI 建议不可用」。
+
+---
+
+## FIX-009（P1 · 凭证中心的推送未切总账落点 → 仍报「未启用出纳」）2026-09-21 登记并处置
+
+### 现象与**此前的误判纠正**
+用户报「推送凭证时依然提示组织未开启出纳模块」。我先前判断为「版本落后、W11 未部署」——
+**该判断错误**。带 token 探端点证实线上**已是 W11**：
+`GET /api/bank-data/ai-voucher-jobs/latest` → 200（V40）、`GET /api/bank-accounts/kingdee-mapping`
+→ 200（V41）、`GET /api/statements/kingdee/ping` → 200（mode=REAL 已连真实账套）；
+对照组 `GET /api/definitely-not-real-xyz` → 500（符合「未注册路径」口径）。
+
+### 真根因
+W11 只把**「一键 AI 制证」的 PUSH 模式**切到了总账；而**凭证中心的推送按钮**走的是
+`StatementService.pushVoucher()` → `kingdeeGateway.push()`（出纳收付款单），**没有按
+`kingdee.voucher-target` 分流**。
+
+线上实证（流水 id=12 审计轨迹）：
+
+```
+IMPORT            SUCCESS  None -> PASSED
+AI_VOUCHER_DRAFT  SUCCESS  PENDING -> PENDING      ← AI 建议正常
+REVIEW_APPROVE    SUCCESS  PENDING -> APPROVED
+PUSH_VOUCHER      FAILED   NOT_PUSHED -> FAILED    ← AR_RECEIVEBILL: 当前组织未启用出纳
+WITHDRAW          SUCCESS  APPROVED -> WITHDRAWN
+```
+
+`action=PUSH_VOUCHER` 即凭证中心路径（与 AI 制证的 `AI_VOUCHER_*` 区分），坐实分流缺失。
+
+### 修复
+`StatementService.pushVoucher` 在 CAS 置 `PROCESSING` 之后按 `kingdeeProps.isGlTarget()` 分流：
+GL（默认）→ 委托 `KingdeeVoucherEngineService.pushAiVoucher()`（与 AI 制证 PUSH 同一条组装/校验/
+状态机链路，产物是 `GL_VOUCHER` 草稿）；BILL → 保留原出纳单逻辑。
+失败语义保持「不抛业务异常、返回当前态」，且 CAS 仅在仍处 `PROCESSING` 时置 FAILED，
+因此 GL 链路已写的 `GL_FAILED`（含金蝶原文）不会被覆盖——凭证中心据此能区分
+「总账推送失败」与「前置校验未通过（缺分录 / 账户未映射金蝶档案）」。
+
+### 验收
+- 新增 `StatementServiceGlPushIntegrationTest`（2 例）：GL 落点走 GL（`GL_PUSHED` + `GL-MOCK-` 凭证号）、
+  账户未映射时阻断且 `pushMessage` 带回可执行提示；
+- 全量 **390 测试 0 失败**；
+- 线上验收（部署后）：对已映射账户的流水在凭证中心点推送 → 金蝶出现 `GL_VOUCHER` 草稿，
+  不再出现「未启用出纳」。
+
+### 附带现状（部署后须知）
+账户映射已配置：招行 7 个账户全部 `MAPPED`；4 个中信测试账户为 `UNMATCHED`
+（账号为测试号，非真实银行账号）——对这些账户的流水推送会被**阻断并提示补映射**，属设计口径。

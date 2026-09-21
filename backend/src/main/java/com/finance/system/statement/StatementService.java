@@ -39,6 +39,8 @@ import com.finance.system.statement.dto.StatementTransferRequest;
 import com.finance.system.statement.dto.VoucherSuggestionDto;
 import com.finance.system.statement.kingdee.KingdeeConnectionStatus;
 import com.finance.system.statement.kingdee.KingdeeVoucherGateway;
+import com.finance.system.statement.kingdee.KingdeeProperties;
+import com.finance.system.statement.voucherrule.KingdeeVoucherEngineService;
 import com.finance.system.statement.kingdee.KingdeeVoucherResult;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -76,6 +78,13 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
     private final BankAccountMapper bankAccountMapper;
     private final ObjectMapper objectMapper;
     private final KingdeeVoucherGateway kingdeeGateway;
+    /**
+     * 金蝶落点判定（FIX-009，2026-09-21）：{@code GL}=总账凭证（默认）/ {@code BILL}=出纳收付款单。
+     * 真实账套境内主体均未启用「出纳管理」，收付款单保存一律被拒，故默认走 GL。
+     */
+    private final KingdeeProperties kingdeeProps;
+    /** 总账落点的推送链路（AI/规则分录 → GL_VOUCHER），与「一键 AI 制证」PUSH 模式共用同一套组装与状态机。 */
+    private final KingdeeVoucherEngineService voucherEngineService;
     private final CompanyScopeService companyScope;
     private final BankDataStatementMapper bankDataStatementMapper;
     private final RbacService rbacService;
@@ -93,6 +102,8 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
                             CompanyScopeService companyScope,
                             BankDataStatementMapper bankDataStatementMapper,
                             RbacService rbacService,
+                            KingdeeProperties kingdeeProps,
+                            KingdeeVoucherEngineService voucherEngineService,
                             com.finance.system.closing.ClosingService closingService) {
         this.collector = collector;
         this.batchMapper = batchMapper;
@@ -103,6 +114,8 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
         this.companyScope = companyScope;
         this.bankDataStatementMapper = bankDataStatementMapper;
         this.rbacService = rbacService;
+        this.kingdeeProps = kingdeeProps;
+        this.voucherEngineService = voucherEngineService;
         this.closingService = closingService;
     }
 
@@ -520,6 +533,12 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
         }
 
         StatementRecord processing = require(id, view);
+        if (kingdeeProps.isGlTarget()) {
+            // FIX-009：总账落点（默认）。真实账套境内主体未启用「出纳管理」，收付款单保存一律被拒
+            // （线上实证 AR_RECEIVEBILL: 当前组织未启用出纳）——改走 GL_VOUCHER，与「一键 AI 制证」
+            // 的 PUSH 模式共用同一套组装/校验/状态机。
+            return pushGlVoucher(processing, view, previousPushStatus, operatorId);
+        }
         KingdeeVoucherResult result = kingdeeGateway.push(processing);
         if (!PUSHED.equalsIgnoreCase(result.status())) {
             baseMapper.update(null, new LambdaUpdateWrapper<StatementRecord>()
@@ -544,6 +563,36 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
         audit(pushed, "PUSH_VOUCHER", "SUCCESS", previousPushStatus, pushed.getPushStatus(), operatorId,
                 pushed.getVoucherNo());
         return toResponse(pushed);
+    }
+
+    /**
+     * 凭证中心推送的「总账落点」实现（{@code kingdee.voucher-target=GL}，默认）。
+     *
+     * <p>复用 {@link KingdeeVoucherEngineService#pushAiVoucher}：读该流水的 AI 分录建议 →
+     * 科目与银行账号维度校验 → 组装 GL_VOUCHER → 保存 → 回写 {@code GL_PUSHED}。链路内部
+     * 自行落库与写审计；本方法只把结果转成流水响应，保持与收付款单落点一致的
+     * 「失败不抛业务异常、返回当前态」语义。</p>
+     *
+     * <p>状态口径：CAS 只在仍处 {@code PROCESSING} 时才置 FAILED，因此 GL 链路已写的
+     * {@code GL_FAILED}（含金蝶原文）不会被覆盖——凭证中心据此能区分「总账推送失败」
+     * 与「前置校验未通过（缺分录 / 账户未映射金蝶档案）」。</p>
+     */
+    private StatementResponse pushGlVoucher(StatementRecord processing, CompanyView view,
+                                            String previousPushStatus, Long operatorId) {
+        try {
+            voucherEngineService.pushAiVoucher(processing.getId(), operatorId);
+            return toResponse(require(processing.getId(), view));
+        } catch (BusinessException e) {
+            baseMapper.update(null, new LambdaUpdateWrapper<StatementRecord>()
+                    .set(StatementRecord::getPushStatus, "FAILED")
+                    .set(StatementRecord::getPushMessage, trimToNull(e.getMessage()))
+                    .eq(StatementRecord::getId, processing.getId())
+                    .eq(StatementRecord::getPushStatus, PUSH_PROCESSING));
+            StatementRecord failed = require(processing.getId(), view);
+            audit(failed, "PUSH_VOUCHER", "FAILED", previousPushStatus, failed.getPushStatus(),
+                    operatorId, e.getMessage());
+            return toResponse(failed);
+        }
     }
 
     public PageResponse<StatementImportBatchResponse> pageBatches(int page, int size, Long userId) {

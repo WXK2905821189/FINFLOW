@@ -8,7 +8,9 @@ import com.finance.system.domain.entity.Company;
 import com.finance.system.domain.entity.StatementRecord;
 import com.finance.system.domain.mapper.BankAccountMapper;
 import com.finance.system.domain.mapper.CompanyMapper;
+import com.finance.system.common.exception.BusinessException;
 import com.finance.system.domain.mapper.StatementRecordMapper;
+import com.finance.system.rbac.RbacService;
 import com.finance.system.statement.voucherrule.KingdeeVoucherMatchingService;
 import com.finance.system.statement.voucherrule.dto.KingdeeVoucherEntryDraft;
 import com.finance.system.statement.voucherrule.dto.KingdeeVoucherRulePreview;
@@ -24,6 +26,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -52,6 +55,7 @@ class AccountingSuggestionRuleInjectionTest {
     @Mock private KingdeeVoucherMatchingService matchingService;
     @Mock private BankAccountMapper bankAccountMapper;
     @Mock private CompanyMapper companyMapper;
+    @Mock private RbacService rbacService;
     @Mock private AiEffectiveConfig config;
 
     private AccountingSuggestionService service;
@@ -59,7 +63,8 @@ class AccountingSuggestionRuleInjectionTest {
     @BeforeEach
     void setUp() {
         service = new AccountingSuggestionService(gatewayService, promptService, statementMapper,
-                companyScope, new ObjectMapper(), matchingService, bankAccountMapper, companyMapper);
+                companyScope, new ObjectMapper(), matchingService, bankAccountMapper, companyMapper,
+                rbacService);
     }
 
     @Test
@@ -117,6 +122,48 @@ class AccountingSuggestionRuleInjectionTest {
         ArgumentCaptor<LlmChatRequest> captor = ArgumentCaptor.forClass(LlmChatRequest.class);
         verify(gatewayService).auditedChat(eq(CAPABILITY), eq(USER_ID), eq(config), captor.capture());
         assertFalse(captor.getValue().userPrompt().contains("命中的企业入账规则"));
+    }
+
+    /**
+     * FIX-008（2026-09-21）：持 {@code bankdata:cross-company:view} 的用户可对他司流水取 AI 建议。
+     *
+     * <p>线上实测：账户 9（上海图虫，companyId=2）的流水在 admin（companyId=1）下取建议被 404
+     * 拒绝 → 降级成模糊的「AI 建议不可用」，而同公司的账户 7 全部成功。修复后与
+     * {@code BankDataAccountingService#refreshAiSuggestion} 的 W3 口径一致。</p>
+     */
+    @Test
+    void crossCompanyPermissionAllowsSuggestionOnOtherCompanyStatement() {
+        stubHappyPath();
+        when(rbacService.permissionCodesForUser(anyLong()))
+                .thenReturn(List.of("bankdata:cross-company:view"));
+        StatementRecord other = statement();
+        other.setCompanyId(2L);
+        when(statementMapper.selectById(STATEMENT_ID)).thenReturn(other);
+        when(bankAccountMapper.selectById(7L)).thenReturn(new BankAccount());
+        when(companyMapper.selectById(1L)).thenReturn(new Company());
+        when(matchingService.preview(any(), any(), any()))
+                .thenReturn(new KingdeeVoucherRulePreview(STATEMENT_ID, "ST-100", "CREDIT",
+                        new BigDecimal("12800.00"), "UNMATCHED", "无命中规则", List.of()));
+
+        AiAccountingSuggestionResponse response = service.suggest(STATEMENT_ID, USER_ID);
+
+        assertEquals("货款收入", response.businessCategory(), "有跨公司权限时必须取到 AI 建议");
+    }
+
+    /** FIX-008：无跨公司权限时，他司流水仍 404（不暴露存在性）。 */
+    @Test
+    void withoutCrossCompanyPermissionOtherCompanyStatementIsRejected() {
+        when(companyScope.companyIdForUser(anyLong())).thenReturn(1L);
+        when(gatewayService.auditedGuard(CAPABILITY, USER_ID)).thenReturn(config);
+        StatementRecord other = statement();
+        other.setCompanyId(2L);
+        when(statementMapper.selectById(STATEMENT_ID)).thenReturn(other);
+        // rbacService 未 stub → Mockito 对 List 返回空集合 ⇒ 无跨公司权限
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> service.suggest(STATEMENT_ID, USER_ID));
+
+        assertEquals(404, ex.getCode());
     }
 
     // ---- helpers ----
