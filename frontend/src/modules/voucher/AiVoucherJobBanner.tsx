@@ -115,7 +115,7 @@ export function AiVoucherJobBanner({ onFinished }: { onFinished?: () => void }) 
         description={<Space direction="vertical" size={6} style={{ width: '100%' }}>
           {running && <Progress percent={job.totalCount ? Math.round((handled / job.totalCount) * 100) : 0} size="small" />}
           {!running && failedRows.length > 0 && <span>
-            {failedRows.length} 行失败，原因见下方明细（草稿已生成的行可在下方凭证列表人工复核后推送）。
+            {failedRows.length} 行失败，原因见下方明细（成功生成的草稿行可在下方凭证列表人工复核后推送）。
           </span>}
           {!running && job.totalCount === 0 && <span>本次没有需要处理的行。</span>}
           {expanded && job.rows.length > 0 && <Table

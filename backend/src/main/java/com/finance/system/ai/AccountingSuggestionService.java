@@ -119,12 +119,9 @@ public class AccountingSuggestionService {
         StatementRecord statement = requireInCompanyScope(statementId, userId);
         // W10（WP-5）：先跑服务端规则引擎，把命中规则作为强约束注入提示词 —— 规则优先、AI 兜底。
         List<KingdeeVoucherRulePreview.Candidate> hits = hitRules(statement);
-        // W9：系统提示词支持超管在页面覆盖（ai_prompt_override），无覆盖回落 SYSTEM_PROMPT。
-        // W10：max_tokens 512 → 2048。原 512 会让「含 entries 分录 + rationale/riskNotes 的中文 JSON」
-        // 被截断（线上 call-logs 实测 completionTokens 多次正好卡 512、responseSummary 为空），
-        // 截断的半截 JSON 解析失败 → 业务层降级为「AI 建议不可用」，是用户反馈 AI 不可用的真因。
+        // 制证阶段不设置 max_tokens，交由供应商按模型默认上限处理，避免固定预算截断中文 JSON。
         LlmChatRequest request = new LlmChatRequest(CAPABILITY, promptService.resolve(CAPABILITY),
-                buildUserPrompt(statement, hits), 0.2, 2048);
+                buildUserPrompt(statement, hits), 0.2, null);
         LlmChatResult result = gatewayService.auditedChat(CAPABILITY, userId, config, request);
         JsonNode json = parseSuggestionJson(result.content());
         return new AiAccountingSuggestionResponse(

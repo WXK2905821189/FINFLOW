@@ -362,36 +362,39 @@ public class BankDataAccountingService {
                     "此前已通过复核，可直接在「凭证草稿与制证」页推送");
         }
 
-        // AI 建议：失败降级仍生成草稿（复核意见标注不可用，可在草稿页重新生成）。
-        AiAccountingSuggestionResponse suggestion = null;
-        String aiStatus = "OK";
-        String aiNote = null;
+        // AI 建议失败不能伪装成「草稿已生成」：保留标准流水的待复核状态，
+        // 把失败原因写入复核意见并返回 FAILED，凭证中心仍可在「待复核」中看到该流水。
+        AiAccountingSuggestionResponse suggestion;
         try {
             suggestion = aiSuggestionService.suggest(record.getId(), operatorId);
         } catch (BusinessException e) {
-            aiStatus = "UNAVAILABLE";
-            aiNote = e.getMessage();
+            String message = "AI 制证失败：" + trimToEmpty(e.getMessage())
+                    + "（可在「凭证草稿与制证」页重新生成或人工填写）";
+            int updated = recordMapper.update(null, new LambdaUpdateWrapper<StatementRecord>()
+                    .set(StatementRecord::getReviewComment, message)
+                    .set(StatementRecord::getAiSuggestionJson, null)
+                    .eq(StatementRecord::getId, record.getId())
+                    .eq(StatementRecord::getReviewStatus, REVIEW_PENDING));
+            if (updated == 1) {
+                insertAudit(record, "AI_VOUCHER_DRAFT", "FAILED", REVIEW_PENDING, REVIEW_PENDING,
+                        operatorId, message);
+            }
+            return new AiVoucherRowResult(row.getId(), statementNo, "FAILED", "UNAVAILABLE",
+                    null, null, null, null, null, record.getPushStatus(), message);
         }
-        String comment = suggestion != null ? formatSuggestion(suggestion)
-                : "AI 建议不可用：" + trimToEmpty(aiNote) + "（可在「凭证草稿与制证」页重新生成）";
+        String comment = formatSuggestion(suggestion);
         int updated = recordMapper.update(null, new LambdaUpdateWrapper<StatementRecord>()
                 .set(StatementRecord::getReviewComment, comment)
-                .set(StatementRecord::getAiSuggestionJson,
-                        suggestion == null ? null : serializeSuggestion(suggestion))
+                .set(StatementRecord::getAiSuggestionJson, serializeSuggestion(suggestion))
                 .eq(StatementRecord::getId, record.getId())
                 .eq(StatementRecord::getReviewStatus, REVIEW_PENDING));
         if (updated == 1) {
             insertAudit(record, "AI_VOUCHER_DRAFT", "SUCCESS", REVIEW_PENDING, REVIEW_PENDING,
                     operatorId, comment);
         }
-        return new AiVoucherRowResult(row.getId(), statementNo, "DRAFT_CREATED", aiStatus,
-                suggestion == null ? null : suggestion.businessCategory(),
-                suggestion == null ? null : suggestion.suggestedSummary(),
-                suggestion == null ? null : suggestion.suggestedSubject(),
-                suggestion == null ? null : suggestion.confidence(),
-                null, record.getPushStatus(),
-                suggestion == null ? "草稿已生成（AI 建议不可用），待人工复核后推送"
-                        : "草稿已生成，待人工复核后推送");
+        return new AiVoucherRowResult(row.getId(), statementNo, "DRAFT_CREATED", "OK",
+                suggestion.businessCategory(), suggestion.suggestedSummary(), suggestion.suggestedSubject(),
+                suggestion.confidence(), null, record.getPushStatus(), "草稿已生成，待人工复核后推送");
     }
 
     /** AI 建议的复核意见呈现格式（一行业务摘要，完整字段留在审计事件明细里）。 */

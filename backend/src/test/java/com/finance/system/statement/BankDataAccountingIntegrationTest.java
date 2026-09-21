@@ -116,7 +116,7 @@ class BankDataAccountingIntegrationTest {
     }
 
     @Test
-    void aiVoucherDegradesWhenAiUnavailableButStillPushes() {
+    void aiVoucherFailsExplicitlyWhenAiUnavailable() {
         Company company = insertCompany("AIV-NOAI");
         BankAccount account = insertAccount(company.getId(), null);
         BankDataStatement row = insertBankStatement(company.getId(), account.getId(), "对手方乙", "测试费");
@@ -216,7 +216,7 @@ class BankDataAccountingIntegrationTest {
     }
 
     @Test
-    void draftModeStaysPendingWithAiCommentAndDoesNotPush() {
+    void draftModeFailureStaysVisibleAsPendingAndDoesNotClaimSuccess() {
         Company company = insertCompany("AIV-DRAFT");
         BankAccount account = insertAccount(company.getId(), null);
         BankDataStatement row = insertBankStatement(company.getId(), account.getId(), "对手方己", "咨询费");
@@ -224,24 +224,29 @@ class BankDataAccountingIntegrationTest {
 
         AiVoucherBatchResponse response = accountingService.createVouchers(List.of(row.getId()), adminId, "DRAFT");
 
-        assertEquals(1, response.draftCount());
+        assertEquals(0, response.draftCount());
+        assertEquals(1, response.failedCount());
         assertEquals(0, response.pushedCount());
         AiVoucherRowResult result = response.rows().get(0);
-        assertEquals("DRAFT_CREATED", result.outcome());
+        assertEquals("FAILED", result.outcome());
+        assertEquals("UNAVAILABLE", result.aiStatus());
+        assertTrue(result.message() != null && result.message().contains("AI 制证失败"),
+                "失败结果必须带可诊断原因：" + result.message());
 
         StatementRecord record = statementRecordMapper.selectOne(new LambdaQueryWrapper<StatementRecord>()
                 .eq(StatementRecord::getCompanyId, company.getId())
                 .eq(StatementRecord::getStatementNo, row.getStatementNo()));
         assertNotNull(record);
-        assertEquals("PENDING", record.getReviewStatus(), "DRAFT 模式必须停在待复核草稿");
+        assertEquals("PENDING", record.getReviewStatus(), "失败行仍须留在待复核，凭证中心可见");
         assertEquals("NOT_PUSHED", record.getPushStatus(), "DRAFT 模式不得推送金蝶");
-        assertTrue(record.getReviewComment() != null && record.getReviewComment().contains("AI 建议"),
-                "复核意见应带 AI 建议或不可用标注，实际：" + record.getReviewComment());
+        assertTrue(record.getReviewComment() != null && record.getReviewComment().contains("AI 制证失败"),
+                "复核意见应记录 AI 失败原因，实际：" + record.getReviewComment());
 
         StatementAuditEvent draftEvent = auditEventMapper.selectOne(new LambdaQueryWrapper<StatementAuditEvent>()
                 .eq(StatementAuditEvent::getStatementId, record.getId())
                 .eq(StatementAuditEvent::getAction, "AI_VOUCHER_DRAFT"));
-        assertNotNull(draftEvent, "草稿生成必须留审计事件");
+        assertNotNull(draftEvent, "失败也必须留审计事件");
+        assertEquals("FAILED", draftEvent.getResult());
     }
 
     @Test

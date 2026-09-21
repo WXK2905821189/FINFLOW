@@ -13,6 +13,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -66,14 +67,17 @@ public class OpenAiCompatibleLlmGateway implements LlmGateway {
     }
 
     private LlmChatResult doChat(LlmChatRequest request, AiEffectiveConfig config, long startedAt) {
-        Map<String, Object> body = Map.of(
-                "model", config.model(),
-                "messages", new Object[]{
-                        Map.of("role", "system", "content", nullSafe(request.systemPrompt())),
-                        Map.of("role", "user", "content", nullSafe(request.userPrompt()))
-                },
-                "temperature", request.temperature() == null ? 0.2 : request.temperature(),
-                "max_tokens", request.maxTokens() == null ? 1024 : request.maxTokens());
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("model", config.model());
+        body.put("messages", new Object[]{
+                Map.of("role", "system", "content", nullSafe(request.systemPrompt())),
+                Map.of("role", "user", "content", nullSafe(request.userPrompt()))
+        });
+        body.put("temperature", request.temperature() == null ? 0.2 : request.temperature());
+        // 不替供应商默认值：用户要求制证阶段不设置 max_tokens，避免服务端固定上限截断。
+        if (request.maxTokens() != null) {
+            body.put("max_tokens", request.maxTokens());
+        }
         String responseBody = client(config.timeoutMillis()).post()
                 .uri(config.baseUrl() + "/chat/completions")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + config.apiKey())

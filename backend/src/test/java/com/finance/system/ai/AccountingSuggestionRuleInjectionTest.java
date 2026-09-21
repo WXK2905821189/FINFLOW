@@ -28,6 +28,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -78,6 +79,7 @@ class AccountingSuggestionRuleInjectionTest {
 
         ArgumentCaptor<LlmChatRequest> captor = ArgumentCaptor.forClass(LlmChatRequest.class);
         verify(gatewayService).auditedChat(eq(CAPABILITY), eq(USER_ID), eq(config), captor.capture());
+        assertNull(captor.getValue().maxTokens(), "制证阶段不得设置 max_tokens，由供应商按模型默认上限处理");
         String prompt = captor.getValue().userPrompt();
         assertTrue(prompt.contains("本笔流水命中的企业入账规则"), "提示词须标明命中规则区块：" + prompt);
         assertTrue(prompt.contains("应收账款-罗德岛"), "规则借方科目须进入提示词：" + prompt);
