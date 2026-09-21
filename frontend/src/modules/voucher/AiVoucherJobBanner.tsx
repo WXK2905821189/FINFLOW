@@ -43,7 +43,10 @@ export function AiVoucherJobBanner({ onFinished }: { onFinished?: () => void }) 
   }, []);
 
   useEffect(() => {
-    void load();
+    // 首次挂载拉一次最近任务。放到宏任务里执行，避免在 effect 体内同步 setState
+    // 触发级联渲染（react-hooks/set-state-in-effect）。
+    const timer = window.setTimeout(() => { void load(); }, 0);
+    return () => window.clearTimeout(timer);
   }, [load]);
 
   useEffect(() => {

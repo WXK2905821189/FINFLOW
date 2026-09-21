@@ -47,9 +47,13 @@ export function KingdeeMappingDrawer({ open, onClose }: { open: boolean; onClose
   }, []);
 
   useEffect(() => {
-    if (open) {
-      void load();
+    if (!open) {
+      return;
     }
+    // 首次打开时拉取预演。放到宏任务里执行，避免在 effect 体内同步 setState
+    // 触发级联渲染（react-hooks/set-state-in-effect）。
+    const timer = window.setTimeout(() => { void load(); }, 0);
+    return () => window.clearTimeout(timer);
   }, [open, load]);
 
   const autoMatch = async () => {

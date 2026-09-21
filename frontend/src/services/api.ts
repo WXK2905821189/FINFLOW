@@ -41,7 +41,6 @@ import type {
   KingdeeMappingRow,
   KingdeeMappingPreview,
   KingdeeMatchResult,
-  AiVoucherBatchResult,
   AiVoucherSubmitResult,
   AiVoucherJobResult,
   AiCompanySuggestionResponse,
