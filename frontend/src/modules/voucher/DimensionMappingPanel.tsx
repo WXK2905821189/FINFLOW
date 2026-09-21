@@ -301,7 +301,10 @@ export function DimensionMappingPanel() {
             options={[{ label: '槽位配置', value: 'slots' }, { label: '值映射', value: 'values' }]}
           />
           {tab === 'slots'
-            ? <Button icon={<ReloadOutlined />} onClick={() => void reloadSlots()}>刷新</Button>
+            ? <>
+              <Button icon={<ReloadOutlined />} onClick={() => void reloadSlots()}>刷新</Button>
+              <Button type="primary" icon={<PlusOutlined />} onClick={openSlotCreate}>新增槽位配置</Button>
+            </>
             : <>
               <Select
                 allowClear
