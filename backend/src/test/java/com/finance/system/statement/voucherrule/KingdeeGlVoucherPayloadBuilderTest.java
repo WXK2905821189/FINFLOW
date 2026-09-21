@@ -57,7 +57,8 @@ class KingdeeGlVoucherPayloadBuilderTest {
         assertEquals("HLTX01_SYS", debit.path("FEXCHANGERATETYPE").path("FNumber").asText());
 
         JsonNode credit = entries.get(1);
-        assertEquals(-1, credit.path("FDC").asInt(), "贷方 FDC=-1（REAL 首推校准点）");
+        assertEquals(2, credit.path("FDC").asInt(),
+                "贷方 FDC=2（2026-09-21 真实账套实测保存成功；原 -1 未经验证）");
         assertEquals(0, BigDecimal.valueOf(credit.path("FCREDIT").asDouble())
                 .compareTo(new BigDecimal("345.67")));
         assertEquals("1002", credit.path("FACCOUNTID").path("FNumber").asText());
@@ -98,5 +99,47 @@ class KingdeeGlVoucherPayloadBuilderTest {
     private static KingdeeVoucherEntryDraft line(String side, String account, String amount) {
         return new KingdeeVoucherEntryDraft(side, account, "科目名", "NONE", null,
                 new BigDecimal(amount), "FULL", false);
+    }
+
+    @Test
+    void bankAccountDimensionUsesTwoLevelFDetailIdShape() throws Exception {
+        // 2026-09-21 真实账套校准（凭证 16043 实测）：二层形态，内层键是带前缀的完整字段名。
+        // 传裸槽位名 FF100002 或数组形态都会被金蝶拒绝（后者报 JSONArray→Dictionary 强转异常）。
+        KingdeeVoucherEntryDraft bankLine = new KingdeeVoucherEntryDraft("CREDIT", "1002", "银行存款",
+                "BANK_ACCOUNT", "11050160520009100036", new BigDecimal("345.67"), "FULL", false);
+        String payload = builder.buildPayload("400", T, "收款",
+                List.of(line("DEBIT", "6603.04", "345.67")), List.of(bankLine));
+
+        JsonNode credit = new ObjectMapper().readTree(payload).path("Model").path("FEntity").get(1);
+        JsonNode detail = credit.path("FDetailID");
+        assertTrue(detail.isObject(), "FDetailID 必须是对象（数组会被金蝶拒绝）");
+        assertEquals("11050160520009100036",
+                detail.path("FDETAILID__FF100002").path("FNumber").asText(),
+                "内层键 = FDETAILID__ + 槽位（默认 FF100002 = 银行账号 ZDY0001）");
+    }
+
+    @Test
+    void dimensionSlotIsConfigurable() throws Exception {
+        props.setGlBankDimensionSlot("FF100004");
+        KingdeeVoucherEntryDraft bankLine = new KingdeeVoucherEntryDraft("CREDIT", "1002", "银行存款",
+                "BANK_ACCOUNT", "11050160520009100036", new BigDecimal("10.00"), "FULL", false);
+        String payload = builder.buildPayload("400", T, "收款",
+                List.of(line("DEBIT", "6603.04", "10.00")), List.of(bankLine));
+
+        JsonNode detail = new ObjectMapper().readTree(payload)
+                .path("Model").path("FEntity").get(1).path("FDetailID");
+        assertEquals("11050160520009100036",
+                detail.path("FDETAILID__FF100004").path("FNumber").asText(),
+                "槽位由 kingdee.gl.bank-dimension-slot 决定（账套级配置）");
+    }
+
+    @Test
+    void noDimensionNodeIsEmittedWithoutDimensionValue() throws Exception {
+        String payload = builder.buildPayload("400", T, "手续费",
+                List.of(line("DEBIT", "6603.04", "10.00")),
+                List.of(line("CREDIT", "1002", "10.00")));
+        JsonNode credit = new ObjectMapper().readTree(payload).path("Model").path("FEntity").get(1);
+        assertTrue(credit.path("FDetailID").isMissingNode(),
+                "无维度值时不输出 FDetailID（避免空壳字段触发金蝶校验）");
     }
 }

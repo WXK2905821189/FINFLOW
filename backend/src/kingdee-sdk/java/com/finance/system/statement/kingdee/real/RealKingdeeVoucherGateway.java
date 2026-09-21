@@ -124,6 +124,81 @@ public class RealKingdeeVoucherGateway implements KingdeeVoucherGateway {
         }
     }
 
+    /**
+     * 只读拉取账套科目表（BD_Account）：FNumber / FName / 必录维度类型编码。
+     *
+     * <p>2026-09-21 实测该查询在真实账套可用（含点分层编码如 1122.01、以及 1002 的挂账维度 ZDY0001）。
+     * 任一行解析失败按「无维度」处理，不因个别科目异常整表失败。</p>
+     */
+    @Override
+    public java.util.List<KingdeeAccountRef> queryAccountCatalog() {
+        String query = "{\"FormId\":\"BD_Account\",\"FieldKeys\":\"FNumber,FName,FFlEXITEMPROPERTYID.FNumber\","
+                + "\"TopRowCount\":2000}";
+        java.util.List<KingdeeAccountRef> catalog = new java.util.ArrayList<>();
+        try {
+            JsonNode rows = mapper.readTree(client.executeBillQueryJson(query));
+            if (!rows.isArray()) {
+                return catalog;
+            }
+            for (JsonNode row : rows) {
+                if (!row.isArray() || row.size() == 0) {
+                    continue;
+                }
+                String number = row.get(0).asText(null);
+                if (number == null || number.isBlank()) {
+                    continue;
+                }
+                String name = row.size() > 1 ? row.get(1).asText(null) : null;
+                String dimension = row.size() > 2 && !row.get(2).isNull() ? row.get(2).asText(null) : null;
+                catalog.add(new KingdeeAccountRef(number.trim(), name, dimension));
+            }
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new BusinessException(502, "账套科目表解析失败：" + abbreviate(String.valueOf(e.getMessage())));
+        }
+        return catalog;
+    }
+
+    /**
+     * 只读拉取账套银行账号档案（CN_BANKACNT）：FNumber / FName / 所属组织。
+     *
+     * <p>2026-09-21 实测：账套 142 个档案分属 23 个组织，其中 102 个 FNumber 就是银行账号本体
+     * （可直接与 FINFLOW 账户的 account_number 匹配），其余为虚拟账户编码（支付宝邮箱、
+     * 薪福通、分贝通、携程商旅等）须人工指定。同一账号可能在不同组织各有一个档案，
+     * 故一并取回组织编码供消歧。</p>
+     */
+    @Override
+    public java.util.List<KingdeeBankAccountRef> queryBankAccountCatalog() {
+        String query = "{\"FormId\":\"CN_BANKACNT\",\"FieldKeys\":\"FNumber,FName,FCreateOrgId.FNumber\","
+                + "\"TopRowCount\":2000}";
+        java.util.List<KingdeeBankAccountRef> catalog = new java.util.ArrayList<>();
+        try {
+            JsonNode rows = mapper.readTree(client.executeBillQueryJson(query));
+            if (!rows.isArray()) {
+                return catalog;
+            }
+            for (JsonNode row : rows) {
+                if (!row.isArray() || row.size() == 0) {
+                    continue;
+                }
+                String number = row.get(0).asText(null);
+                if (number == null || number.isBlank()) {
+                    continue;
+                }
+                String name = row.size() > 1 ? row.get(1).asText(null) : null;
+                String org = row.size() > 2 && !row.get(2).isNull() ? row.get(2).asText(null) : null;
+                catalog.add(new KingdeeBankAccountRef(number.trim(), name, org));
+            }
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new BusinessException(502,
+                    "账套银行账号档案解析失败：" + abbreviate(String.valueOf(e.getMessage())));
+        }
+        return catalog;
+    }
+
     private String resolveFormId(String direction) {
         if ("EXPENSE".equalsIgnoreCase(direction)) {
             return props.getPayBillFormId();
@@ -137,6 +212,13 @@ public class RealKingdeeVoucherGateway implements KingdeeVoucherGateway {
 
     /** A counterparty number plus the BD_* base-data form it was resolved in. */
     private record ResolvedCounterparty(String number, String baseForm) {
+    }
+
+    /**
+     * 基础资料引用：编码 + 文档状态（FDocumentStatus；null = 查询未返回该列）。
+     * FIX-006 需要状态来判断「已审核(C)」还是「暂存(A)」——暂存档案不能被单据引用。
+     */
+    private record CounterpartyRef(String number, String documentStatus) {
     }
 
     /**
@@ -154,9 +236,11 @@ public class RealKingdeeVoucherGateway implements KingdeeVoucherGateway {
         String primary = props.getPayBillFormId().equals(formId) ? "BD_Supplier" : "BD_Customer";
         String secondary = "BD_Supplier".equals(primary) ? "BD_Customer" : "BD_Supplier";
         for (String form : new String[] {primary, secondary}) {
-            String number = queryCounterpartyNumber(form, name);
-            if (number != null) {
-                return new ResolvedCounterparty(number, form);
+            CounterpartyRef ref = queryCounterpartyRef(form, name);
+            if (ref != null) {
+                // FIX-006：复用历史档案前先确保已审核（暂存档案会让单据报「往来单位是必填项」）
+                ensureBaseDataAudited(form, ref.number(), name, ref.documentStatus());
+                return new ResolvedCounterparty(ref.number(), form);
             }
         }
         if (Boolean.TRUE.equals(props.getAutoCreateCounterparty())) {
@@ -182,12 +266,15 @@ public class RealKingdeeVoucherGateway implements KingdeeVoucherGateway {
                     + abbreviate(response));
         }
         if (status.path("IsSuccess").asBoolean(false)) {
+            // FIX-006：建档后必须提交+审核，否则档案是暂存态、单据引用时报「往来单位必填」
+            ensureBaseDataAudited(formId, number, name, null);
             return new ResolvedCounterparty(number, formId);
         }
         if (isDuplicateRejection(status)) {
-            String existing = queryCounterpartyNumber(formId, name);
+            CounterpartyRef existing = queryCounterpartyRef(formId, name);
             if (existing != null) {
-                return new ResolvedCounterparty(existing, formId);
+                ensureBaseDataAudited(formId, existing.number(), name, existing.documentStatus());
+                return new ResolvedCounterparty(existing.number(), formId);
             }
         }
         throw new BusinessException(502, formId + " auto-provision failed: " + firstError(formId, status));
@@ -245,14 +332,65 @@ public class RealKingdeeVoucherGateway implements KingdeeVoucherGateway {
         return false;
     }
 
-    private String queryCounterpartyNumber(String formId, String name) {
-        String query = "{\"FormId\":\"" + formId + "\",\"FieldKeys\":\"FNumber\","
+    /** 金蝶基础资料已审核状态字面量（FDocumentStatus：A=暂存 / B=已提交 / C=已审核）。 */
+    private static final String AUDITED = "C";
+
+    /**
+     * FIX-006（2026-09-21 真实账套实测）：金蝶业务单据只能引用**已审核**的基础资料。
+     * 自动建档原本只做 Save，档案停在「暂存(A)」，收款单保存时被金蝶判定为
+     * 「字段"往来单位"是必填项」——不是字段漏传，是档案状态问题（实测证据见
+     * docs/pending-fixes.md FIX-006）。此处建档/复用后统一补 Submit + Audit 并回查状态，
+     * 无法确认已审核时抛出可执行的错误信息，避免把问题推到金蝶侧报错。
+     */
+    private void ensureBaseDataAudited(String formId, String number, String name, String knownStatus) {
+        if (AUDITED.equalsIgnoreCase(knownStatus)) {
+            return;
+        }
+        String body = "{\"Numbers\":[\"" + number + "\"]}";
+        boolean submitted;
+        boolean audited;
+        try {
+            submitted = isSuccess(client.excuteOperation(formId, "Submit", body));
+            audited = isSuccess(client.excuteOperation(formId, "Audit", body));
+        } catch (BusinessException e) {
+            throw new BusinessException(502,
+                    baseDataNotAuditedMessage(formId, number, name, false, false, e.getMessage()));
+        }
+        CounterpartyRef after = queryCounterpartyRef(formId, name);
+        if (after != null && AUDITED.equalsIgnoreCase(after.documentStatus())) {
+            return;
+        }
+        throw new BusinessException(502,
+                baseDataNotAuditedMessage(formId, number, name, submitted, audited, null));
+    }
+
+    private static String baseDataNotAuditedMessage(String formId, String number, String name,
+                                                    boolean submitted, boolean audited, String error) {
+        return "基础资料未审核，业务单据无法引用：" + formId + " " + number + "（" + name + "）"
+                + "；已尝试提交/审核（submit=" + submitted + ", audit=" + audited + "）"
+                + (error == null ? "" : "，错误：" + error)
+                + "；请先在金蝶打开该档案完成「提交 → 审核」后重试推送"
+                + "（若为集团内部主体，建议改为在规则中映射到组织机构维度，不建外部档案）";
+    }
+
+    /**
+     * 按名称精确查询对手方档案，同时取回文档状态（复用时需要判断是否已审核）。
+     * 第二列缺失时 status 为 null（旧桩数据/字段裁剪场景），交由 ensureBaseDataAudited 补审核。
+     */
+    private CounterpartyRef queryCounterpartyRef(String formId, String name) {
+        String query = "{\"FormId\":\"" + formId + "\",\"FieldKeys\":\"FNumber,FDocumentStatus\","
                 + "\"FilterString\":\"FName='" + name.replace("'", "''") + "'\",\"Limit\":1}";
         String response = client.executeBillQueryJson(query);
         try {
             JsonNode rows = mapper.readTree(response);
             if (rows.isArray() && rows.size() > 0) {
-                return rows.get(0).get(0).asText(null);
+                JsonNode row = rows.get(0);
+                String number = row.get(0).asText(null);
+                if (number == null) {
+                    return null;
+                }
+                String status = row.size() > 1 ? row.get(1).asText(null) : null;
+                return new CounterpartyRef(number, status);
             }
             return null;
         } catch (Exception e) {

@@ -1,11 +1,12 @@
 import { useCallback, useState } from 'react';
 import { Alert, Button, Card, Descriptions, Empty, Form, Input, InputNumber, Modal, Select, Space, Spin, Table, Tag, type TableColumnsType, message } from 'antd';
-import { ApartmentOutlined, ApiOutlined, PlusOutlined } from '@ant-design/icons';
+import { ApartmentOutlined, ApiOutlined, LinkOutlined, PlusOutlined } from '@ant-design/icons';
 import { bankApi, bankPipelineApi, operationsApi } from '../../services/api';
 import { useAuthStore } from '../../store/auth';
 import { useRemote, ResourceFailure, StatusTag, DirectStatusTag } from '../shared/components';
 import { CompanyArchiveDrawer } from './archive';
 import { BANK_NAME_TEXT } from './bankQueryTexts';
+import { KingdeeMappingDrawer } from './kingdeeMapping';
 import { detectBankCode } from '../voucher/voucherTexts';
 import type { BankAccount, BankConnectionTestResult, CompanyOption, ConnectionOverview } from '../../types';
 
@@ -36,6 +37,7 @@ export function BankAccountPage() {
   const canManageArchive = hasPermission('bank:manage');
   const canTriggerSync = hasPermission('bankdata:sync:trigger');
   const [archiveOpen, setArchiveOpen] = useState(false);
+  const [kingdeeOpen, setKingdeeOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm] = Form.useForm();
   const [accountNumber, setAccountNumber] = useState('');
@@ -109,6 +111,15 @@ export function BankAccountPage() {
     { title: '币种', dataIndex: 'currency', width: 70 },
     { title: '账户状态', dataIndex: 'status', width: 100, render: (value) => <StatusTag status={value} /> },
     { title: '直联状态', width: 140, render: (_, row) => <DirectStatusTag status={row.directStatus} lastRealSyncAt={row.lastRealSyncAt} /> },
+    {
+      title: '金蝶账户',
+      dataIndex: 'kingdeeAccountNumber',
+      width: 210,
+      ellipsis: true,
+      render: (value: string | null | undefined, row: BankAccount) => value
+        ? <span className="mono">{value}</span>
+        : <span className="muted-inline">{row.accountingMode === 'MANUAL' ? '无需映射' : '未映射'}</span>,
+    },
     ...(canManageArchive || canTriggerSync ? [{
       title: '操作', width: 120,
       render: (_value: unknown, row: BankAccount) => (
@@ -127,12 +138,14 @@ export function BankAccountPage() {
       </div>
       <Space wrap>
         {canManageArchive && <Button icon={<ApartmentOutlined />} onClick={() => setArchiveOpen(true)}>档案管理</Button>}
+        {canManageArchive && <Button icon={<LinkOutlined />} onClick={() => setKingdeeOpen(true)}>金蝶账户映射</Button>}
         {canManageArchive && <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>新增账户</Button>}
       </Space>
     </div>
     {banner}
     <Card title="企业授权账户">{error ? <ResourceFailure error={error} onRetry={reload} /> : <Table rowKey="id" loading={loading} columns={columns} dataSource={data || []} pagination={false} locale={{ emptyText: <Empty description="当前企业暂无授权银行账户" /> }} scroll={{ x: 880 }} />}</Card>
     <CompanyArchiveDrawer open={archiveOpen} onClose={() => setArchiveOpen(false)} />
+    <KingdeeMappingDrawer open={kingdeeOpen} onClose={() => setKingdeeOpen(false)} />
 
     {/* forceRender：openCreate 先调 createForm.resetFields 再打开弹窗，
         不预渲染 Form 会与 rc-field-form 的挂载校验抢时序，间歇打印 "useForm is not connected"。 */}

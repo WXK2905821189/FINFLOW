@@ -26,11 +26,10 @@ import java.util.List;
  *   <li>分录：FEXPLANATION 摘要、FACCOUNTID 科目、FDC 借贷方向（1=借 / -1=贷，
  *   REAL 首推校准点）、FAMOUNTFOR 原币金额、FDEBIT/FREDIT 贷方、FCURRENCYID 币别
  *   （PRE001）、FEXCHANGERATETYPE（HLTX01_SYS）；</li>
- *   <li><b>FDetailID 核算维度（弹性域）一期不写入</b>：槽位键（FFLEX4~13）为账套级
- *   配置，无法离线推断——1002 银行科目「必须带银行账号维度」在 REAL 首推时会报错，
- *   以报错文本校准槽位映射（探针迭代模式，与 apiexp 联调同款）。维度值已由匹配服务
- *   解析存 {@link KingdeeVoucherEntryDraft#dimensionValue()}，确认页可见可改，校准后
- *   直接落位；</li>
+ *   <li><b>FDetailID 核算维度（弹性域）</b>：2026-09-21 真实账套校准完成——两层形态
+ *   {@code {"FDetailID": {"FDETAILID__FF100002": {"FNumber": "..."}}}}，槽位可配置；
+ *   科目挂必录维度（如 1002 → ZDY0001 银行账号）时不注入会被金蝶拒绝。详见
+ *   {@link #appendDimension} 与 docs/kingdee-openapi/gl-voucher-calibration-20260921.md；</li>
  *   <li>借贷合计校验：|Σ借-Σ贷| ≤ 0.01，不平拒绝构建（400）；MANUAL 行金额为 null
  *   时拒绝（400，确认页必须先补齐）；不自动 Submit/Audit（凭证由财务在金蝶侧复核，
  *   T8 拍板 + 可行性报告风险提示）。</li>
@@ -40,7 +39,9 @@ import java.util.List;
 public class KingdeeGlVoucherPayloadBuilder {
 
     static final int DC_DEBIT = 1;
-    static final int DC_CREDIT = -1;
+    /** 贷方方向值 = 2（2026-09-21 真实账套实测：FDC=2 的贷方分录保存成功，凭证 16043；
+     *  原 -1 从未在真实环境验证过，按证据改为 2）。 */
+    static final int DC_CREDIT = 2;
 
     private static final DateTimeFormatter DATE = DateTimeFormatter.ISO_LOCAL_DATE;
 
@@ -120,7 +121,35 @@ public class KingdeeGlVoucherPayloadBuilder {
             }
             entry.putObject("FCURRENCYID").put("FNumber", props.getCurrencyNumber());
             entry.putObject("FEXCHANGERATETYPE").put("FNumber", "HLTX01_SYS");
-            // FDetailID (flex dimension) intentionally omitted — see class javadoc calibration note.
+            appendDimension(entry, line);
         }
+    }
+
+    /**
+     * 核算维度注入（2026-09-21 真实账套校准，报错驱动）。
+     *
+     * <p>科目挂了必录维度时不注入会被金蝶拒绝：
+     * {@code 第N行分录：科目（1002-银行存款）设置的下列必录维度未录入或不可用：银行账号}。</p>
+     *
+     * <p><b>报文形态（实测得出，非文档推断）</b>：必须两层——
+     * <pre>{"FDetailID": {"FDETAILID__FF100002": {"FNumber": "11050160520009100036"}}}</pre>
+     * 外层 {@code FDetailID} 必须是对象（传数组会报
+     * {@code 无法将类型为"JSONArray"的对象强制转换为类型"Dictionary"}），
+     * 内层键必须是**带前缀的完整字段名**（裸槽位名 {@code FF100002} 无效）。
+     * 实测凭证 16043 保存成功后回滚。</p>
+     *
+     * <p>槽位由 {@code kingdee.gl.bank-dimension-slot} 配置（默认 FF100002=银行账号 ZDY0001）。</p>
+     */
+    private void appendDimension(ObjectNode entry, KingdeeVoucherEntryDraft line) {
+        String value = line.dimensionValue();
+        if (value == null || value.isBlank() || "NONE".equalsIgnoreCase(line.dimension())) {
+            return;
+        }
+        String slot = props.getGlBankDimensionSlot();
+        if (slot == null || slot.isBlank()) {
+            return;
+        }
+        ObjectNode detail = entry.putObject("FDetailID");
+        detail.putObject("FDETAILID__" + slot.trim()).put("FNumber", value.trim());
     }
 }

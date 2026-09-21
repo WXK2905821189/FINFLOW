@@ -111,6 +111,27 @@ class KingdeeVoucherEngineIntegrationTest {
         assertEquals("APPROVED", after.getReviewStatus());
     }
 
+    /**
+     * 账户级银行账号维度映射（2026-09-21）：未映射的账户制证时被阻断，并指明处置入口。
+     * 这是「维度值跟随流水所属账户」取代全局默认账户后的 fail-closed 口径。
+     */
+    @Test
+    void unmappedAccountBlocksPushWithGuidance() {
+        Company company = insertCompany("雪云");
+        BankAccount account = insertAccount(company.getId(), "CITIC", null);
+        StatementRecord statement = insertStatement(company.getId(), account.getId(),
+                "EXPENSE", new BigDecimal("345.67"), "银行手续费");
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> engineService.push(statement.getId(), 6, null, 1L));
+        assertEquals(400, ex.getCode());
+        assertTrue(ex.getMessage().contains("银行账号"));
+        assertTrue(ex.getMessage().contains("匹配金蝶账户"), "提示必须指明处置入口");
+
+        StatementRecord after = statementRecordMapper.selectById(statement.getId());
+        assertEquals("APPROVED", after.getReviewStatus(), "被阻断的推送不得改动流水状态");
+    }
+
     // ---- fixture：Company 名必须含组织关键词（orgResolver 按名解析），code 唯一随机 ----
 
     private Company insertCompany(String aliasKeyword) {
@@ -124,6 +145,10 @@ class KingdeeVoucherEngineIntegrationTest {
     }
 
     private BankAccount insertAccount(Long companyId, String bankCode) {
+        return insertAccount(companyId, bankCode, "11050160520009100036");
+    }
+
+    private BankAccount insertAccount(Long companyId, String bankCode, String kingdeeAccountNumber) {
         BankAccount account = new BankAccount();
         account.setCompanyId(companyId);
         account.setBankCode(bankCode);
@@ -132,6 +157,7 @@ class KingdeeVoucherEngineIntegrationTest {
         account.setCurrency("CNY");
         account.setAvailableBalance(new BigDecimal("500000.00"));
         account.setStatus("ACTIVE");
+        account.setKingdeeAccountNumber(kingdeeAccountNumber);
         bankAccountMapper.insert(account);
         return account;
     }

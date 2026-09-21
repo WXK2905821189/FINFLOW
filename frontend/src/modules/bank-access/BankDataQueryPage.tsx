@@ -167,7 +167,9 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
   /** 内核实例：导出选中行时按「用户当前实际可见的列」出列，所以必须读实例而不是声明。 */
   const gridInstanceRef = useRef<GridInstance | null>(null);
   const gridColumns = useMemo<GridColumn[]>(
-    () => (isStatement ? statementGridColumns({ canCrossCompany }) : balanceGridColumns({ canCrossCompany })),
+    () => (isStatement
+      ? statementGridColumns({ canCrossCompany })
+      : balanceGridColumns({ canCrossCompany })),
     [isStatement, canCrossCompany],
   );
   const preferenceScope = isStatement ? 'bankdata.statements' : 'bankdata.balances';
@@ -276,7 +278,8 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
   const [selectedStatementIds, setSelectedStatementIds] = useState<number[]>([]);
   const [aiVoucherRunning, setAiVoucherRunning] = useState(false);
   const [aiVoucherResult, setAiVoucherResult] = useState<AiVoucherBatchResult>();
-  // 双模式（2026-09-17）：DRAFT=生成草稿停在「凭证草稿与制证」页待人工复核；PUSH=复核内化后直接推送金蝶。
+  // 双模式（2026-09-17；2026-09-21 DRAFT 异步化）：DRAFT=提交后台任务立即返回，
+  // 进度与逐行结果在「凭证中心」看；PUSH=复核内化后同步推送金蝶（用户要立即看到结果）。
   const aiVoucherSelected = (mode: 'DRAFT' | 'PUSH') => {
     if (!selectedStatementIds.length) {
       message.warning('请先勾选要制证的银行流水行');
@@ -288,16 +291,39 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
         ? `确认对 ${selectedStatementIds.length} 条银行流水生成 AI 制证草稿`
         : `确认对 ${selectedStatementIds.length} 条银行流水 AI 制证并推送`,
       content: asDraft
-        ? '流程：转入标准流水（幂等）→ AI 生成入账建议写入复核意见 → 停留在「凭证草稿与制证」页待复核，不会推送金蝶。请稍后在该页人工审核并点击推送。'
+        ? '流程：转入标准流水（幂等）→ AI 生成入账建议写入复核意见 → 停留在「凭证草稿与制证」页待复核，不会推送金蝶。'
+          + '提交后立即返回（后台执行），进度与失败原因在「凭证中心」查看，无需停留本页。'
         : '流程：转入标准流水（幂等）→ AI 生成入账建议 → 复核内化后直接推送金蝶（出纳收付款单，提交不审核）。审核请在金蝶侧人工完成；AI 建议不可用时将直接推送原文摘要并标注。',
-      okText: asDraft ? '确认生成草稿' : '确认制证推送',
+      okText: asDraft ? '提交制证任务' : '确认制证推送',
       cancelText: '取消',
       onOk: async () => {
+        const ids = selectedStatementIds;
+        setSelectedStatementIds([]);
+        if (asDraft) {
+          // 后台任务：不等结果、不占页面——提交成功即提示，结果去凭证中心看
+          message.loading({ content: '正在提交制证任务…', key: 'ai-voucher-submit', duration: 0 });
+          try {
+            const submitted = await bankPipelineApi.aiVoucher({ statementIds: ids, mode });
+            message.success({
+              content: `已提交 ${submitted.totalCount} 条制证任务（任务号 #${submitted.jobId ?? '--'}），处理中，可在「凭证中心」查看进度与失败原因`,
+              key: 'ai-voucher-submit',
+              duration: 6,
+            });
+            reload();
+          } catch (reason) {
+            message.error({
+              content: reason instanceof Error ? reason.message : '制证任务提交失败',
+              key: 'ai-voucher-submit',
+            });
+          }
+          return;
+        }
         setAiVoucherRunning(true);
         try {
-          const result = await bankPipelineApi.aiVoucher({ statementIds: selectedStatementIds, mode });
-          setAiVoucherResult(result);
-          setSelectedStatementIds([]);
+          const submit = await bankPipelineApi.aiVoucher({ statementIds: ids, mode });
+          if (submit.result) {
+            setAiVoucherResult(submit.result);
+          }
           reload();
         } catch (reason) {
           message.error(reason instanceof Error ? reason.message : 'AI 制证请求未能完成');
@@ -519,7 +545,13 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
                 pageSize={data?.size || size}
                 toolbarStart={toolbarStart}
                 groupBy={gridGroupBy}
-                groupedDefault={isStatement ? false : canCrossCompany}
+                /* 2026-09-21：分组默认开启（两个 tab 一致）——用户明确认可分组行上的汇总
+                   「N 个账户 · 可用余额合计 ¥X · 最近截止 …」/「N 笔 · 借 X / 贷 Y」，
+                   但它原先在流水页默认关、余额页还依赖跨公司权限，导致「时有时无」。
+                   这里统一默认开启；仍可点「按…分组」开关关掉。
+                   注：**不**把这套汇总搬进状态栏——W8（2026-09-20）已决定状态栏不再显示
+                   本页金额小计，避免被误当成全量合计；分组行的汇总有分组标签限定口径，不冲突。 */
+                groupedDefault
                 showGroupSwitch={isStatement || canCrossCompany}
                 groupSwitchLabel={isStatement ? '按本方账户分组' : '按主体分组'}
                 groupMeta={gridGroupMeta}

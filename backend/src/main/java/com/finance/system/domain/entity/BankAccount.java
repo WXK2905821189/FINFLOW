@@ -23,6 +23,12 @@ public class BankAccount {
     /** 制证模式（V31）：KINGDEE_AUTO=可走 AI 制证推送金蝶链路；MANUAL=纯人工制证，数据仅留系统。 */
     private String accountingMode;
     /**
+     * 金蝶银行账号档案编码（V41，CN_BANKACNT.FNumber）——总账凭证「银行账号」核算维度
+     * （维度类型 ZDY0001）取的就是它。空 = 未映射：KINGDEE_AUTO 账户制证时阻断推送并提示
+     * 补映射；MANUAL 账户不需要。自动匹配规则见 {@code KingdeeAccountMappingService}。
+     */
+    private String kingdeeAccountNumber;
+    /**
      * 软删除标记（V32）：1=已删除。物理 DELETE 被 statement/balance/sync_log/payment 的
      * NOT NULL 外键阻断且财务原数据必须留存，因此档案移除走逻辑删除——@TableLogic 使所有
      * MyBatis-Plus 查询（档案板/下拉/数据查询/调度器/测试连接/金蝶推送）自动过滤已删账户。
@@ -50,6 +56,8 @@ public class BankAccount {
     public void setStatus(String status) { this.status = status; }
     public String getAccountingMode() { return accountingMode; }
     public void setAccountingMode(String accountingMode) { this.accountingMode = accountingMode; }
+    public String getKingdeeAccountNumber() { return kingdeeAccountNumber; }
+    public void setKingdeeAccountNumber(String kingdeeAccountNumber) { this.kingdeeAccountNumber = kingdeeAccountNumber; }
     public Integer getDeleted() { return deleted; }
     public void setDeleted(Integer deleted) { this.deleted = deleted; }
     public LocalDateTime getCreatedAt() { return createdAt; }

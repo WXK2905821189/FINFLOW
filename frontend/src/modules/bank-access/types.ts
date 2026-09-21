@@ -18,6 +18,45 @@ export type BankAccount = {
   companyName?: string;
   /** 制证模式（V31）：KINGDEE_AUTO=AI 制证推送金蝶；MANUAL=纯人工制证，数据仅留系统。 */
   accountingMode?: string;
+  /**
+   * 金蝶银行账号档案编码（V41，CN_BANKACNT.FNumber）：总账凭证「银行账号」核算维度值。
+   * null / undefined = 未映射 —— KINGDEE_AUTO 账户制证时会被服务端阻断并提示补映射。
+   */
+  kingdeeAccountNumber?: string | null;
+};
+
+/** 金蝶账户映射预演的一行（/bank-accounts/kingdee-mapping）。 */
+export type KingdeeMappingRow = {
+  accountId: number;
+  bankCode: string;
+  accountName: string;
+  maskedAccountNumber: string;
+  companyId?: number;
+  companyName?: string;
+  accountingMode: string;
+  kingdeeAccountNumber?: string | null;
+  /** MAPPED | AUTO_MATCHABLE | AMBIGUOUS | UNMATCHED | NOT_REQUIRED | CATALOG_UNAVAILABLE */
+  status: string;
+  /** AMBIGUOUS（跨组织重名）或 UNMATCHED（本公司组织档案池）时的候选，格式「编码 名称（组织 N）」。 */
+  candidates: string[];
+};
+
+/** 金蝶账户映射预演结果。 */
+export type KingdeeMappingPreview = {
+  rows: KingdeeMappingRow[];
+  /** 当前金蝶网关模式：MOCK / UNAVAILABLE / REAL。 */
+  gatewayMode: string;
+  catalogAvailable: boolean;
+  note?: string | null;
+};
+
+/** 一键自动匹配统计（只写回唯一命中）。 */
+export type KingdeeMatchResult = {
+  scanned: number;
+  matched: number;
+  ambiguous: number;
+  unmatched: number;
+  skipped: number;
 };
 
 /** 一键 AI 制证逐行结果（/bank-data/statements/ai-voucher）。 */
@@ -45,6 +84,37 @@ export type AiVoucherBatchResult = {
   alreadyCount: number;
   skippedCount: number;
   failedCount: number;
+  rows: AiVoucherRowResult[];
+};
+
+/**
+ * AI 制证提交响应（2026-09-21 DRAFT 异步化）：
+ * async=true → 后台任务已受理（jobId/totalCount），结果去「凭证中心」看；
+ * async=false → PUSH 同步结果在 result 里。
+ */
+export type AiVoucherSubmitResult = {
+  async: boolean;
+  jobId?: number | null;
+  totalCount: number;
+  result?: AiVoucherBatchResult | null;
+};
+
+/** AI 制证后台任务（/bank-data/ai-voucher-jobs/latest，凭证中心轮询）。 */
+export type AiVoucherJobResult = {
+  id: number;
+  mode: 'DRAFT' | 'PUSH';
+  status: 'RUNNING' | 'COMPLETED' | 'FAILED';
+  batchNo?: string | null;
+  totalCount: number;
+  draftCount: number;
+  pushedCount: number;
+  alreadyCount: number;
+  skippedCount: number;
+  failedCount: number;
+  createdAt?: string | null;
+  finishedAt?: string | null;
+  /** 任务级失败原因（status=FAILED 时非空）。 */
+  message?: string | null;
   rows: AiVoucherRowResult[];
 };
 

@@ -13,6 +13,7 @@ import com.finance.system.domain.mapper.StatementAuditEventMapper;
 import com.finance.system.domain.mapper.StatementRecordMapper;
 import com.finance.system.statement.kingdee.KingdeeVoucherGateway;
 import com.finance.system.statement.kingdee.KingdeeVoucherResult;
+import com.finance.system.statement.dto.VoucherSuggestionDto;
 import com.finance.system.statement.voucherrule.dto.KingdeeVoucherEntryDraft;
 import com.finance.system.statement.voucherrule.dto.KingdeeVoucherRulePreview;
 import com.finance.system.statement.voucherrule.dto.KingdeeVoucherRuleResponse;
@@ -49,6 +50,8 @@ public class KingdeeVoucherEngineService {
     private final KingdeeVoucherRuleService ruleService;
     private final KingdeeVoucherMatchingService matchingService;
     private final KingdeeGlVoucherPayloadBuilder payloadBuilder;
+    private final AiGlVoucherAssembler assembler;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
     private final KingdeeVoucherGateway gateway;
     private final StatementAuditEventMapper auditEventMapper;
     private final KingdeeOrgResolver orgResolver;
@@ -61,6 +64,8 @@ public class KingdeeVoucherEngineService {
                                        KingdeeVoucherRuleService ruleService,
                                        KingdeeVoucherMatchingService matchingService,
                                        KingdeeGlVoucherPayloadBuilder payloadBuilder,
+                                       AiGlVoucherAssembler assembler,
+                                       com.fasterxml.jackson.databind.ObjectMapper objectMapper,
                                        KingdeeVoucherGateway gateway,
                                        StatementAuditEventMapper auditEventMapper,
                                        KingdeeOrgResolver orgResolver,
@@ -72,6 +77,8 @@ public class KingdeeVoucherEngineService {
         this.ruleService = ruleService;
         this.matchingService = matchingService;
         this.payloadBuilder = payloadBuilder;
+        this.assembler = assembler;
+        this.objectMapper = objectMapper;
         this.gateway = gateway;
         this.auditEventMapper = auditEventMapper;
         this.orgResolver = orgResolver;
@@ -89,6 +96,58 @@ public class KingdeeVoucherEngineService {
             previews.add(previewOne(statement));
         }
         return previews;
+    }
+
+    /**
+     * 一键 AI 制证的**总账落点**（2026-09-21 方案 B）：读 {@code ai_suggestion_json} 的分录 →
+     * 组装（科目存在性/名称校验 + 银行账号维度注入）→ GL_VOUCHER Save →
+     * 回写 {@code GL_PUSHED}/{@code GL_FAILED} + 审计 {@code GL_VOUCHER_PUSH}。
+     *
+     * <p>为什么不走规则准备：一键 AI 制证没有 ruleNo，分录来自 AI 建议（可能经人工修正），
+     * 因此复用同一个 payload builder 与状态口径，而不是复用规则匹配链路。</p>
+     *
+     * @throws BusinessException 400（分录/科目/维度/平衡问题，附处置指引）、
+     *                           502（金蝶保存失败，原文透传）
+     */
+    public KingdeeVoucherPushResult pushAiVoucher(Long statementId, Long operatorId) {
+        StatementRecord statement = statementMapper.selectById(statementId);
+        if (statement == null) {
+            throw new BusinessException(404, "流水不存在: " + statementId);
+        }
+        if (!"APPROVED".equals(statement.getReviewStatus())) {
+            throw new BusinessException(400, "流水复核状态为 " + statement.getReviewStatus()
+                    + "，AI 制证仅受理 APPROVED");
+        }
+        closingService.ensurePeriodOpen(statement.getCompanyId(), statement.getTransactionTime());
+
+        VoucherSuggestionDto doc = parseSuggestion(statement.getAiSuggestionJson());
+        AiGlVoucherAssembler.Assembled assembled = assembler.assemble(
+                AiGlVoucherAssembler.toInputs(doc == null ? null : doc.entries()), statement);
+
+        Company company = loadCompany(statement);
+        String orgCode = company == null ? null : orgResolver.resolveOrgCode(company.getName());
+        String explanation = doc != null && doc.suggestedSummary() != null && !doc.suggestedSummary().isBlank()
+                ? doc.suggestedSummary()
+                : statement.getSummary();
+        String voucherNo = pushOne(orgCode, statement, explanation,
+                assembled.debitLines(), assembled.creditLines());
+
+        String message = "GL_VOUCHER 草稿已保存：" + voucherNo
+                + (assembled.warnings().isEmpty() ? "" : "；提示：" + String.join("；", assembled.warnings()));
+        recordPush(statement, null, "GL_PUSHED", voucherNo, null, operatorId, null);
+        return new KingdeeVoucherPushResult(statementId, null, voucherNo, null, "PUSHED", message);
+    }
+
+    private VoucherSuggestionDto parseSuggestion(String json) {
+        if (json == null || json.isBlank()) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(json, VoucherSuggestionDto.class);
+        } catch (Exception e) {
+            // 解析失败按「没有分录」处理，由组装器给出可执行提示
+            return null;
+        }
     }
 
     private KingdeeVoucherRulePreview previewOne(StatementRecord statement) {
@@ -161,6 +220,7 @@ public class KingdeeVoucherEngineService {
 
     private String pushOne(String orgCode, StatementRecord statement, String explanation,
                            List<KingdeeVoucherEntryDraft> debits, List<KingdeeVoucherEntryDraft> credits) {
+        ensureBankDimensionPresent(debits, credits);
         String payload = payloadBuilder.buildPayload(orgCode, statement.getTransactionTime(),
                 explanation, debits, credits);
         KingdeeVoucherResult result = gateway.pushGlVoucher(payload);
@@ -169,6 +229,28 @@ public class KingdeeVoucherEngineService {
             throw new BusinessException(502, "GL_VOUCHER 推送失败：" + result.message());
         }
         return result.voucherNo();
+    }
+
+    /**
+     * 阻断口径（2026-09-21，与 AI 制证路径同款）：挂「银行账号」核算维度的科目必须拿到该笔
+     * 流水所属账户的金蝶档案编码。规则引擎的 preview 不断言（预览可展示空维度供人工发现），
+     * 推送前在把关——错账户会静默记错账，宁可先补映射。
+     */
+    private static void ensureBankDimensionPresent(List<KingdeeVoucherEntryDraft> debits,
+                                                   List<KingdeeVoucherEntryDraft> credits) {
+        for (List<KingdeeVoucherEntryDraft> side : List.of(debits, credits)) {
+            if (side == null) {
+                continue;
+            }
+            for (KingdeeVoucherEntryDraft draft : side) {
+                if ("BANK_ACCOUNT".equals(draft.dimension())
+                        && (draft.dimensionValue() == null || draft.dimensionValue().isBlank())) {
+                    throw new BusinessException(400, "科目 " + draft.account()
+                            + " 需要「银行账号」核算维度，但该流水所属银行账户尚未映射金蝶账户编码；"
+                            + "请在「银行账户」页点击「匹配金蝶账户」或手动指定后重试");
+                }
+            }
+        }
     }
 
     /**

@@ -28,6 +28,11 @@ public record BankAccountResponse(
         /** 账户归属公司名称；与 companyId 同源，仅展示用。 */
         String companyName,
         /** 制证模式（V31）：KINGDEE_AUTO | MANUAL（纯人工制证，不进 AI 制证推送链路）。 */
-        String accountingMode
+        String accountingMode,
+        /**
+         * 金蝶银行账号档案编码（V41，CN_BANKACNT.FNumber）：总账凭证「银行账号」核算维度值。
+         * null = 未映射（KINGDEE_AUTO 账户制证时会被阻断并提示补映射）。
+         */
+        String kingdeeAccountNumber
 ) {
 }

@@ -1,92 +1,7405 @@
 {
- "info": {
-  "id": "916000668250720270",
-  "type": "stan",
-  "domainId": "T1",
-  "subSystemId": "S8",
-  "formId": "AR_RECEIVEBILL",
-  "number": "QueryBusinessInfo",
-  "name": "元数据查询",
-  "url": null,
-  "seq": 16,
-  "description": null,
-  "isInWhiteList": false,
-  "isInBlackList": false,
-  "additionalInfo": null,
-  "releaseDate": "2022-11-10 00:00:00",
-  "createUser": null,
-  "updateUser": null,
-  "createDate": null,
-  "updateDate": null,
-  "requestParamField": {
-   "id": "1535465746486409248",
-   "apiInfoId": "916000668250720270",
-   "type": "req",
-   "name": "data",
-   "description": "JSON格式数据（详情参考JSON格式数据）（必录）",
-   "fieldType": "Object",
-   "defaultValue": null,
-   "isMust": true,
-   "seq": 1,
-   "parentName": "0",
-   "level": null,
-   "children": [
-    {
-     "id": "1535465746486409249",
-     "apiInfoId": "916000668250720270",
-     "type": "req",
-     "name": "FormId",
-     "description": "业务对象表单Id（必录）",
-     "fieldType": "String",
-     "defaultValue": "AR_RECEIVEBILL",
-     "isMust": true,
-     "seq": 2,
-     "parentName": "data",
-     "level": null,
-     "children": null
-    }
-   ]
+ "Result": {
+  "ResponseStatus": {
+   "IsSuccess": true,
+   "Errors": [],
+   "SuccessEntitys": [],
+   "SuccessMessages": [],
+   "MsgCode": 0
   },
-  "responseParamField": null,
-  "domainName": null,
-  "subSystemName": null,
-  "formName": "收款单",
-  "createUserName": null,
-  "updateUserName": null,
-  "version": "8.1.0.20221110"
- },
- "reqField": [
-  {
-   "id": "1535465746486409248",
-   "apiInfoId": "916000668250720270",
-   "type": "req",
-   "name": "data",
-   "description": "JSON格式数据（详情参考JSON格式数据）（必录）",
-   "fieldType": "Object",
-   "defaultValue": null,
-   "isMust": true,
-   "seq": 1,
-   "parentName": "0",
-   "level": null,
-   "children": [
+  "NeedReturnData": {
+   "Id": "AR_RECEIVEBILL",
+   "Name": [
     {
-     "id": "1535465746486409249",
-     "apiInfoId": "916000668250720270",
-     "type": "req",
-     "name": "FormId",
-     "description": "业务对象表单Id（必录）",
-     "fieldType": "String",
-     "defaultValue": "AR_RECEIVEBILL",
-     "isMust": true,
-     "seq": 2,
-     "parentName": "data",
-     "level": null,
-     "children": null
+     "Key": 2052,
+     "Value": "收款单"
+    },
+    {
+     "Key": 1033,
+     "Value": "Collection Note"
+    },
+    {
+     "Key": 3076,
+     "Value": "收款單"
     }
-   ]
+   ],
+   "Entrys": [
+    {
+     "Id": "be8f270b-6aab-446a-9e11-7fcc39084958",
+     "Key": "FBillHead",
+     "Name": [
+      {
+       "Key": 2052,
+       "Value": "单据头"
+      },
+      {
+       "Key": 1033,
+       "Value": "Doc Header"
+      },
+      {
+       "Key": 3076,
+       "Value": "單據頭"
+      }
+     ],
+     "TableName": "T_AR_RECEIVEBILL",
+     "ParentKey": null,
+     "EntryName": "RECEIVEBILL",
+     "EntryPkFieldName": "FID",
+     "PkFieldType": "System.Int64, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089",
+     "Fields": [
+      {
+       "Key": "FBillNo",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "单据编号"
+        },
+        {
+         "Key": 1033,
+         "Value": "Doc No."
+        },
+        {
+         "Key": 3076,
+         "Value": "單據編號"
+        }
+       ],
+       "FieldName": "FBILLNO",
+       "PropertyName": "BILLNo",
+       "FieldType": 231,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 12,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 30,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FDOCUMENTSTATUS",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "单据状态"
+        },
+        {
+         "Key": 1033,
+         "Value": "Doc Status"
+        },
+        {
+         "Key": 3076,
+         "Value": "單據狀態"
+        }
+       ],
+       "FieldName": "FDOCUMENTSTATUS",
+       "PropertyName": "DOCUMENTSTATUS",
+       "FieldType": 175,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 40,
+       "MustInput": 1,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": [
+        {
+         "Value": "Z",
+         "Caption": "暂存",
+         "Seq": 0,
+         "Invalid": false
+        },
+        {
+         "Value": "A",
+         "Caption": "创建",
+         "Seq": 0,
+         "Invalid": false
+        },
+        {
+         "Value": "B",
+         "Caption": "审核中",
+         "Seq": 0,
+         "Invalid": false
+        },
+        {
+         "Value": "C",
+         "Caption": "已审核",
+         "Seq": 0,
+         "Invalid": false
+        },
+        {
+         "Value": "D",
+         "Caption": "重新审核",
+         "Seq": 0,
+         "Invalid": false
+        }
+       ],
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "Z",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "9"
+      },
+      {
+       "Key": "FCreatorId",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "创建人"
+        },
+        {
+         "Key": 1033,
+         "Value": "Created by"
+        },
+        {
+         "Key": 3076,
+         "Value": "創建人"
+        }
+       ],
+       "FieldName": "FCREATORID",
+       "PropertyName": "FCreatorId",
+       "FieldType": 127,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 17,
+       "MustInput": 0,
+       "LookUpObjectFormId": "SEC_User",
+       "LookUpObjectID": "d629d494-b3a3-489d-97a1-bb79d64171b1",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "0,15"
+      },
+      {
+       "Key": "FAPPROVERID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "审核人"
+        },
+        {
+         "Key": 1033,
+         "Value": "Approved by"
+        },
+        {
+         "Key": 3076,
+         "Value": "審核人"
+        }
+       ],
+       "FieldName": "FAPPROVERID",
+       "PropertyName": "APPROVERID",
+       "FieldType": 127,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 18,
+       "MustInput": 0,
+       "LookUpObjectFormId": "SEC_User",
+       "LookUpObjectID": "d629d494-b3a3-489d-97a1-bb79d64171b1",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "0,15"
+      },
+      {
+       "Key": "FCreateDate",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "创建日期"
+        },
+        {
+         "Key": 1033,
+         "Value": "Creation Date"
+        },
+        {
+         "Key": 3076,
+         "Value": "創建日期"
+        }
+       ],
+       "FieldName": "FCREATEDATE",
+       "PropertyName": "FCreateDate",
+       "FieldType": 61,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 26,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "2"
+      },
+      {
+       "Key": "FSETTLEORGID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "结算组织"
+        },
+        {
+         "Key": 1033,
+         "Value": "Settlement Org."
+        },
+        {
+         "Key": 3076,
+         "Value": "結算組織"
+        }
+       ],
+       "FieldName": "FSETTLEORGID",
+       "PropertyName": "SETTLEORGID",
+       "FieldType": 127,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 7,
+       "MustInput": 0,
+       "LookUpObjectFormId": "ORG_Organizations",
+       "LookUpObjectID": "3f8da3f4-fe84-4456-9548-7c2c38b7c57f",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "0,20"
+      },
+      {
+       "Key": "FApproveDate",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "审核日期"
+        },
+        {
+         "Key": 1033,
+         "Value": "Approved on"
+        },
+        {
+         "Key": 3076,
+         "Value": "審核日期"
+        }
+       ],
+       "FieldName": "FAPPROVEDATE",
+       "PropertyName": "ApproveDate",
+       "FieldType": 61,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 4,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "2"
+      },
+      {
+       "Key": "FSALEORGID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "销售组织"
+        },
+        {
+         "Key": 1033,
+         "Value": "Sales Org."
+        },
+        {
+         "Key": 3076,
+         "Value": "銷售組織"
+        }
+       ],
+       "FieldName": "FSALEORGID",
+       "PropertyName": "SALEORGID",
+       "FieldType": 127,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 7,
+       "MustInput": 0,
+       "LookUpObjectFormId": "ORG_Organizations",
+       "LookUpObjectID": "3f8da3f4-fe84-4456-9548-7c2c38b7c57f",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "0,20"
+      },
+      {
+       "Key": "FEXCHANGETYPE",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "汇率类型"
+        },
+        {
+         "Key": 1033,
+         "Value": "Exchange Rate Type"
+        },
+        {
+         "Key": 3076,
+         "Value": "匯率類型"
+        }
+       ],
+       "FieldName": "FEXCHANGETYPE",
+       "PropertyName": "EXCHANGETYPE",
+       "FieldType": 127,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 13,
+       "MustInput": 0,
+       "LookUpObjectFormId": "BD_RateType",
+       "LookUpObjectID": "6b2390f8-bbb9-4a29-9119-19db5dafcb6a",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FRECEIVEAMOUNTFOR_H",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "表头-应收金额"
+        },
+        {
+         "Key": 1033,
+         "Value": "Doc Header - Amount Receivable"
+        },
+        {
+         "Key": 3076,
+         "Value": "表頭-應收金額"
+        }
+       ],
+       "FieldName": "FRECEIVEAMOUNTFOR",
+       "PropertyName": "RECEIVEAMOUNTFOR",
+       "FieldType": 106,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FMAINBOOKCURID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "本位币"
+        },
+        {
+         "Key": 1033,
+         "Value": "Functional Currency"
+        },
+        {
+         "Key": 3076,
+         "Value": "本位幣"
+        }
+       ],
+       "FieldName": "FMAINBOOKCURID",
+       "PropertyName": "MAINBOOKCURID",
+       "FieldType": 127,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 13,
+       "MustInput": 0,
+       "LookUpObjectFormId": "BD_Currency",
+       "LookUpObjectID": "e406d5f5-2eab-4285-8fca-6b2bca1484a4",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FRECEIVEAMOUNT_H",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "表头-应收金额本位币"
+        },
+        {
+         "Key": 1033,
+         "Value": "Doc Header - Amt Receivable (Fcn. Curr.)"
+        },
+        {
+         "Key": 3076,
+         "Value": "表頭-應收金額本位幣"
+        }
+       ],
+       "FieldName": "FRECEIVEAMOUNT",
+       "PropertyName": "RECEIVEAMOUNT",
+       "FieldType": 106,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FCURRENCYID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "币别"
+        },
+        {
+         "Key": 1033,
+         "Value": "Currency"
+        },
+        {
+         "Key": 3076,
+         "Value": "幣別"
+        }
+       ],
+       "FieldName": "FCURRENCYID",
+       "PropertyName": "CURRENCYID",
+       "FieldType": 127,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 13,
+       "MustInput": 1,
+       "LookUpObjectFormId": "BD_Currency",
+       "LookUpObjectID": "e406d5f5-2eab-4285-8fca-6b2bca1484a4",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FDATE",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "业务日期"
+        },
+        {
+         "Key": 1033,
+         "Value": "Business Date"
+        },
+        {
+         "Key": 3076,
+         "Value": "業務日期"
+        }
+       ],
+       "FieldName": "FDATE",
+       "PropertyName": "DATE",
+       "FieldType": 61,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 4,
+       "MustInput": 1,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": null,
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "2"
+      },
+      {
+       "Key": "FModifyDate",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "修改日期"
+        },
+        {
+         "Key": 1033,
+         "Value": "Edited on"
+        },
+        {
+         "Key": 3076,
+         "Value": "修改日期"
+        }
+       ],
+       "FieldName": "FMODIFYDATE",
+       "PropertyName": "FModifyDate",
+       "FieldType": 61,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 28,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "2"
+      },
+      {
+       "Key": "FModifierId",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "修改人"
+        },
+        {
+         "Key": 1033,
+         "Value": "Edited by"
+        },
+        {
+         "Key": 3076,
+         "Value": "修改人"
+        }
+       ],
+       "FieldName": "FMODIFIERID",
+       "PropertyName": "ModifierId",
+       "FieldType": 127,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 27,
+       "MustInput": 0,
+       "LookUpObjectFormId": "SEC_User",
+       "LookUpObjectID": "d629d494-b3a3-489d-97a1-bb79d64171b1",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "0,15"
+      },
+      {
+       "Key": "FEXCHANGERATE",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "汇率"
+        },
+        {
+         "Key": 1033,
+         "Value": "Exchange Rate"
+        },
+        {
+         "Key": 3076,
+         "Value": "匯率"
+        }
+       ],
+       "FieldName": "FEXCHANGERATE",
+       "PropertyName": "EXCHANGERATE",
+       "FieldType": 106,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 2,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FWRITTENOFFSTATUS",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "核销状态"
+        },
+        {
+         "Key": 1033,
+         "Value": "Write-off Status"
+        },
+        {
+         "Key": 3076,
+         "Value": "核銷狀態"
+        }
+       ],
+       "FieldName": "FWRITTENOFFSTATUS",
+       "PropertyName": "WRITTENOFFSTATUS",
+       "FieldType": 175,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 40,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": [
+        {
+         "Value": "A",
+         "Caption": "空",
+         "Seq": 0,
+         "Invalid": false
+        },
+        {
+         "Value": "B",
+         "Caption": "部分",
+         "Seq": 0,
+         "Invalid": false
+        },
+        {
+         "Value": "C",
+         "Caption": "完全",
+         "Seq": 0,
+         "Invalid": false
+        }
+       ],
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "A",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "9"
+      },
+      {
+       "Key": "FSALEERID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "销售员"
+        },
+        {
+         "Key": 1033,
+         "Value": "Seller"
+        },
+        {
+         "Key": 3076,
+         "Value": "銷售員"
+        }
+       ],
+       "FieldName": "FSALEERID",
+       "PropertyName": "SALEERID",
+       "FieldType": 127,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 13,
+       "MustInput": 0,
+       "LookUpObjectFormId": "BD_Saler",
+       "LookUpObjectID": "861a3dc6-9552-4b76-8fd4-0ce698ace917",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": "FSALEGROUPID",
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "0,21"
+      },
+      {
+       "Key": "FSALEGROUPID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "销售组"
+        },
+        {
+         "Key": 1033,
+         "Value": "Sales Group"
+        },
+        {
+         "Key": 3076,
+         "Value": "銷售組"
+        }
+       ],
+       "FieldName": "FSALEGROUPID",
+       "PropertyName": "SALEGROUPID",
+       "FieldType": 127,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 13,
+       "MustInput": 0,
+       "LookUpObjectFormId": "BD_OperatorGroup",
+       "LookUpObjectID": "6a49026a-35dd-4dde-8cb6-b4e57536b3dc",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": "",
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FSALEDEPTID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "销售部门"
+        },
+        {
+         "Key": 1033,
+         "Value": "Sales Dept"
+        },
+        {
+         "Key": 3076,
+         "Value": "銷售部門"
+        }
+       ],
+       "FieldName": "FSALEDEPTID",
+       "PropertyName": "SALEDEPTID",
+       "FieldType": 127,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 13,
+       "MustInput": 0,
+       "LookUpObjectFormId": "BD_Department",
+       "LookUpObjectID": "5b43df86-906c-4b59-95bc-884f05e2533c",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FBillTypeID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "单据类型"
+        },
+        {
+         "Key": 1033,
+         "Value": "Doc Type"
+        },
+        {
+         "Key": 3076,
+         "Value": "單據類型"
+        }
+       ],
+       "FieldName": "FBILLTYPEID",
+       "PropertyName": "BillTypeID",
+       "FieldType": 175,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 44,
+       "MustInput": 1,
+       "LookUpObjectFormId": "BOS_BillType",
+       "LookUpObjectID": "4547107f-16c8-4a02-afe5-be6756ef1a00",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "36cf265bd8c3452194ed9c83ec5e73d2",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "9"
+      },
+      {
+       "Key": "FREALRECAMOUNTFOR",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "表头-实收金额"
+        },
+        {
+         "Key": 1033,
+         "Value": "Doc Header - Amount Received"
+        },
+        {
+         "Key": 3076,
+         "Value": "表頭-實收金額"
+        }
+       ],
+       "FieldName": "FREALRECAMOUNTFOR",
+       "PropertyName": "REALRECAMOUNTFOR",
+       "FieldType": 106,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FREALRECAMOUNT_H",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "表头-实收金额本位币"
+        },
+        {
+         "Key": 1033,
+         "Value": "Doc Header - Amt Received (Fcn. Curr.)"
+        },
+        {
+         "Key": 3076,
+         "Value": "表頭-實收金額本位幣"
+        }
+       ],
+       "FieldName": "FREALRECAMOUNT",
+       "PropertyName": "REALRECAMOUNT",
+       "FieldType": 106,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FACCOUNTSYSTEM",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "会计核算体系"
+        },
+        {
+         "Key": 1033,
+         "Value": "FAS"
+        },
+        {
+         "Key": 3076,
+         "Value": "會計核算體系"
+        }
+       ],
+       "FieldName": "FACCOUNTSYSTEM",
+       "PropertyName": "ACCOUNTSYSTEM",
+       "FieldType": 127,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 13,
+       "MustInput": 0,
+       "LookUpObjectFormId": "Org_AccountSystem",
+       "LookUpObjectID": "35e7efad-14b7-4b1b-8acc-bc9a9db765c5",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FCancelDate",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "作废日期"
+        },
+        {
+         "Key": 1033,
+         "Value": "Voided on"
+        },
+        {
+         "Key": 3076,
+         "Value": "作廢日期"
+        }
+       ],
+       "FieldName": "FCANCELDATE",
+       "PropertyName": "CancelDate",
+       "FieldType": 61,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 4,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "2"
+      },
+      {
+       "Key": "FCancelStatus",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "作废状态"
+        },
+        {
+         "Key": 1033,
+         "Value": "Voiding Status"
+        },
+        {
+         "Key": 3076,
+         "Value": "作廢狀態"
+        }
+       ],
+       "FieldName": "FCANCELSTATUS",
+       "PropertyName": "CancelStatus",
+       "FieldType": 175,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 40,
+       "MustInput": 1,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": [
+        {
+         "Value": "A",
+         "Caption": "否",
+         "Seq": 0,
+         "Invalid": false
+        },
+        {
+         "Value": "B",
+         "Caption": "是",
+         "Seq": 0,
+         "Invalid": false
+        }
+       ],
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "A",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "9"
+      },
+      {
+       "Key": "FCancellerId",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "作废人"
+        },
+        {
+         "Key": 1033,
+         "Value": "Voided by"
+        },
+        {
+         "Key": 3076,
+         "Value": "作廢人"
+        }
+       ],
+       "FieldName": "FCANCELLERID",
+       "PropertyName": "CancellerId",
+       "FieldType": 127,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 18,
+       "MustInput": 0,
+       "LookUpObjectFormId": "SEC_User",
+       "LookUpObjectID": "d629d494-b3a3-489d-97a1-bb79d64171b1",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "0,15"
+      },
+      {
+       "Key": "FCONTACTUNITTYPE",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "往来单位类型"
+        },
+        {
+         "Key": 1033,
+         "Value": "Type of Reciprocal Unit"
+        },
+        {
+         "Key": 3076,
+         "Value": "往來單位類型"
+        }
+       ],
+       "FieldName": "FCONTACTUNITTYPE",
+       "PropertyName": "CONTACTUNITTYPE",
+       "FieldType": 231,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 9,
+       "MustInput": 1,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": [
+        {
+         "Value": "BD_Supplier",
+         "Caption": "供应商",
+         "Seq": 0,
+         "Invalid": false
+        },
+        {
+         "Value": "BD_Customer",
+         "Caption": "客户",
+         "Seq": 0,
+         "Invalid": false
+        },
+        {
+         "Value": "BD_Department",
+         "Caption": "部门",
+         "Seq": 0,
+         "Invalid": false
+        },
+        {
+         "Value": "BD_Empinfo",
+         "Caption": "员工",
+         "Seq": 0,
+         "Invalid": false
+        },
+        {
+         "Value": "FIN_OTHERS",
+         "Caption": "其他往来单位",
+         "Seq": 0,
+         "Invalid": false
+        },
+        {
+         "Value": "ORG_Organizations",
+         "Caption": "组织机构",
+         "Seq": 0,
+         "Invalid": false
+        },
+        {
+         "Value": "BD_BANK",
+         "Caption": "银行",
+         "Seq": 0,
+         "Invalid": false
+        }
+       ],
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "5"
+      },
+      {
+       "Key": "FCONTACTUNIT",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "往来单位"
+        },
+        {
+         "Key": 1033,
+         "Value": "Reciprocal Unit"
+        },
+        {
+         "Key": 3076,
+         "Value": "往來單位"
+        }
+       ],
+       "FieldName": "FCONTACTUNIT",
+       "PropertyName": "CONTACTUNIT",
+       "FieldType": 56,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 16,
+       "MustInput": 1,
+       "LookUpObjectFormId": "BOS_ItemClass",
+       "LookUpObjectID": "BOS_ItemClass",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": "FCONTACTUNITTYPE",
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FPAYUNITTYPE",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "付款单位类型"
+        },
+        {
+         "Key": 1033,
+         "Value": "Type of Payer"
+        },
+        {
+         "Key": 3076,
+         "Value": "付款單位類型"
+        }
+       ],
+       "FieldName": "FPAYUNITTYPE",
+       "PropertyName": "PAYUNITTYPE",
+       "FieldType": 231,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 9,
+       "MustInput": 1,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": [
+        {
+         "Value": "BD_Supplier",
+         "Caption": "供应商",
+         "Seq": 0,
+         "Invalid": false
+        },
+        {
+         "Value": "BD_Customer",
+         "Caption": "客户",
+         "Seq": 0,
+         "Invalid": false
+        },
+        {
+         "Value": "BD_Department",
+         "Caption": "部门",
+         "Seq": 0,
+         "Invalid": false
+        },
+        {
+         "Value": "BD_Empinfo",
+         "Caption": "员工",
+         "Seq": 0,
+         "Invalid": false
+        },
+        {
+         "Value": "FIN_OTHERS",
+         "Caption": "其他往来单位",
+         "Seq": 0,
+         "Invalid": false
+        },
+        {
+         "Value": "ORG_Organizations",
+         "Caption": "组织机构",
+         "Seq": 0,
+         "Invalid": false
+        },
+        {
+         "Value": "BD_BANK",
+         "Caption": "银行",
+         "Seq": 0,
+         "Invalid": false
+        }
+       ],
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "5"
+      },
+      {
+       "Key": "FPAYUNIT",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "付款单位"
+        },
+        {
+         "Key": 1033,
+         "Value": "Payer"
+        },
+        {
+         "Key": 3076,
+         "Value": "付款單位"
+        }
+       ],
+       "FieldName": "FPAYUNIT",
+       "PropertyName": "PAYUNIT",
+       "FieldType": 56,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 16,
+       "MustInput": 1,
+       "LookUpObjectFormId": "BOS_ItemClass",
+       "LookUpObjectID": "BOS_ItemClass",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": "FPAYUNITTYPE",
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FBUSINESSTYPE",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "业务类型"
+        },
+        {
+         "Key": 1033,
+         "Value": "Business Type"
+        },
+        {
+         "Key": 3076,
+         "Value": "業務類型"
+        }
+       ],
+       "FieldName": "FBUSINESSTYPE",
+       "PropertyName": "BUSINESSTYPE",
+       "FieldType": 167,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 9,
+       "MustInput": 1,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": "14aff511-3d59-4ce2-b8ad-8507923a084f",
+       "Extends": [
+        {
+         "Value": "6",
+         "Caption": "内部利息",
+         "Seq": 6,
+         "Invalid": false
+        },
+        {
+         "Value": "3",
+         "Caption": "其他业务",
+         "Seq": 3,
+         "Invalid": false
+        },
+        {
+         "Value": "1",
+         "Caption": "销售业务",
+         "Seq": 1,
+         "Invalid": false
+        },
+        {
+         "Value": "2",
+         "Caption": "采购业务",
+         "Seq": 2,
+         "Invalid": false
+        },
+        {
+         "Value": "5",
+         "Caption": "费用报销",
+         "Seq": 5,
+         "Invalid": false
+        },
+        {
+         "Value": "4",
+         "Caption": "工资发放",
+         "Seq": 4,
+         "Invalid": false
+        }
+       ],
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "5"
+      },
+      {
+       "Key": "FCreditCheckResult",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "信用检查结果"
+        },
+        {
+         "Key": 1033,
+         "Value": "Credit Check Result"
+        },
+        {
+         "Key": 3076,
+         "Value": "信用檢查結果"
+        }
+       ],
+       "FieldName": "FCREDITCHECKRESULT",
+       "PropertyName": "CreditCheckResult",
+       "FieldType": 167,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 9,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": "923c7f9e-3baa-43ba-a7c7-a8d2c2b40c6d",
+       "Extends": [
+        {
+         "Value": "4",
+         "Caption": "取消交易",
+         "Seq": 4,
+         "Invalid": false
+        },
+        {
+         "Value": "0",
+         "Caption": "未检查",
+         "Seq": 0,
+         "Invalid": false
+        },
+        {
+         "Value": "1",
+         "Caption": "信用正常",
+         "Seq": 1,
+         "Invalid": false
+        },
+        {
+         "Value": "3",
+         "Caption": "密码特批",
+         "Seq": 3,
+         "Invalid": false
+        },
+        {
+         "Value": "2",
+         "Caption": "预警提示",
+         "Seq": 2,
+         "Invalid": false
+        }
+       ],
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "0",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "5"
+      },
+      {
+       "Key": "FISINIT",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "是否期初单据"
+        },
+        {
+         "Key": 1033,
+         "Value": "BoP Doc"
+        },
+        {
+         "Key": 3076,
+         "Value": "是否期初單據"
+        }
+       ],
+       "FieldName": "FISINIT",
+       "PropertyName": "ISINIT",
+       "FieldType": 175,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 8,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "False",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "7"
+      },
+      {
+       "Key": "FDepartment",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "部门"
+        },
+        {
+         "Key": 1033,
+         "Value": "Dept"
+        },
+        {
+         "Key": 3076,
+         "Value": "部門"
+        }
+       ],
+       "FieldName": "FDEPARTMENT",
+       "PropertyName": "Department",
+       "FieldType": 127,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 13,
+       "MustInput": 0,
+       "LookUpObjectFormId": "BD_Department",
+       "LookUpObjectID": "5b43df86-906c-4b59-95bc-884f05e2533c",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FPAYORGID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "收款组织"
+        },
+        {
+         "Key": 1033,
+         "Value": "Collection Org."
+        },
+        {
+         "Key": 3076,
+         "Value": "收款組織"
+        }
+       ],
+       "FieldName": "FPAYORGID",
+       "PropertyName": "FPAYORGID",
+       "FieldType": 127,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 7,
+       "MustInput": 1,
+       "LookUpObjectFormId": "ORG_Organizations",
+       "LookUpObjectID": "3f8da3f4-fe84-4456-9548-7c2c38b7c57f",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FIsSameOrg",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "是否相同组织"
+        },
+        {
+         "Key": 1033,
+         "Value": "Same Organization"
+        },
+        {
+         "Key": 3076,
+         "Value": "是否相同組織"
+        }
+       ],
+       "FieldName": "FISSAMEORG",
+       "PropertyName": "FIsSameOrg",
+       "FieldType": 175,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 8,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "False",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "7"
+      },
+      {
+       "Key": "FSOURCESYSTEM",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "来源系统"
+        },
+        {
+         "Key": 1033,
+         "Value": "Source System"
+        },
+        {
+         "Key": 3076,
+         "Value": "來源系統"
+        }
+       ],
+       "FieldName": "FSOURCESYSTEM",
+       "PropertyName": "FSOURCESYSTEM",
+       "FieldType": 167,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 9,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": "bcd42b95-fd13-4d8a-9c61-34af896be6ff",
+       "Extends": [
+        {
+         "Value": "7",
+         "Caption": "集中对外收付",
+         "Seq": 0,
+         "Invalid": false
+        },
+        {
+         "Value": "2",
+         "Caption": "应收票据背书退回",
+         "Seq": 0,
+         "Invalid": false
+        },
+        {
+         "Value": "8",
+         "Caption": "临时来源系统枚举号",
+         "Seq": 9,
+         "Invalid": false
+        },
+        {
+         "Value": "A",
+         "Caption": "联动支付",
+         "Seq": 0,
+         "Invalid": false
+        },
+        {
+         "Value": "C",
+         "Caption": "s-HR同步",
+         "Seq": 0,
+         "Invalid": false
+        },
+        {
+         "Value": "5",
+         "Caption": "费用报销",
+         "Seq": 6,
+         "Invalid": false
+        },
+        {
+         "Value": "4",
+         "Caption": "应付票据退票",
+         "Seq": 0,
+         "Invalid": false
+        },
+        {
+         "Value": "9",
+         "Caption": "管易",
+         "Seq": 10,
+         "Invalid": false
+        },
+        {
+         "Value": "3",
+         "Caption": "应收票据退票",
+         "Seq": 0,
+         "Invalid": false
+        },
+        {
+         "Value": "0",
+         "Caption": "手工新增",
+         "Seq": 0,
+         "Invalid": false
+        },
+        {
+         "Value": "6",
+         "Caption": "资金管理",
+         "Seq": 7,
+         "Invalid": false
+        },
+        {
+         "Value": "1",
+         "Caption": "应收票据背书",
+         "Seq": 0,
+         "Invalid": false
+        }
+       ],
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "0",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "5"
+      },
+      {
+       "Key": "FCASHSALE",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "现销 "
+        },
+        {
+         "Key": 1033,
+         "Value": "Cash Sales"
+        },
+        {
+         "Key": 3076,
+         "Value": "現銷 "
+        }
+       ],
+       "FieldName": "FCASHSALE",
+       "PropertyName": "FCASHSALE",
+       "FieldType": 175,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 8,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "7"
+      },
+      {
+       "Key": "FSETTLECUR",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "结算币别"
+        },
+        {
+         "Key": 1033,
+         "Value": "Settlement Currency"
+        },
+        {
+         "Key": 3076,
+         "Value": "結算幣別"
+        }
+       ],
+       "FieldName": "FSETTLECUR",
+       "PropertyName": "SETTLECUR",
+       "FieldType": 127,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 13,
+       "MustInput": 1,
+       "LookUpObjectFormId": "BD_Currency",
+       "LookUpObjectID": "e406d5f5-2eab-4285-8fca-6b2bca1484a4",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FSETTLERATE",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "结算汇率"
+        },
+        {
+         "Key": 1033,
+         "Value": "Settlement Exchange Rate"
+        },
+        {
+         "Key": 3076,
+         "Value": "結算匯率"
+        }
+       ],
+       "FieldName": "FSETTLERATE",
+       "PropertyName": "SETTLERATE",
+       "FieldType": 106,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 2,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FRECAMOUNTFOR",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "收款金额"
+        },
+        {
+         "Key": 1033,
+         "Value": "Collection Amount"
+        },
+        {
+         "Key": 3076,
+         "Value": "收款金額"
+        }
+       ],
+       "FieldName": "FRECAMOUNTFOR",
+       "PropertyName": "RECAMOUNTFOR",
+       "FieldType": 106,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FRECAMOUNT",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "表头-收款金额本位币"
+        },
+        {
+         "Key": 1033,
+         "Value": "Doc Header - Collection Amount (Functional Currency)"
+        },
+        {
+         "Key": 3076,
+         "Value": "表頭-收款金額本位幣"
+        }
+       ],
+       "FieldName": "FRECAMOUNT",
+       "PropertyName": "RECAMOUNT",
+       "FieldType": 106,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FISB2C",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "B2C业务"
+        },
+        {
+         "Key": 1033,
+         "Value": "B2C Business"
+        },
+        {
+         "Key": 3076,
+         "Value": "B2C業務"
+        }
+       ],
+       "FieldName": "FISB2C",
+       "PropertyName": "ISB2C",
+       "FieldType": 175,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 8,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "7"
+      },
+      {
+       "Key": "FWBSETTLENO",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "流水号/对账码"
+        },
+        {
+         "Key": 1033,
+         "Value": "Serial No./Reconciliation Code"
+        },
+        {
+         "Key": 3076,
+         "Value": "流水號/對賬碼"
+        }
+       ],
+       "FieldName": "FWBSETTLENO",
+       "PropertyName": "WBSETTLENO",
+       "FieldType": 231,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL_O",
+       "ElementType": 1,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 50,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FIsWriteOff",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "是否转销"
+        },
+        {
+         "Key": 1033,
+         "Value": "Resale"
+        },
+        {
+         "Key": 3076,
+         "Value": "是否轉銷"
+        }
+       ],
+       "FieldName": "FISWRITEOFF",
+       "PropertyName": "IsWriteOff",
+       "FieldType": 175,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 8,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "7"
+      },
+      {
+       "Key": "FMatchMethodID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "核销方式"
+        },
+        {
+         "Key": 1033,
+         "Value": "Write-off Method"
+        },
+        {
+         "Key": 3076,
+         "Value": "核銷方式"
+        }
+       ],
+       "FieldName": "FMATCHMETHODID",
+       "PropertyName": "MatchMethodID",
+       "FieldType": 56,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 3,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FScanPoint",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "扫描点"
+        },
+        {
+         "Key": 1033,
+         "Value": "Scanning Point"
+        },
+        {
+         "Key": 3076,
+         "Value": "掃描點"
+        }
+       ],
+       "FieldName": "FSCANPOINT",
+       "PropertyName": "FScanPoint",
+       "FieldType": 127,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL_O",
+       "ElementType": 13,
+       "MustInput": 0,
+       "LookUpObjectFormId": "ASC_ScanPoint",
+       "LookUpObjectID": "00505694-04ed-8725-11e6-73118bce5b52",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FKDPAYNO",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "金蝶支付流水号"
+        },
+        {
+         "Key": 1033,
+         "Value": "Kingdee Payment No. (System)"
+        },
+        {
+         "Key": 3076,
+         "Value": "金蝶支付流水號"
+        }
+       ],
+       "FieldName": "FKDPAYNO",
+       "PropertyName": "FKDPAYNO",
+       "FieldType": 231,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 1,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 80,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FREMARK",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "备注"
+        },
+        {
+         "Key": 1033,
+         "Value": "Remarks"
+        },
+        {
+         "Key": 3076,
+         "Value": "備注"
+        }
+       ],
+       "FieldName": "FREMARK",
+       "PropertyName": "FREMARK",
+       "FieldType": 231,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 6,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 500,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FTHIRDBILLNO",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "第三方单据编号"
+        },
+        {
+         "Key": 1033,
+         "Value": "Third-party Doc No."
+        },
+        {
+         "Key": 3076,
+         "Value": "第三方單據編號"
+        }
+       ],
+       "FieldName": "FTHIRDBILLNO",
+       "PropertyName": "FTHIRDBILLNO",
+       "FieldType": 231,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL_O",
+       "ElementType": 1,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 80,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FSETTLEMAINBOOKID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "结算本位币"
+        },
+        {
+         "Key": 1033,
+         "Value": "Settlement Functional Currency"
+        },
+        {
+         "Key": 3076,
+         "Value": "結算本位幣"
+        }
+       ],
+       "FieldName": "FSETTLEMAINBOOKID",
+       "PropertyName": "FSETTLEMAINBOOKID",
+       "FieldType": 127,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL_O",
+       "ElementType": 13,
+       "MustInput": 1,
+       "LookUpObjectFormId": "BD_Currency",
+       "LookUpObjectID": "e406d5f5-2eab-4285-8fca-6b2bca1484a4",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FSETTLEEXCHANGETYPE",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "结算汇率类型"
+        },
+        {
+         "Key": 1033,
+         "Value": "Settlement Exchange Rate Type"
+        },
+        {
+         "Key": 3076,
+         "Value": "結算匯率類型"
+        }
+       ],
+       "FieldName": "FSETTLEEXCHANGETYPE",
+       "PropertyName": "FSETTLEEXCHANGETYPE",
+       "FieldType": 127,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL_O",
+       "ElementType": 13,
+       "MustInput": 0,
+       "LookUpObjectFormId": "BD_RateType",
+       "LookUpObjectID": "6b2390f8-bbb9-4a29-9119-19db5dafcb6a",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FOUTCONTACTID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "转出往来单位"
+        },
+        {
+         "Key": 1033,
+         "Value": "Transfer-out Reciprocal Unit"
+        },
+        {
+         "Key": 3076,
+         "Value": "轉出往來單位"
+        }
+       ],
+       "FieldName": "FOUTCONTACTID",
+       "PropertyName": "FOUTCONTACTID",
+       "FieldType": 56,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL_O",
+       "ElementType": 16,
+       "MustInput": 0,
+       "LookUpObjectFormId": "BOS_ItemClass",
+       "LookUpObjectID": "BOS_ItemClass",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": "FCONTACTUNITTYPE",
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FOUTCONTACTTYPE",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "转出往来单位类型"
+        },
+        {
+         "Key": 1033,
+         "Value": "Transfer-out Type of Reciprocal Unit"
+        },
+        {
+         "Key": 3076,
+         "Value": "轉出往來單位類型"
+        }
+       ],
+       "FieldName": "FOUTCONTACTTYPE",
+       "PropertyName": "FOUTCONTACTTYPE",
+       "FieldType": 231,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL_O",
+       "ElementType": 9,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": [
+        {
+         "Value": "BD_Supplier",
+         "Caption": "供应商",
+         "Seq": 0,
+         "Invalid": false
+        },
+        {
+         "Value": "BD_Customer",
+         "Caption": "客户",
+         "Seq": 0,
+         "Invalid": false
+        },
+        {
+         "Value": "BD_Empinfo",
+         "Caption": "员工",
+         "Seq": 0,
+         "Invalid": false
+        },
+        {
+         "Value": "BD_Department",
+         "Caption": "部门",
+         "Seq": 0,
+         "Invalid": false
+        },
+        {
+         "Value": "FIN_OTHERS",
+         "Caption": "其他往来单位",
+         "Seq": 0,
+         "Invalid": false
+        }
+       ],
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "5"
+      },
+      {
+       "Key": "FGYACCOUNTWATERID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "管易财务流水内码"
+        },
+        {
+         "Key": 1033,
+         "Value": "Guanyi Financial Journal ISN"
+        },
+        {
+         "Key": 3076,
+         "Value": "管易財務流水內碼"
+        }
+       ],
+       "FieldName": "FGYACCOUNTWATERID",
+       "PropertyName": "FGYACCOUNTWATERID",
+       "FieldType": 56,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL_O",
+       "ElementType": 3,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FISCARRYRATE",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "是否下推携带汇率到结算汇率"
+        },
+        {
+         "Key": 1033,
+         "Value": "Carry exchange rate to the settlement rate during the generation"
+        },
+        {
+         "Key": 3076,
+         "Value": "是否下推攜帶匯率到結算匯率"
+        }
+       ],
+       "FieldName": "FISCARRYRATE",
+       "PropertyName": "FISCARRYRATE",
+       "FieldType": 175,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL_O",
+       "ElementType": 8,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "7"
+      },
+      {
+       "Key": "FPRESETBASE1",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "预设基础资料字段1"
+        },
+        {
+         "Key": 1033,
+         "Value": "Preset Master Data Field 1"
+        },
+        {
+         "Key": 3076,
+         "Value": "預設基礎資料字段1"
+        }
+       ],
+       "FieldName": "FPRESETBASE1",
+       "PropertyName": "PRESETBASE1",
+       "FieldType": 127,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 13,
+       "MustInput": 0,
+       "LookUpObjectFormId": "BD_Currency",
+       "LookUpObjectID": "e406d5f5-2eab-4285-8fca-6b2bca1484a4",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FPRESETBASE2",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "预设基础资料字段2"
+        },
+        {
+         "Key": 1033,
+         "Value": "Preset Master Data Field 2"
+        },
+        {
+         "Key": 3076,
+         "Value": "預設基礎資料字段2"
+        }
+       ],
+       "FieldName": "FPRESETBASE2",
+       "PropertyName": "PRESETBASE2",
+       "FieldType": 127,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 13,
+       "MustInput": 0,
+       "LookUpObjectFormId": "BD_Currency",
+       "LookUpObjectID": "e406d5f5-2eab-4285-8fca-6b2bca1484a4",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FPRESETASSISTANT1",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "预设辅助资料字段1"
+        },
+        {
+         "Key": 1033,
+         "Value": "Preset Auxiliary Data Field 1"
+        },
+        {
+         "Key": 3076,
+         "Value": "預設輔助資料字段1"
+        }
+       ],
+       "FieldName": "FPRESETASSISTANT1",
+       "PropertyName": "FPRESETASSISTANT1",
+       "FieldType": 231,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 30,
+       "MustInput": 0,
+       "LookUpObjectFormId": "BOS_ASSISTANTDATA_SELECT",
+       "LookUpObjectID": "6f937ea623d54a228f50d7913de34cd4",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FPRESETASSISTANT2",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "预设辅助资料字段2"
+        },
+        {
+         "Key": 1033,
+         "Value": "Preset Auxiliary Data Field 2"
+        },
+        {
+         "Key": 3076,
+         "Value": "預設輔助資料字段2"
+        }
+       ],
+       "FieldName": "FPRESETASSISTANT2",
+       "PropertyName": "FPRESETASSISTANT2",
+       "FieldType": 231,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 30,
+       "MustInput": 0,
+       "LookUpObjectFormId": "BOS_ASSISTANTDATA_SELECT",
+       "LookUpObjectID": "6f937ea623d54a228f50d7913de34cd4",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FPRESETTEXT1",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "预设文本字段1"
+        },
+        {
+         "Key": 1033,
+         "Value": "Preset Text Field 1"
+        },
+        {
+         "Key": 3076,
+         "Value": "預設文本字段1"
+        }
+       ],
+       "FieldName": "FPRESETTEXT1",
+       "PropertyName": "FPRESETTEXT1",
+       "FieldType": 231,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 1,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 50,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FPRESETTEXT2",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "预设文本字段2"
+        },
+        {
+         "Key": 1033,
+         "Value": "Preset Text Field 2"
+        },
+        {
+         "Key": 3076,
+         "Value": "預設文本字段2"
+        }
+       ],
+       "FieldName": "FPRESETTEXT2",
+       "PropertyName": "FPRESETTEXT2",
+       "FieldType": 231,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 1,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 50,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FISFROMSALORDER",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "来源销售订单下推"
+        }
+       ],
+       "FieldName": "FISFROMSALORDER",
+       "PropertyName": "FISFROMSALORDER",
+       "FieldType": 175,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL_O",
+       "ElementType": 8,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "7"
+      },
+      {
+       "Key": "FVirIsSameAcctOrg",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "是否同一核算组织"
+        }
+       ],
+       "FieldName": "FVIRISSAMEACCTORG",
+       "PropertyName": "FVirIsSameAcctOrg",
+       "FieldType": 175,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL_O",
+       "ElementType": 8,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "7"
+      },
+      {
+       "Key": "FSourceBillNumber",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "来源票据号"
+        }
+       ],
+       "FieldName": "FSOURCEBILLNUMBER",
+       "PropertyName": "SourceBillNumber",
+       "FieldType": 231,
+       "EntityKey": "FBillHead",
+       "TableName": "T_AR_RECEIVEBILL",
+       "ElementType": 1,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 50,
+       "ConditionType": "0"
+      }
+     ],
+     "EntityType": "HeadEntity",
+     "SeqFieldKey": null
+    },
+    {
+     "Id": "bddfa2c3-f464-4a31-9f8a-efed7e8c87e6",
+     "Key": "FRECEIVEBILLENTRY",
+     "Name": [
+      {
+       "Key": 2052,
+       "Value": "收款单明细"
+      },
+      {
+       "Key": 1033,
+       "Value": "Clct. Note Detls"
+      },
+      {
+       "Key": 3076,
+       "Value": "收款單明細"
+      }
+     ],
+     "TableName": "T_AR_RECEIVEBILLENTRY",
+     "ParentKey": null,
+     "EntryName": "RECEIVEBILLENTRY",
+     "EntryPkFieldName": "FEntryID",
+     "PkFieldType": "System.Int64, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089",
+     "Fields": [
+      {
+       "Key": "FSETTLETYPEID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "结算方式"
+        },
+        {
+         "Key": 1033,
+         "Value": "Settlement Method"
+        },
+        {
+         "Key": 3076,
+         "Value": "結算方式"
+        }
+       ],
+       "FieldName": "FSETTLETYPEID",
+       "PropertyName": "SETTLETYPEID",
+       "FieldType": 127,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 13,
+       "MustInput": 1,
+       "LookUpObjectFormId": "BD_SETTLETYPE",
+       "LookUpObjectID": "cdc85b18-685b-43f3-a8ff-cada95242637",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FSETTLERECAMOUNTFOR",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "折后金额"
+        },
+        {
+         "Key": 1033,
+         "Value": "After-discount Amount"
+        },
+        {
+         "Key": 3076,
+         "Value": "折後金額"
+        }
+       ],
+       "FieldName": "FSETTLERECAMOUNTFOR",
+       "PropertyName": "SETTLERECAMOUNTFOR",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FSETTLEDISTAMOUNTFOR",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "现金折扣"
+        },
+        {
+         "Key": 1033,
+         "Value": "Cash Discount"
+        },
+        {
+         "Key": 3076,
+         "Value": "現金折扣"
+        }
+       ],
+       "FieldName": "FSETTLEDISTAMOUNTFOR",
+       "PropertyName": "SETTLEDISTAMOUNTFOR",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FRECTOTALAMOUNTFOR",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "表体-应收金额"
+        },
+        {
+         "Key": 1033,
+         "Value": "Doc Body - Amount Receivable"
+        },
+        {
+         "Key": 3076,
+         "Value": "表體-應收金額"
+        }
+       ],
+       "FieldName": "FRECTOTALAMOUNTFOR",
+       "PropertyName": "RECTOTALAMOUNTFOR",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FSETTLERECAMOUNT",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "折后金额本位币"
+        },
+        {
+         "Key": 1033,
+         "Value": "After-discount Amount (Functional Currency)"
+        },
+        {
+         "Key": 3076,
+         "Value": "折後金額本位幣"
+        }
+       ],
+       "FieldName": "FSETTLERECAMOUNT",
+       "PropertyName": "SETTLERECAMOUNT",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FSETTLEDISTAMOUNT",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "现金折扣本位币"
+        },
+        {
+         "Key": 1033,
+         "Value": "Cash Disc. (Fcn. Curr.)"
+        },
+        {
+         "Key": 3076,
+         "Value": "現金折扣本位幣"
+        }
+       ],
+       "FieldName": "FSETTLEDISTAMOUNT",
+       "PropertyName": "SETTLEDISTAMOUNT",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FRECTOTALAMOUNT",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "表体-应收金额本位币"
+        },
+        {
+         "Key": 1033,
+         "Value": "Doc Body - Amt Receivable (Fcn. Curr.)"
+        },
+        {
+         "Key": 3076,
+         "Value": "表體-應收金額本位幣"
+        }
+       ],
+       "FieldName": "FRECTOTALAMOUNT",
+       "PropertyName": "RECTOTALAMOUNT",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FWRITTENOFFSTATUS_D",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "表体明细-核销状态"
+        },
+        {
+         "Key": 1033,
+         "Value": "Details on Doc Body - Write-off Status"
+        },
+        {
+         "Key": 3076,
+         "Value": "表體明細-核銷狀態"
+        }
+       ],
+       "FieldName": "FWRITTENOFFSTATUS",
+       "PropertyName": "WRITTENOFFSTATUS",
+       "FieldType": 175,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 40,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": [
+        {
+         "Value": "A",
+         "Caption": "空",
+         "Seq": 0,
+         "Invalid": false
+        },
+        {
+         "Value": "B",
+         "Caption": "部分",
+         "Seq": 0,
+         "Invalid": false
+        },
+        {
+         "Value": "C",
+         "Caption": "完全",
+         "Seq": 0,
+         "Invalid": false
+        }
+       ],
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "9"
+      },
+      {
+       "Key": "FWRITTENOFFAMOUNTFOR_D",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "表体明细-已核销金额"
+        },
+        {
+         "Key": 1033,
+         "Value": "Details on Doc Body - Written-off Amount"
+        },
+        {
+         "Key": 3076,
+         "Value": "表體明細-已核銷金額"
+        }
+       ],
+       "FieldName": "FWRITTENOFFAMOUNTFOR",
+       "PropertyName": "WRITTENOFFAMOUNTFOR",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FCOMMENT",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "备注"
+        },
+        {
+         "Key": 1033,
+         "Value": "Remarks"
+        },
+        {
+         "Key": 3076,
+         "Value": "備注"
+        }
+       ],
+       "FieldName": "FCOMMENT",
+       "PropertyName": "COMMENT",
+       "FieldType": 231,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 1,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 500,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FOPPOSITEBANKACCOUNT",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "对方银行账号"
+        },
+        {
+         "Key": 1033,
+         "Value": "Contra Bank Account"
+        },
+        {
+         "Key": 3076,
+         "Value": "對方銀行賬號"
+        }
+       ],
+       "FieldName": "FOPPOSITEBANKACCOUNT",
+       "PropertyName": "OPPOSITEBANKACCOUNT",
+       "FieldType": 231,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 1,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 255,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FOPPOSITECCOUNTNAME",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "对方账户名称"
+        },
+        {
+         "Key": 1033,
+         "Value": "Contra Account Name"
+        },
+        {
+         "Key": 3076,
+         "Value": "對方賬戶名稱"
+        }
+       ],
+       "FieldName": "FOPPOSITECCOUNTNAME",
+       "PropertyName": "OPPOSITECCOUNTNAME",
+       "FieldType": 231,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 1,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 255,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FRECEIVEITEM",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "预收销售订单"
+        },
+        {
+         "Key": 1033,
+         "Value": "Sales Order of Advance Collection"
+        },
+        {
+         "Key": 3076,
+         "Value": "預收銷售訂單"
+        }
+       ],
+       "FieldName": "FRECEIVEITEM",
+       "PropertyName": "RECEIVEITEM",
+       "FieldType": 231,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 1,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 80,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FHANDLINGCHARGEFOR",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "手续费"
+        },
+        {
+         "Key": 1033,
+         "Value": "Commission Fee"
+        },
+        {
+         "Key": 3076,
+         "Value": "手續費"
+        }
+       ],
+       "FieldName": "FHANDLINGCHARGEFOR",
+       "PropertyName": "HANDLINGCHARGEFOR",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FHANDLINGCHARGE",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "手续费本位币"
+        },
+        {
+         "Key": 1033,
+         "Value": "Commission Fee (Fcn. Curr.)"
+        },
+        {
+         "Key": 3076,
+         "Value": "手續費本位幣"
+        }
+       ],
+       "FieldName": "FHANDLINGCHARGE",
+       "PropertyName": "HANDLINGCHARGE",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FREALRECAMOUNTFOR_D",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "表体-实收金额"
+        },
+        {
+         "Key": 1033,
+         "Value": "Doc Body - Amount Received"
+        },
+        {
+         "Key": 3076,
+         "Value": "表體-實收金額"
+        }
+       ],
+       "FieldName": "FREALRECAMOUNTFOR",
+       "PropertyName": "REALRECAMOUNTFOR",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FREALRECAMOUNT_D",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "表体-实收金额本位币"
+        },
+        {
+         "Key": 1033,
+         "Value": "Doc Body - Amt Received (Fcn. Curr.)"
+        },
+        {
+         "Key": 3076,
+         "Value": "表體-實收金額本位幣"
+        }
+       ],
+       "FieldName": "FREALRECAMOUNT",
+       "PropertyName": "FREALRECAMOUNT",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FASSTOTALAMOUNTFOR",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "关联总金额"
+        },
+        {
+         "Key": 1033,
+         "Value": "Total Associated Amount"
+        },
+        {
+         "Key": 3076,
+         "Value": "關聯總金額"
+        }
+       ],
+       "FieldName": "FASSTOTALAMOUNTFOR",
+       "PropertyName": "ASSTOTALAMOUNTFOR",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FRECEIVEITEMTYPE",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "预收项目类型"
+        },
+        {
+         "Key": 1033,
+         "Value": "Type of Advance Collection Item"
+        },
+        {
+         "Key": 3076,
+         "Value": "預收項目類型"
+        }
+       ],
+       "FieldName": "FRECEIVEITEMTYPE",
+       "PropertyName": "RECEIVEITEMTYPE",
+       "FieldType": 167,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 9,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": "adc3d31e-4bd4-45eb-ae45-1a467dd4e786",
+       "Extends": [
+        {
+         "Value": "2",
+         "Caption": "客户",
+         "Seq": 2,
+         "Invalid": false
+        },
+        {
+         "Value": "1",
+         "Caption": "销售订单",
+         "Seq": 1,
+         "Invalid": false
+        }
+       ],
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "5"
+      },
+      {
+       "Key": "FSaleOrderID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "预收销售订单号内码"
+        },
+        {
+         "Key": 1033,
+         "Value": "Sales Order of Advance Collection ISN"
+        },
+        {
+         "Key": 3076,
+         "Value": "預收銷售訂單號內碼"
+        }
+       ],
+       "FieldName": "FSALEORDERID",
+       "PropertyName": "SaleOrderID",
+       "FieldType": 56,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 3,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "0",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FACCOUNTID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "我方银行账号"
+        },
+        {
+         "Key": 1033,
+         "Value": "Our Bank Account"
+        },
+        {
+         "Key": 3076,
+         "Value": "我方銀行賬號"
+        }
+       ],
+       "FieldName": "FACCOUNTID",
+       "PropertyName": "ACCOUNTID",
+       "FieldType": 127,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 13,
+       "MustInput": 0,
+       "LookUpObjectFormId": "CN_BANKACNT",
+       "LookUpObjectID": "00e18668-cb0c-499c-bed3-2c6014f5e73b",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FOVERUNDERAMOUNTFOR",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "长短款"
+        },
+        {
+         "Key": 1033,
+         "Value": "Over and Short"
+        },
+        {
+         "Key": 3076,
+         "Value": "長短款"
+        }
+       ],
+       "FieldName": "FOVERUNDERAMOUNTFOR",
+       "PropertyName": "OVERUNDERAMOUNTFOR",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FOPPOSITEBANKNAME",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "对方开户行"
+        },
+        {
+         "Key": 1033,
+         "Value": "Contra Opening Bank"
+        },
+        {
+         "Key": 3076,
+         "Value": "對方開戶行"
+        }
+       ],
+       "FieldName": "FOPPOSITEBANKNAME",
+       "PropertyName": "OPPOSITEBANKNAME",
+       "FieldType": 231,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 1,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 255,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FSETTLENO",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "结算号"
+        },
+        {
+         "Key": 1033,
+         "Value": "Settlement No."
+        },
+        {
+         "Key": 3076,
+         "Value": "結算號"
+        }
+       ],
+       "FieldName": "FSETTLENO",
+       "PropertyName": "SETTLENO",
+       "FieldType": 231,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 1,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 80,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FBLEND",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "勾对"
+        },
+        {
+         "Key": 1033,
+         "Value": "Reconciled"
+        },
+        {
+         "Key": 3076,
+         "Value": "勾對"
+        }
+       ],
+       "FieldName": "FBLEND",
+       "PropertyName": "BLEND",
+       "FieldType": 175,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 8,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "False",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "7"
+      },
+      {
+       "Key": "FPURPOSEID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "收款用途"
+        },
+        {
+         "Key": 1033,
+         "Value": "Purpose of Collection"
+        },
+        {
+         "Key": 3076,
+         "Value": "收款用途"
+        }
+       ],
+       "FieldName": "FPURPOSEID",
+       "PropertyName": "PURPOSEID",
+       "FieldType": 127,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 13,
+       "MustInput": 1,
+       "LookUpObjectFormId": "CN_RECPAYPURPOSE",
+       "LookUpObjectID": "8dcde2fb-ece5-4dde-ad55-1bebef63ee4c",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FOVERUNDERAMOUNT",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "长短款本位币"
+        },
+        {
+         "Key": 1033,
+         "Value": "Over and Short (Fcn. Curr.)"
+        },
+        {
+         "Key": 3076,
+         "Value": "長短款本位幣"
+        }
+       ],
+       "FieldName": "FOVERUNDERAMOUNT",
+       "PropertyName": "OVERUNDERAMOUNT",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FINNERACCOUNTID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "内部账号"
+        },
+        {
+         "Key": 1033,
+         "Value": "Internal Account"
+        },
+        {
+         "Key": 3076,
+         "Value": "內部賬號"
+        }
+       ],
+       "FieldName": "FINNERACCOUNTID",
+       "PropertyName": "FINNERACCOUNTID",
+       "FieldType": 127,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 13,
+       "MustInput": 0,
+       "LookUpObjectFormId": "CN_INNERACCOUNT",
+       "LookUpObjectID": "000ffecf-8764-8232-11e2-fe7a3c926ab7",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FReFundAmount",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "退款关联金额"
+        },
+        {
+         "Key": 1033,
+         "Value": "Associated Amount of Refund"
+        },
+        {
+         "Key": 3076,
+         "Value": "退款關聯金額"
+        }
+       ],
+       "FieldName": "FREFUNDAMOUNT",
+       "PropertyName": "ReFundAmount",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FCashAccount",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "现金账号"
+        },
+        {
+         "Key": 1033,
+         "Value": "Cash Account"
+        },
+        {
+         "Key": 3076,
+         "Value": "現金賬號"
+        }
+       ],
+       "FieldName": "FCASHACCOUNT",
+       "PropertyName": "CashAccount",
+       "FieldType": 127,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 13,
+       "MustInput": 0,
+       "LookUpObjectFormId": "CN_CASHACCOUNT",
+       "LookUpObjectID": "00505694-249f-92ec-11e5-261fe3e60abb",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FRECAMOUNTFOR_E",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "收款金额"
+        },
+        {
+         "Key": 1033,
+         "Value": "Collection Amount"
+        },
+        {
+         "Key": 3076,
+         "Value": "收款金額"
+        }
+       ],
+       "FieldName": "FRECAMOUNTFOR_E",
+       "PropertyName": "RECAMOUNTFOR_E",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FRECAMOUNT_E",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "收款金额本位币"
+        },
+        {
+         "Key": 1033,
+         "Value": "Collection Amount (Functional Currency)"
+        },
+        {
+         "Key": 3076,
+         "Value": "收款金額本位幣"
+        }
+       ],
+       "FieldName": "FRECAMOUNT_E",
+       "PropertyName": "RECAMOUNT_E",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FPOSTDATE",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "登账日期"
+        },
+        {
+         "Key": 1033,
+         "Value": "Bookkeeping Date"
+        },
+        {
+         "Key": 3076,
+         "Value": "登賬日期"
+        }
+       ],
+       "FieldName": "FPOSTDATE",
+       "PropertyName": "FPOSTDATE",
+       "FieldType": 61,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 4,
+       "MustInput": 1,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": null,
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "2"
+      },
+      {
+       "Key": "FISPOST",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "是否登账"
+        },
+        {
+         "Key": 1033,
+         "Value": "Bookkeeping"
+        },
+        {
+         "Key": 3076,
+         "Value": "是否登賬"
+        }
+       ],
+       "FieldName": "FISPOST",
+       "PropertyName": "FISPOST",
+       "FieldType": 175,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 8,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "True",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "7"
+      },
+      {
+       "Key": "FMATERIALID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "物料编码"
+        },
+        {
+         "Key": 1033,
+         "Value": "Material Code"
+        },
+        {
+         "Key": 3076,
+         "Value": "物料編碼"
+        }
+       ],
+       "FieldName": "FMATERIALID",
+       "PropertyName": "FMATERIALID",
+       "FieldType": 127,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 13,
+       "MustInput": 0,
+       "LookUpObjectFormId": "BD_MATERIAL",
+       "LookUpObjectID": "624b39cf-5504-42e0-9124-7d75e64a05f1",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FSALEORDERNO",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "销售订单号"
+        },
+        {
+         "Key": 1033,
+         "Value": "Sales Order No."
+        },
+        {
+         "Key": 3076,
+         "Value": "銷售訂單號"
+        }
+       ],
+       "FieldName": "FSALEORDERNO",
+       "PropertyName": "FSALEORDERNO",
+       "FieldType": 231,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 1,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 80,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FMATERIALSEQ",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "订单行号"
+        },
+        {
+         "Key": 1033,
+         "Value": "Order Row No."
+        },
+        {
+         "Key": 3076,
+         "Value": "訂單行號"
+        }
+       ],
+       "FieldName": "FMATERIALSEQ",
+       "PropertyName": "FMATERIALSEQ",
+       "FieldType": 56,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 3,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FORDERENTRYID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "销售订单明细内码"
+        },
+        {
+         "Key": 1033,
+         "Value": "SO Details ISN"
+        },
+        {
+         "Key": 3076,
+         "Value": "銷售訂單明細內碼"
+        }
+       ],
+       "FieldName": "FORDERENTRYID",
+       "PropertyName": "FORDERENTRYID",
+       "FieldType": 56,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 3,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FTOPAYMENTAMOUNTFOR",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "保证金转货款金额"
+        },
+        {
+         "Key": 1033,
+         "Value": "Amount of Goods Transferred from Deposit"
+        },
+        {
+         "Key": 3076,
+         "Value": "保證金轉貨款金額"
+        }
+       ],
+       "FieldName": "FTOPAYMENTAMOUNTFOR",
+       "PropertyName": "TOPAYMENTAMOUNTFOR",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FWRITTENOFFAMOUNT",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "已核销金额本位币"
+        },
+        {
+         "Key": 1033,
+         "Value": "Written-off Amount (Functional Currency)"
+        },
+        {
+         "Key": 3076,
+         "Value": "已核銷金額本位幣"
+        }
+       ],
+       "FieldName": "FWRITTENOFFAMOUNT",
+       "PropertyName": "FWRITTENOFFAMOUNT",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FNOTVERIFICATEAMOUNT",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "未核销金额"
+        }
+       ],
+       "FieldName": "FNOTVERIFICATEAMOUNT",
+       "PropertyName": "FNOTVERIFICATEAMOUNT",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FPRICEUNITID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "计价单位"
+        }
+       ],
+       "FieldName": "FPRICEUNITID",
+       "PropertyName": "FPRICEUNITID",
+       "FieldType": 127,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 46,
+       "MustInput": 0,
+       "LookUpObjectFormId": "BD_UNIT",
+       "LookUpObjectID": "e6213815-6b93-4cff-83bf-f26f807b7f4d",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FPrice",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "含税单价"
+        }
+       ],
+       "FieldName": "FPRICE",
+       "PropertyName": "FPrice",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 20,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FQty",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "数量"
+        }
+       ],
+       "FieldName": "FQTY",
+       "PropertyName": "FQty",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 22,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FCOSTID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "费用项目"
+        }
+       ],
+       "FieldName": "FCOSTID",
+       "PropertyName": "COSTID",
+       "FieldType": 127,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 13,
+       "MustInput": 0,
+       "LookUpObjectFormId": "BD_Expense",
+       "LookUpObjectID": "9d521fa8-cce9-481d-bb25-e1c05fb3cc69",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FCOSTDEPARTMENTID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "费用承担部门"
+        }
+       ],
+       "FieldName": "FCOSTDEPARTMENTID",
+       "PropertyName": "COSTDEPARTMENTID",
+       "FieldType": 127,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 13,
+       "MustInput": 0,
+       "LookUpObjectFormId": "BD_Department",
+       "LookUpObjectID": "5b43df86-906c-4b59-95bc-884f05e2533c",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FLinkRowId",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "关联行ID"
+        }
+       ],
+       "FieldName": "FLINKROWID",
+       "PropertyName": "FLINKROWID",
+       "FieldType": 231,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 1,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 50,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FSALEORDERBase",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "销售订单（基础资料）"
+        }
+       ],
+       "FieldName": "FSALEORDERBASE",
+       "PropertyName": "FSALEORDERBASE",
+       "FieldType": 127,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 13,
+       "MustInput": 0,
+       "LookUpObjectFormId": "V_CN_SALORDER",
+       "LookUpObjectID": "00505694-06a8-af04-11e7-c5e202a9146e",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FRelateReFundAmount",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "已退款金额"
+        }
+       ],
+       "FieldName": "FRELATEREFUNDAMOUNT",
+       "PropertyName": "FRelateReFundAmount",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY_O",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FENTRYTAXRATE",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "预估税率(%)"
+        }
+       ],
+       "FieldName": "FENTRYTAXRATE",
+       "PropertyName": "ENTRYTAXRATE",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 2,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FTAXAMOUNTFOR",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "税额"
+        }
+       ],
+       "FieldName": "FTAXAMOUNTFOR",
+       "PropertyName": "TAXAMOUNTFOR",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FTAXAMOUNT",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "税额本位币"
+        }
+       ],
+       "FieldName": "FTAXAMOUNT",
+       "PropertyName": "TAXAMOUNT",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FRECNOTAXAMOUNTFOR",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "应收金额不含税"
+        }
+       ],
+       "FieldName": "FRECNOTAXAMOUNTFOR",
+       "PropertyName": "RECNOTAXAMOUNTFOR",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FRECNOTAXAMOUNT",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "应收金额不含税本位币"
+        }
+       ],
+       "FieldName": "FRECNOTAXAMOUNT",
+       "PropertyName": "RECNOTAXAMOUNT",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FWRITTENOFFTAXAMOUNTFOR",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "已核销税额"
+        }
+       ],
+       "FieldName": "FWRITTENOFFTAXAMOUNTFOR",
+       "PropertyName": "WRITTENOFFTAXAMOUNTFOR",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "0",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FWRITTENOFFTAXAMOUNT",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "已核销税额本位币"
+        }
+       ],
+       "FieldName": "FWRITTENOFFTAXAMOUNT",
+       "PropertyName": "FWRITTENOFFTAXAMOUNT",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "0",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FSALEORDERNUMBER",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "销售订单号(预收)"
+        }
+       ],
+       "FieldName": "FSALEORDERNUMBER",
+       "PropertyName": "FSALEORDERNUMBER",
+       "FieldType": 231,
+       "EntityKey": "FRECEIVEBILLENTRY",
+       "TableName": "T_AR_RECEIVEBILLENTRY",
+       "ElementType": 1,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 2000,
+       "ConditionType": "0"
+      }
+     ],
+     "EntityType": "EntryEntity",
+     "SeqFieldKey": "FSeq"
+    },
+    {
+     "Id": "041ce593-6017-4d10-9fc1-4588196455ee",
+     "Key": "FRECEIVEBILLSRCENTRY",
+     "Name": [
+      {
+       "Key": 2052,
+       "Value": "收款单源单明细"
+      },
+      {
+       "Key": 1033,
+       "Value": "Source Collection Note Details"
+      },
+      {
+       "Key": 3076,
+       "Value": "收款單源單明細"
+      }
+     ],
+     "TableName": "T_AR_RECEIVEBILLSRCENTRY",
+     "ParentKey": null,
+     "EntryName": "RECEIVEBILLSRCENTRY",
+     "EntryPkFieldName": "FEntryID",
+     "PkFieldType": "System.Int64, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089",
+     "Fields": [
+      {
+       "Key": "FSRCBILLID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "源单内码"
+        },
+        {
+         "Key": 1033,
+         "Value": "Source Doc ISN"
+        },
+        {
+         "Key": 3076,
+         "Value": "源單內碼"
+        }
+       ],
+       "FieldName": "FSRCBILLID",
+       "PropertyName": "SRCBILLID",
+       "FieldType": 56,
+       "EntityKey": "FRECEIVEBILLSRCENTRY",
+       "TableName": "T_AR_RECEIVEBILLSRCENTRY",
+       "ElementType": 3,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FAFTTAXTOTALAMOUNT",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "应收金额"
+        },
+        {
+         "Key": 1033,
+         "Value": "Amount Receivable"
+        },
+        {
+         "Key": 3076,
+         "Value": "應收金額"
+        }
+       ],
+       "FieldName": "FAFTTAXTOTALAMOUNT",
+       "PropertyName": "AFTTAXTOTALAMOUNT",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLSRCENTRY",
+       "TableName": "T_AR_RECEIVEBILLSRCENTRY",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FSRCSETTLETYPEID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "结算方式"
+        },
+        {
+         "Key": 1033,
+         "Value": "Settlement Method"
+        },
+        {
+         "Key": 3076,
+         "Value": "結算方式"
+        }
+       ],
+       "FieldName": "FSRCSETTLETYPEID",
+       "PropertyName": "SRCSETTLETYPEID",
+       "FieldType": 127,
+       "EntityKey": "FRECEIVEBILLSRCENTRY",
+       "TableName": "T_AR_RECEIVEBILLSRCENTRY",
+       "ElementType": 13,
+       "MustInput": 0,
+       "LookUpObjectFormId": "BD_SETTLETYPE",
+       "LookUpObjectID": "cdc85b18-685b-43f3-a8ff-cada95242637",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FSRCCURRENCYID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "源单币别"
+        },
+        {
+         "Key": 1033,
+         "Value": "Currency of Source Doc"
+        },
+        {
+         "Key": 3076,
+         "Value": "源單幣別"
+        }
+       ],
+       "FieldName": "FSRCCURRENCYID",
+       "PropertyName": "SRCCURRENCYID",
+       "FieldType": 127,
+       "EntityKey": "FRECEIVEBILLSRCENTRY",
+       "TableName": "T_AR_RECEIVEBILLSRCENTRY",
+       "ElementType": 13,
+       "MustInput": 0,
+       "LookUpObjectFormId": "BD_Currency",
+       "LookUpObjectID": "e406d5f5-2eab-4285-8fca-6b2bca1484a4",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FEXPIRY",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "到期日"
+        },
+        {
+         "Key": 1033,
+         "Value": "Due Date"
+        },
+        {
+         "Key": 3076,
+         "Value": "到期日"
+        }
+       ],
+       "FieldName": "FEXPIRY",
+       "PropertyName": "EXPIRY",
+       "FieldType": 61,
+       "EntityKey": "FRECEIVEBILLSRCENTRY",
+       "TableName": "T_AR_RECEIVEBILLSRCENTRY",
+       "ElementType": 4,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "2"
+      },
+      {
+       "Key": "FPLANRECAMOUNT",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "计划收款金额"
+        },
+        {
+         "Key": 1033,
+         "Value": "Planned Collection Amount"
+        },
+        {
+         "Key": 3076,
+         "Value": "計劃收款金額"
+        }
+       ],
+       "FieldName": "FPLANRECAMOUNT",
+       "PropertyName": "PLANRECAMOUNT",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLSRCENTRY",
+       "TableName": "T_AR_RECEIVEBILLSRCENTRY",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FREALRECAMOUNT",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "本次收款金额"
+        },
+        {
+         "Key": 1033,
+         "Value": "Current Collection Amount"
+        },
+        {
+         "Key": 3076,
+         "Value": "本次收款金額"
+        }
+       ],
+       "FieldName": "FREALRECAMOUNT",
+       "PropertyName": "REALRECAMOUNT",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLSRCENTRY",
+       "TableName": "T_AR_RECEIVEBILLSRCENTRY",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FSRCBILLTYPEID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "源单类型"
+        },
+        {
+         "Key": 1033,
+         "Value": "Source Doc Type"
+        },
+        {
+         "Key": 3076,
+         "Value": "源單類型"
+        }
+       ],
+       "FieldName": "FSRCBILLTYPEID",
+       "PropertyName": "SRCBILLTYPEID",
+       "FieldType": 167,
+       "EntityKey": "FRECEIVEBILLSRCENTRY",
+       "TableName": "T_AR_RECEIVEBILLSRCENTRY",
+       "ElementType": 50,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FSRCBILLNO",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "源单编号"
+        },
+        {
+         "Key": 1033,
+         "Value": "Source Doc No."
+        },
+        {
+         "Key": 3076,
+         "Value": "源單編號"
+        }
+       ],
+       "FieldName": "FSRCBILLNO",
+       "PropertyName": "SRCBILLNO",
+       "FieldType": 231,
+       "EntityKey": "FRECEIVEBILLSRCENTRY",
+       "TableName": "T_AR_RECEIVEBILLSRCENTRY",
+       "ElementType": 51,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 50,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FSRCSEQ",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "源单行号"
+        },
+        {
+         "Key": 1033,
+         "Value": "Source Doc Row No."
+        },
+        {
+         "Key": 3076,
+         "Value": "源單行號"
+        }
+       ],
+       "FieldName": "FSRCSEQ",
+       "PropertyName": "SRCSEQ",
+       "FieldType": 56,
+       "EntityKey": "FRECEIVEBILLSRCENTRY",
+       "TableName": "T_AR_RECEIVEBILLSRCENTRY",
+       "ElementType": 3,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FSRCROWID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "源单行内码"
+        },
+        {
+         "Key": 1033,
+         "Value": "Source Doc Row ISN"
+        },
+        {
+         "Key": 3076,
+         "Value": "源單行內碼"
+        }
+       ],
+       "FieldName": "FSRCROWID",
+       "PropertyName": "SRCROWID",
+       "FieldType": 56,
+       "EntityKey": "FRECEIVEBILLSRCENTRY",
+       "TableName": "T_AR_RECEIVEBILLSRCENTRY",
+       "ElementType": 3,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FORDERBILLNO",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "销售订单号"
+        },
+        {
+         "Key": 1033,
+         "Value": "Sales Order No."
+        },
+        {
+         "Key": 3076,
+         "Value": "銷售訂單號"
+        }
+       ],
+       "FieldName": "FORDERBILLNO",
+       "PropertyName": "ORDERBILLNO",
+       "FieldType": 231,
+       "EntityKey": "FRECEIVEBILLSRCENTRY",
+       "TableName": "T_AR_RECEIVEBILLSRCENTRY",
+       "ElementType": 1,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 255,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FSRCMATERIALID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "物料编码"
+        },
+        {
+         "Key": 1033,
+         "Value": "Material Code"
+        },
+        {
+         "Key": 3076,
+         "Value": "物料編碼"
+        }
+       ],
+       "FieldName": "FMATERIALID",
+       "PropertyName": "FSRCMATERIALID",
+       "FieldType": 127,
+       "EntityKey": "FRECEIVEBILLSRCENTRY",
+       "TableName": "T_AR_RECEIVEBILLSRCENTRY",
+       "ElementType": 13,
+       "MustInput": 0,
+       "LookUpObjectFormId": "BD_MATERIAL",
+       "LookUpObjectID": "624b39cf-5504-42e0-9124-7d75e64a05f1",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FSRCMATERIALSEQ",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "订单行号"
+        },
+        {
+         "Key": 1033,
+         "Value": "Order Row No."
+        },
+        {
+         "Key": 3076,
+         "Value": "訂單行號"
+        }
+       ],
+       "FieldName": "FMATERIALSEQ",
+       "PropertyName": "FSRCMATERIALSEQ",
+       "FieldType": 56,
+       "EntityKey": "FRECEIVEBILLSRCENTRY",
+       "TableName": "T_AR_RECEIVEBILLSRCENTRY",
+       "ElementType": 3,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FSRCORDERENTRYID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "销售订单明细内码"
+        },
+        {
+         "Key": 1033,
+         "Value": "SO Details ISN"
+        },
+        {
+         "Key": 3076,
+         "Value": "銷售訂單明細內碼"
+        }
+       ],
+       "FieldName": "FORDERENTRYID",
+       "PropertyName": "FSRCORDERENTRYID",
+       "FieldType": 56,
+       "EntityKey": "FRECEIVEBILLSRCENTRY",
+       "TableName": "T_AR_RECEIVEBILLSRCENTRY",
+       "ElementType": 3,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FSETTLEAMOUNT",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "结算金额"
+        },
+        {
+         "Key": 1033,
+         "Value": "Settlement Amount"
+        },
+        {
+         "Key": 3076,
+         "Value": "結算金額"
+        }
+       ],
+       "FieldName": "FSETTLEAMOUNT",
+       "PropertyName": "FSETTLEAMOUNT",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLSRCENTRY",
+       "TableName": "T_AR_RECEIVEBILLSRCENTRY",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FREALRECAMOUNTFOR_S",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "本次收款金额本位币"
+        },
+        {
+         "Key": 1033,
+         "Value": "Current Collection Amount (Functional Currency)"
+        },
+        {
+         "Key": 3076,
+         "Value": "本次收款金額本位幣"
+        }
+       ],
+       "FieldName": "FREALRECAMOUNTFOR",
+       "PropertyName": "FREALRECAMOUNTFOR",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLSRCENTRY",
+       "TableName": "T_AR_RECEIVEBILLSRCENTRY",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FSRCPRICEUNITID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "计价单位"
+        }
+       ],
+       "FieldName": "FSRCPRICEUNITID",
+       "PropertyName": "FSRCPRICEUNITID",
+       "FieldType": 127,
+       "EntityKey": "FRECEIVEBILLSRCENTRY",
+       "TableName": "T_AR_RECEIVEBILLSRCENTRY",
+       "ElementType": 46,
+       "MustInput": 0,
+       "LookUpObjectFormId": "BD_UNIT",
+       "LookUpObjectID": "e6213815-6b93-4cff-83bf-f26f807b7f4d",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FSRCPRICE",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "含税单价"
+        }
+       ],
+       "FieldName": "FSRCPRICE",
+       "PropertyName": "FSRCPRICE",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLSRCENTRY",
+       "TableName": "T_AR_RECEIVEBILLSRCENTRY",
+       "ElementType": 20,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FSRCQTY",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "数量"
+        }
+       ],
+       "FieldName": "FSRCQTY",
+       "PropertyName": "FSRCQTY",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLSRCENTRY",
+       "TableName": "T_AR_RECEIVEBILLSRCENTRY",
+       "ElementType": 22,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FSRCCOSTID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "费用项目"
+        }
+       ],
+       "FieldName": "FCOSTID",
+       "PropertyName": "SRCCOSTID",
+       "FieldType": 127,
+       "EntityKey": "FRECEIVEBILLSRCENTRY",
+       "TableName": "T_AR_RECEIVEBILLSRCENTRY",
+       "ElementType": 13,
+       "MustInput": 0,
+       "LookUpObjectFormId": "BD_Expense",
+       "LookUpObjectID": "9d521fa8-cce9-481d-bb25-e1c05fb3cc69",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FSRCCOSTDEPARTMENTID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "费用承担部门"
+        }
+       ],
+       "FieldName": "FCOSTDEPARTMENTID",
+       "PropertyName": "SRCCOSTDEPARTMENTID",
+       "FieldType": 127,
+       "EntityKey": "FRECEIVEBILLSRCENTRY",
+       "TableName": "T_AR_RECEIVEBILLSRCENTRY",
+       "ElementType": 13,
+       "MustInput": 0,
+       "LookUpObjectFormId": "BD_Department",
+       "LookUpObjectID": "5b43df86-906c-4b59-95bc-884f05e2533c",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FSrcLinkRowId",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "关联行ID"
+        }
+       ],
+       "FieldName": "FLINKROWID",
+       "PropertyName": "FSRCLINKROWID",
+       "FieldType": 231,
+       "EntityKey": "FRECEIVEBILLSRCENTRY",
+       "TableName": "T_AR_RECEIVEBILLSRCENTRY",
+       "ElementType": 1,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 50,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FSRCREMARK",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "备注"
+        }
+       ],
+       "FieldName": "FREMARK",
+       "PropertyName": "SRCREMARK",
+       "FieldType": 231,
+       "EntityKey": "FRECEIVEBILLSRCENTRY",
+       "TableName": "T_AR_RECEIVEBILLSRCENTRY",
+       "ElementType": 1,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 500,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FASSORDERAMOUNT",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "关联订单金额（关联销售订单）"
+        }
+       ],
+       "FieldName": "FASSORDERAMOUNT",
+       "PropertyName": "FASSORDERAMOUNT",
+       "FieldType": 106,
+       "EntityKey": "FRECEIVEBILLSRCENTRY",
+       "TableName": "T_AR_RECEIVEBILLSRCENTRY",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FSRCPURPOSEID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "原收款用途"
+        }
+       ],
+       "FieldName": "FSRCPURPOSEID",
+       "PropertyName": "FSRCPURPOSEID",
+       "FieldType": 127,
+       "EntityKey": "FRECEIVEBILLSRCENTRY",
+       "TableName": "T_AR_RECEIVEBILLSRCENTRY",
+       "ElementType": 13,
+       "MustInput": 0,
+       "LookUpObjectFormId": "CN_RECPAYPURPOSE",
+       "LookUpObjectID": "8dcde2fb-ece5-4dde-ad55-1bebef63ee4c",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "0"
+      }
+     ],
+     "EntityType": "EntryEntity",
+     "SeqFieldKey": "FSeq"
+    },
+    {
+     "Id": "606c4952-27fb-4d11-8ba1-373fc3821c69",
+     "Key": "FASSSALESORDER",
+     "Name": [
+      {
+       "Key": 2052,
+       "Value": "关联销售订单"
+      },
+      {
+       "Key": 1033,
+       "Value": "Associate SO"
+      },
+      {
+       "Key": 3076,
+       "Value": "關聯銷售訂單"
+      }
+     ],
+     "TableName": "T_AR_ASSSALESORDER",
+     "ParentKey": "FRECEIVEBILLENTRY",
+     "EntryName": "AR_ASSSALESORDER",
+     "EntryPkFieldName": "FDetailID",
+     "PkFieldType": "System.Int64, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089",
+     "Fields": [
+      {
+       "Key": "FASSBILLNO",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "关联单据编号"
+        },
+        {
+         "Key": 1033,
+         "Value": "Associated Doc No."
+        },
+        {
+         "Key": 3076,
+         "Value": "關聯單據編號"
+        }
+       ],
+       "FieldName": "FASSBILLNO",
+       "PropertyName": "ASSBILLNO",
+       "FieldType": 231,
+       "EntityKey": "FASSSALESORDER",
+       "TableName": "T_AR_ASSSALESORDER",
+       "ElementType": 1,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 50,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FASSBILLID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "关联单据ID"
+        },
+        {
+         "Key": 1033,
+         "Value": "Associated Doc ID"
+        },
+        {
+         "Key": 3076,
+         "Value": "關聯單據ID"
+        }
+       ],
+       "FieldName": "FASSBILLID",
+       "PropertyName": "ASSBILLID",
+       "FieldType": 56,
+       "EntityKey": "FASSSALESORDER",
+       "TableName": "T_AR_ASSSALESORDER",
+       "ElementType": 3,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FASSAMOUNTFOR",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "关联金额"
+        },
+        {
+         "Key": 1033,
+         "Value": "Associated Amount"
+        },
+        {
+         "Key": 3076,
+         "Value": "關聯金額"
+        }
+       ],
+       "FieldName": "FASSAMOUNTFOR",
+       "PropertyName": "ASSAMOUNTFOR",
+       "FieldType": 106,
+       "EntityKey": "FASSSALESORDER",
+       "TableName": "T_AR_ASSSALESORDER",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FPREMATCHAMOUNTFOR",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "预付预收已核销金额"
+        },
+        {
+         "Key": 1033,
+         "Value": "Written-off Amount of Prepayment and Advance Collection"
+        },
+        {
+         "Key": 3076,
+         "Value": "預付預收已核銷金額"
+        }
+       ],
+       "FieldName": "FPREMATCHAMOUNTFOR",
+       "PropertyName": "PREMATCHAMOUNTFOR",
+       "FieldType": 106,
+       "EntityKey": "FASSSALESORDER",
+       "TableName": "T_AR_ASSSALESORDER",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FOVERRECAMOUNT",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "预收超收金额"
+        }
+       ],
+       "FieldName": "FOVERRECAMOUNT",
+       "PropertyName": "FOVERRECAMOUNT",
+       "FieldType": 106,
+       "EntityKey": "FASSSALESORDER",
+       "TableName": "T_AR_ASSSALESORDER",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FASSMATERIALID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "关联单据物料"
+        }
+       ],
+       "FieldName": "FASSMATERIALID",
+       "PropertyName": "FASSMATERIALID",
+       "FieldType": 127,
+       "EntityKey": "FASSSALESORDER",
+       "TableName": "T_AR_ASSSALESORDER",
+       "ElementType": 13,
+       "MustInput": 0,
+       "LookUpObjectFormId": "BD_MATERIAL",
+       "LookUpObjectID": "624b39cf-5504-42e0-9124-7d75e64a05f1",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FASSMATERIALSEQ",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "关联单据订单行号"
+        }
+       ],
+       "FieldName": "FASSMATERIALSEQ",
+       "PropertyName": "FASSMATERIALSEQ",
+       "FieldType": 56,
+       "EntityKey": "FASSSALESORDER",
+       "TableName": "T_AR_ASSSALESORDER",
+       "ElementType": 3,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FASSORDERENTRYID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "关联单据订单明细内码"
+        }
+       ],
+       "FieldName": "FASSORDERENTRYID",
+       "PropertyName": "FASSORDERENTRYID",
+       "FieldType": 56,
+       "EntityKey": "FASSSALESORDER",
+       "TableName": "T_AR_ASSSALESORDER",
+       "ElementType": 3,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FASSSALEORDERNO",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "关联单据销售订单号(按订单)"
+        }
+       ],
+       "FieldName": "FASSSALEORDERNO",
+       "PropertyName": "FASSSALEORDERNO",
+       "FieldType": 231,
+       "EntityKey": "FASSSALESORDER",
+       "TableName": "T_AR_ASSSALESORDER",
+       "ElementType": 1,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 50,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FASSPRICEUNITID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "关联单据计量单位"
+        }
+       ],
+       "FieldName": "FASSPRICEUNITID",
+       "PropertyName": "FASSPRICEUNITID",
+       "FieldType": 127,
+       "EntityKey": "FASSSALESORDER",
+       "TableName": "T_AR_ASSSALESORDER",
+       "ElementType": 46,
+       "MustInput": 0,
+       "LookUpObjectFormId": "BD_UNIT",
+       "LookUpObjectID": "e6213815-6b93-4cff-83bf-f26f807b7f4d",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FASSPRICE",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "关联单据单价"
+        }
+       ],
+       "FieldName": "FASSPRICE",
+       "PropertyName": "FASSPRICE",
+       "FieldType": 106,
+       "EntityKey": "FASSSALESORDER",
+       "TableName": "T_AR_ASSSALESORDER",
+       "ElementType": 20,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FASSQty",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "关联单据数量"
+        }
+       ],
+       "FieldName": "FASSQTY",
+       "PropertyName": "FASSQty",
+       "FieldType": 106,
+       "EntityKey": "FASSSALESORDER",
+       "TableName": "T_AR_ASSSALESORDER",
+       "ElementType": 22,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FOPERATESOURCE",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "操作来源"
+        }
+       ],
+       "FieldName": "FOPERATESOURCE",
+       "PropertyName": "FOPERATESOURCE",
+       "FieldType": 167,
+       "EntityKey": "FASSSALESORDER",
+       "TableName": "T_AR_ASSSALESORDER",
+       "ElementType": 9,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": "b24eedc6-4a68-4b0e-8f77-786986d5f236",
+       "Extends": [
+        {
+         "Value": "A",
+         "Caption": "出纳",
+         "Seq": 1,
+         "Invalid": false
+        },
+        {
+         "Value": "B",
+         "Caption": "销售订单",
+         "Seq": 2,
+         "Invalid": false
+        }
+       ],
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "5"
+      }
+     ],
+     "EntityType": "SubEntryEntity",
+     "SeqFieldKey": "FSEQ"
+    },
+    {
+     "Id": "bd01189a-568d-451c-bb30-5545caac7638",
+     "Key": "FBILLRECEIVABLEENTRY",
+     "Name": [
+      {
+       "Key": 2052,
+       "Value": "应收票据明细"
+      },
+      {
+       "Key": 1033,
+       "Value": "Bills Recvbl Detls"
+      },
+      {
+       "Key": 3076,
+       "Value": "應收票據明細"
+      }
+     ],
+     "TableName": "T_AR_RECEIVEBILLREC",
+     "ParentKey": null,
+     "EntryName": "RECEIVEBILLREC",
+     "EntryPkFieldName": "FEntryID",
+     "PkFieldType": "System.Int64, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089",
+     "Fields": [
+      {
+       "Key": "FBILLID",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "票据流水号"
+        },
+        {
+         "Key": 1033,
+         "Value": "Bill No. (System)"
+        },
+        {
+         "Key": 3076,
+         "Value": "票據流水號"
+        }
+       ],
+       "FieldName": "FBILLID",
+       "PropertyName": "BILLID",
+       "FieldType": 127,
+       "EntityKey": "FBILLRECEIVABLEENTRY",
+       "TableName": "T_AR_RECEIVEBILLREC",
+       "ElementType": 13,
+       "MustInput": 0,
+       "LookUpObjectFormId": "V_CN_BILLRECEIVABLE",
+       "LookUpObjectID": "ab4de423-c93d-4ce9-b571-450e0747ca86",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FPARLEFTAMOUNTFOR",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "可用余额"
+        },
+        {
+         "Key": 1033,
+         "Value": "Available Balance"
+        },
+        {
+         "Key": 3076,
+         "Value": "可用餘額"
+        }
+       ],
+       "FieldName": "FPARLEFTAMOUNTFOR",
+       "PropertyName": "PARLEFTAMOUNTFOR",
+       "FieldType": 106,
+       "EntityKey": "FBILLRECEIVABLEENTRY",
+       "TableName": "T_AR_RECEIVEBILLREC",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FUSEDAMOUNTFOR",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "当前占用金额"
+        },
+        {
+         "Key": 1033,
+         "Value": "Occupancy Amount"
+        },
+        {
+         "Key": 3076,
+         "Value": "當前占用金額"
+        }
+       ],
+       "FieldName": "FUSEDAMOUNTFOR",
+       "PropertyName": "USEDAMOUNTFOR",
+       "FieldType": 106,
+       "EntityKey": "FBILLRECEIVABLEENTRY",
+       "TableName": "T_AR_RECEIVEBILLREC",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FInnerAccountID_B",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "内部账号"
+        },
+        {
+         "Key": 1033,
+         "Value": "Internal Account"
+        },
+        {
+         "Key": 3076,
+         "Value": "內部賬號"
+        }
+       ],
+       "FieldName": "FINNERACCOUNTID",
+       "PropertyName": "FInnerAccountID_B",
+       "FieldType": 127,
+       "EntityKey": "FBILLRECEIVABLEENTRY",
+       "TableName": "T_AR_RECEIVEBILLREC",
+       "ElementType": 13,
+       "MustInput": 0,
+       "LookUpObjectFormId": "CN_INNERACCOUNT",
+       "LookUpObjectID": "000ffecf-8764-8232-11e2-fe7a3c926ab7",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FBPBILLNUMBER",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "票据（包）号"
+        },
+        {
+         "Key": 1033,
+         "Value": "Bill No."
+        },
+        {
+         "Key": 3076,
+         "Value": "票據號"
+        }
+       ],
+       "FieldName": "FBPBILLNUMBER",
+       "PropertyName": "FBPBILLNUMBER",
+       "FieldType": 231,
+       "EntityKey": "FBILLRECEIVABLEENTRY",
+       "TableName": "T_AR_RECEIVEBILLREC",
+       "ElementType": 1,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 80,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FBILLPARAMOUNT",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "票面金额本位币"
+        },
+        {
+         "Key": 1033,
+         "Value": "Face Value (Functional Currency)"
+        },
+        {
+         "Key": 3076,
+         "Value": "票面金額本位幣"
+        }
+       ],
+       "FieldName": "FBILLPARAMOUNT",
+       "PropertyName": "BILLPARAMOUNT",
+       "FieldType": 106,
+       "EntityKey": "FBILLRECEIVABLEENTRY",
+       "TableName": "T_AR_RECEIVEBILLREC",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FPARLEFTAMOUNTSTD",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "可用余额本位币"
+        },
+        {
+         "Key": 1033,
+         "Value": "Available Balance (Functional Currency)"
+        },
+        {
+         "Key": 3076,
+         "Value": "可用餘額本位幣"
+        }
+       ],
+       "FieldName": "FPARLEFTAMOUNTSTD",
+       "PropertyName": "PARLEFTAMOUNTSTD",
+       "FieldType": 106,
+       "EntityKey": "FBILLRECEIVABLEENTRY",
+       "TableName": "T_AR_RECEIVEBILLREC",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FUSEDAMOUNTSTD",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "当前占用金额本位币"
+        },
+        {
+         "Key": 1033,
+         "Value": "Occupancy Amount (Functional Currency)"
+        },
+        {
+         "Key": 3076,
+         "Value": "當前占用金額本位幣"
+        }
+       ],
+       "FieldName": "FUSEDAMOUNTSTD",
+       "PropertyName": "USEDAMOUNTSTD",
+       "FieldType": 106,
+       "EntityKey": "FBILLRECEIVABLEENTRY",
+       "TableName": "T_AR_RECEIVEBILLREC",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FBPBILLPARAMOUNT",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "票面金额"
+        },
+        {
+         "Key": 1033,
+         "Value": "Face Value"
+        },
+        {
+         "Key": 3076,
+         "Value": "票面金額"
+        }
+       ],
+       "FieldName": "FBPBILLPARAMOUNT",
+       "PropertyName": "FBPBILLPARAMOUNT",
+       "FieldType": 106,
+       "EntityKey": "FBILLRECEIVABLEENTRY",
+       "TableName": "T_AR_RECEIVEBILLREC",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      }
+     ],
+     "EntityType": "EntryEntity",
+     "SeqFieldKey": "FSEQ"
+    },
+    {
+     "Id": "988826e2-dbf9-464c-8e9f-7f14c5356839",
+     "Key": "FBILLSKDRECENTRY",
+     "Name": [
+      {
+       "Key": 2052,
+       "Value": "应收票据背书"
+      },
+      {
+       "Key": 1033,
+       "Value": "Bills Receivable Endorsement"
+      },
+      {
+       "Key": 3076,
+       "Value": "應收票據背書"
+      }
+     ],
+     "TableName": "T_CN_RECEIVABLEREC",
+     "ParentKey": null,
+     "EntryName": "BILLSKDRECEIVABLEENTRY",
+     "EntryPkFieldName": "FEntryID",
+     "PkFieldType": "System.Int64, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089",
+     "Fields": [
+      {
+       "Key": "FInnerActId",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "内部账户"
+        },
+        {
+         "Key": 1033,
+         "Value": "Internal Account"
+        },
+        {
+         "Key": 3076,
+         "Value": "內部賬戶"
+        }
+       ],
+       "FieldName": "FINNERACTID",
+       "PropertyName": "InnerActId",
+       "FieldType": 127,
+       "EntityKey": "FBILLSKDRECENTRY",
+       "TableName": "T_CN_RECEIVABLEREC",
+       "ElementType": 13,
+       "MustInput": 0,
+       "LookUpObjectFormId": "CN_INNERACCOUNT",
+       "LookUpObjectID": "000ffecf-8764-8232-11e2-fe7a3c926ab7",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "0,201"
+      },
+      {
+       "Key": "FReceivebleBillId",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "票据流水号"
+        },
+        {
+         "Key": 1033,
+         "Value": "Bill No. (System)"
+        },
+        {
+         "Key": 3076,
+         "Value": "票據流水號"
+        }
+       ],
+       "FieldName": "FRECEIVEBLEBILLID",
+       "PropertyName": "ReceivebleBillId",
+       "FieldType": 127,
+       "EntityKey": "FBILLSKDRECENTRY",
+       "TableName": "T_CN_RECEIVABLEREC",
+       "ElementType": 13,
+       "MustInput": 0,
+       "LookUpObjectFormId": "V_CN_BILLRECEIVABLE",
+       "LookUpObjectID": "ab4de423-c93d-4ce9-b571-450e0747ca86",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": false,
+       "IsEditLock": false,
+       "Editlen": 0,
+       "ConditionType": "0,201"
+      },
+      {
+       "Key": "FPayPurse",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "收款用途"
+        },
+        {
+         "Key": 1033,
+         "Value": "Purpose of Payment"
+        },
+        {
+         "Key": 3076,
+         "Value": "付款用途"
+        }
+       ],
+       "FieldName": "FPAYPURSE",
+       "PropertyName": "PayPurse",
+       "FieldType": 127,
+       "EntityKey": "FBILLSKDRECENTRY",
+       "TableName": "T_CN_RECEIVABLEREC",
+       "ElementType": 13,
+       "MustInput": 0,
+       "LookUpObjectFormId": "CN_RECPAYPURPOSE",
+       "LookUpObjectID": "8dcde2fb-ece5-4dde-ad55-1bebef63ee4c",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "0,201"
+      },
+      {
+       "Key": "FReturnAmount",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "背书退回金额"
+        },
+        {
+         "Key": 1033,
+         "Value": "Amount of Endorsement Return"
+        },
+        {
+         "Key": 3076,
+         "Value": "背書退回金額"
+        }
+       ],
+       "FieldName": "FRETURNAMOUNT",
+       "PropertyName": "ReturnAmount",
+       "FieldType": 106,
+       "EntityKey": "FBILLSKDRECENTRY",
+       "TableName": "T_CN_RECEIVABLEREC",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1,13,200"
+      },
+      {
+       "Key": "FParAmount",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "票面金额"
+        },
+        {
+         "Key": 1033,
+         "Value": "Face Value"
+        },
+        {
+         "Key": 3076,
+         "Value": "票面金額"
+        }
+       ],
+       "FieldName": "FPARAMOUNT",
+       "PropertyName": "ParAmount",
+       "FieldType": 106,
+       "EntityKey": "FBILLSKDRECENTRY",
+       "TableName": "T_CN_RECEIVABLEREC",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1,13,200"
+      },
+      {
+       "Key": "FBCONTACTUNITTYPE",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "往来单位类型"
+        },
+        {
+         "Key": 1033,
+         "Value": "Type of Reciprocal Unit"
+        },
+        {
+         "Key": 3076,
+         "Value": "往來單位類型"
+        }
+       ],
+       "FieldName": "FBCONTACTUNITTYPE",
+       "PropertyName": "FBCONTACTUNITTYPE",
+       "FieldType": 231,
+       "EntityKey": "FBILLSKDRECENTRY",
+       "TableName": "T_CN_RECEIVABLEREC",
+       "ElementType": 9,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": [
+        {
+         "Value": "FIN_OTHERS",
+         "Caption": "其他往来单位",
+         "Seq": 0,
+         "Invalid": false
+        },
+        {
+         "Value": "BD_Supplier",
+         "Caption": "供应商",
+         "Seq": 0,
+         "Invalid": false
+        },
+        {
+         "Value": "BD_Customer",
+         "Caption": "客户",
+         "Seq": 0,
+         "Invalid": false
+        },
+        {
+         "Value": "ORG_Organizations",
+         "Caption": "组织机构",
+         "Seq": 0,
+         "Invalid": false
+        }
+       ],
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "5"
+      },
+      {
+       "Key": "FBCONTACTUNIT",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "往来单位"
+        },
+        {
+         "Key": 1033,
+         "Value": "Reciprocal Unit"
+        },
+        {
+         "Key": 3076,
+         "Value": "往來單位"
+        }
+       ],
+       "FieldName": "FBCONTACTUNIT",
+       "PropertyName": "FBCONTACTUNIT",
+       "FieldType": 56,
+       "EntityKey": "FBILLSKDRECENTRY",
+       "TableName": "T_CN_RECEIVABLEREC",
+       "ElementType": 16,
+       "MustInput": 0,
+       "LookUpObjectFormId": "BOS_ItemClass",
+       "LookUpObjectID": "BOS_ItemClass",
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": "FBCONTACTUNITTYPE",
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FKDBPARBILLNO",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "票据（包）号"
+        },
+        {
+         "Key": 1033,
+         "Value": "Bill No."
+        },
+        {
+         "Key": 3076,
+         "Value": "票據號"
+        }
+       ],
+       "FieldName": "FKDBPARBILLNO",
+       "PropertyName": "FKDBPARBILLNO",
+       "FieldType": 231,
+       "EntityKey": "FBILLSKDRECENTRY",
+       "TableName": "T_CN_RECEIVABLEREC",
+       "ElementType": 1,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": true,
+       "IsEditVisible": true,
+       "IsNewVisible": true,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 80,
+       "ConditionType": "0"
+      },
+      {
+       "Key": "FPARAMOUNTSTD",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "票面金额本位币"
+        },
+        {
+         "Key": 1033,
+         "Value": "Face Value (Functional Currency)"
+        },
+        {
+         "Key": 3076,
+         "Value": "票面金額本位幣"
+        }
+       ],
+       "FieldName": "FPARAMOUNTSTD",
+       "PropertyName": "PARAMOUNTSTD",
+       "FieldType": 106,
+       "EntityKey": "FBILLSKDRECENTRY",
+       "TableName": "T_CN_RECEIVABLEREC",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      },
+      {
+       "Key": "FReturnAmountStd",
+       "Name": [
+        {
+         "Key": 2052,
+         "Value": "背书退回金额本位币"
+        },
+        {
+         "Key": 1033,
+         "Value": "Amount of Endorsement Return (Functional Currency)"
+        },
+        {
+         "Key": 3076,
+         "Value": "背書退回金額本位幣"
+        }
+       ],
+       "FieldName": "FRETURNAMOUNTSTD",
+       "PropertyName": "RETURNAMOUNTSTD",
+       "FieldType": 106,
+       "EntityKey": "FBILLSKDRECENTRY",
+       "TableName": "T_CN_RECEIVABLEREC",
+       "ElementType": 21,
+       "MustInput": 0,
+       "LookUpObjectFormId": null,
+       "LookUpObjectID": null,
+       "EnumObjectId": null,
+       "Extends": null,
+       "ControlFieldKey": null,
+       "GroupFieldTableName": null,
+       "DefValue": "",
+       "IsViewVisible": false,
+       "IsEditVisible": false,
+       "IsNewVisible": false,
+       "IsNewLock": true,
+       "IsEditLock": true,
+       "Editlen": 0,
+       "ConditionType": "1"
+      }
+     ],
+     "EntityType": "EntryEntity",
+     "SeqFieldKey": "FSEQ"
+    }
+   ],
+   "Operations": [
+    {
+     "OperationId": 0,
+     "OperationNumber": "Delete",
+     "OperationName": [
+      {
+       "Key": 2052,
+       "Value": "删除"
+      }
+     ]
+    },
+    {
+     "OperationId": 0,
+     "OperationNumber": "Draft",
+     "OperationName": [
+      {
+       "Key": 2052,
+       "Value": "暂存"
+      }
+     ]
+    },
+    {
+     "OperationId": 0,
+     "OperationNumber": "Save",
+     "OperationName": [
+      {
+       "Key": 2052,
+       "Value": "保存"
+      }
+     ]
+    },
+    {
+     "OperationId": 0,
+     "OperationNumber": "View",
+     "OperationName": [
+      {
+       "Key": 2052,
+       "Value": "查看"
+      }
+     ]
+    },
+    {
+     "OperationId": 0,
+     "OperationNumber": "Submit",
+     "OperationName": [
+      {
+       "Key": 2052,
+       "Value": "提交"
+      }
+     ]
+    },
+    {
+     "OperationId": 0,
+     "OperationNumber": "Audit",
+     "OperationName": [
+      {
+       "Key": 2052,
+       "Value": "审核"
+      }
+     ]
+    },
+    {
+     "OperationId": 0,
+     "OperationNumber": "UnAudit",
+     "OperationName": [
+      {
+       "Key": 2052,
+       "Value": "反审核"
+      }
+     ]
+    },
+    {
+     "OperationId": 0,
+     "OperationNumber": "CancelAssign",
+     "OperationName": [
+      {
+       "Key": 2052,
+       "Value": "撤销"
+      }
+     ]
+    },
+    {
+     "OperationId": 0,
+     "OperationNumber": "Push",
+     "OperationName": [
+      {
+       "Key": 2052,
+       "Value": "下推"
+      }
+     ]
+    },
+    {
+     "OperationId": 0,
+     "OperationNumber": "Cancel",
+     "OperationName": [
+      {
+       "Key": 2052,
+       "Value": "作废"
+      }
+     ]
+    },
+    {
+     "OperationId": 0,
+     "OperationNumber": "ALLReFund",
+     "OperationName": [
+      {
+       "Key": 2052,
+       "Value": "整单退款"
+      }
+     ]
+    },
+    {
+     "OperationId": 0,
+     "OperationNumber": "None",
+     "OperationName": [
+      {
+       "Key": 2052,
+       "Value": "None"
+      }
+     ]
+    },
+    {
+     "OperationId": 0,
+     "OperationNumber": "ValidateUser",
+     "OperationName": [
+      {
+       "Key": 2052,
+       "Value": "登录"
+      }
+     ]
+    },
+    {
+     "OperationId": 0,
+     "OperationNumber": "BatchSave",
+     "OperationName": [
+      {
+       "Key": 2052,
+       "Value": "批量保存"
+      }
+     ]
+    },
+    {
+     "OperationId": 0,
+     "OperationNumber": "ExecuteBillQuery",
+     "OperationName": [
+      {
+       "Key": 2052,
+       "Value": "单据查询"
+      }
+     ]
+    },
+    {
+     "OperationId": 0,
+     "OperationNumber": "BillQuery",
+     "OperationName": [
+      {
+       "Key": 2052,
+       "Value": "单据查询(json)"
+      }
+     ]
+    },
+    {
+     "OperationId": 0,
+     "OperationNumber": "QueryBusinessInfo",
+     "OperationName": [
+      {
+       "Key": 2052,
+       "Value": "元数据查询"
+      }
+     ]
+    },
+    {
+     "OperationId": 0,
+     "OperationNumber": "WorkflowAudit",
+     "OperationName": [
+      {
+       "Key": 2052,
+       "Value": "工作流审批"
+      }
+     ]
+    },
+    {
+     "OperationId": 0,
+     "OperationNumber": "SwitchOrg",
+     "OperationName": [
+      {
+       "Key": 2052,
+       "Value": "切换组织"
+      }
+     ]
+    }
+   ],
+   "MasterPKFieldName": null,
+   "PkFieldName": "FID",
+   "PkFieldType": "System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089",
+   "LinkSet": {
+    "IsNeedLinkTable": true,
+    "LinkEntitys": [
+     {
+      "ParentEntityKey": "FRECEIVEBILLSRCENTRY",
+      "SrcBillTypeKey": "FSRCBILLTYPEID",
+      "SrcBillNoKey": "FSRCBILLNO",
+      "Key": "FRECEIVEBILLSRCENTRY_Link",
+      "TableName": "T_AR_RECEIVEBILLSRCENTRY_LK",
+      "WriteBackFieldKeys": [
+       "FREALRECAMOUNT"
+      ]
+     }
+    ]
+   }
   }
- ],
- "resField": null,
- "requestJson": "{\"FormId\":\"\"}",
- "responseJson": "{\"Result\":{\"ResponseStatus\":\"\",\"NeedReturnData\":\"{}\"}}"
+ }
 }

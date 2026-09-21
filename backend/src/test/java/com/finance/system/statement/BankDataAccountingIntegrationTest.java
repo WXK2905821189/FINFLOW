@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -48,9 +49,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * 一键 AI 制证（2026-09-16）：转入（幂等）→ AI 建议降级 → 复核闸门内化 → 推送金蝶（测试环境
  * 为 mock 网关）。覆盖：正常链路、纯人工制证账户跳过、重复调用幂等、人工驳回结果被尊重。
+ *
+ * <p><b>显式指定出纳单落点</b>：2026-09-21 起 {@code kingdee.voucher-target} 默认 {@code GL}
+ * （总账凭证）——本类断言的是**收付款单链路**（KD-MOCK-* 凭证号、pushStatus=PUSHED），
+ * 故在此固定为 {@code BILL}；总账落点的覆盖见 {@code AiGlVoucherRoutingIntegrationTest}。</p>
  */
 @SpringBootTest
 @ActiveProfiles("dev")
+@TestPropertySource(properties = "kingdee.voucher-target=BILL")
 class BankDataAccountingIntegrationTest {
 
     @Autowired

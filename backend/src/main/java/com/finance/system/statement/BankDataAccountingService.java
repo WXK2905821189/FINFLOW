@@ -76,6 +76,8 @@ public class BankDataAccountingService {
     private final RbacService rbacService;
     private final ObjectMapper objectMapper;
     private final com.finance.system.closing.ClosingService closingService;
+    private final com.finance.system.statement.kingdee.KingdeeProperties kingdeeProps;
+    private final com.finance.system.statement.voucherrule.KingdeeVoucherEngineService voucherEngine;
 
     public BankDataAccountingService(BankDataStatementMapper bankDataStatementMapper,
                                      BankAccountMapper bankAccountMapper,
@@ -86,7 +88,9 @@ public class BankDataAccountingService {
                                      CompanyScopeService companyScope,
                                      RbacService rbacService,
                                      ObjectMapper objectMapper,
-                                     com.finance.system.closing.ClosingService closingService) {
+                                     com.finance.system.closing.ClosingService closingService,
+                                     com.finance.system.statement.kingdee.KingdeeProperties kingdeeProps,
+                                     com.finance.system.statement.voucherrule.KingdeeVoucherEngineService voucherEngine) {
         this.bankDataStatementMapper = bankDataStatementMapper;
         this.bankAccountMapper = bankAccountMapper;
         this.recordMapper = recordMapper;
@@ -97,6 +101,8 @@ public class BankDataAccountingService {
         this.rbacService = rbacService;
         this.objectMapper = objectMapper;
         this.closingService = closingService;
+        this.kingdeeProps = kingdeeProps;
+        this.voucherEngine = voucherEngine;
     }
 
     @Transactional
@@ -251,6 +257,12 @@ public class BankDataAccountingService {
             }
         }
 
+        // 落点分流（2026-09-21 方案 B）：GL = 总账凭证 GL_VOUCHER（默认，账套未启用出纳模块时的
+        // 唯一可用落点）；BILL = 出纳收付款单 AP_PAYBILL/AR_RECEIVEBILL（出纳启用后可切回）。
+        if (kingdeeProps.isGlTarget()) {
+            return pushGlRoute(row, statementNo, record, operatorId, aiStatus, aiNote, suggestion);
+        }
+
         try {
             StatementResponse pushed = statementService.pushVoucher(record.getId(), operatorId);
             if ("PUSHED".equals(pushed.pushStatus())) {
@@ -277,6 +289,42 @@ public class BankDataAccountingService {
                     suggestion == null ? null : suggestion.suggestedSubject(),
                     suggestion == null ? null : suggestion.confidence(),
                     null, record.getPushStatus(), e.getMessage());
+        }
+    }
+
+    /**
+     * GL 落点推送（方案 B）：走规则引擎的 GL_VOUCHER 链路（科目校验 + 银行账号维度 + 状态回写
+     * GL_PUSHED/GL_FAILED）。失败消息原样带回，前端「凭证中心」据此渲染诊断。
+     */
+    private AiVoucherRowResult pushGlRoute(BankDataStatement row, String statementNo,
+                                           StatementRecord record, Long operatorId,
+                                           String aiStatus, String aiNote,
+                                           com.finance.system.ai.dto.AiAccountingSuggestionResponse suggestion) {
+        try {
+            com.finance.system.statement.voucherrule.KingdeeVoucherEngineService.KingdeeVoucherPushResult pushed =
+                    voucherEngine.pushAiVoucher(record.getId(), operatorId);
+            return new AiVoucherRowResult(row.getId(), statementNo, "PUSHED", aiStatus,
+                    suggestion == null ? null : suggestion.businessCategory(),
+                    suggestion == null ? null : suggestion.suggestedSummary(),
+                    suggestion == null ? null : suggestion.suggestedSubject(),
+                    suggestion == null ? null : suggestion.confidence(),
+                    pushed.voucherNo(), "GL_PUSHED",
+                    aiNote == null ? trimToEmpty(pushed.message())
+                            : "AI 建议不可用（" + aiNote + "）；" + trimToEmpty(pushed.message()));
+        } catch (BusinessException e) {
+            // 组装/推送失败：状态与原因落库，保证「凭证中心」能看到失败原因（用户诉求：报错一定要说明）
+            recordMapper.update(null, new LambdaUpdateWrapper<StatementRecord>()
+                    .set(StatementRecord::getPushStatus, "GL_FAILED")
+                    .set(StatementRecord::getPushMessage, trimToNull(e.getMessage()))
+                    .eq(StatementRecord::getId, record.getId()));
+            insertAudit(record, "GL_VOUCHER_PUSH", "FAILED", record.getPushStatus(), "GL_FAILED",
+                    operatorId, e.getMessage());
+            return new AiVoucherRowResult(row.getId(), statementNo, "FAILED", aiStatus,
+                    suggestion == null ? null : suggestion.businessCategory(),
+                    suggestion == null ? null : suggestion.suggestedSummary(),
+                    suggestion == null ? null : suggestion.suggestedSubject(),
+                    suggestion == null ? null : suggestion.confidence(),
+                    null, "GL_FAILED", e.getMessage());
         }
     }
 
@@ -562,5 +610,10 @@ public class BankDataAccountingService {
 
     private static String trimToEmpty(String value) {
         return value == null ? "" : value;
+    }
+
+    /** 空串归一为 null（推送消息列的可空语义）。 */
+    private static String trimToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 }

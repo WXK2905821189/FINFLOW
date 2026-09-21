@@ -3,7 +3,6 @@ package com.finance.system.statement.voucherrule;
 import com.finance.system.domain.entity.BankAccount;
 import com.finance.system.domain.entity.Company;
 import com.finance.system.domain.entity.StatementRecord;
-import com.finance.system.statement.kingdee.KingdeeProperties;
 import com.finance.system.statement.voucherrule.dto.KingdeeVoucherEntryDraft;
 import com.finance.system.statement.voucherrule.dto.KingdeeVoucherRulePreview;
 import com.finance.system.statement.voucherrule.dto.KingdeeVoucherRuleResponse;
@@ -51,14 +50,11 @@ public class KingdeeVoucherMatchingService {
 
     private final KingdeeVoucherRuleService ruleService;
     private final KingdeeOrgResolver orgResolver;
-    private final KingdeeProperties kingdeeProps;
 
     public KingdeeVoucherMatchingService(KingdeeVoucherRuleService ruleService,
-                                         KingdeeOrgResolver orgResolver,
-                                         KingdeeProperties kingdeeProps) {
+                                         KingdeeOrgResolver orgResolver) {
         this.ruleService = ruleService;
         this.orgResolver = orgResolver;
-        this.kingdeeProps = kingdeeProps;
     }
 
     /**
@@ -179,13 +175,19 @@ public class KingdeeVoucherMatchingService {
                                          String orgCode) {
         String dimension = t.dimension() == null ? "NONE" : t.dimension();
         return switch (dimension) {
-            case "BANK_ACCOUNT" -> kingdeeProps.getDefaultBankAccountNumber();
+            // 账户级映射（2026-09-21）：维度值跟随该笔流水所属的我方账户；未映射返回 null，
+            // 由推送环节（KingdeeVoucherEngineService#push）阻断并提示补映射，预览不受影响。
+            case "BANK_ACCOUNT" -> account == null ? null : blankToNull(account.getKingdeeAccountNumber());
             case "ORG" -> orgCode;
             case "SUPPLIER", "CUSTOMER", "COUNTERPARTY", "EMPLOYEE" -> statement.getCounterpartyName();
             case "FIXED" -> t.value();
             case BRANCH_DIM -> resolveSummaryBranch(t, statement.getSummary());
             default -> null; // NONE
         };
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     private static String resolveSummaryBranch(KingdeeVoucherRuleResponse.LineTemplate t, String summary) {

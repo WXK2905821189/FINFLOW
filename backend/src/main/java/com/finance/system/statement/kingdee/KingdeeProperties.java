@@ -106,6 +106,60 @@ public class KingdeeProperties {
      */
     private String glAcctbookNumber = "400";
 
+    /**
+     * 制证落点（2026-09-21 方案 B）：{@code GL} = 总账凭证 GL_VOUCHER（默认）；
+     * {@code BILL} = 出纳收付款单 AP_PAYBILL/AR_RECEIVEBILL。
+     *
+     * <p>切到 GL 的原因：真实账套境内主体均未启用「出纳管理」模块（FIX-007 实测），
+     * 收付款单保存一律被拒；总账模块已开通且有历史凭证（账簿 400）。出纳模块启用后
+     * 可用 {@code KINGDEE_VOUCHER_TARGET=BILL} 切回，两条链路共用凭据/状态机/规则引擎。</p>
+     */
+    private String voucherTarget = "GL";
+
+    /**
+     * GL_VOUCHER 弹性域槽位：银行账号维度（账套维度类型 ZDY0001）落位。
+     *
+     * <p>2026-09-21 真实账套实测：报文形态必须两层——
+     * {@code "FDetailID": {"FDETAILID__FF100002": {"FNumber": "<CN_BANKACNT 账号>"}}}，
+     * 内层键是带前缀的完整字段名（裸槽位名 FF100002 无效，数组形态会报类型转换异常）。
+     * 槽位归属：FF100002=银行账号 / FFLEX4=供应商 / FFLEX5=部门 / FFLEX6=客户 /
+     * FFLEX7=员工 / FFLEX8=物料 / FFLEX9=费用项目 / FFLEX10=资产类别 / FFLEX11=组织机构 /
+     * FFLEX12=物料分组 / FFLEX13=客户分组。</p>
+     */
+    private String glBankDimensionSlot = "FF100002";
+
+    /** 科目目录（BD_Account）缓存有效期（秒）：科目校验与维度需求判定用，避免每次推送都拉全表。 */
+    private Integer accountCatalogTtlSeconds = 600;
+
+    public String getVoucherTarget() {
+        return voucherTarget;
+    }
+
+    public void setVoucherTarget(String voucherTarget) {
+        this.voucherTarget = voucherTarget;
+    }
+
+    public String getGlBankDimensionSlot() {
+        return glBankDimensionSlot;
+    }
+
+    public void setGlBankDimensionSlot(String glBankDimensionSlot) {
+        this.glBankDimensionSlot = glBankDimensionSlot;
+    }
+
+    public Integer getAccountCatalogTtlSeconds() {
+        return accountCatalogTtlSeconds;
+    }
+
+    public void setAccountCatalogTtlSeconds(Integer accountCatalogTtlSeconds) {
+        this.accountCatalogTtlSeconds = accountCatalogTtlSeconds;
+    }
+
+    /** 落点是否为总账凭证（GL）。 */
+    public boolean isGlTarget() {
+        return voucherTarget == null || "GL".equalsIgnoreCase(voucherTarget.trim());
+    }
+
     public String getGlVoucherGroupNumber() {
         return glVoucherGroupNumber;
     }

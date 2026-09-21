@@ -101,6 +101,12 @@ export type VoucherEntry = {
   direction: 'DEBIT' | 'CREDIT';
   amount: number | string;
   confidence?: number | null;
+  /**
+   * 辅助核算维度（供应商 / 客户 / 员工 / 银行账号 / 部门·项目 等，2026-09-21 预留）。
+   * 后端分录目前不产出该字段（随金蝶凭证规则引擎落地）；为 null 时详情页不渲染该列，
+   * 数据一到即自动出现，避免先摆一个空列。
+   */
+  dimension?: string | null;
 };
 
 /** 凭证草稿的结构化 AI 建议（GET /statements/{id} 的 aiSuggestion 字段，V33）。 */

@@ -38,7 +38,12 @@ import type {
   CompanyArchiveAccount,
   BankConnectionTestResult,
   BankAccountCreatePayload,
+  KingdeeMappingRow,
+  KingdeeMappingPreview,
+  KingdeeMatchResult,
   AiVoucherBatchResult,
+  AiVoucherSubmitResult,
+  AiVoucherJobResult,
   AiCompanySuggestionResponse,
   AiCompanyApplyResponse,
   AiVoucherSuggestion,
@@ -88,6 +93,16 @@ export const bankApi = {
   testConnection: (id: number) => http.post<never, BankConnectionTestResult>(`/bank-accounts/${id}/test-connection`),
   /** 档案移除（bank:manage，V32 软删除）：历史流水/余额保留，全链路自动隐藏。 */
   deleteAccount: (id: number) => http.delete<never, void>(`/bank-accounts/${id}`),
+  /**
+   * 金蝶账户映射预演（bank:manage，只读，V41）：列出每个账户与金蝶 CN_BANKACNT 档案的
+   * 匹配判定（可自动匹配 / 跨组织多义 / 未命中虚拟账户 / 无需映射）。
+   */
+  kingdeeMapping: () => http.get<never, KingdeeMappingPreview>('/bank-accounts/kingdee-mapping'),
+  /** 一键自动匹配（bank:manage）：只写回唯一命中，多义与未命中留给人工指定。 */
+  autoMatchKingdee: () => http.post<never, KingdeeMatchResult>('/bank-accounts/kingdee-mapping/auto-match'),
+  /** 人工指定某账户的金蝶银行账号档案编码；空白表示清除映射。 */
+  setKingdeeMapping: (id: number, kingdeeAccountNumber: string) =>
+    http.put<never, KingdeeMappingRow>(`/bank-accounts/${id}/kingdee-mapping`, { kingdeeAccountNumber }),
 };
 
 export const userApi = {
@@ -496,9 +511,17 @@ export const bankPipelineApi = {
   /** 银行流水一键转入标准流水（流水与入账）；服务端按银行流水行的公司归属落批次。 */
   transferFromBankdata: (data: { statementIds: number[] }) =>
     http.post<never, StatementTransferResult>('/statements/transfer-from-bankdata', data),
-  /** 一键 AI 制证（2026-09-16；2026-09-17 扩展 DRAFT）：转入 → AI 建议 → DRAFT=生成草稿待人工复核 / PUSH=复核内化后直接推送金蝶。 */
+  /**
+   * 一键 AI 制证（2026-09-16；2026-09-17 扩 DRAFT；2026-09-21 DRAFT 异步化）：
+   * 转入 → AI 建议 → DRAFT=提交**后台任务**立即返回（进度/结果去凭证中心看）/
+   * PUSH=复核内化后同步推送金蝶（返回同步结果）。
+   */
   aiVoucher: (data: { statementIds: number[]; mode?: 'DRAFT' | 'PUSH' }) =>
-    http.post<never, AiVoucherBatchResult>('/bank-data/statements/ai-voucher', data),
+    http.post<never, AiVoucherSubmitResult>('/bank-data/statements/ai-voucher', data),
+  /** AI 制证后台任务：本公司最近一个任务（凭证中心轮询，含逐行结果与失败原因）。 */
+  latestAiVoucherJob: () => http.get<never, AiVoucherJobResult | null>('/bank-data/ai-voucher-jobs/latest'),
+  /** AI 制证后台任务详情（按任务号；跨公司需 bankdata:cross-company:view）。 */
+  aiVoucherJob: (id: number) => http.get<never, AiVoucherJobResult>(`/bank-data/ai-voucher-jobs/${id}`),
   /** 定时同步计划（V25）：读取全部计划时刻（查看权限即可读）。 */
   listSchedules: () => http.get<never, BankSyncScheduleRow[]>('/bank-sync-schedules'),
   /** 新建计划时刻（HH:mm，禁整点/半点；bank:manage）。 */

@@ -148,7 +148,8 @@ public class BankAccountService extends ServiceImpl<BankAccountMapper, BankAccou
                 maskAccountNumber(account.getAccountNumber()), account.getCurrency(), account.getAvailableBalance(),
                 account.getStatus(), view.status(), view.lastRealSyncAt(),
                 account.getCompanyId(), company == null ? null : company.getName(),
-                account.getAccountingMode() == null ? "KINGDEE_AUTO" : account.getAccountingMode());
+                account.getAccountingMode() == null ? "KINGDEE_AUTO" : account.getAccountingMode(),
+                account.getKingdeeAccountNumber());
     }
 
     private String maskAccountNumber(String accountNumber) {

@@ -10,6 +10,7 @@ import { useRemote, ResourceFailure } from '../shared/components';
 import { ExcelGrid } from '../bank-access/grid/ExcelGrid';
 import type { GridRow } from '../bank-access/grid/kernel';
 import { AuditDrawer } from '../statements/pages';
+import { AiVoucherJobBanner } from './AiVoucherJobBanner';
 import { VOUCHER_GROUP_FILTERS } from './voucherTexts';
 import { voucherCenterColumns, toVoucherGridRows } from './VoucherCenterGridColumns';
 import type { VoucherGroupFilter, VoucherGroupRow } from './types';
@@ -174,6 +175,9 @@ export function VoucherCenterPage() {
         onSearch={(value) => { setPage(1); setKeyword(value.trim()); }}
       />
     </Space>
+    {/* 2026-09-21（V40）：DRAFT 制证已后台化，任务进度与逐行结果在此展示；
+        任务完成后刷新列表，让新生成的草稿立即出现在下方。 */}
+    {canPush && <AiVoucherJobBanner onFinished={() => { void reload(); }} />}
     <Card>
       {error ? <ResourceFailure error={error} onRetry={reload} /> : <>
         <ExcelGrid

@@ -37,7 +37,7 @@ jobs:
            test -f "$migration_dir/V14__retire_dead_transfer_permissions.sql"
            test -f backend/src/main/resources/db/vendor-migration/h2/V7__drop_legacy_statement_number_uniqueness.sql
            test -f backend/src/main/resources/db/vendor-migration/mysql/V7__drop_legacy_statement_number_uniqueness.sql
-           expected_versions=(V1 V2 V3 V4 V5 V6 V8 V9 V10 V11 V12 V13 V14 V15 V16 V17 V18 V19 V20 V21 V22 V23 V24 V25 V26 V27 V28 V29 V30 V31 V32 V33 V34 V35 V37 V38 V39)
+           expected_versions=(V1 V2 V3 V4 V5 V6 V8 V9 V10 V11 V12 V13 V14 V15 V16 V17 V18 V19 V20 V21 V22 V23 V24 V25 V26 V27 V28 V29 V30 V31 V32 V33 V34 V35 V37 V38 V39 V40 V41)
           actual_versions=()
           while IFS= read -r migration; do
             version="${migration##*/}"
@@ -85,25 +85,49 @@ jobs:
           test -f "$migration_dir/V39__statement_withdraw.sql"
           grep -q 'ADD COLUMN withdrawn_at' "$migration_dir/V39__statement_withdraw.sql"
           grep -q 'ADD COLUMN withdrawn_by' "$migration_dir/V39__statement_withdraw.sql"
+          test -f "$migration_dir/V40__ai_voucher_job.sql"
+          grep -q 'CREATE TABLE ai_voucher_job' "$migration_dir/V40__ai_voucher_job.sql"
+          grep -q 'idx_ai_voucher_job_company_created' "$migration_dir/V40__ai_voucher_job.sql"
+          test -f "$migration_dir/V41__bank_account_kingdee_mapping.sql"
+          grep -q 'ALTER TABLE bank_account ADD COLUMN kingdee_account_number' "$migration_dir/V41__bank_account_kingdee_mapping.sql"
           grep -q 'CREATE TABLE bank_data_raw_message' "$migration_dir/V4__bank_data_access_foundation.sql"
           grep -q 'retention_until TIMESTAMP NOT NULL' "$migration_dir/V4__bank_data_access_foundation.sql"
-          grep -q 'raw.setRetentionUntil(receivedAt.plusDays(30))' backend/src/main/java/com/finance/system/bankdata/BankDataSyncEvidenceService.java
+          # --- Java-source assertions: policy (2026-09-21, review A6) ------------------
+          # Everything below is a *structural* guard: it asserts that a named construct
+          # exists in a named file. It is deliberately not a substitute for a unit test,
+          # so a legitimate rename/repackage can turn it red while the behaviour is still
+          # intact — when that happens, fix the assertion first; do not assume a regression.
+          # Patterns stay at token/behaviour level (never an exact statement) so that
+          # renaming a local variable or reformatting cannot fail the build.
+          # ---------------------------------------------------------------------------
+          # raw evidence must be kept for 30 days: any receiver/format is fine, but
+          # changing the retention window itself must fail.
+          grep -qE 'setRetentionUntil\([^()]*plusDays\([[:space:]]*30[[:space:]]*\)' backend/src/main/java/com/finance/system/bankdata/BankDataSyncEvidenceService.java
+          # raw evidence is written in its own transaction so a later failure cannot lose it
           grep -q 'Propagation.REQUIRES_NEW' backend/src/main/java/com/finance/system/bankdata/BankDataSyncEvidenceService.java
+          # the daily sweep stays on a Spring scheduler
           grep -q '@Scheduled' backend/src/main/java/com/finance/system/bankdata/BankDataSyncScheduler.java
+          # POST /bank-sync-jobs is the manual top-up contract — the path itself is the contract
           grep -q '@PostMapping("/bank-sync-jobs")' backend/src/main/java/com/finance/system/bankdata/BankPipelineController.java
           # mock adapters are test-only fixtures since the de-mock cleanup: they must never
           # ship inside src/main (a production mock fallback would defeat fail-closed routing)
           ! grep -q 'class MockBankDataAdapter' backend/src/main/java/com/finance/system/bankdata/adapter/MockBankDataAdapter.java 2>/dev/null
           test -f backend/src/test/java/com/finance/system/bankdata/adapter/MockBankDataAdapter.java
           grep -q 'class MockBankDataAdapter' backend/src/test/java/com/finance/system/bankdata/adapter/MockBankDataAdapter.java
+          # manual top-up accepts a caller-supplied requestId (the idempotency key). This is the
+          # only requestId assertion needed — the bare-token duplicate below it was dropped.
           grep -q 'String requestId' backend/src/main/java/com/finance/system/bankdata/BankPipelineController.java
           grep -q 'url: \${DB_URL}' backend/src/main/resources/application-prod.yml
           grep -q 'username: \${DB_USERNAME}' backend/src/main/resources/application-prod.yml
           grep -q 'password: \${DB_PASSWORD}' backend/src/main/resources/application-prod.yml
           ! grep -q 'DB_USERNAME:finance' backend/src/main/resources/application-prod.yml
           ! grep -q 'useSSL=false' backend/src/main/resources/application-prod.yml
-          grep -q 'requestId' backend/src/main/java/com/finance/system/bankdata/BankPipelineController.java
-          grep -q 'case UNKNOWN ->' backend/src/main/java/com/finance/system/bankdata/aggregation/BankDataAggregationService.java
+          # UNKNOWN must keep an explicit branch in the status -> summary mapping. NOTE:
+          # BankDataStatus.UNKNOWN is also used elsewhere in this file as a value, so the
+          # branch label is the only meaningful anchor (a pattern matching the bare enum
+          # constant would stay green even after the branch is deleted). Pin the label only,
+          # so switching between `case X ->` and `case X:` syntax stays green.
+          grep -q 'case UNKNOWN' backend/src/main/java/com/finance/system/bankdata/aggregation/BankDataAggregationService.java
           grep -q 'request_id' backend/src/main/resources/db/migration/V8__payment_request_audit_and_unknown_resolution.sql
           grep -q 'CONSTRAINT uk_bank_statement_business UNIQUE (company_id, bank_account_id, statement_no, transaction_time, amount)' "$migration_dir/V4__bank_data_access_foundation.sql"
           grep -q 'CREATE UNIQUE INDEX uk_bank_sync_task_request ON bank_data_sync_task(company_id, request_id)' "$migration_dir/V4__bank_data_access_foundation.sql"
@@ -204,7 +228,7 @@ jobs:
           app_pid=$!
           trap 'kill "$app_pid" 2>/dev/null || true; wait "$app_pid" 2>/dev/null || true' EXIT
           wait_for_health "$first_log"
-          grep -q 'Successfully applied 38 migrations' "$first_log"
+          grep -q 'Successfully applied 40 migrations' "$first_log"
           kill "$app_pid"
           wait "$app_pid" || true
           app_pid=""
@@ -216,7 +240,7 @@ jobs:
             > "$repeat_log" 2>&1 &
           app_pid=$!
           wait_for_health "$repeat_log"
-          grep -q 'Successfully validated 38 migrations' "$repeat_log"
+          grep -q 'Successfully validated 40 migrations' "$repeat_log"
           ! grep -q 'Migrating schema' "$repeat_log"
           kill "$app_pid"
           wait "$app_pid" || true
@@ -351,7 +375,9 @@ jobs:
           grep -q 'Migrating schema.*version "37' "$incremental_log"
           grep -q 'Migrating schema.*version "38' "$incremental_log"
           grep -q 'Migrating schema.*version "39' "$incremental_log"
-          grep -q 'Successfully applied 33 migrations' "$incremental_log"
+          grep -q 'Migrating schema.*version "40' "$incremental_log"
+          grep -q 'Migrating schema.*version "41' "$incremental_log"
+          grep -q 'Successfully applied 35 migrations' "$incremental_log"
           kill "$app_pid"
           wait "$app_pid" || true
           app_pid=""
@@ -362,7 +388,7 @@ jobs:
             > "$repeat_log" 2>&1 &
           app_pid=$!
           wait_for_health "$repeat_log"
-          grep -q 'Successfully validated 38 migrations' "$repeat_log"
+          grep -q 'Successfully validated 40 migrations' "$repeat_log"
           ! grep -q 'Migrating schema' "$repeat_log"
           kill "$app_pid"
           wait "$app_pid" || true

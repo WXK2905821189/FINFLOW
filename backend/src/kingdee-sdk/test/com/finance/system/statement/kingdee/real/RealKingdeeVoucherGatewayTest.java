@@ -53,8 +53,9 @@ class RealKingdeeVoucherGatewayTest {
         return r;
     }
 
+    /** 已审核(C)的历史档案：解析即用，不应触发任何基础资料提交/审核调用。 */
     private void stubCounterpartyLookup(String number) {
-        when(client.executeBillQueryJson(contains("BD_Supplier"))).thenReturn("[[\"" + number + "\"]]");
+        when(client.executeBillQueryJson(contains("BD_Supplier"))).thenReturn("[[\"" + number + "\",\"C\"]]");
         when(client.executeBillQueryJson(contains("BD_Customer"))).thenReturn("[]");
     }
 
@@ -69,7 +70,7 @@ class RealKingdeeVoucherGatewayTest {
 
     @Test
     void incomeRoutesToReceiveBill() throws Exception {
-        when(client.executeBillQueryJson(contains("BD_Customer"))).thenReturn("[[\"KHS0001\"]]");
+        when(client.executeBillQueryJson(contains("BD_Customer"))).thenReturn("[[\"KHS0001\",\"C\"]]");
         when(client.executeBillQueryJson(contains("BD_Supplier"))).thenReturn("[]");
         when(client.save(eq("AR_RECEIVEBILL"), anyString())).thenReturn(successResponse("CSRCV0001"));
         KingdeeVoucherResult result = gateway.push(record("INCOME"));
@@ -90,15 +91,84 @@ class RealKingdeeVoucherGatewayTest {
     void autoProvisionsMissingCounterpartyThenPushes() throws Exception {
         // primary (BD_Supplier for EXPENSE) lookup misses, auto-provision succeeds,
         // then the bill save resolves through the created record.
-        when(client.executeBillQueryJson(contains("BD_Supplier"))).thenReturn("[]");
+        // FIX-006：建档后必须 Submit + Audit，回查状态为 C 才继续推单。
+        // 建档编码是 SHA-256 派生的，测试按同一算法推导，避免硬编码假编码。
+        String provisioned = new KingdeeBillPayloadBuilder(props, new ObjectMapper())
+                .counterpartyNumber("测试对手方");
+        when(client.executeBillQueryJson(contains("BD_Supplier")))
+                .thenReturn("[]", "[[\"" + provisioned + "\",\"C\"]]");
         when(client.executeBillQueryJson(contains("BD_Customer"))).thenReturn("[]");
-        when(client.save(eq("BD_Supplier"), anyString())).thenReturn(successResponse("FINFLW1234"));
+        when(client.save(eq("BD_Supplier"), anyString())).thenReturn(successResponse(provisioned));
+        when(client.excuteOperation(eq("BD_Supplier"), eq("Submit"), contains(provisioned)))
+                .thenReturn(successResponse(provisioned));
+        when(client.excuteOperation(eq("BD_Supplier"), eq("Audit"), contains(provisioned)))
+                .thenReturn(successResponse(provisioned));
         when(client.save(eq("AP_PAYBILL"), anyString())).thenReturn(successResponse("CSPAY0002"));
 
         KingdeeVoucherResult result = gateway.push(record("EXPENSE"));
 
         assertEquals("PUSHED", result.status());
         assertEquals("CSPAY0002", result.voucherNo());
+        org.mockito.Mockito.verify(client)
+                .excuteOperation(eq("BD_Supplier"), eq("Submit"), contains(provisioned));
+        org.mockito.Mockito.verify(client)
+                .excuteOperation(eq("BD_Supplier"), eq("Audit"), contains(provisioned));
+    }
+
+    @Test
+    void existingDraftCounterpartyIsAuditedBeforePush() throws Exception {
+        // FIX-006 真实环境现场（北分108）：档案存在但是暂存(A)，单据会报「往来单位是必填项」。
+        // 复用前必须先补审核，而不是把问题推给金蝶。
+        when(client.executeBillQueryJson(contains("BD_Supplier"))).thenReturn("[]");
+        when(client.executeBillQueryJson(contains("BD_Customer")))
+                .thenReturn("[[\"FINFLW42bd000fc3\",\"A\"]]", "[[\"FINFLW42bd000fc3\",\"C\"]]");
+        when(client.excuteOperation(eq("BD_Customer"), eq("Submit"), contains("FINFLW42bd000fc3")))
+                .thenReturn(successResponse("FINFLW42bd000fc3"));
+        when(client.excuteOperation(eq("BD_Customer"), eq("Audit"), contains("FINFLW42bd000fc3")))
+                .thenReturn(successResponse("FINFLW42bd000fc3"));
+        when(client.save(eq("AR_RECEIVEBILL"), anyString())).thenReturn(successResponse("SKD00000021"));
+
+        KingdeeVoucherResult result = gateway.push(record("INCOME"));
+
+        assertEquals("PUSHED", result.status());
+        assertEquals("SKD00000021", result.voucherNo());
+        org.mockito.Mockito.verify(client)
+                .excuteOperation(eq("BD_Customer"), eq("Submit"), contains("FINFLW42bd000fc3"));
+        org.mockito.Mockito.verify(client)
+                .excuteOperation(eq("BD_Customer"), eq("Audit"), contains("FINFLW42bd000fc3"));
+    }
+
+    @Test
+    void draftCounterpartyThatStaysUnauditedFailsWithActionableMessage() throws Exception {
+        // 补审核后回查仍是 A（无审核权限/审核失败）→ 不得带病推单，且信息要可执行
+        when(client.executeBillQueryJson(contains("BD_Supplier"))).thenReturn("[]");
+        when(client.executeBillQueryJson(contains("BD_Customer")))
+                .thenReturn("[[\"FINFLW42bd000fc3\",\"A\"]]");
+        when(client.excuteOperation(anyString(), anyString(), anyString()))
+                .thenReturn("{\"Result\":{\"ResponseStatus\":{\"IsSuccess\":false,"
+                        + "\"Errors\":[{\"Message\":\"您没有该基础资料的审核权限\"}]}}}");
+
+        KingdeeVoucherResult result = gateway.push(record("INCOME"));
+
+        assertEquals("FAILED", result.status());
+        assertTrue(result.message().contains("基础资料未审核"));
+        assertTrue(result.message().contains("FINFLW42bd000fc3"));
+        assertTrue(result.message().contains("提交"));
+        assertTrue(result.message().contains("审核"));
+        org.mockito.Mockito.verify(client, org.mockito.Mockito.never())
+                .save(eq("AR_RECEIVEBILL"), anyString());
+    }
+
+    @Test
+    void auditedCounterpartySkipsRedundantAuditCalls() throws Exception {
+        stubCounterpartyLookup("GYS0001");
+        when(client.save(eq("AP_PAYBILL"), anyString())).thenReturn(successResponse("CSPAY0020"));
+
+        KingdeeVoucherResult result = gateway.push(record("EXPENSE"));
+
+        assertEquals("PUSHED", result.status());
+        org.mockito.Mockito.verify(client, org.mockito.Mockito.never())
+                .excuteOperation(anyString(), anyString(), anyString());
     }
 
     @Test
@@ -106,7 +176,7 @@ class RealKingdeeVoucherGatewayTest {
         // 2026-09-07 calibration: re-saving an existing FNumber is rejected with
         // "组织内编码唯一" + FieldName FNumber -> re-query by name must reuse it.
         when(client.executeBillQueryJson(contains("BD_Supplier")))
-                .thenReturn("[]", "[[\"FINFLWEXIST01\"]]");
+                .thenReturn("[]", "[[\"FINFLWEXIST01\",\"C\"]]");
         when(client.executeBillQueryJson(contains("BD_Customer"))).thenReturn("[]");
         when(client.save(eq("BD_Supplier"), anyString())).thenReturn(
                 "{\"Result\":{\"ResponseStatus\":{\"IsSuccess\":false,\"Errors\":[{\"FieldName\":\"FNumber,FUseOrgId\","

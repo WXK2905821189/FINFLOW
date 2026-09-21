@@ -58,10 +58,15 @@ export type {
   BankAccountCreatePayload,
   AiVoucherRowResult,
   AiVoucherBatchResult,
+  AiVoucherSubmitResult,
+  AiVoucherJobResult,
   AiCompanySuggestion,
   AiCompanySuggestionResponse,
   AiCompanyApplyRow,
   AiCompanyApplyResponse,
+  KingdeeMappingRow,
+  KingdeeMappingPreview,
+  KingdeeMatchResult,
 } from '../modules/bank-access/types';
 export type {
   VoucherGroupRow,

@@ -1347,6 +1347,88 @@ a {
   font-size: 13px;
 }
 
+/* 2026-09-21 单据详情改造：主区 + 侧栏（来源流水 / AI 建议 / 操作轨迹） */
+.voucher-doc-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 330px;
+  gap: 14px;
+  align-items: start;
+}
+
+.voucher-doc-side .ant-card + .ant-card {
+  margin-top: 12px;
+}
+
+.voucher-doc-side .ant-descriptions-item-label {
+  width: 76px;
+  color: #7b8b8f;
+}
+
+@media (max-width: 1080px) {
+  .voucher-doc-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* 推送失败诊断卡：原文 + 根因 + 步骤 + 判定依据 */
+.voucher-doc .voucher-doc-diag {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border: 1px solid #efc9c6;
+  border-left: 3px solid #c8443c;
+  border-radius: 6px;
+  background: #fffafa;
+}
+
+.voucher-doc .voucher-doc-diag-head {
+  font-size: 14px;
+  font-weight: 650;
+  color: #a8322b;
+  margin-bottom: 8px;
+}
+
+.voucher-doc .voucher-doc-diag-raw {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 12px;
+  color: #8d423c;
+  background: #fff;
+  border: 1px solid #f0dcd9;
+  border-radius: 4px;
+  padding: 7px 9px;
+  word-break: break-all;
+}
+
+.voucher-doc .voucher-doc-diag-cause {
+  margin-top: 10px;
+  font-size: 13px;
+}
+
+.voucher-doc .voucher-doc-diag-steps {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  font-size: 13px;
+  color: #44595d;
+}
+
+.voucher-doc .voucher-doc-diag-steps li {
+  margin-bottom: 3px;
+}
+
+.voucher-doc .voucher-doc-diag-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.voucher-doc .voucher-doc-diag-evi {
+  margin-top: 8px;
+  padding-top: 7px;
+  border-top: 1px dashed #f0dcd9;
+  font-size: 12px;
+  color: #8d9a9d;
+}
+
 @media print {
   .app-shell .ant-layout-sider,
   .topbar,
@@ -1366,6 +1448,16 @@ a {
   body {
     background: #fff;
   }
+}
+
+/* ============ V40（2026-09-21）：AI 制证后台任务条（凭证中心） ============ */
+.ai-voucher-job-banner {
+  margin-bottom: 12px;
+}
+
+.ai-voucher-job-banner .ant-alert-description .ant-table-wrapper {
+  margin-top: 4px;
+  background: #fff;
 }
 
 /* ============ W10（WP-6/WP-7）：规则中心 —— 分组侧边栏 + Excel 内核表格 ============ */

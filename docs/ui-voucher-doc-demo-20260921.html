@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>凭证单据详情 · 改造稿（2026-09-21）</title>
+<style>
+  * { box-sizing: border-box; }
+  :root {
+    --bg: #f4f6f7; --card: #ffffff; --line: #e6e9ea; --line-soft: #f0f2f2;
+    --ink: #1c2521; --ink-2: #5a6a64; --ink-3: #8b9a94;
+    --brand: #2f8b6f; --brand-soft: #eaf4f0;
+    --red: #c8443c; --red-soft: #fdeceb; --amber: #b7791f; --amber-soft: #fdf5e4;
+    --green: #2f8b6f; --green-soft: #eaf4f0; --blue: #2f6f9f; --blue-soft: #eaf2f8;
+    --mono: "Cascadia Mono", "Consolas", "SFMono-Regular", monospace;
+  }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 13px/1.6 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif; }
+  h1, h2, h3, h4 { margin: 0; font-weight: 600; }
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .muted { color: var(--ink-2); }
+
+  .topbar { position: sticky; top: 0; z-index: 20; background: #fff;
+    border-bottom: 1px solid var(--line); padding: 10px 20px;
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .crumb { color: var(--ink-3); font-size: 12px; }
+  .crumb b { color: var(--ink); font-weight: 500; }
+  .topbar .grow { flex: 1; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px;
+    overflow: hidden; background: #fafbfb; }
+  .seg button { border: 0; background: transparent; padding: 5px 12px; font: inherit;
+    font-size: 12px; color: var(--ink-2); cursor: pointer; }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button.is-on { background: var(--brand); color: #fff; }
+  .seg-label { font-size: 11px; color: var(--ink-3); margin-right: 6px; }
+  .btn { border: 1px solid var(--line); background: #fff; border-radius: 7px;
+    padding: 6px 12px; font: inherit; font-size: 12px; color: var(--ink);
+    cursor: pointer; }
+  .btn:hover { border-color: #cfd6d3; }
+  .btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+  .btn.danger { background: #fff; border-color: #e8b5b1; color: var(--red); }
+  .btn[disabled] { opacity: .5; cursor: not-allowed; }
+
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 18px 20px 60px;
+    display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 16px; align-items: start; }
+  @media (max-width: 1080px) { .wrap { grid-template-columns: minmax(0, 1fr); } }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; }
+  .card + .card { margin-top: 14px; }
+  .card-head { padding: 12px 16px; border-bottom: 1px solid var(--line-soft);
+    display: flex; align-items: center; gap: 10px; }
+  .card-head h3 { font-size: 13px; }
+  .card-head .muted { font-size: 12px; margin-left: auto; }
+  .card-body { padding: 14px 16px; }
+
+  .doc-head { display: flex; align-items: flex-start; gap: 12px;
+    padding: 16px 18px; border-bottom: 1px dashed var(--line); }
+  .doc-title { font-size: 19px; letter-spacing: 3px; }
+  .doc-sub { font-size: 12px; color: var(--ink-2); margin-top: 4px; }
+  .doc-head .right { margin-left: auto; text-align: right; }
+  .pill { display: inline-flex; align-items: center; gap: 5px; font-size: 12px;
+    padding: 3px 9px; border-radius: 999px; border: 1px solid transparent; }
+  .pill i { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+  .pill.fail { background: var(--red-soft); color: var(--red); }
+  .pill.fail i { background: var(--red); }
+  .pill.wait { background: var(--amber-soft); color: var(--amber); }
+  .pill.wait i { background: var(--amber); }
+  .pill.done { background: var(--green-soft); color: var(--green); }
+  .pill.done i { background: var(--green); }
+
+  .meta { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px 18px; padding: 14px 18px; border-bottom: 1px solid var(--line-soft); }
+  @media (max-width: 720px) { .meta { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .meta dt { font-size: 11px; color: var(--ink-3); }
+  .meta dd { margin: 2px 0 0; font-size: 13px; }
+
+  .diag { margin: 14px 18px 0; border: 1px solid #efc9c6; background: #fffafa;
+    border-left: 3px solid var(--red); border-radius: 8px; padding: 12px 14px; }
+  .diag h4 { font-size: 13px; color: var(--red); display: flex; align-items: center; gap: 6px; }
+  .diag .raw { font-family: var(--mono); font-size: 12px; background: #fff;
+    border: 1px solid #f0dcd9; border-radius: 6px; padding: 7px 9px; margin-top: 8px;
+    color: #8d423c; overflow-wrap: anywhere; }
+  .diag .read { margin-top: 10px; font-size: 12.5px; }
+  .diag .read b { color: #8d423c; }
+  .diag ol { margin: 8px 0 0; padding-left: 20px; font-size: 12.5px; }
+  .diag ol li { margin-bottom: 3px; }
+  .diag .acts { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .diag .evi { margin-top: 8px; font-size: 11.5px; color: var(--ink-3);
+    border-top: 1px dashed #f0dcd9; padding-top: 7px; }
+
+  table { width: 100%; border-collapse: collapse; }
+  .entries { margin: 14px 18px 0; border: 1px solid var(--line); border-radius: 8px;
+    overflow: hidden; }
+  .entries th { background: #f7f9f8; font-size: 11.5px; font-weight: 500;
+    color: var(--ink-2); text-align: left; padding: 8px 10px;
+    border-bottom: 1px solid var(--line); }
+  .entries td { padding: 9px 10px; border-bottom: 1px solid var(--line-soft);
+    font-size: 12.5px; }
+  .entries tbody tr:last-child td { border-bottom: 0; }
+  .entries td.num { text-align: right; font-family: var(--mono); }
+  .entries tfoot td { background: #f7f9f8; border-top: 1px solid var(--line);
+    font-size: 12.5px; padding: 9px 10px; }
+  .dim { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 4px;
+    background: var(--brand-soft); color: var(--brand); margin-right: 4px; }
+  .conf { display: flex; align-items: center; gap: 6px; }
+  .conf .bar { width: 42px; height: 4px; border-radius: 2px; background: #eceeed;
+    overflow: hidden; }
+  .conf .bar i { display: block; height: 100%; }
+  .conf.low i { background: var(--red); }
+  .conf.mid i { background: var(--amber); }
+  .conf.high i { background: var(--green); }
+
+  .footer { padding: 14px 18px 16px; }
+  .upper { font-size: 12.5px; color: var(--ink-2); }
+  .upper b { color: var(--ink); }
+  .sign { margin-top: 12px; display: flex; gap: 26px; flex-wrap: wrap;
+    border-top: 1px dashed var(--line); padding-top: 12px; font-size: 12.5px; }
+  .sign span { color: var(--ink-2); }
+  .sign b { color: var(--ink); font-weight: 500; }
+
+  .kv { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 6px 10px;
+    font-size: 12.5px; }
+  .kv dt { color: var(--ink-3); font-size: 11.5px; }
+  .kv dd { margin: 0; overflow-wrap: anywhere; }
+  .tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .tag { font-size: 11px; padding: 1px 7px; border-radius: 4px; background: #f2f5f4;
+    color: var(--ink-2); }
+  .tag.blue { background: var(--blue-soft); color: var(--blue); }
+
+  .tl { list-style: none; margin: 0; padding: 0; }
+  .tl li { position: relative; padding: 0 0 12px 16px; border-left: 1px solid var(--line);
+    margin-left: 5px; }
+  .tl li:last-child { padding-bottom: 0; border-left-color: transparent; }
+  .tl li::before { content: ""; position: absolute; left: -4.5px; top: 5px; width: 8px;
+    height: 8px; border-radius: 50%; background: #fff; border: 2px solid var(--ink-3); }
+  .tl li.ok::before { border-color: var(--green); }
+  .tl li.bad::before { border-color: var(--red); }
+  .tl .t { font-size: 12.5px; }
+  .tl .d { font-size: 11px; color: var(--ink-3); }
+
+  .toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
+    background: #22302b; color: #fff; padding: 9px 16px; border-radius: 8px;
+    font-size: 12.5px; opacity: 0; pointer-events: none; transition: opacity .18s; }
+  .toast.is-on { opacity: 1; }
+
+  body[data-state="failed"] .only-notfail { display: none; }
+  body[data-state="pending"] .only-fail, body[data-state="pushed"] .only-fail { display: none; }
+  body[data-state="pending"] .only-pushed, body[data-state="failed"] .only-pushed { display: none; }
+  body[data-state="failed"] .push-time, body[data-state="pending"] .push-time { display: none; }
+
+  @media print {
+    body { background: #fff; }
+    .topbar, .sidebar, .no-print { display: none !important; }
+    .wrap { display: block; padding: 0; max-width: none; }
+    .card { border: 0; }
+  }
+</style>
+</head>
+<body data-state="failed">
+
+<div class="topbar">
+  <div class="crumb">凭证中心 › <b>单据详情</b></div>
+  <div class="grow"></div>
+  <span class="seg-label no-print">演示状态</span>
+  <div class="seg no-print" id="stateSeg">
+    <button data-state="failed" class="is-on">推送失败</button>
+    <button data-state="pending">待推送</button>
+    <button data-state="pushed">已推送</button>
+  </div>
+  <button class="btn primary only-fail" id="retryBtn">重试推送</button>
+  <button class="btn only-notfail" id="editBtn">编辑分录</button>
+  <button class="btn">打印</button>
+  <button class="btn">返回</button>
+</div>
+
+<div class="wrap">
+  <main>
+    <div class="card">
+      <div class="doc-head">
+        <div>
+          <h1 class="doc-title">收 款 单</h1>
+          <div class="doc-sub">单据编号 <span class="mono">待生成</span> · 来源流水
+            <span class="mono">SGD202609210011390155</span></div>
+        </div>
+        <div class="right">
+          <span class="pill fail only-fail"><i></i>推送失败</span>
+          <span class="pill wait only-notfail only-pending"><i></i>待推送</span>
+          <span class="pill done only-pushed"><i></i>已推送</span>
+          <div class="doc-sub" style="margin-top:6px">账期 2026-09</div>
+        </div>
+      </div>
+
+      <dl class="meta">
+        <div><dt>业务日期</dt><dd class="mono">2026-09-21</dd></div>
+        <div><dt>对手方</dt><dd>北分108 <span class="tag">自动建档</span></dd></div>
+        <div><dt>结算方式</dt><dd>银行转账</dd></div>
+        <div><dt>币别</dt><dd>CNY</dd></div>
+        <div><dt>转入账簿组织</dt><dd>400 北京雪云锐创科技有限公司</dd></div>
+        <div><dt>我方账户</dt><dd class="mono">招行 ****0036</dd></div>
+        <div><dt>制单</dt><dd>王一霏</dd></div>
+        <div class="push-time"><dt>推送时间</dt><dd class="mono">2026-09-21 09:41:07</dd></div>
+      </dl>
+
+      <div class="diag only-fail">
+        <h4>金蝶拒收 · 需要人工处理</h4>
+        <div class="raw">AR_RECEIVEBILL: 字段"往来单位"是必填项</div>
+        <p class="read"><b>诊断：</b>对手方「北分108」已自动建档（客户编码
+          <span class="mono">FINFLW42bd000fc3</span>），但档案处于
+          <b>暂存（未审核）</b>状态。金蝶业务单据只能引用已审核的基础资料，
+          因此该字段被判定为未填。这不是字段漏传——是档案状态问题。</p>
+        <ol>
+          <li>在<b>金蝶</b>「基础资料 › 客户」中打开该档案，提交并审核；</li>
+          <li>回到本页点<b>重试推送</b>（幂等，不会产生重复单据）；</li>
+          <li>若该对手方实为集团内部主体，可改在规则里映射到<b>组织机构</b>维度，避免建外部档案。</li>
+        </ol>
+        <div class="acts">
+          <button class="btn primary" id="retryBtn2">重试推送</button>
+          <button class="btn">复制诊断</button>
+          <button class="btn">去金蝶查看档案</button>
+        </div>
+        <div class="evi">判定依据：ExecuteBillQuery BD_Customer → FDocumentStatus='A'（2026-09-21 只读实测）</div>
+      </div>
+
+      <table class="entries">
+        <thead>
+          <tr>
+            <th style="width:34px">#</th>
+            <th>摘要</th>
+            <th style="width:78px">科目编码</th>
+            <th style="width:150px">科目名称</th>
+            <th style="width:170px">辅助核算</th>
+            <th style="width:94px; text-align:right">借方</th>
+            <th style="width:94px; text-align:right">贷方</th>
+            <th style="width:96px">置信度</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mono">1</td>
+            <td>支付北分108采购款</td>
+            <td class="mono">2232</td>
+            <td>应付账款_外部往来</td>
+            <td><span class="dim">供应商 北分108</span></td>
+            <td class="num">177.46</td>
+            <td class="num muted">--</td>
+            <td><span class="conf low"><span class="bar"><i style="width:40%"></i></span>低 40%</span></td>
+          </tr>
+          <tr>
+            <td class="mono">2</td>
+            <td>支付北分108采购款</td>
+            <td class="mono">1002</td>
+            <td>银行存款</td>
+            <td><span class="dim">银行账号 ****0036</span></td>
+            <td class="num muted">--</td>
+            <td class="num">177.46</td>
+            <td><span class="conf high"><span class="bar"><i style="width:100%"></i></span>高 100%</span></td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="5">合计</td>
+            <td class="num">177.46</td>
+            <td class="num">177.46</td>
+            <td><span class="pill done"><i></i>借贷平衡</span></td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <div class="footer">
+        <div class="upper">金额大写：<b>壹佰柒拾柒元肆角陆分</b></div>
+        <div class="sign">
+          <span>主摘要：<b>支付北分108采购款</b></span>
+          <span>制单：<b>王一霏</b></span>
+          <span>审核：<b>金蝶侧人工</b></span>
+          <span>记账：<b>--</b></span>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <aside class="sidebar">
+    <div class="card">
+      <div class="card-head"><h3>来源流水</h3><span class="muted">只读</span></div>
+      <div class="card-body">
+        <dl class="kv">
+          <dt>银行</dt><dd>招商银行</dd>
+          <dt>账户</dt><dd>上海图虫网络科技有限公司 · <span class="mono">****4402</span></dd>
+          <dt>对方户名</dt><dd>北分108</dd>
+          <dt>对方账号</dt><dd class="mono">****8891</dd>
+          <dt>收支</dt><dd>贷方（收）</dd>
+          <dt>摘要</dt><dd>支付北分108采购款</dd>
+          <dt>交易时间</dt><dd class="mono">2026-09-21 05:13:52</dd>
+          <dt>流水号</dt><dd class="mono">SGD202609210011390155</dd>
+        </dl>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h3>AI 建议参考</h3></div>
+      <div class="card-body">
+        <div class="tags">
+          <span class="tag blue">deepseek-flash</span>
+          <span class="tag">大类：采购付款 / 货款支出</span>
+        </div>
+        <p class="muted" style="margin:0; font-size:12.5px">摘要与对手方均为编号，结合小额付款特征，
+          最可能为按订单号向供应商支付的采购款，暂挂应付账款。</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h3>操作轨迹</h3></div>
+      <div class="card-body">
+        <ul class="tl">
+          <li class="ok"><div class="t">AI 制证草稿生成</div><div class="d">09:38 · 王一霏 · 置信度低，建议人工确认</div></li>
+          <li class="ok"><div class="t">人工确认分录</div><div class="d">09:40 · 王一霏 · 修正 2 行，主摘要回写</div></li>
+          <li class="bad"><div class="t">推送金蝶失败</div><div class="d">09:41 · 往来单位必填（档案未审核）</div></li>
+          <li><div class="t">等待处理</div><div class="d">--</div></li>
+        </ul>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<div class="toast" id="toast">已提交重试推送，结果将回写本页状态</div>
+
+<script>
+(function () {
+  var body = document.body;
+  var seg = document.getElementById('stateSeg');
+  var toast = document.getElementById('toast');
+
+  function setState(name) {
+    body.setAttribute('data-state', name);
+    [].forEach.call(seg.querySelectorAll('button'), function (b) {
+      b.classList.toggle('is-on', b.getAttribute('data-state') === name);
+    });
+    document.getElementById('editBtn').disabled = (name === 'pushed');
+  }
+
+  seg.addEventListener('click', function (e) {
+    var btn = e.target.closest('button[data-state]');
+    if (!btn) { return; }
+    var next = btn.getAttribute('data-state');
+    if (next === 'pushed') {
+      var card = document.querySelector('.doc-sub .mono');
+      if (card) { card.textContent = 'SKD00000021'; }
+    }
+    setState(next);
+  });
+
+  function retry() {
+    setState('pending');
+    toast.classList.add('is-on');
+    setTimeout(function () { toast.classList.remove('is-on'); }, 2200);
+  }
+  document.getElementById('retryBtn').addEventListener('click', retry);
+  document.getElementById('retryBtn2').addEventListener('click', retry);
+})();
+</script>
+</body>
+</html>
