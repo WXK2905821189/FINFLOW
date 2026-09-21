@@ -273,10 +273,16 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
         return `${group ? '' : '未标注账户 · '}${list.length} 笔 · 借 <b>¥ ${num2(debit)}</b> / 贷 <b>¥ ${num2(credit)}</b>`;
       };
     }
+    // 余额查询的分组汇总（2026-09-21 用户口径修正）：**不再显示「可用余额合计」**——
+    // 同一账户在筛选区间内可能有多天余额，直接求和属重复计入；余额还可能是多币种，不可相加。
+    // 账户数改按账户去重：原先用 list.length 实为行数，同一账户多天会被算成多个账户。
     return (group: string, list: GridRow[]) => {
-      const total = list.reduce((sum, row) => sum + (Number(row.availableBalance) || 0), 0);
+      const accounts = new Set(
+        list.map((row) => String(row.bankAccountId ?? row.accountMasked ?? row.bankAccountNo ?? '')).filter(Boolean),
+      );
+      const accountCount = accounts.size || list.length;
       const latest = list.map((row) => String(row.asOfTime || '')).sort().pop() || '—';
-      return `${list.length} 个账户 · 可用余额合计 <b>¥ ${num2(total)}</b> · 最近截止 ${latest.slice(0, 16).replace('T', ' ') || '—'}`;
+      return `${accountCount} 个账户 · 最近截止 ${latest.slice(0, 16).replace('T', ' ') || '—'}`;
     };
   }, [isStatement]);
 
@@ -556,10 +562,12 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
                 pageSize={data?.size || size}
                 toolbarStart={toolbarStart}
                 groupBy={gridGroupBy}
-                /* 2026-09-21：分组默认开启（两个 tab 一致）——用户明确认可分组行上的汇总
-                   「N 个账户 · 可用余额合计 ¥X · 最近截止 …」/「N 笔 · 借 X / 贷 Y」，
+                /* 2026-09-21：分组默认开启（两个 tab 一致）——用户认可分组行上的汇总
+                   「M 个账户 · 最近截止 …」/「N 笔 · 借 X / 贷 Y」，
                    但它原先在流水页默认关、余额页还依赖跨公司权限，导致「时有时无」。
                    这里统一默认开启；仍可点「按…分组」开关关掉。
+                   （2026-09-21 二次修正：余额侧去掉「可用余额合计」——同账户多天求和是重复计入；
+                   账户数同时改为按账户去重。）
                    注：**不**把这套汇总搬进状态栏——W8（2026-09-20）已决定状态栏不再显示
                    本页金额小计，避免被误当成全量合计；分组行的汇总有分组标签限定口径，不冲突。 */
                 groupedDefault
