@@ -225,7 +225,10 @@
 | TC-RULE-01 | 首屏 + `刷新` | `刷新` | 22 条规则清单渲染 | GET `/kingdee/voucher-rules` | P0 | | 待执行 |
 | TC-RULE-02 | 行内 | `模板` | Modal `模板详情 · 规则 {ruleNo} {businessType}`，footer `知道了` | — | P1 | | 待执行 |
 
-### 3.15 科目与往来规则 `/validation`（statements/ValidationPage.tsx）
+### 3.15 科目与往来规则（规则中心 `/voucher-rules` 的「校验与入账映射」页签）
+
+> **2026-09-21 校准**：原独立页 `/validation` 已在 W4（2026-09-18）合并进规则中心，该路由只保留兼容重定向（见 3.23）。
+> 下表用例改为**在规则中心内切到该页签后执行**；`statements/ValidationPage.tsx` 现只导出内嵌组件 `ValidationEmbedded`，不再导出页面组件（空壳 `ValidationPage` 已删除）。
 
 | ID | 控件 | 定位文案 | 预期 | 接口 | 级别 | 标记 | 状态 |
 |---|---|---|---|---|---|---|---|
@@ -327,6 +330,7 @@
 | TC-REDIR-04 | 访问 `/bank-access/monitoring`、`/operations/tasks` | 重定向 `/bank-access/tasks` | P2 | 待执行 |
 | TC-REDIR-05 | 访问 `/reconciliation/dashboard` | 重定向 `/dashboard` | P2 | 待执行 |
 | TC-REDIR-06 | 访问未知路径 `/not-exist` | 重定向 `/dashboard` | P2 | 待执行 |
+| TC-REDIR-07 | 访问 `/validation` | 重定向 `/voucher-rules` | P2 | 待执行 |
 
 ---
 
