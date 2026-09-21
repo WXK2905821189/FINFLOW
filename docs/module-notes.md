@@ -192,3 +192,67 @@ pnpm 在 `frontend/node_modules/.pnpm/...` 建的符号链接指向 `/c/Users/..
 - **主 chunk 与 manualChunks**：主 chunk **禁 manualChunks**（白屏红线）；体积口径**只认 `vite build` 输出值**（base-1000），
   用「字节 ÷1024」会得 506.90 KiB 而误判「已回落」。
 
+---
+
+## 12. 后端工程规范细则（从 `MEMORY.md` 下沉，避免注入超限）
+
+### 12.1 CI 保证边界
+- backend job = `mvn verify -P '!citic-sdk'`，**覆盖率只上报、不设阈值**。
+- citic / kingdee profile **按 file-exists 激活**；CI 环境没有 vendor jar ⇒
+  `src/{citic-sdk,kingdee-sdk}/java`（8 文件 1334 行）**在 CI 里根本不编译**。
+  ⇒ **CI 绿 ≠ 全路径可编译**。
+
+### 12.2 覆盖率与 JaCoCo
+见 §10（覆盖率盲区 / 假盲区、JaCoCo 本地跑法、`eslint src` 口径）。
+
+### 12.3 CI shell 断言块的本地真验
+- 把 `run: |` 块按**首行缩进**左移后写入 `tmp/x.sh` → `bash tmp/x.sh` 本地真跑。
+- **必须配反证（变异）测试**：把断言放宽一点，看它是否仍会通过——放宽后仍通过说明它是**死守卫**。
+- 详细流程见 skill `ci-assertion-block-verification`。
+- **断言引用未跟踪文件 ⇒ 单独提交该 yml 必红**（用 `git ls-files <path>` 核对）。
+
+### 12.4 统计与文件操作纪律
+- `find` 命中 ≠ 已入库：用 `git ls-files` / `git check-ignore -v` 复核。
+- 目录体积排序用 `du -sk` + `sort -k1 -rn`（`du -sh` 配 `sort -rn` 会把 `1.2G` 排到 `900M` 前，误排）。
+- 删超大目录用 `robocopy <空目录> <目标> /MIR`（比 `rm -rf` 快且可控）。
+- 同一文件多次 Edit 必须**串行**；pathspec 提交后用 `git status` + `git show HEAD:file` 复核。
+
+### 12.5 MyBatis-Plus 约定
+- 置 NULL 必须用 `LambdaUpdateWrapper.set(field, null)`（`updateById` 会忽略 null）。
+- 加 DTO/实体字段后 **grep 全部 `new Xxx(...)` 重建点**。
+- **写操作后必须断言影响行数**（`updated == 1`）——FINFLOW 已有的"假成功"事故全部出自
+  「update 影响 0 行却照样返回成功」（见 `docs/issue-diagnosis-20260921.md`）。
+
+### 12.6 测试纪律
+- 本地全量：`~/.m2` 离线 `mvn.cmd test -o -Djacoco.skip=true`。
+- **用例数随并行会话持续上涨**（同日 386 → 423），别拿旧数字当基线；数字**变小**才要查。
+- H2 共享断言自带过滤；vendor SDK 边界 catch-Throwable → `BusinessException(502)`。
+
+---
+
+## 13. 金蝶核算维度与弹性域槽位（V42）
+
+### 13.1 槽位**不必盲试**（方法论突破，2026-09-21）
+`QueryBusinessInfo(GL_VOUCHER)` 返回的每个 `FDETAILID__FFxxxx` 字段**自带 `Name=维度名`** ——
+一次请求就能拿到维度 ↔ 槽位的完整对照，不需要逐个字段试探。
+
+实测拿到的槽位：`FFLEX4` 供应商 / `FFLEX5` 部门 / `FFLEX6` 客户 / `FFLEX7` 员工 /
+`FF100002` 银行账号 / `FF100003` 项目 / `FF100004` 投资者 / `FFLEX13` 客户分组等。
+实证：凭证 **16059**（供应商 FFLEX4，基线报错点就是「供应商」）、**16060**（供应商+客户+员工三槽位同凭证）
+保存成功后即时删除并回查为空 ⇒ **3 次 Save 请求搞定全部槽位**。
+
+台账：`docs/kingdee-openapi/kingdee-dimension-slot-ledger-20260921.md`。
+
+### 13.2 配置化（V42 两表 + 界面）
+- 表：`kingdee_dimension_slot`（15 条 seed = 14 维度 + 业务线）、`kingdee_dimension_mapping`（值映射，空表待导入）。
+- 界面：规则中心 › **核算维度配置**（槽位配置 / 值映射 / 批量粘贴导入）。
+- 多维度注入：一个科目可挂**多个必录维度** ⇒ 分录需**联合注入**（`extraDimensions`）；
+  未就绪的维度**推送前拒绝**并给出补齐指引（报告式口径，不做静默降级）。
+- 3 个匹配算子：`IN_SUPPLIER_LIST` / `IN_EMPLOYEE_LIST` / `IN_CUSTOMER_MAPPING`。
+
+### 13.3 已知缺口
+- **账套没有「业务线」维度**（`BD_FLEXITEMPROPERTY` 14 个维度类型里没有）⇒ 已拍板：用**项目 ZDY0002** 承载。
+- **合同号槽位**（ZDY0004）该账套未在凭证模板启用，待确认。
+- 值映射表为空：供应商 412 条 / 员工 354 行等需财务整理成「来源值 + 编码」后批量粘贴导入。
+- 图虫侧 19 条规则仍未入库（能力已齐，见 `docs/pending-fixes.md` FIX-010 前置清单）。
+
