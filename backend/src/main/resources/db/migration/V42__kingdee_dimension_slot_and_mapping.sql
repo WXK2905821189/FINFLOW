@@ -85,6 +85,8 @@ INSERT INTO kingdee_dimension_slot (dimension_type, dimension_name, dimension_co
 INSERT INTO kingdee_dimension_slot (dimension_type, dimension_name, dimension_code, slot, dimension_kind, enabled, remark, created_at, updated_at) VALUES ('MATERIAL_GROUP', '物料分组', 'HSWD09_SYS', 'FFLEX12', 'BASE_DATA', 1, '槽位由元数据给出，未单独实证', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 INSERT INTO kingdee_dimension_slot (dimension_type, dimension_name, dimension_code, slot, dimension_kind, enabled, remark, created_at, updated_at) VALUES ('CUSTOMER_GROUP', '客户分组', 'HSWD10_SYS', 'FFLEX13', 'BASE_DATA', 1, '槽位由元数据给出，未单独实证', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
--- ⚠️ 业务线：账套 BD_FLEXITEMPROPERTY 里**不存在**「业务线」维度（14 个维度类型中无此项），
--- 而图虫侧规则大量引用它。留空并在此显式记录，避免被当成「忘了配」。
-INSERT INTO kingdee_dimension_slot (dimension_type, dimension_name, dimension_code, slot, dimension_kind, enabled, remark, created_at, updated_at) VALUES ('BUSINESS_LINE', '业务线', NULL, NULL, 'CUSTOM', 1, '账套无此维度类型（待财务决策：用 项目 ZDY0002 承载 / 请金蝶新增维度 / 不落凭证维度）', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+-- 业务线（用户 2026-09-21 拍板：**用「项目 ZDY0002」承载**）。
+-- 账套 BD_FLEXITEMPROPERTY 里不存在「业务线」维度，图虫侧规则要求它 →
+-- 与 PROJECT 共用槽位 FF100003，值为项目档案编码；规则模板里 dimension type 写 BUSINESS_LINE 时
+-- 解析到的槽位/值语义与 PROJECT 一致。
+INSERT INTO kingdee_dimension_slot (dimension_type, dimension_name, dimension_code, slot, dimension_kind, enabled, remark, created_at, updated_at) VALUES ('BUSINESS_LINE', '业务线（以项目维度承载）', 'ZDY0002', 'FF100003', 'CUSTOM', 1, '用户 2026-09-21 拍板：业务线用项目 ZDY0002 承载，与 PROJECT 共用槽位；值为项目档案编码', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
