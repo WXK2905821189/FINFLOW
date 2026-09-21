@@ -222,6 +222,37 @@ class VoucherGroupIntegrationTest {
         assertEquals(0, otherHits, "无 cross-company 权限用户看不到他公司行");
     }
 
+    /**
+     * 2026-09-21 修复回归：WITHDRAWN（已撤回）与 REJECTED（已驳回）此前**不在任何桶里** ——
+     * 撤回后凭证无处可查、驳回行的「重新打开」按钮永远不可达（线上实测 16 条记录全部落在桶外）。
+     * 现补「已撤回」桶，并让 ALL 覆盖这两个终态。
+     */
+    @Test
+    void withdrawnAndRejectedRowsAreVisibleAfterBucketFix() throws Exception {
+        String token = login();
+        long accountId = createAccount(token, "撤回可见性测试账户-" + UNIQUE_SUFFIX);
+        String keyword = "KWGW" + UNIQUE_SUFFIX;
+
+        StatementRecord withdrawn = insertStatement(accountId, "WITHDRAWN", "NOT_PUSHED", null, null,
+                "已撤回行 " + keyword);
+        StatementRecord rejected = insertStatement(accountId, "REJECTED", "NOT_PUSHED", null, "人工驳回",
+                "已驳回行 " + keyword);
+
+        // 1. 新增「已撤回」桶：只含 WITHDRAWN
+        JsonNode withdrawnBucket = listGroups(token, "WITHDRAWN", keyword);
+        assertEquals(1, countBy(withdrawnBucket, withdrawn.getStatementNo()), "已撤回桶含 WITHDRAWN 行");
+        assertEquals(0, countBy(withdrawnBucket, rejected.getStatementNo()), "已撤回桶不含 REJECTED 行");
+
+        // 2. 撤回行不该混进待复核/待推送桶
+        assertEquals(0, countBy(listGroups(token, "DRAFT", keyword), withdrawn.getStatementNo()));
+        assertEquals(0, countBy(listGroups(token, "PENDING", keyword), withdrawn.getStatementNo()));
+
+        // 3. ALL 桶补齐两个终态（此前 ALL = voucherNo 非空 OR PENDING OR APPROVED）
+        JsonNode all = listGroups(token, "ALL", keyword);
+        assertEquals(1, countBy(all, withdrawn.getStatementNo()), "ALL 桶含已撤回行");
+        assertEquals(1, countBy(all, rejected.getStatementNo()), "ALL 桶含已驳回行（否则「重新打开」不可达）");
+    }
+
     private Company insertCompany(String prefix) {
         String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 10);
         Company company = new Company();

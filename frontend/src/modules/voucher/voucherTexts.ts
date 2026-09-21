@@ -25,6 +25,7 @@ export const VOUCHER_GROUP_FILTERS: Array<{ key: VoucherGroupFilter; label: stri
   { key: 'PENDING', label: '待推送' },
   { key: 'PUSHED', label: '已推送' },
   { key: 'FAILED', label: '推送失败' },
+  { key: 'WITHDRAWN', label: '已撤回' },
 ];
 
 /** 大写金额（人民币），支持到分；零与空值显式处理。例：286400 → 贰拾捌万陆仟肆佰元整 */

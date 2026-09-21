@@ -26,8 +26,8 @@ export type VoucherGroupRow = {
   statementCount: number;
 };
 
-/** 凭证组状态签（列表 Segmented）。 */
-export type VoucherGroupFilter = 'ALL' | 'DRAFT' | 'PENDING' | 'PUSHED' | 'FAILED';
+/** 凭证组状态签（列表 Segmented）。WITHDRAWN（V39 已撤回）于 2026-09-21 补入：撤回记录需可见可追溯。 */
+export type VoucherGroupFilter = 'ALL' | 'DRAFT' | 'PENDING' | 'PUSHED' | 'FAILED' | 'WITHDRAWN';
 
 /** 规则分录模板行（后端 KingdeeVoucherRuleResponse.LineTemplate 镜像）。 */
 export type VoucherRuleLine = {

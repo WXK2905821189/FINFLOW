@@ -65,6 +65,8 @@ public class BankDataAccountingService {
     private static final String REVIEW_PENDING = "PENDING";
     private static final String REVIEW_APPROVED = "APPROVED";
     private static final String REVIEW_REJECTED = "REJECTED";
+    private static final String REVIEW_WITHDRAWN = "WITHDRAWN";
+    private static final String PUSH_NOT_PUSHED = "NOT_PUSHED";
 
     private final BankDataStatementMapper bankDataStatementMapper;
     private final BankAccountMapper bankAccountMapper;
@@ -224,6 +226,20 @@ public class BankDataAccountingService {
                     null, null, null, null, record.getVoucherNo(), record.getPushStatus(),
                     "该流水此前已被人工驳回：" + trimToEmpty(record.getReviewComment()));
         }
+        // 撤回态先复活为待复核（唯一键决定只能复用同一条记录），再走「复核闸门内化 → 推送」。
+        if (REVIEW_WITHDRAWN.equals(record.getReviewStatus()) && !reviveWithdrawn(record, operatorId)) {
+            return new AiVoucherRowResult(row.getId(), statementNo, "FAILED", null,
+                    null, null, null, null, null, record.getPushStatus(),
+                    "该流水已被撤回，复位为待复核失败（可能状态已变化），请刷新后重试");
+        }
+        // 兜底：只可能是待复核/已复核两种状态能继续，其余一律明确失败（不再静默往下走）。
+        if (!REVIEW_PENDING.equals(record.getReviewStatus())
+                && !REVIEW_APPROVED.equals(record.getReviewStatus())) {
+            return new AiVoucherRowResult(row.getId(), statementNo, "FAILED", null,
+                    null, null, null, null, record.getVoucherNo(), record.getPushStatus(),
+                    "流水当前状态为 " + trimToEmpty(record.getReviewStatus())
+                            + "，无法一键制证，请先在「凭证中心」重新打开");
+        }
 
         // AI 建议：失败降级（金蝶侧人工审核兜底），不阻断推送。
         AiAccountingSuggestionResponse suggestion = null;
@@ -361,6 +377,15 @@ public class BankDataAccountingService {
                     null, null, null, null, record.getVoucherNo(), record.getPushStatus(),
                     "此前已通过复核，可直接在「凭证草稿与制证」页推送");
         }
+        // V39 撤回态：记录保留但不参与流水池，重新制证应「复活同一条记录」
+        // （唯一键 uk_statement_record_company_no 决定不可能新建）。
+        // 若不先复位为待复核，下面的写入条件（reviewStatus = PENDING）会命中 0 行 —— 表现为
+        // 「提示草稿已生成、凭证中心却什么都没有」。
+        if (REVIEW_WITHDRAWN.equals(record.getReviewStatus()) && !reviveWithdrawn(record, operatorId)) {
+            return new AiVoucherRowResult(row.getId(), statementNo, "FAILED", null,
+                    null, null, null, null, null, record.getPushStatus(),
+                    "该流水已被撤回，复位为待复核失败（可能状态已变化），请刷新后重试");
+        }
 
         // AI 建议失败不能伪装成「草稿已生成」：保留标准流水的待复核状态，
         // 把失败原因写入复核意见并返回 FAILED，凭证中心仍可在「待复核」中看到该流水。
@@ -388,13 +413,43 @@ public class BankDataAccountingService {
                 .set(StatementRecord::getAiSuggestionJson, serializeSuggestion(suggestion))
                 .eq(StatementRecord::getId, record.getId())
                 .eq(StatementRecord::getReviewStatus, REVIEW_PENDING));
-        if (updated == 1) {
-            insertAudit(record, "AI_VOUCHER_DRAFT", "SUCCESS", REVIEW_PENDING, REVIEW_PENDING,
-                    operatorId, comment);
+        // 影响 0 行绝不能报成功：2026-09-21 线上事故（审计 result=SUCCESS 而凭证中心无记录）就
+        // 出在这里——写入被状态条件挡掉却照样返回 DRAFT_CREATED。
+        if (updated != 1) {
+            return new AiVoucherRowResult(row.getId(), statementNo, "FAILED", "OK",
+                    null, null, null, null, null, record.getPushStatus(),
+                    "草稿未写入：流水当前状态为 " + trimToEmpty(record.getReviewStatus())
+                            + "，请刷新后在「凭证中心」重新制证");
         }
+        insertAudit(record, "AI_VOUCHER_DRAFT", "SUCCESS", REVIEW_PENDING, REVIEW_PENDING,
+                operatorId, comment);
         return new AiVoucherRowResult(row.getId(), statementNo, "DRAFT_CREATED", "OK",
                 suggestion.businessCategory(), suggestion.suggestedSummary(), suggestion.suggestedSubject(),
                 suggestion.confidence(), null, record.getPushStatus(), "草稿已生成，待人工复核后推送");
+    }
+
+    /**
+     * 撤回态复活（V39 语义落地）：把 WITHDRAWN 复位为待复核并清掉撤回/凭证号痕迹，
+     * 使后续写入落到同一条记录上。返回是否真的更新了 1 行（并发下可能已被别处改动）。
+     */
+    private boolean reviveWithdrawn(StatementRecord record, Long operatorId) {
+        int updated = recordMapper.update(null, new LambdaUpdateWrapper<StatementRecord>()
+                .set(StatementRecord::getReviewStatus, REVIEW_PENDING)
+                .set(StatementRecord::getPushStatus, PUSH_NOT_PUSHED)
+                .set(StatementRecord::getPushMessage, null)
+                .set(StatementRecord::getVoucherNo, null)
+                .set(StatementRecord::getWithdrawnAt, null)
+                .set(StatementRecord::getWithdrawnBy, null)
+                .eq(StatementRecord::getId, record.getId())
+                .eq(StatementRecord::getReviewStatus, REVIEW_WITHDRAWN));
+        if (updated == 1) {
+            record.setReviewStatus(REVIEW_PENDING);
+            record.setPushStatus(PUSH_NOT_PUSHED);
+            insertAudit(record, "STATEMENT_REVIVE", "SUCCESS", REVIEW_WITHDRAWN, REVIEW_PENDING,
+                    operatorId, "撤回后重新制证：记录复位为待复核");
+            return true;
+        }
+        return false;
     }
 
     /** AI 建议的复核意见呈现格式（一行业务摘要，完整字段留在审计事件明细里）。 */

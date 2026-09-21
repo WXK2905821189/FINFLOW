@@ -249,9 +249,54 @@ class BankDataAccountingIntegrationTest {
         assertEquals("FAILED", draftEvent.getResult());
     }
 
+    /**
+     * 2026-09-21 修复回归：撤回（WITHDRAWN）后重新制证必须「复活同一条记录」
+     * （唯一键 uk_statement_record_company_no 决定不可能新建）。
+     *
+     * <p>修复前：写入条件 `.eq(reviewStatus, PENDING)` 对撤回态命中 **0 行**，
+     * 却仍返回 {@code DRAFT_CREATED}「草稿已生成」；而 WITHDRAWN 又不在凭证中心任何状态桶里
+     * ⇒ 用户看到「成功」，却哪儿都找不到（线上 2026-09-21 事故）。</p>
+     */
     @Test
-    void invalidModeIsRejected() {
-        Company company = insertCompany("AIV-BADMODE");
+    void withdrawnRecordIsRevivedOnRedraftInsteadOfSilentlySucceeding() {
+        Company company = insertCompany("AIV-REVIVE");
+        BankAccount account = insertAccount(company.getId(), null);
+        BankDataStatement row = insertBankStatement(company.getId(), account.getId(), "对手方壬", "服务费");
+        Long adminId = insertUser(company.getId(), "aiv-revive-admin", 1L);
+
+        // 1) 先制证一次：完成转入并产生标准流水（本测试上下文 AI 不可用 → 行级 FAILED，记录为 PENDING）
+        accountingService.createVouchers(List.of(row.getId()), adminId, "DRAFT");
+        StatementRecord record = statementRecordMapper.selectOne(new LambdaQueryWrapper<StatementRecord>()
+                .eq(StatementRecord::getCompanyId, company.getId())
+                .eq(StatementRecord::getStatementNo, row.getStatementNo()));
+        assertNotNull(record);
+        assertEquals("PENDING", record.getReviewStatus());
+
+        // 2) 模拟 V39 撤回
+        statementRecordMapper.update(null, new LambdaUpdateWrapper<StatementRecord>()
+                .set(StatementRecord::getReviewStatus, "WITHDRAWN")
+                .set(StatementRecord::getWithdrawnAt, LocalDateTime.now())
+                .set(StatementRecord::getWithdrawnBy, adminId)
+                .eq(StatementRecord::getId, record.getId()));
+
+        // 3) 撤回后重新制证 → 记录必须被复活为待复核（否则凭证中心永远看不到）
+        AiVoucherBatchResponse again = accountingService.createVouchers(List.of(row.getId()), adminId, "DRAFT");
+        StatementRecord revived = statementRecordMapper.selectById(record.getId());
+        assertEquals("PENDING", revived.getReviewStatus(), "撤回后重新制证应把记录复位为待复核");
+        assertEquals("NOT_PUSHED", revived.getPushStatus(), "复活时推送状态一并复位");
+        assertNull(revived.getWithdrawnAt(), "撤回痕迹应清除");
+
+        StatementAuditEvent reviveEvent = auditEventMapper.selectOne(new LambdaQueryWrapper<StatementAuditEvent>()
+                .eq(StatementAuditEvent::getStatementId, record.getId())
+                .eq(StatementAuditEvent::getAction, "STATEMENT_REVIVE"));
+        assertNotNull(reviveEvent, "复活必须留审计事件");
+        assertEquals("SUCCESS", reviveEvent.getResult());
+        // 结果行不得声称「草稿已生成」（AI 不可用时为 FAILED，但不能是假成功）
+        assertEquals("FAILED", again.rows().get(0).outcome());
+    }
+
+    @Test
+    void invalidModeIsRejected() {        Company company = insertCompany("AIV-BADMODE");
         BankAccount account = insertAccount(company.getId(), null);
         BankDataStatement row = insertBankStatement(company.getId(), account.getId(), "对手方庚", "测试");
         Long adminId = insertUser(company.getId(), "aiv-badmode-admin", 1L);

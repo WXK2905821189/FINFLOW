@@ -44,6 +44,8 @@ public class VoucherGroupService {
     public static final String ST_PENDING = "PENDING";
     public static final String ST_PUSHED = "PUSHED";
     public static final String ST_FAILED = "FAILED";
+    /** 已撤回（V39）：凭证记录保留可追溯，必须给到界面入口，否则撤回后无处可查。 */
+    public static final String ST_WITHDRAWN = "WITHDRAWN";
 
     /** 与制证/转入侧一致：跨公司凭证可见域要求 {@code bankdata:cross-company:view}。 */
     private static final String CROSS_COMPANY_PERMISSION = "bankdata:cross-company:view";
@@ -98,7 +100,7 @@ public class VoucherGroupService {
     private static void applyStatusFilter(LambdaQueryWrapper<StatementRecord> query, String status) {
         String bucket = status == null || status.isBlank() ? ST_ALL : status;
         switch (bucket) {
-            // 复核状态值域为 PENDING/APPROVED/REJECTED（AI 制证草稿落库即 PENDING）。
+            // 复核状态值域为 PENDING/APPROVED/REJECTED（AI 制证草稿落库即 PENDING），V39 起另有 WITHDRAWN。
             case ST_DRAFT -> query.eq(StatementRecord::getReviewStatus, "PENDING");
             case ST_PENDING -> query.eq(StatementRecord::getReviewStatus, "APPROVED")
                     .and(q -> q.isNull(StatementRecord::getPushStatus)
@@ -106,9 +108,13 @@ public class VoucherGroupService {
                             .or().notIn(StatementRecord::getPushStatus, "PUSHED", "GL_PUSHED", "FAILED", "GL_FAILED"));
             case ST_PUSHED -> query.in(StatementRecord::getPushStatus, "PUSHED", "GL_PUSHED");
             case ST_FAILED -> query.in(StatementRecord::getPushStatus, "FAILED", "GL_FAILED");
+            case ST_WITHDRAWN -> query.eq(StatementRecord::getReviewStatus, "WITHDRAWN");
+            // 2026-09-21 修正：ALL 原先只认「有凭证号 或 PENDING/APPROVED」，导致
+            // WITHDRAWN（已撤回）与 REJECTED（已驳回）的记录在任何页签都查不到 ——
+            // 撤回后无处可查、驳回行的「重新打开」按钮永远不可达。现补齐这两个终态。
             case ST_ALL -> query.and(q -> q.isNotNull(StatementRecord::getVoucherNo)
-                    .or(w -> w.eq(StatementRecord::getReviewStatus, "PENDING"))
-                    .or(w -> w.eq(StatementRecord::getReviewStatus, "APPROVED")));
+                    .or(w -> w.in(StatementRecord::getReviewStatus,
+                            "PENDING", "APPROVED", "WITHDRAWN", "REJECTED")));
             default -> throw new BusinessException(400, "未知的凭证状态筛选：" + bucket);
         }
     }
