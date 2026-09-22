@@ -39,9 +39,9 @@ import type {
 /**
  * 流水与入账页面组（2026-09-16 流程精简，2026-09-17 草稿工作台化）：
  *  - 导入流水 / 标准流水 / 人工复核三页已下线——制证链路收敛为：
- *    流水查询页「AI 制证为草稿」→ 本页（凭证草稿与制证）人工审核 → 点击推送金蝶；
+ *    流水查询页「一键推送至金蝶」→ 本页（凭证草稿与制证）人工处理 → 点击推送金蝶；
  *  - 本文件保留：AuditDrawer（追溯）、VoucherStatements（草稿工作台：过滤/批量通过/驳回/推送/
- *    刷新 AI 建议/连接测试）、Reconciliation（三方对账汇总）。
+ *    连接测试）、Reconciliation（三方对账汇总）。W16-A1 起 AI 制证退役，历史 AI 建议仅作留档展示。
  */
 
 export function AuditDrawer({ statement, onClose }: { statement?: Pick<StatementRecord, 'id' | 'statementNo'> | null; onClose: () => void }) {
@@ -64,14 +64,12 @@ export function VoucherStatements() {
   const hasPermission = useAuthStore((state) => state.hasPermission);
   const canReview = hasPermission('statement:review');
   const canPush = hasPermission('voucher:push');
-  const canAi = hasPermission('ai:use');
   const [page, setPage] = useState(1);
   const [filter, setFilter] = useState<VoucherFilter>('ALL');
   const [trace, setTrace] = useState<StatementRecord>();
   const [voucherDetail, setVoucherDetail] = useState<StatementRecord>();
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [busy, setBusy] = useState(false);
-  const [aiBusyId, setAiBusyId] = useState<number>();
   const [rejectIds, setRejectIds] = useState<number[]>();
   const [rejectComment, setRejectComment] = useState('');
   const [batchResult, setBatchResult] = useState<StatementBatchOpResult>();
@@ -142,22 +140,6 @@ export function VoucherStatements() {
     setRejectComment('');
     setRejectIds(ids);
   };
-  const refreshAi = async (row: StatementRecord) => {
-    setAiBusyId(row.id);
-    try {
-      const suggestion = await statementApi.refreshAiSuggestion(row.id);
-      // W10（WP-5）：规则引擎命中时提示「已按规则生成」，让用户知道 AI 建议受规则约束
-      const hits = suggestion?.hitRules || [];
-      message.success(hits.length
-        ? `AI 建议已更新 · 按命中规则生成（${hits.map((hit) => `R${hit.ruleNo} ${hit.businessType}`).join('、')}）`
-        : 'AI 建议已更新（无命中规则，AI 独立判断）');
-      await reload();
-    } catch (reason) {
-      message.error(reason instanceof Error ? reason.message : 'AI 建议刷新失败');
-    } finally {
-      setAiBusyId(undefined);
-    }
-  };
   const rowSelection = (canReview || canPush) ? {
     selectedRowKeys: selectedIds,
     onChange: (keys: Key[]) => setSelectedIds(keys.map(Number)),
@@ -185,7 +167,6 @@ export function VoucherStatements() {
         <Button type="link" size="small" onClick={() => setVoucherDetail(row)}>凭证</Button>
         {canReview && row.reviewStatus === 'PENDING' && <Button type="link" size="small" disabled={busy} onClick={() => batchApprove([row.id])}>通过</Button>}
         {canReview && row.reviewStatus === 'PENDING' && <Button type="link" size="small" disabled={busy} onClick={() => openReject([row.id])}>驳回</Button>}
-        {canAi && row.reviewStatus === 'PENDING' && <Button type="link" size="small" loading={aiBusyId === row.id} onClick={() => void refreshAi(row)}>刷新 AI 建议</Button>}
         {canPush && row.reviewStatus === 'APPROVED' && row.pushStatus !== 'PUSHED' && <Button type="link" size="small" disabled={busy} onClick={() => batchPush([row.id])}>推送金蝶</Button>}
         <Button type="link" size="small" onClick={() => setTrace(row)}>追溯</Button>
       </Space>,
@@ -196,7 +177,7 @@ export function VoucherStatements() {
       <div>
         <span className="section-kicker">流水与入账 / 制证工作台</span>
         <h2>凭证草稿与制证</h2>
-        <p className="muted">AI 制证草稿在此人工审核：点击「凭证」查看金蝶式凭证单据（AI 预填科目与逐行置信度，人工复核+改）→ 通过（可批量）→ 推送金蝶（可批量、幂等）→ 金蝶侧完成最终审核。</p>
+        <p className="muted">凭证草稿在此人工审核：点击「凭证」查看金蝶式凭证单据（预填科目与逐行置信度，人工复核+改）→ 通过（可批量）→ 推送金蝶（可批量、幂等）→ 金蝶侧完成最终审核。</p>
       </div>
       <Space wrap>
         {canReview && <Button type="primary" ghost disabled={busy || !selectedIds.length} onClick={() => batchApprove(selectedIds)}>批量通过{selectedIds.length ? `（${selectedIds.length}）` : ''}</Button>}

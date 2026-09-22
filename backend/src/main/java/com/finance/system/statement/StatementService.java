@@ -11,11 +11,13 @@ import com.finance.system.common.api.PageResponse;
 import com.finance.system.common.exception.BusinessException;
 import com.finance.system.domain.entity.BankAccount;
 import com.finance.system.domain.entity.BankDataStatement;
+import com.finance.system.domain.entity.Company;
 import com.finance.system.domain.entity.StatementAuditEvent;
 import com.finance.system.domain.entity.StatementImportBatch;
 import com.finance.system.domain.entity.StatementRecord;
 import com.finance.system.domain.mapper.BankAccountMapper;
 import com.finance.system.domain.mapper.BankDataStatementMapper;
+import com.finance.system.domain.mapper.CompanyMapper;
 import com.finance.system.domain.mapper.StatementAuditEventMapper;
 import com.finance.system.domain.mapper.StatementImportBatchMapper;
 import com.finance.system.domain.mapper.StatementRecordMapper;
@@ -41,6 +43,8 @@ import com.finance.system.statement.kingdee.KingdeeConnectionStatus;
 import com.finance.system.statement.kingdee.KingdeeVoucherGateway;
 import com.finance.system.statement.kingdee.KingdeeProperties;
 import com.finance.system.statement.voucherrule.KingdeeVoucherEngineService;
+import com.finance.system.statement.voucherrule.KingdeeVoucherMatchingService;
+import com.finance.system.statement.voucherrule.dto.KingdeeVoucherRulePreview;
 import com.finance.system.statement.kingdee.KingdeeVoucherResult;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -83,8 +87,9 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
      * 真实账套境内主体均未启用「出纳管理」，收付款单保存一律被拒，故默认走 GL。
      */
     private final KingdeeProperties kingdeeProps;
-    /** 总账落点的推送链路（AI/规则分录 → GL_VOUCHER），与「一键 AI 制证」PUSH 模式共用同一套组装与状态机。 */
+    /** 总账落点的推送链路（规则匹配 → GL_VOUCHER），W16-A1 起与一键推送编排共用同一套匹配与状态机。 */
     private final KingdeeVoucherEngineService voucherEngineService;
+    private final CompanyMapper companyMapper;
     private final CompanyScopeService companyScope;
     private final BankDataStatementMapper bankDataStatementMapper;
     private final RbacService rbacService;
@@ -104,6 +109,7 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
                             RbacService rbacService,
                             KingdeeProperties kingdeeProps,
                             KingdeeVoucherEngineService voucherEngineService,
+                            CompanyMapper companyMapper,
                             com.finance.system.closing.ClosingService closingService) {
         this.collector = collector;
         this.batchMapper = batchMapper;
@@ -116,6 +122,7 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
         this.rbacService = rbacService;
         this.kingdeeProps = kingdeeProps;
         this.voucherEngineService = voucherEngineService;
+        this.companyMapper = companyMapper;
         this.closingService = closingService;
     }
 
@@ -544,8 +551,9 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
         StatementRecord processing = require(id, view);
         if (kingdeeProps.isGlTarget()) {
             // FIX-009：总账落点（默认）。真实账套境内主体未启用「出纳管理」，收付款单保存一律被拒
-            // （线上实证 AR_RECEIVEBILL: 当前组织未启用出纳）——改走 GL_VOUCHER，与「一键 AI 制证」
-            // 的 PUSH 模式共用同一套组装/校验/状态机。
+            // （线上实证 AR_RECEIVEBILL: 当前组织未启用出纳）——改走 GL_VOUCHER。
+            // W16-A1（2026-09-22）：AI 制证退役，GL 落点改为「按当前规则表重新匹配后推送」——
+            // 凭证中心重推与一键推送编排共享同一条规则链路，不再读 ai_suggestion_json。
             return pushGlVoucher(processing, view, previousPushStatus, operatorId);
         }
         KingdeeVoucherResult result = kingdeeGateway.push(processing);
@@ -577,19 +585,37 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
     /**
      * 凭证中心推送的「总账落点」实现（{@code kingdee.voucher-target=GL}，默认）。
      *
-     * <p>复用 {@link KingdeeVoucherEngineService#pushAiVoucher}：读该流水的 AI 分录建议 →
-     * 科目与银行账号维度校验 → 组装 GL_VOUCHER → 保存 → 回写 {@code GL_PUSHED}。链路内部
+     * <p>W16-A1（2026-09-22）AI 制证退役后改为规则引擎路：按<b>当前规则表</b>重新匹配，
+     * 唯一命中且无需人工金额即推送（等价于一键推送编排的单行语义；多候选/未命中/
+     * 需人工金额时抛业务异常并落 {@code GL_FAILED}，凭证中心展示原因）。链路内部
      * 自行落库与写审计；本方法只把结果转成流水响应，保持与收付款单落点一致的
      * 「失败不抛业务异常、返回当前态」语义。</p>
      *
      * <p>状态口径：CAS 只在仍处 {@code PROCESSING} 时才置 FAILED，因此 GL 链路已写的
      * {@code GL_FAILED}（含金蝶原文）不会被覆盖——凭证中心据此能区分「总账推送失败」
-     * 与「前置校验未通过（缺分录 / 账户未映射金蝶档案）」。</p>
+     * 与「前置校验未通过（缺规则命中 / 账户未映射金蝶档案）」。</p>
      */
     private StatementResponse pushGlVoucher(StatementRecord processing, CompanyView view,
                                             String previousPushStatus, Long operatorId) {
         try {
-            voucherEngineService.pushAiVoucher(processing.getId(), operatorId);
+            BankAccount account = processing.getBankAccountId() == null ? null
+                    : bankAccountMapper.selectById(processing.getBankAccountId());
+            Company company = processing.getCompanyId() == null ? null
+                    : companyMapper.selectById(processing.getCompanyId());
+            KingdeeVoucherRulePreview preview =
+                    voucherEngineService.previewOne(processing, account, company);
+            if (!KingdeeVoucherMatchingService.ST_AUTO_FILL.equals(preview.status())) {
+                throw new BusinessException(409, switch (preview.status()) {
+                    case "CANDIDATES" -> "多条规则同时命中，无法自动重推；请在「凭证草稿与制证」页人工确认后推送";
+                    case "UNMATCHED" -> "无命中规则（规则表可能已变化）；请在「凭证草稿与制证」页人工制证";
+                    default -> preview.reason() == null ? "流水不可自动重推" : preview.reason();
+                });
+            }
+            KingdeeVoucherRulePreview.Candidate candidate = preview.candidates().get(0);
+            if (candidate.needManualAmount()) {
+                throw new BusinessException(409, "命中规则含人工分摊行，无法自动重推；请在「凭证草稿与制证」页补金额后推送");
+            }
+            voucherEngineService.push(processing.getId(), candidate.ruleNo(), null, operatorId);
             return toResponse(require(processing.getId(), view));
         } catch (BusinessException e) {
             baseMapper.update(null, new LambdaUpdateWrapper<StatementRecord>()

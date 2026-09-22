@@ -78,7 +78,7 @@ export type StatementBatchOpResult = {
   rows: StatementBatchOpRowResult[];
 };
 
-/** AI 入账建议（/statements/{id}/ai-suggestion 重新生成，AI 只建议不执行）。 */
+/** AI 入账建议（W16-A1 起 AI 制证退役；历史数据留档展示，不再重新生成）。 */
 export type AiAccountingSuggestion = {
   statementId: number;
   businessCategory?: string | null;
@@ -93,7 +93,7 @@ export type AiAccountingSuggestion = {
   durationMillis?: number | null;
 };
 
-/** 凭证分录预填行（V33 凭证草稿详情：AI 预填 + 逐行置信度，人工可改）。 */
+/** 凭证分录预填行（V33 凭证草稿详情：预填 + 逐行置信度，人工可改）。 */
 export type VoucherEntry = {
   summary?: string | null;
   subjectCode?: string | null;
@@ -109,7 +109,7 @@ export type VoucherEntry = {
   dimension?: string | null;
 };
 
-/** 凭证草稿的结构化 AI 建议（GET /statements/{id} 的 aiSuggestion 字段，V33）。 */
+/** 凭证草稿的结构化建议（GET /statements/{id} 的 aiSuggestion 字段，V33；W16-A1 起为历史留档）。 */
 export type AiVoucherSuggestion = {
   businessCategory?: string | null;
   suggestedSummary?: string | null;
@@ -159,7 +159,7 @@ export type StatementAuditEvent = {
 
 export type StatementDetail = {
   statement: StatementRecord;
-  /** V33 凭证草稿的结构化 AI 建议（未生成过 AI 建议时为 null）。 */
+  /** V33 凭证草稿的结构化建议（历史 AI 建议或人工修正留档；无则 null）。 */
   aiSuggestion?: AiVoucherSuggestion | null;
   auditTrail: StatementAuditEvent[];
 };

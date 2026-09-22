@@ -10,7 +10,7 @@ import { useRemote, ResourceFailure } from '../shared/components';
 import { ExcelGrid } from '../bank-access/grid/ExcelGrid';
 import type { GridRow } from '../bank-access/grid/kernel';
 import { AuditDrawer } from '../statements/pages';
-import { AiVoucherJobBanner } from './AiVoucherJobBanner';
+import { PushJobBanner } from './PushJobBanner';
 import { VOUCHER_GROUP_FILTERS } from './voucherTexts';
 import { voucherCenterColumns, toVoucherGridRows } from './VoucherCenterGridColumns';
 import type { VoucherGroupFilter, VoucherGroupRow } from './types';
@@ -84,7 +84,7 @@ export function VoucherCenterPage() {
   const reopen = (row: VoucherGroupRow) => {
     Modal.confirm({
       title: `重新打开已驳回流水（${row.statementNo}）`,
-      content: '驳回状态将复位为「待复核」，可重新生成凭证草稿（一键 AI 制证 / 人工存草稿）。上次驳回意见保留可追溯；该操作写入审计。',
+      content: '驳回状态将复位为「待复核」，可重新生成凭证草稿（人工存草稿）。上次驳回意见保留可追溯；该操作写入审计。',
       okText: '确认重新打开',
       cancelText: '取消',
       onOk: () => withBusy(row, () => statementApi.reopen(row.statementId), '流水已重新打开，可重新制证'),
@@ -175,9 +175,9 @@ export function VoucherCenterPage() {
         onSearch={(value) => { setPage(1); setKeyword(value.trim()); }}
       />
     </Space>
-    {/* 2026-09-21（V40）：DRAFT 制证已后台化，任务进度与逐行结果在此展示；
-        任务完成后刷新列表，让新生成的草稿立即出现在下方。 */}
-    {canPush && <AiVoucherJobBanner onFinished={() => { void reload(); }} />}
+    {/* W16-A1（2026-09-22）：一键推送已后台化，任务进度与逐行结果（自动推 X / 问题凭证 Y / 跳过 Z）在此展示；
+        任务完成后刷新列表，让新生成的凭证立即出现在下方。 */}
+    {canPush && <PushJobBanner onFinished={() => { void reload(); }} />}
     <Card>
       {error ? <ResourceFailure error={error} onRetry={reload} /> : <>
         <ExcelGrid

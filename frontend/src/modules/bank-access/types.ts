@@ -59,63 +59,43 @@ export type KingdeeMatchResult = {
   skipped: number;
 };
 
-/** 一键 AI 制证逐行结果（/bank-data/statements/ai-voucher）。 */
-export type AiVoucherRowResult = {
+/**
+ * 一键推送至金蝶的逐行结果（W16-A1，/bank-data/statements/push-to-kingdee）。
+ * 与后端 dto/PushRowResult 一一对应；isProblem 口径 = outcome 以 PROBLEM_ 开头。
+ */
+export type PushRowResult = {
   bankDataStatementId: number;
   statementNo: string;
-  outcome: 'PUSHED' | 'DRAFT_CREATED' | 'ALREADY_APPROVED' | 'ALREADY_PUSHED' | 'SKIPPED_MANUAL' | 'SKIPPED_REJECTED' | 'FAILED_VALIDATION' | 'FAILED';
-  aiStatus?: 'OK' | 'UNAVAILABLE';
-  aiBusinessCategory?: string | null;
-  aiSuggestedSummary?: string | null;
-  aiSuggestedSubject?: string | null;
-  aiConfidence?: number | null;
+  outcome: 'PUSHED' | 'PROBLEM_CANDIDATES' | 'PROBLEM_UNMATCHED' | 'PROBLEM_MANUAL_AMOUNT'
+  | 'PROBLEM_ELIGIBLE' | 'PROBLEM_PUSH_FAILED' | 'ALREADY_PUSHED' | 'SKIPPED_MANUAL' | 'SKIPPED';
+  ruleNo?: number | null;
   voucherNo?: string | null;
   pushStatus?: string | null;
   message?: string | null;
 };
 
-/** 一键 AI 制证批次结果。 */
-export type AiVoucherBatchResult = {
-  batchNo?: string | null;
-  totalCount: number;
-  /** DRAFT 模式生成的 PENDING 草稿数。 */
-  draftCount: number;
-  pushedCount: number;
-  alreadyCount: number;
-  skippedCount: number;
-  failedCount: number;
-  rows: AiVoucherRowResult[];
-};
-
-/**
- * AI 制证提交响应（2026-09-21 DRAFT 异步化）：
- * async=true → 后台任务已受理（jobId/totalCount），结果去「凭证中心」看；
- * async=false → PUSH 同步结果在 result 里。
- */
-export type AiVoucherSubmitResult = {
-  async: boolean;
-  jobId?: number | null;
-  totalCount: number;
-  result?: AiVoucherBatchResult | null;
-};
-
-/** AI 制证后台任务（/bank-data/ai-voucher-jobs/latest，凭证中心轮询）。 */
-export type AiVoucherJobResult = {
+/** 一键推送后台任务（/bank-data/push-jobs/latest，凭证中心轮询）。 */
+export type PushJobResult = {
   id: number;
-  mode: 'DRAFT' | 'PUSH';
   status: 'RUNNING' | 'COMPLETED' | 'FAILED';
   batchNo?: string | null;
   totalCount: number;
-  draftCount: number;
   pushedCount: number;
-  alreadyCount: number;
+  problemCount: number;
   skippedCount: number;
-  failedCount: number;
+  alreadyCount: number;
   createdAt?: string | null;
   finishedAt?: string | null;
   /** 任务级失败原因（status=FAILED 时非空）。 */
   message?: string | null;
-  rows: AiVoucherRowResult[];
+  rows: PushRowResult[];
+};
+
+/** 一键推送提交响应（W16-A1 起推送一律后台化，async 恒 true）。 */
+export type PushSubmitResult = {
+  async: boolean;
+  jobId?: number | null;
+  totalCount: number;
 };
 
 /** 银行流水一键转入标准流水的服务端结果（复用导入批次响应形态）。 */

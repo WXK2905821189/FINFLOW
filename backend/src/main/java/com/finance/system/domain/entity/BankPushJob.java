@@ -7,17 +7,17 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import java.time.LocalDateTime;
 
 /**
- * 一键 AI 制证异步任务（V40，2026-09-21）。
+ * 一键推送至金蝶异步任务（W16-A1，2026-09-22）。
  *
- * <p>DRAFT 模式从同步改为后台任务：提交即返回任务号，服务端逐行跑
- * 「转入 → AI 建议 → 落草稿」，计数与逐行结果回写本行，页面在「凭证中心」轮询展示。
- * PUSH 模式仍是同步链路（用户要立即看到推送结果），不落本表。</p>
+ * <p>流水查询页单一「一键推送至金蝶」按钮的后台任务承载：勾选流水 → 跑规则中心匹配 →
+ * 仅唯一命中（AUTO_FILL）且无需人工金额的行自动组装推送金蝶草稿；其余落为「问题凭证」。
+ * 计数与逐行结果回写本行，页面在「凭证中心」轮询展示。</p>
  *
- * <p>{@code rowsJson} 是 {@code AiVoucherRowResult} 数组的 JSON（含失败 message，
- * 前端据此渲染失败诊断）；写入前按 {@code AiVoucherJobService} 的上限截断。</p>
+ * <p>{@code rowsJson} 是 {@code PushRowResult} 数组的 JSON（含 outcome 与失败原因，
+ * 前端据此渲染诊断）；写入前按 {@code BankPushJobService} 的上限截断。</p>
  */
-@TableName("ai_voucher_job")
-public class AiVoucherJob {
+@TableName("bank_push_job")
+public class BankPushJob {
 
     /** 任务进行中。 */
     public static final String STATUS_RUNNING = "RUNNING";
@@ -26,15 +26,10 @@ public class AiVoucherJob {
     /** 任务整体失败（线程内未捕获异常），message 记原因。 */
     public static final String STATUS_FAILED = "FAILED";
 
-    /** 生成制证草稿（异步任务）。 */
-    public static final String MODE_DRAFT = "DRAFT";
-
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
 
     private Long companyId;
-
-    private String mode;
 
     private String status;
 
@@ -43,15 +38,17 @@ public class AiVoucherJob {
 
     private Integer totalCount;
 
-    private Integer draftCount;
-
+    /** 本次自动推送成功数（唯一命中且无需人工金额）。 */
     private Integer pushedCount;
 
-    private Integer alreadyCount;
+    /** 问题凭证数（多候选/未命中/需人工金额/不可制证/推送失败）。 */
+    private Integer problemCount;
 
+    /** 跳过数（纯人工制证账户 / 无公司归属或越权 / 已人工驳回）。 */
     private Integer skippedCount;
 
-    private Integer failedCount;
+    /** 幂等跳过数（此前已推送成功——已推送是终局，重跑不动它）。 */
+    private Integer alreadyCount;
 
     private String rowsJson;
 
@@ -69,9 +66,6 @@ public class AiVoucherJob {
     public Long getCompanyId() { return companyId; }
     public void setCompanyId(Long companyId) { this.companyId = companyId; }
 
-    public String getMode() { return mode; }
-    public void setMode(String mode) { this.mode = mode; }
-
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
 
@@ -81,20 +75,17 @@ public class AiVoucherJob {
     public Integer getTotalCount() { return totalCount; }
     public void setTotalCount(Integer totalCount) { this.totalCount = totalCount; }
 
-    public Integer getDraftCount() { return draftCount; }
-    public void setDraftCount(Integer draftCount) { this.draftCount = draftCount; }
-
     public Integer getPushedCount() { return pushedCount; }
     public void setPushedCount(Integer pushedCount) { this.pushedCount = pushedCount; }
 
-    public Integer getAlreadyCount() { return alreadyCount; }
-    public void setAlreadyCount(Integer alreadyCount) { this.alreadyCount = alreadyCount; }
+    public Integer getProblemCount() { return problemCount; }
+    public void setProblemCount(Integer problemCount) { this.problemCount = problemCount; }
 
     public Integer getSkippedCount() { return skippedCount; }
     public void setSkippedCount(Integer skippedCount) { this.skippedCount = skippedCount; }
 
-    public Integer getFailedCount() { return failedCount; }
-    public void setFailedCount(Integer failedCount) { this.failedCount = failedCount; }
+    public Integer getAlreadyCount() { return alreadyCount; }
+    public void setAlreadyCount(Integer alreadyCount) { this.alreadyCount = alreadyCount; }
 
     public String getRowsJson() { return rowsJson; }
     public void setRowsJson(String rowsJson) { this.rowsJson = rowsJson; }

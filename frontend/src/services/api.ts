@@ -41,8 +41,8 @@ import type {
   KingdeeMappingRow,
   KingdeeMappingPreview,
   KingdeeMatchResult,
-  AiVoucherSubmitResult,
-  AiVoucherJobResult,
+  PushSubmitResult,
+  PushJobResult,
   AiCompanySuggestionResponse,
   AiCompanyApplyResponse,
   AiVoucherSuggestion,
@@ -226,8 +226,6 @@ export const aiApi = {
   testConfig: (data: AiConfigTestPayload) => http.post<never, AiSelfTest>('/ai/config/test', data),
   /** 用表单当前值（baseUrl+密钥）拉取供应商可用模型列表（OpenAI 兼容 GET /models） */
   listModels: (data: AiConfigTestPayload) => http.post<never, string[]>('/ai/config/models', data),
-  accountingSuggestion: (statementId: number) =>
-    http.post<never, AiAccountingSuggestion>('/ai/accounting-suggestion', { statementId }),
 };
 
 // ---- V38 AI 提示词配置（W9 需求 4；ai:config 仅超管）----
@@ -291,24 +289,6 @@ export type AiConfigView = {
   effective: AiStatus & { configSource: string };
 };
 
-// ---- A1 智能入账建议（AI 只建议，不执行）----
-
-export type AiAccountingSuggestion = {
-  statementId: number;
-  businessCategory: string | null;
-  suggestedSummary: string | null;
-  counterpartyType: 'CUSTOMER' | 'SUPPLIER' | 'EMPLOYEE' | 'OTHER' | null;
-  settlementMethod: string | null;
-  suggestedSubject: string | null;
-  riskNotes: string | null;
-  confidence: number | null;
-  rationale: string | null;
-  model: string;
-  durationMillis: number;
-  /** W10（WP-5）：命中的入账规则（服务端规则引擎判定，非空表示建议受规则约束）。 */
-  hitRules?: Array<{ ruleNo: number; businessType: string | null; category: string | null }>;
-};
-
 type StatementListParams = {
   page?: number;
   size?: number;
@@ -341,9 +321,6 @@ export const statementApi = {
   reopen: (id: number) => http.post<never, StatementRecord>(`/statements/${id}/reopen`),
   /** W10（V39）：撤回未推送金蝶的凭证（标记已撤回 + 流水回池可重新制证；审计 WITHDRAW）。 */
   withdraw: (id: number) => http.post<never, StatementRecord>(`/statements/${id}/withdraw`),
-  /** 对 PENDING 草稿重新生成 AI 建议（覆盖复核意见，不改状态；ai:use 闸门在服务端）。 */
-  refreshAiSuggestion: (id: number) =>
-    http.post<never, AiAccountingSuggestion>(`/statements/${id}/ai-suggestion`),
   /** V33：保存人工修正后的凭证分录与主摘要（voucher:push 闸门；主摘要回写供金蝶单据备注）。 */
   saveVoucherDraft: (id: number, data: VoucherDraftSavePayload) =>
     http.put<never, AiVoucherSuggestion>(`/statements/${id}/voucher-draft`, data),
@@ -514,6 +491,8 @@ type BankDataQueryParams = {
   maxAmount?: number;
   /** 币种语义值：CNY 展开命中 {CNY,10,01}。 */
   currency?: string;
+  /** W16-B5（2026-09-21）交易时间全量排序方向（仅流水；不传=服务端默认 desc）。 */
+  sortDir?: string;
 };
 
 /** axios 默认把数组序列化成 `key[]=1`（Spring 不识别）；数组改重复键拼 URL，其余走 axios params。 */
@@ -551,16 +530,16 @@ export const bankPipelineApi = {
   transferFromBankdata: (data: { statementIds: number[] }) =>
     http.post<never, StatementTransferResult>('/statements/transfer-from-bankdata', data),
   /**
-   * 一键 AI 制证（2026-09-16；2026-09-17 扩 DRAFT；2026-09-21 DRAFT 异步化）：
-   * 转入 → AI 建议 → DRAFT=提交**后台任务**立即返回（进度/结果去凭证中心看）/
-   * PUSH=复核内化后同步推送金蝶（返回同步结果）。
+   * 一键推送至金蝶（W16-A1，2026-09-22）：AI 制证全链路退役后的唯一制证入口。
+   * 勾选银行流水 → 后台任务按规则中心匹配 → 仅唯一命中（AUTO_FILL）且无需人工金额的行
+   * 自动推送金蝶草稿；其余落「问题凭证」（凭证中心可查）。
    */
-  aiVoucher: (data: { statementIds: number[]; mode?: 'DRAFT' | 'PUSH' }) =>
-    http.post<never, AiVoucherSubmitResult>('/bank-data/statements/ai-voucher', data),
-  /** AI 制证后台任务：本公司最近一个任务（凭证中心轮询，含逐行结果与失败原因）。 */
-  latestAiVoucherJob: () => http.get<never, AiVoucherJobResult | null>('/bank-data/ai-voucher-jobs/latest'),
-  /** AI 制证后台任务详情（按任务号；跨公司需 bankdata:cross-company:view）。 */
-  aiVoucherJob: (id: number) => http.get<never, AiVoucherJobResult>(`/bank-data/ai-voucher-jobs/${id}`),
+  pushToKingdee: (data: { statementIds: number[] }) =>
+    http.post<never, PushSubmitResult>('/bank-data/statements/push-to-kingdee', data),
+  /** 一键推送后台任务：本公司最近一个任务（凭证中心轮询，含逐行结果与失败原因）。 */
+  latestPushJob: () => http.get<never, PushJobResult | null>('/bank-data/push-jobs/latest'),
+  /** 一键推送后台任务详情（按任务号；跨公司需 bankdata:cross-company:view）。 */
+  pushJob: (id: number) => http.get<never, PushJobResult>(`/bank-data/push-jobs/${id}`),
   /** 定时同步计划（V25）：读取全部计划时刻（查看权限即可读）。 */
   listSchedules: () => http.get<never, BankSyncScheduleRow[]>('/bank-sync-schedules'),
   /** 新建计划时刻（HH:mm，禁整点/半点；bank:manage）。 */

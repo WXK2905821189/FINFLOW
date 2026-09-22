@@ -82,7 +82,7 @@ export function VoucherDocPage() {
   const periodLocked = Boolean(voucherPeriod)
     && (closed.data?.records || []).some((row) => row.period === voucherPeriod);
   const lockChip = periodLocked ? (
-    <Tooltip title="该账期已结账（CLOSED）：导入、AI 制证与推送被拦截，超管可在结账管理中解锁。">
+    <Tooltip title="该账期已结账（CLOSED）：导入与推送被拦截，超管可在结账管理中解锁。">
       <Tag icon={<LockOutlined />} color="red" style={{ marginLeft: 6 }}>账期已结账</Tag>
     </Tooltip>
   ) : null;

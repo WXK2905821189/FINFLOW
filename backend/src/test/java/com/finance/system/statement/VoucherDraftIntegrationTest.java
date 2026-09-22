@@ -5,13 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.finance.system.domain.entity.StatementAuditEvent;
 import com.finance.system.domain.entity.StatementImportBatch;
 import com.finance.system.domain.entity.StatementRecord;
-import com.finance.system.domain.mapper.AiProviderConfigMapper;
 import com.finance.system.domain.mapper.StatementAuditEventMapper;
 import com.finance.system.domain.mapper.StatementImportBatchMapper;
 import com.finance.system.domain.mapper.StatementRecordMapper;
-import com.sun.net.httpserver.HttpServer;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -20,10 +16,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
-import java.io.IOException;
-import java.io.OutputStream;
 import java.math.BigDecimal;
-import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -37,10 +30,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * V33 凭证草稿详情全链路（独立 Spring 上下文，JDK HttpServer 冒充 LLM 端点）：
+ * V33 凭证草稿详情全链路（W16-A1 起 AI 制证退役，seed 直插 ai_suggestion_json 模拟历史留档）：
  * <ul>
- *   <li>AI 建议含 entries 分录 → POST /statements/{id}/ai-suggestion 落库 ai_suggestion_json；</li>
- *   <li>GET /statements/{id} 返回结构化 aiSuggestion（分录+逐行置信度+balanced）；</li>
+ *   <li>历史建议（含 entries 分录）→ GET /statements/{id} 返回结构化 aiSuggestion（分录+逐行置信度+balanced）；</li>
  *   <li>PUT /statements/{id}/voucher-draft 保存人工修正：回写分录（edited 标记）+ 主摘要同步
  *       statement.summary（金蝶 FREMARK/FCOMMENT 口径）+ 审计 VOUCHER_DRAFT_EDIT；</li>
  *   <li>护栏：借贷不平衡 400、行数据缺失 400、已推送 409。</li>
@@ -50,17 +42,21 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 class VoucherDraftIntegrationTest {
 
-    private static final String PASSWORD = "Test@12345";
-    private static final String API_KEY = "draft-key-789";
-
-    private static HttpServer mockLlm;
+    private static final String SUGGESTION_JSON = """
+            {"businessCategory":"货款收入","suggestedSummary":"收泰拉贸易行货款",
+             "counterpartyType":"CUSTOMER","settlementMethod":"银行转账",
+             "suggestedSubject":"应收账款","riskNotes":"无","confidence":0.85,
+             "rationale":"对手方为客户",
+             "entries":[{"summary":"收泰拉贸易行货款","subjectCode":"",
+             "subjectName":"银行存款","direction":"DEBIT","amount":12800.00,"confidence":1.0},
+             {"summary":"收泰拉贸易行货款","subjectCode":"1122",
+             "subjectName":"应收账款","direction":"CREDIT","amount":12800.00,"confidence":0.85}],
+             "balanced":true,"edited":false}""";
 
     @Autowired
     private MockMvc mockMvc;
     @Autowired
     private ObjectMapper objectMapper;
-    @Autowired
-    private AiProviderConfigMapper configMapper;
     @Autowired
     private StatementRecordMapper statementMapper;
     @Autowired
@@ -68,56 +64,10 @@ class VoucherDraftIntegrationTest {
     @Autowired
     private StatementAuditEventMapper auditMapper;
 
-    @AfterEach
-    void cleanConfigRow() {
-        configMapper.deleteById(1L);
-    }
-
-    @AfterAll
-    static void stopMock() {
-        if (mockLlm != null) {
-            mockLlm.stop(0);
-        }
-    }
-
-    private static void startMockIfAbsent() throws IOException {
-        if (mockLlm != null) {
-            return;
-        }
-        mockLlm = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-        mockLlm.createContext("/chat/completions", exchange -> {
-            exchange.getRequestBody().readAllBytes();
-            String auth = exchange.getRequestHeaders().getFirst("Authorization");
-            if (!("Bearer " + API_KEY).equals(auth)) {
-                respond(exchange, 401, "{\"error\":{\"message\":\"bad key\"}}");
-                return;
-            }
-            respond(exchange, 200, """
-                    {"model":"mock-model","choices":[{"message":{"role":"assistant","content":\
-                    "{\\"businessCategory\\":\\"货款收入\\",\\"suggestedSummary\\":\\"收泰拉贸易行货款\\",\
-                    \\"counterpartyType\\":\\"CUSTOMER\\",\\"settlementMethod\\":\\"银行转账\\",\
-                    \\"suggestedSubject\\":\\"应收账款\\",\\"riskNotes\\":\\"无\\",\\"confidence\\":0.85,\
-                    \\"rationale\\":\\"对手方为客户\\",\
-                    \\"entries\\":[{\\"summary\\":\\"收泰拉贸易行货款\\",\\"subjectCode\\":\\"\\",\
-                    \\"subjectName\\":\\"银行存款\\",\\"direction\\":\\"DEBIT\\",\\"amount\\":12800.00,\\"confidence\\":1.0},\
-                    {\\"summary\\":\\"收泰拉贸易行货款\\",\\"subjectCode\\":\\"1122\\",\
-                    \\"subjectName\\":\\"应收账款\\",\\"direction\\":\\"CREDIT\\",\\"amount\\":12800.00,\\"confidence\\":0.85}]}"},\
-                    "finish_reason":"stop"}],\
-                    "usage":{"prompt_tokens":90,"completion_tokens":70,"total_tokens":160}}""");
-        });
-        mockLlm.start();
-    }
-
     @Test
-    void aiSuggestionWithEntriesPersistsAndDetailExposesIt() throws Exception {
-        startMockIfAbsent();
+    void historicalSuggestionPersistsAndDetailExposesIt() throws Exception {
         String token = login("admin", "Admin@123");
-        saveEnabledConfig(token);
         long id = seedStatement("VDFT-" + suffix());
-
-        mockMvc.perform(post("/api/statements/" + id + "/ai-suggestion")
-                        .header("Authorization", bearer(token)))
-                .andExpect(status().isOk());
 
         MvcResult detail = mockMvc.perform(get("/api/statements/" + id)
                         .header("Authorization", bearer(token)))
@@ -133,23 +83,12 @@ class VoucherDraftIntegrationTest {
         assertEquals(0.85, suggestion.get("entries").get(1).get("confidence").asDouble(), 1e-9);
         assertEquals(true, suggestion.get("balanced").asBoolean());
         assertEquals(false, suggestion.get("edited").asBoolean());
-
-        // 审计：AI_SUGGESTION_REFRESH
-        assertTrue(auditMapper.selectCount(new LambdaQueryWrapper<StatementAuditEvent>()
-                .eq(StatementAuditEvent::getStatementId, id)
-                .eq(StatementAuditEvent::getAction, "AI_SUGGESTION_REFRESH")) >= 1);
     }
 
     @Test
     void humanCorrectionRewritesEntriesSummaryAndAudit() throws Exception {
-        startMockIfAbsent();
         String token = login("admin", "Admin@123");
-        saveEnabledConfig(token);
         long id = seedStatement("VDHM-" + suffix());
-
-        mockMvc.perform(post("/api/statements/" + id + "/ai-suggestion")
-                        .header("Authorization", bearer(token)))
-                .andExpect(status().isOk());
 
         MvcResult saved = mockMvc.perform(put("/api/statements/" + id + "/voucher-draft")
                         .header("Authorization", bearer(token))
@@ -187,9 +126,7 @@ class VoucherDraftIntegrationTest {
 
     @Test
     void unbalancedOrInvalidEntriesAreRejected() throws Exception {
-        startMockIfAbsent();
         String token = login("admin", "Admin@123");
-        saveEnabledConfig(token);
         long id = seedStatement("VDBAD-" + suffix());
 
         mockMvc.perform(put("/api/statements/" + id + "/voucher-draft")
@@ -212,9 +149,7 @@ class VoucherDraftIntegrationTest {
 
     @Test
     void pushedStatementCannotBeEdited() throws Exception {
-        startMockIfAbsent();
         String token = login("admin", "Admin@123");
-        saveEnabledConfig(token);
         long id = seedStatement("VDPUSH-" + suffix());
         StatementRecord record = statementMapper.selectById(id);
         record.setPushStatus("PUSHED");
@@ -280,18 +215,6 @@ class VoucherDraftIntegrationTest {
 
     // ---- helpers ----
 
-    private void saveEnabledConfig(String token) throws Exception {        configMapper.deleteById(1L);
-        mockMvc.perform(put("/api/ai/config")
-                        .header("Authorization", bearer(token))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"enabled":true,"baseUrl":"http://127.0.0.1:%d","apiKey":"%s",\
-                                "model":"mock-model",\
-                                "capabilities":{"self-test":true,"accounting-suggestion":true}}"""
-                                .formatted(mockLlm.getAddress().getPort(), API_KEY)))
-                .andExpect(status().isOk());
-    }
-
     private long seedStatement(String statementNo) {
         StatementImportBatch batch = new StatementImportBatch();
         batch.setCompanyId(1L);
@@ -318,17 +241,9 @@ class VoucherDraftIntegrationTest {
         record.setValidationStatus("PASSED");
         record.setReviewStatus("PENDING");
         record.setPushStatus("NOT_PUSHED");
+        record.setAiSuggestionJson(SUGGESTION_JSON);
         statementMapper.insert(record);
         return record.getId();
-    }
-
-    private static void respond(com.sun.net.httpserver.HttpExchange exchange, int code, String body) throws IOException {
-        byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
-        exchange.getResponseHeaders().set("Content-Type", "application/json");
-        exchange.sendResponseHeaders(code, bytes.length);
-        try (OutputStream out = exchange.getResponseBody()) {
-            out.write(bytes);
-        }
     }
 
     private String suffix() {

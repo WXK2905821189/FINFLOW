@@ -1450,12 +1450,12 @@ a {
   }
 }
 
-/* ============ V40（2026-09-21）：AI 制证后台任务条（凭证中心） ============ */
-.ai-voucher-job-banner {
+/* ============ W16-A1（2026-09-22）：一键推送任务条（凭证中心；原 AI 制证任务条改名） ============ */
+.push-job-banner {
   margin-bottom: 12px;
 }
 
-.ai-voucher-job-banner .ant-alert-description .ant-table-wrapper {
+.push-job-banner .ant-alert-description .ant-table-wrapper {
   margin-top: 4px;
   background: #fff;
 }

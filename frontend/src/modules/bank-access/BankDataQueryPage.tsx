@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState, type Key } from 'react';
-import { Alert, Button, Card, DatePicker, Descriptions, Drawer, Input, Modal, Pagination, Space, Spin, Table, Tabs, Tag, Tooltip, Tree, message, type TableColumnsType } from 'antd';
-import { ApartmentOutlined, FileTextOutlined, PlayCircleOutlined, RobotOutlined, SearchOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { Alert, Button, Card, DatePicker, Descriptions, Drawer, Input, Modal, Pagination, Space, Spin, Tabs, Tag, Tooltip, Tree, message } from 'antd';
+import { ApartmentOutlined, FileTextOutlined, PlayCircleOutlined, SearchOutlined, SendOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { Link } from 'react-router-dom';
 import { bankPipelineApi, bankApi } from '../../services/api';
@@ -11,12 +11,11 @@ import { dateTime, displayValue, isUnavailableStatus, isFailedStatus } from '../
 import { BankProjectionState, StatementDetail, BalanceDetail, type BankQueryRow } from './BankDataQueryColumns';
 import { balanceGridColumns, statementGridColumns, decorateStatementRows, decorateBalanceRows } from './BankQueryGridColumns';
 import { ExcelGrid } from './grid/ExcelGrid';
-import { rawCell, num2, type GridColumn, type GridFilter, type GridInstance, type GridRow } from './grid/kernel';
+import { rawCell, num2, type GridColumn, type GridFilter, type GridInstance, type GridRow, type GridSortSpec } from './grid/kernel';
 import { useGridPreference } from './grid/useGridPreference';
 import { prettyPayload } from './bankQueryTexts';
 import { useBankNames, bankAccountLabel } from './useBankNames';
-import { PromptSettingButton } from '../admin/PromptSettingModal';
-import type { BankAccount, CompanyOption, BankDataBalanceRow, BankDataProjectionPage, BankDataStatementRow, BankRawMessageDetail, AiVoucherBatchResult, AiVoucherRowResult } from '../../types';
+import type { BankAccount, CompanyOption, BankDataBalanceRow, BankDataProjectionPage, BankDataStatementRow, BankRawMessageDetail } from '../../types';
 
 export const bankDataResources = {
   balances: { title: '余额查询', permission: 'bankdata:balance:view' },
@@ -25,10 +24,13 @@ export const bankDataResources = {
 
 /**
  * V36 D1：查询页以 Excel 内核为核心重做。
- * 工具栏只剩「无法表达为单列筛选」的条件：主体树开关（流水页）+ 时间区间 + 关键字；
+ * 工具栏只剩「无法表达为单列筛选」的条件：主体树开关（流水页）+ 时间筛选 + 关键字；
  * 其余筛选全部下沉内核列头（values/text/num/date），其中可服务端化的列
  * （见 BankQueryGridColumns 的 filterServer 标注）经 onFilterChange 映射为
  * BankDataExtraFilter 既有参数随请求下发——翻页 / 导出自动同口径。
+ * W16-B4（2026-09-21）：余额页时间筛选改「时间节点」语义——from/to 同给 = 以 to 为节点上限
+ * 查看历史快照；都不传 = 每账户最新节点（当前时点快照，后端 latestPerAccount 自动启用）。
+ * 流水页时间筛选仍是区间（交易时间天然是流水维度）。
  */
 export type BankQueryFilters = {
   keyword: string;
@@ -94,15 +96,13 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
   // callbacks trips the react-compiler refs rule, and state does the same job here.
   const [focusReturn, setFocusReturn] = useState<HTMLElement | null>(null);
   const isStatement = resource === 'statements';
-  // 一键 AI 制证（2026-09-16）：流水 tab 专属，终局闸门 voucher:push（复核已内化进服务端并留审计）。
-  const canAiVoucher = isStatement && hasPermission('voucher:push');
-  // W9：AI 提示词设置入口（仅超管；提示词全局生效）。
-  const canConfigAi = hasPermission('ai:config');
+  // W16-A1 一键推送（2026-09-21）：流水 tab 专属，终局闸门 voucher:push。
+  const canPush = isStatement && hasPermission('voucher:push');
   // 银行中文名（2026-09-21）：字典中心 `bank` 类型为唯一可维护源，代码常量仅兜底。
   // bankRevision 放进列/行/树的 memo 依赖，字典异步到达后自动重建（内核 setCols 按 key
   // 保留用户的可见性与列宽，不会冲掉调好的表格）。
   const { revision: bankRevision, resolve: resolveBankName } = useBankNames();
-  // 账户数据源：主体树（公司 → 账户）与 AI 制证的 MANUAL 账户判定共用。
+  // 账户数据源：主体树与推送的 MANUAL 账户判定共用。
   const accountsLoader = useCallback(() => bankApi.accounts(), []);
   const { data: accounts } = useRemote<BankAccount[]>(accountsLoader, [accountsLoader]);
   const companyOptionsLoader = useCallback(() => bankPipelineApi.companyOptions(), []);
@@ -198,6 +198,17 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
     gridFiltersJsonRef.current = json;
     setGridFilters(next);
   }, []);
+  // W16-B5 排序服务端化：内核把排序规格交回来；页面把 sortServer 列（交易时间）映射成
+  // sortDir 请求参数（与后端枚举严格一致）。空数组 = 用户取消了排序 → 不传参走服务端默认
+  // （transactionTime desc + id desc，即「最新在前」的既有口径）。
+  const [gridSort, setGridSort] = useState<GridSortSpec[]>([]);
+  const gridSortJsonRef = useRef('[]');
+  const onGridSortChange = useCallback((next: GridSortSpec[]) => {
+    const json = JSON.stringify(next);
+    if (json === gridSortJsonRef.current) return;
+    gridSortJsonRef.current = json;
+    setGridSort(next);
+  }, []);
   const serverFilterParams = useMemo<ServerFilterParams>(() => {
     const out: ServerFilterParams = {};
     const textOf = (key: string): string => {
@@ -233,6 +244,15 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
     return out;
   }, [gridFilters, isStatement]);
 
+  // W16-B5：交易时间排序方向（仅流水页消费；余额页排序仍是本页口径）。
+  // 只认交易时间列——内核对混合排序已整体放行服务端序，此处对不上列名时忽略。
+  const sortDirParam = useMemo<'asc' | 'desc' | undefined>(() => {
+    if (!isStatement) return undefined;
+    const spec = gridSort.find((s) => s.k === 'transactionTime');
+    if (!spec) return undefined;
+    return spec.dir === 1 ? 'asc' : 'desc';
+  }, [gridSort, isStatement]);
+
   const loader = useCallback(() => {
     // 首次请求等账号级偏好落定：偏家里存的列头筛选（含服务端列）要先合并进参数，
     // 否则会「先空参查一次、再带偏好查一次」，财务对不上请求流水。
@@ -244,14 +264,18 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
       size,
       keyword: filters.keyword || undefined,
       accountIds: filters.accountIds.map(Number).filter((id) => Number.isSafeInteger(id) && id > 0),
-      from: filters.from || undefined,
+      // W16-B4 余额节点语义：from 恒不传（余额页没有「从某时刻起」的语义）；
+      // to 传 = 查看该时点之前的最近快照；to 不传 = 后端 latestPerAccount 每账户取最新节点。
+      // 流水页维持区间（from/to 独立可空，后端 .ge/.le 原生兼容）。
+      from: isStatement ? (filters.from || undefined) : undefined,
       to: filters.to || undefined,
       companyIds: canCrossCompany && scopeCompanyIds.length
         ? scopeCompanyIds.map(Number).filter((id) => Number.isSafeInteger(id) && id > 0)
         : undefined,
       ...serverFilterParams,
+      sortDir: sortDirParam,
     });
-  }, [resource, page, size, filters, canCrossCompany, scopeCompanyIds, serverFilterParams, gridPreferenceReady]);
+  }, [resource, page, size, filters, canCrossCompany, scopeCompanyIds, serverFilterParams, sortDirParam, isStatement, gridPreferenceReady]);
   const { data, loading, error, reload } = useRemote<BankDataProjectionPage<BankQueryRow>>(loader, [loader]);
   // 借贷双轨派生字段必须在灌数据前写进行对象：内核排序 / 区间筛选 / 值勾选 / TSV 复制
   // 都直接读 row[col.k]，派生列没有真实字段就是空的。这里 memo 住，避免每次渲染换新数组
@@ -287,65 +311,42 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
   }, [isStatement]);
 
   const [exporting, setExporting] = useState(false);
-  // 一键 AI 制证（2026-09-16）：行多选 → AI 建议 → 推送金蝶；MANUAL 制证模式账户的行禁选；
-  // 已推送行禁选（服务端幂等键=同公司同银行流水号）。
+  // W16-A1 一键推送（2026-09-21）：行多选 → 规则引擎自动匹配推送；MANUAL 制证模式账户的行禁选；
+  // 已推送/已转入行禁选（服务端幂等键=同公司同银行流水号）。
   const manualAccountIds = useMemo(() => new Set(
     (accounts || []).filter((account) => account.accountingMode === 'MANUAL').map((account) => account.id),
   ), [accounts]);
   const [selectedStatementIds, setSelectedStatementIds] = useState<number[]>([]);
-  const [aiVoucherRunning, setAiVoucherRunning] = useState(false);
-  const [aiVoucherResult, setAiVoucherResult] = useState<AiVoucherBatchResult>();
-  // 双模式（2026-09-17；2026-09-21 DRAFT 异步化）：DRAFT=提交后台任务立即返回，
-  // 进度与逐行结果在「凭证中心」看；PUSH=复核内化后同步推送金蝶（用户要立即看到结果）。
-  const aiVoucherSelected = (mode: 'DRAFT' | 'PUSH') => {
+  const [pushSubmitting, setPushSubmitting] = useState(false);
+  // W16-A1 单按钮单路：提交异步批任务立即返回，结果摘要（自动推 X / 问题凭证 Y / 跳过 Z）
+  // 在「凭证中心」的推送任务横幅查看，不在本页弹窗。
+  const pushSelected = () => {
     if (!selectedStatementIds.length) {
-      message.warning('请先勾选要制证的银行流水行');
+      message.warning('请先勾选要推送的银行流水行');
       return;
     }
-    const asDraft = mode === 'DRAFT';
     Modal.confirm({
-      title: asDraft
-        ? `确认对 ${selectedStatementIds.length} 条银行流水生成 AI 制证草稿`
-        : `确认对 ${selectedStatementIds.length} 条银行流水 AI 制证并推送`,
-      content: asDraft
-        ? '流程：转入标准流水（幂等）→ AI 生成入账建议写入复核意见 → 停留在「凭证草稿与制证」页待复核，不会推送金蝶。'
-          + '提交后立即返回（后台执行），进度与失败原因在「凭证中心」查看，无需停留本页。'
-        : '流程：转入标准流水（幂等）→ AI 生成入账建议 → 复核内化后直接推送金蝶（出纳收付款单，提交不审核）。审核请在金蝶侧人工完成；AI 建议不可用时将直接推送原文摘要并标注。',
-      okText: asDraft ? '提交制证任务' : '确认制证推送',
+      title: `确认一键推送 ${selectedStatementIds.length} 条银行流水至金蝶`,
+      content: '流程：转入标准流水（幂等）→ 按规则中心匹配 → 唯一命中的自动组装并推送金蝶草稿；'
+        + '多候选、未命中或需人工定金额的流水将生成「问题凭证」，在凭证中心人工处理。'
+        + '提交后后台执行，可离开本页；结果摘要见「凭证中心」推送任务横幅。',
+      okText: '确认推送',
       cancelText: '取消',
       onOk: async () => {
         const ids = selectedStatementIds;
         setSelectedStatementIds([]);
-        if (asDraft) {
-          // 后台任务：不等结果、不占页面——提交成功即提示，结果去凭证中心看
-          message.loading({ content: '正在提交制证任务…', key: 'ai-voucher-submit', duration: 0 });
-          try {
-            const submitted = await bankPipelineApi.aiVoucher({ statementIds: ids, mode });
-            message.success({
-              content: `已提交 ${submitted.totalCount} 条制证任务（任务号 #${submitted.jobId ?? '--'}），处理中，可在「凭证中心」查看进度与失败原因`,
-              key: 'ai-voucher-submit',
-              duration: 6,
-            });
-            reload();
-          } catch (reason) {
-            message.error({
-              content: reason instanceof Error ? reason.message : '制证任务提交失败',
-              key: 'ai-voucher-submit',
-            });
-          }
-          return;
-        }
-        setAiVoucherRunning(true);
+        setPushSubmitting(true);
         try {
-          const submit = await bankPipelineApi.aiVoucher({ statementIds: ids, mode });
-          if (submit.result) {
-            setAiVoucherResult(submit.result);
-          }
+          const submitted = await bankPipelineApi.pushToKingdee({ statementIds: ids });
+          message.success({
+            content: `已提交 ${submitted.totalCount} 条推送任务（任务号 #${submitted.jobId ?? '--'}），处理中，结果摘要在「凭证中心」查看`,
+            duration: 6,
+          });
           reload();
         } catch (reason) {
-          message.error(reason instanceof Error ? reason.message : 'AI 制证请求未能完成');
+          message.error(reason instanceof Error ? reason.message : '推送任务提交失败');
         } finally {
-          setAiVoucherRunning(false);
+          setPushSubmitting(false);
         }
       },
     });
@@ -357,11 +358,14 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
   const exportQuery = useMemo(() => ({
     keyword: filters.keyword || undefined,
     accountIds: filters.accountIds.map(Number).filter((id) => Number.isSafeInteger(id) && id > 0),
-    from: filters.from || undefined,
+    // W16-B4：余额导出与屏幕同口径 —— from 不传（节点语义），to 传 = 该时点快照。
+    from: isStatement ? (filters.from || undefined) : undefined,
     to: filters.to || undefined,
     companyId: canCrossCompany && scopeCompanyIds.length === 1 ? Number(scopeCompanyIds[0]) : undefined,
     ...serverFilterParams,
-  }), [filters, canCrossCompany, scopeCompanyIds, serverFilterParams]);
+    // W16-B5：导出与屏幕查询同口径 —— 屏幕上按交易时间升序排，CSV 行序也升序。
+    sortDir: sortDirParam,
+  }), [filters, canCrossCompany, scopeCompanyIds, serverFilterParams, sortDirParam, isStatement]);
   const multiCompanyExportBlocked = canCrossCompany && scopeCompanyIds.length > 1;
   const exportCsv = async () => {
     setExporting(true);
@@ -470,14 +474,27 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
         </div>
       )}
       <div className="field">
-        <label>时间区间</label>
-        <DatePicker.RangePicker
-          showTime
-          allowEmpty={[true, true]}
-          style={{ width: 336 }}
-          value={[filters.from ? dayjs(filters.from) : null, filters.to ? dayjs(filters.to) : null]}
-          onChange={(range) => applyFilter({ from: range?.[0]?.toISOString() || '', to: range?.[1]?.toISOString() || '' })}
-        />
+        <label>{isStatement ? '时间区间' : '时间节点'}</label>
+        {isStatement ? (
+          <DatePicker.RangePicker
+            showTime
+            allowEmpty={[true, true]}
+            style={{ width: 336 }}
+            value={[filters.from ? dayjs(filters.from) : null, filters.to ? dayjs(filters.to) : null]}
+            onChange={(range) => applyFilter({ from: range?.[0]?.toISOString() || '', to: range?.[1]?.toISOString() || '' })}
+          />
+        ) : (
+          // W16-B4：余额是「某一时点的快照」，不是流量——区间语义会重复计入同一账户的多天余额。
+          // 节点选择：不选 = 每账户最新节点（当前时点）；选了 = 查看该时点之前的最近一次快照。
+          <DatePicker
+            showTime
+            allowClear
+            style={{ width: 336 }}
+            placeholder="不选 = 最新时间节点"
+            value={filters.to ? dayjs(filters.to) : null}
+            onChange={(d) => applyFilter({ from: '', to: d ? d.toISOString() : '' })}
+          />
+        )}
       </div>
       <div className="field">
         <label>关键字</label>
@@ -513,13 +530,11 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
         {canTriggerSync && <Button icon={<PlayCircleOutlined />} loading={syncTriggering} onClick={triggerSyncFromFilters}>按所选账户创建同步任务</Button>}
       </div>
       <Card
-        title={canAiVoucher
+        title={canPush
           ? <Space wrap>
               <span>查询结果</span>
-              <Button size="small" type="primary" icon={<RobotOutlined />} disabled={!selectedStatementIds.length} loading={aiVoucherRunning} onClick={() => aiVoucherSelected('DRAFT')}>AI 制证为草稿{selectedStatementIds.length ? `（${selectedStatementIds.length}）` : ''}</Button>
-              <Button size="small" type="primary" ghost icon={<ThunderboltOutlined />} disabled={!selectedStatementIds.length} loading={aiVoucherRunning} onClick={() => aiVoucherSelected('PUSH')}>AI 制证并推送{selectedStatementIds.length ? `（${selectedStatementIds.length}）` : ''}</Button>
-              {canConfigAi && <PromptSettingButton capability="accounting-suggestion" hint="设置「智能入账建议」的系统提示词（全局生效，仅超管）" />}
-              <span className="muted">草稿：AI 预填后在「凭证草稿与制证」页人工审核推送；推送：复核内化后直送金蝶。行首方框勾选要制证的流水；已推送行与纯人工制证账户不可选</span>
+              <Button size="small" type="primary" icon={<SendOutlined />} disabled={!selectedStatementIds.length} loading={pushSubmitting} onClick={pushSelected}>一键推送至金蝶{selectedStatementIds.length ? `（${selectedStatementIds.length}）` : ''}</Button>
+              <span className="muted">勾选要推送的流水后提交：规则唯一命中的自动推金蝶；多候选/未命中/需定金额的进「问题凭证」，在凭证中心人工处理。已推送行与纯人工制证账户不可选</span>
             </Space>
           : '查询结果'}
       >
@@ -574,15 +589,15 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
                 showGroupSwitch={isStatement || canCrossCompany}
                 groupSwitchLabel={isStatement ? '按本方账户分组' : '按主体分组'}
                 groupMeta={gridGroupMeta}
-                selectable={canAiVoucher}
+                selectable={canPush}
                 isRowSelectable={isStatement
                   ? (row) => !row.transferred && !manualAccountIds.has(Number(row.bankAccountId))
                   : undefined}
                 disabledRowHint={isStatement
-                  ? (row) => (row.transferred ? '该行已转入标准流水，不能重复制证' : '该账户为纯人工制证模式，不能走 AI 制证')
+                  ? (row) => (row.transferred ? '该行已转入标准流水（已推送或已生成凭证），不能重复推送' : '该账户为纯人工制证模式，不能自动推送')
                   : undefined}
                 rowClass={isStatement ? (row) => (row.transferred ? 'is-locked' : '') : undefined}
-                onSelectionChange={canAiVoucher
+                onSelectionChange={canPush
                   ? (picked) => setSelectedStatementIds(picked.map((row) => Number(row.id)))
                   : undefined}
                 onRowAction={(action, row) => { if (action === 'detail') openDetail(row as BankQueryRow); }}
@@ -598,6 +613,7 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
                 initialSnapshot={gridSnapshot}
                 onSnapshotChange={saveGridPreference}
                 onFilterChange={onGridFiltersChange}
+                onSortChange={onGridSortChange}
                 toast={(text) => message.success(text)}
                 footer={data ? (
                   <Pagination
@@ -606,7 +622,7 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
                     pageSize={data.size || size}
                     total={data.total}
                     showSizeChanger
-                    pageSizeOptions={[10, 20, 50]}
+                    pageSizeOptions={[10, 20, 50, 100]}
                     onChange={(next, nextSize) => { setPage(next); setSize(nextSize); }}
                   />
                 ) : undefined}
@@ -615,44 +631,6 @@ export function BankDataQueryPage({ resource }: { resource: keyof typeof bankDat
           </div>
         )}
       </Card>
-      <Modal
-        title={`AI 制证结果 · 草稿 ${aiVoucherResult?.draftCount ?? 0} / 推送 ${aiVoucherResult?.pushedCount ?? 0} / 幂等跳过 ${aiVoucherResult?.alreadyCount ?? 0} / 跳过 ${aiVoucherResult?.skippedCount ?? 0} / 失败 ${aiVoucherResult?.failedCount ?? 0}`}
-        open={Boolean(aiVoucherResult)}
-        onCancel={() => setAiVoucherResult(undefined)}
-        footer={<Space>
-          {(aiVoucherResult?.draftCount ?? 0) > 0 && <Link to="/statements/vouchers"><Button>去「凭证草稿与制证」审核推送</Button></Link>}
-          <Button type="primary" onClick={() => setAiVoucherResult(undefined)}>知道了</Button>
-        </Space>}
-        width={720}
-      >
-        {aiVoucherResult && (
-          <Table<AiVoucherRowResult>
-            rowKey="bankDataStatementId"
-            size="small"
-            pagination={false}
-            dataSource={aiVoucherResult.rows}
-            columns={[
-              { title: '流水号', dataIndex: 'statementNo', render: (value: string) => <span className="mono">{value}</span> },
-              {
-                title: '结果', dataIndex: 'outcome', width: 110,
-                render: (value: AiVoucherRowResult['outcome']) => (
-                  <Tag color={value === 'PUSHED' ? 'green' : value === 'DRAFT_CREATED' ? 'blue' : value === 'ALREADY_PUSHED' ? 'geekblue' : value === 'ALREADY_APPROVED' ? 'cyan' : value.startsWith('SKIPPED') ? 'orange' : 'red'}>
-                    {value === 'PUSHED' ? '已推送' : value === 'DRAFT_CREATED' ? '草稿已生成' : value === 'ALREADY_APPROVED' ? '已过复核' : value === 'ALREADY_PUSHED' ? '幂等跳过' : value === 'SKIPPED_MANUAL' ? '人工制证' : value === 'SKIPPED_REJECTED' ? '已驳回' : '失败'}
-                  </Tag>
-                ),
-              },
-              {
-                title: 'AI 建议', dataIndex: 'aiSuggestedSummary', ellipsis: true,
-                render: (value: string | null, row: AiVoucherRowResult) => row.aiStatus === 'OK'
-                  ? (value || '--')
-                  : <Tooltip title={row.message}><Tag>AI 不可用</Tag></Tooltip>,
-              },
-              { title: '金蝶单号', dataIndex: 'voucherNo', render: (value: string | null) => value ? <span className="mono">{value}</span> : '--' },
-              { title: '说明', dataIndex: 'message', ellipsis: true, render: (value: string | null) => value || '--' },
-            ] satisfies TableColumnsType<AiVoucherRowResult>}
-          />
-        )}
-      </Modal>
       <Drawer title={detailTitle} width={560} open={Boolean(selected)} onClose={closeDetail}>
         {selected && (
           <>

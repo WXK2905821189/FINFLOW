@@ -13,7 +13,6 @@ import com.finance.system.domain.mapper.StatementAuditEventMapper;
 import com.finance.system.domain.mapper.StatementRecordMapper;
 import com.finance.system.statement.kingdee.KingdeeVoucherGateway;
 import com.finance.system.statement.kingdee.KingdeeVoucherResult;
-import com.finance.system.statement.dto.VoucherSuggestionDto;
 import com.finance.system.statement.voucherrule.dto.KingdeeVoucherEntryDraft;
 import com.finance.system.statement.voucherrule.dto.KingdeeVoucherRulePreview;
 import com.finance.system.statement.voucherrule.dto.KingdeeVoucherRuleResponse;
@@ -52,8 +51,6 @@ public class KingdeeVoucherEngineService {
     private final KingdeeVoucherRuleService ruleService;
     private final KingdeeVoucherMatchingService matchingService;
     private final KingdeeGlVoucherPayloadBuilder payloadBuilder;
-    private final AiGlVoucherAssembler assembler;
-    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
     private final KingdeeVoucherGateway gateway;
     private final StatementAuditEventMapper auditEventMapper;
     private final KingdeeOrgResolver orgResolver;
@@ -79,8 +76,6 @@ public class KingdeeVoucherEngineService {
                                        KingdeeVoucherRuleService ruleService,
                                        KingdeeVoucherMatchingService matchingService,
                                        KingdeeGlVoucherPayloadBuilder payloadBuilder,
-                                       AiGlVoucherAssembler assembler,
-                                       com.fasterxml.jackson.databind.ObjectMapper objectMapper,
                                        KingdeeVoucherGateway gateway,
                                        StatementAuditEventMapper auditEventMapper,
                                        KingdeeOrgResolver orgResolver,
@@ -92,8 +87,6 @@ public class KingdeeVoucherEngineService {
         this.ruleService = ruleService;
         this.matchingService = matchingService;
         this.payloadBuilder = payloadBuilder;
-        this.assembler = assembler;
-        this.objectMapper = objectMapper;
         this.gateway = gateway;
         this.auditEventMapper = auditEventMapper;
         this.orgResolver = orgResolver;
@@ -113,67 +106,6 @@ public class KingdeeVoucherEngineService {
         return previews;
     }
 
-    /**
-     * 一键 AI 制证的**总账落点**（2026-09-21 方案 B）：读 {@code ai_suggestion_json} 的分录 →
-     * 组装（科目存在性/名称校验 + 银行账号维度注入）→ GL_VOUCHER Save →
-     * 回写 {@code GL_PUSHED}/{@code GL_FAILED} + 审计 {@code GL_VOUCHER_PUSH}。
-     *
-     * <p>为什么不走规则准备：一键 AI 制证没有 ruleNo，分录来自 AI 建议（可能经人工修正），
-     * 因此复用同一个 payload builder 与状态口径，而不是复用规则匹配链路。</p>
-     *
-     * @throws BusinessException 400（分录/科目/维度/平衡问题，附处置指引）、
-     *                           502（金蝶保存失败，原文透传）
-     */
-    public KingdeeVoucherPushResult pushAiVoucher(Long statementId, Long operatorId) {
-        ReentrantLock lock = pushLocks.computeIfAbsent(statementId, id -> new ReentrantLock());
-        lock.lock();
-        try {
-            StatementRecord statement = statementMapper.selectById(statementId);
-            if (statement == null) {
-                throw new BusinessException(404, "流水不存在: " + statementId);
-            }
-            if (!"APPROVED".equals(statement.getReviewStatus())) {
-                throw new BusinessException(400, "流水复核状态为 " + statement.getReviewStatus()
-                        + "，AI 制证仅受理 APPROVED");
-            }
-            // P1-5：锁内重读 push_status，已在推送中的流水直接拒绝（防并发双推 → 金蝶重复凭证）
-            assertNotAlreadyPushed(statement);
-
-            closingService.ensurePeriodOpen(statement.getCompanyId(), statement.getTransactionTime());
-
-            VoucherSuggestionDto doc = parseSuggestion(statement.getAiSuggestionJson());
-            AiGlVoucherAssembler.Assembled assembled = assembler.assemble(
-                    AiGlVoucherAssembler.toInputs(doc == null ? null : doc.entries()), statement);
-
-            Company company = loadCompany(statement);
-            String orgCode = company == null ? null : orgResolver.resolveOrgCode(company.getName());
-            String explanation = doc != null && doc.suggestedSummary() != null && !doc.suggestedSummary().isBlank()
-                    ? doc.suggestedSummary()
-                    : statement.getSummary();
-            String voucherNo = pushOne(orgCode, statement, explanation,
-                    assembled.debitLines(), assembled.creditLines());
-
-            String message = "GL_VOUCHER 草稿已保存：" + voucherNo
-                    + (assembled.warnings().isEmpty() ? "" : "；提示：" + String.join("；", assembled.warnings()));
-            recordPush(statement, null, "GL_PUSHED", voucherNo, null, operatorId, null);
-            return new KingdeeVoucherPushResult(statementId, null, voucherNo, null, "PUSHED", message);
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    private VoucherSuggestionDto parseSuggestion(String json) {
-        if (json == null || json.isBlank()) {
-            return null;
-        }
-        try {
-            return objectMapper.readValue(json, VoucherSuggestionDto.class);
-        } catch (Exception e) {
-            // 解析失败按「没有分录」处理，由组装器给出可执行提示
-            return null;
-        }
-    }
-
     private KingdeeVoucherRulePreview previewOne(StatementRecord statement) {
         if (!"APPROVED".equals(statement.getReviewStatus())) {
             return new KingdeeVoucherRulePreview(statement.getId(), statement.getStatementNo(),
@@ -183,6 +115,23 @@ public class KingdeeVoucherEngineService {
                     List.of());
         }
         return matchingService.preview(statement, loadAccount(statement), loadCompany(statement));
+    }
+
+    /**
+     * 单条流水的规则匹配（W16-A1 一键推送编排入口）：与 {@link #previewOne} 同一套
+     * 非 APPROVED 拦截；账户/公司由调用方加载传入，避免重复查询。
+     * 调用方（BankDataPushService）已自行处理 PENDING→APPROVED 复核内化。
+     */
+    public KingdeeVoucherRulePreview previewOne(StatementRecord statement, BankAccount account,
+                                                Company company) {
+        if (!"APPROVED".equals(statement.getReviewStatus())) {
+            return new KingdeeVoucherRulePreview(statement.getId(), statement.getStatementNo(),
+                    statement.getDirection(), statement.getAmount(),
+                    KingdeeVoucherMatchingService.ST_NOT_ELIGIBLE,
+                    "流水复核状态为 " + statement.getReviewStatus() + "，规则制证仅受理 APPROVED",
+                    List.of());
+        }
+        return matchingService.preview(statement, account, company);
     }
 
     /**

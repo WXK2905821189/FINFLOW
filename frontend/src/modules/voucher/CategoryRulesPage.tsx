@@ -395,7 +395,7 @@ export function CategoryRulesPage() {
         <span className="section-kicker">凭证与入账 / 规则中心</span>
         <h2>规则中心</h2>
         <p className="muted">
-          人工维护「业务大类 + 默认分录模板」，AI 制证按大类套用模板生成分录；模板缺失或冲突时退回人工，不猜测科目。
+          人工维护「业务大类 + 默认分录模板」，制证按大类套用模板生成分录；模板缺失或冲突时退回人工，不猜测科目。
           支持 Excel 导入：AI 先填映射，人工审阅确认后才入库；支持规则分组管理。
         </p>
       </div>

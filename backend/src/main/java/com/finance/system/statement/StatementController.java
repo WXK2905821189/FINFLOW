@@ -2,7 +2,6 @@ package com.finance.system.statement;
 
 import com.finance.system.common.api.ApiResponse;
 import com.finance.system.common.api.PageResponse;
-import com.finance.system.ai.dto.AiAccountingSuggestionResponse;
 import com.finance.system.security.UserPrincipal;
 import com.finance.system.statement.dto.StatementBatchOpRequest;
 import com.finance.system.statement.dto.StatementBatchOpResponse;
@@ -127,16 +126,6 @@ public class StatementController {
                                                             @AuthenticationPrincipal UserPrincipal principal) {
         return ApiResponse.success("Batch push completed",
                 statementService.batchPush(request, principal.getId()));
-    }
-
-    @PostMapping("/statements/{id}/ai-suggestion")
-    @PreAuthorize("hasAuthority('statement:view')")
-    @Operation(summary = "Regenerate the AI accounting suggestion for a pending draft "
-            + "(writes the review comment only; AI guard ai:use applies inside)")
-    public ApiResponse<AiAccountingSuggestionResponse> refreshAiSuggestion(@PathVariable Long id,
-                                                                            @AuthenticationPrincipal UserPrincipal principal) {
-        return ApiResponse.success("AI 建议已更新",
-                bankDataAccountingService.refreshAiSuggestion(id, principal.getId()));
     }
 
     @PutMapping("/statements/{id}/voucher-draft")

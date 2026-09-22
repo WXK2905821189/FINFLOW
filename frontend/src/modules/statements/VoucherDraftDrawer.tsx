@@ -14,7 +14,7 @@ import {
   Tooltip,
   message,
 } from 'antd';
-import { DeleteOutlined, PlusOutlined, RobotOutlined } from '@ant-design/icons';
+import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { statementApi } from '../../services/api';
 import { useAuthStore } from '../../store/auth';
 import { useRemote, ResourceFailure, StatusTag } from '../shared/components';
@@ -25,12 +25,12 @@ import type { AiVoucherSuggestion, StatementRecord, VoucherEntry } from '../../t
  * V33 凭证草稿详情（金蝶式单据页）：点击「凭证草稿与制证」行的「凭证」打开。
  *
  *  - 单据头：收款单/付款单 + 交易信息 + 状态；
- *  - 分录区：AI 预填的借贷分录（摘要/科目编码/科目名称/借方/贷方），逐行置信度徽标，
+ *  - 分录区：预填的借贷分录（摘要/科目编码/科目名称/借方/贷方），逐行置信度徽标，
  *    人工可直接修改、增删行——保存即回写结构化建议并同步主摘要（金蝶单据备注口径）；
  *  - 合计行：借贷合计与平衡校验（不平衡不允许保存，服务端双重校验）；
- *  - AI 参考：业务类别/判断依据/风险点/模型，帮助人工判断是否需要修正；
- *  - 动作：保存修正（voucher:push）、通过/驳回（statement:review）、推送金蝶（voucher:push）、
- *    刷新 AI 建议（ai:use，仅 PENDING）。
+ *  - AI 参考：业务类别/判断依据/风险点/模型（历史留档），帮助人工判断是否需要修正；
+ *  - 动作：保存修正（voucher:push）、通过/驳回（statement:review）、推送金蝶（voucher:push）。
+ *    W16-A1 起 AI 制证退役，历史草稿仍可查可改可推（按当前规则表重跑由一键推送承担）。
  */
 
 type EditableRow = {
@@ -107,7 +107,6 @@ function VoucherEditor({ statement, suggestion, onSaved, onClose }: {
   const hasPermission = useAuthStore((state) => state.hasPermission);
   const canReview = hasPermission('statement:review');
   const canPush = hasPermission('voucher:push');
-  const canAi = hasPermission('ai:use');
 
   const [rows, setRows] = useState<EditableRow[]>(() => initialRows(statement, suggestion));
   const [mainSummary, setMainSummary] = useState(suggestion.suggestedSummary || statement.summary || '');
@@ -199,24 +198,6 @@ function VoucherEditor({ statement, suggestion, onSaved, onClose }: {
     }
   };
 
-  const refreshAi = async () => {
-    if (!canAi) return;
-    setBusy(true);
-    try {
-      const suggestion = await statementApi.refreshAiSuggestion(statement.id);
-      // W10（WP-5）：命中规则时明确提示 AI 建议受规则约束
-      const hits = suggestion?.hitRules || [];
-      message.success(hits.length
-        ? `AI 建议已重新生成 · 按命中规则（${hits.map((hit) => `R${hit.ruleNo} ${hit.businessType}`).join('、')}）`
-        : 'AI 建议已重新生成（无命中规则）');
-      onSaved();
-    } catch (reason) {
-      message.error(reason instanceof Error ? reason.message : 'AI 建议刷新失败');
-    } finally {
-      setBusy(false);
-    }
-  };
-
   const editable = statement.pushStatus !== 'PUSHED' && statement.reviewStatus !== 'REJECTED';
   const cellStyle = { width: '100%' } as const;
 
@@ -238,11 +219,8 @@ function VoucherEditor({ statement, suggestion, onSaved, onClose }: {
       </Descriptions.Item>
     </Descriptions>
 
-    <div style={{ margin: '14px 0 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-      <span className="section-kicker">{suggestion.entries?.length ? '凭证分录（AI 预填，人工可修改）' : '凭证分录（AI 未提供分录，请人工补全）'}</span>
-      {canAi && statement.reviewStatus === 'PENDING' && statement.pushStatus !== 'PUSHED' && (
-        <Button size="small" icon={<RobotOutlined />} disabled={busy} onClick={() => void refreshAi()}>刷新 AI 建议</Button>
-      )}
+    <div style={{ margin: '14px 0 8px' }}>
+      <span className="section-kicker">{suggestion.entries?.length ? '凭证分录（预填，人工可修改）' : '凭证分录（未提供分录，请人工补全）'}</span>
     </div>
     <table className="voucher-entry-table">
       <thead>
@@ -358,7 +336,7 @@ export function VoucherDraftDrawer({ statement, onClose, onChanged }: {
   const detail = data?.statement;
   const suggestion = data?.aiSuggestion;
   // 先拉新数据、再 bump version 重挂载编辑器（useState 初始化只在挂载时执行），
-  // 保证保存/刷新 AI 建议后编辑器拿到最新分录，而不是残留旧行。
+  // 保证保存后编辑器拿到最新分录，而不是残留旧行。
   const bumpAndReload = () => {
     void reload().then(() => setVersion((value) => value + 1));
     onChanged();

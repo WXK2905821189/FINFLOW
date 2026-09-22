@@ -80,7 +80,9 @@ class StatementServiceGlPushIntegrationTest {
         StatementResponse response = statementService.pushVoucher(statement.getId(), 1L);
 
         assertEquals("FAILED", response.pushStatus(), "前置校验未通过时落 FAILED（非 GL_FAILED）");
-        assertTrue(response.pushMessage() != null && response.pushMessage().contains("尚未映射金蝶银行账号档案编码"),
+        // W16-A1：消息文案随规则引擎路更新（ensureBankDimensionPresent），语义不变——
+        // 仍是「未映射 → 阻断 + 指明去哪配」的可执行提示。
+        assertTrue(response.pushMessage() != null && response.pushMessage().contains("尚未映射金蝶账户编码"),
                 "必须把可执行的处置提示带回凭证中心：" + response.pushMessage());
     }
 
@@ -179,7 +181,10 @@ class StatementServiceGlPushIntegrationTest {
         statement.setDirection("INCOME");
         statement.setAmount(new BigDecimal("120.00"));
         statement.setCurrency("CNY");
-        statement.setCounterpartyName("财付通支付科技有限公司");
+        // W16-A1：GL 重推改走规则引擎，fixture 对手方必须命中 seed 规则 2（IN_ORG_LIST
+        // 集团内部主体，含「雪云」关键词；「公司」后缀同时避免误触发 EMPLOYEE_NAME 启发式），
+        // 且 summary「内部划转」不含其他规则的 CONTAINS 关键词 → 保持唯一命中 AUTO_FILL。
+        statement.setCounterpartyName("雪云锐创科技有限公司");
         statement.setRawPayload("{\"qa\":\"fix-009 fixture\"}");
         statement.setSummary("内部划转");
         statement.setValidationStatus("PASSED");

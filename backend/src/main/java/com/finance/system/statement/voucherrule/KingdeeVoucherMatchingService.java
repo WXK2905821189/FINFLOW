@@ -41,10 +41,10 @@ import java.util.List;
 @Service
 public class KingdeeVoucherMatchingService {
 
-    static final String ST_AUTO_FILL = "AUTO_FILL";
-    static final String ST_CANDIDATES = "CANDIDATES";
-    static final String ST_UNMATCHED = "UNMATCHED";
-    static final String ST_NOT_ELIGIBLE = "NOT_ELIGIBLE";
+    public static final String ST_AUTO_FILL = "AUTO_FILL";
+    public static final String ST_CANDIDATES = "CANDIDATES";
+    public static final String ST_UNMATCHED = "UNMATCHED";
+    public static final String ST_NOT_ELIGIBLE = "NOT_ELIGIBLE";
 
     private static final String SHARE_MANUAL = "MANUAL";
     private static final String BRANCH_DIM = "BY_SUMMARY_BRANCH";
@@ -92,7 +92,7 @@ public class KingdeeVoucherMatchingService {
         if (candidates.isEmpty()) {
             return new KingdeeVoucherRulePreview(statement.getId(), statement.getStatementNo(),
                     statement.getDirection(), statement.getAmount(), ST_UNMATCHED,
-                    "无命中规则；可走 AI 制证入口兜底", List.of());
+                    "无命中规则；请在规则中心补充规则，或走人工制证", List.of());
         }
         if (candidates.size() == 1) {
             return new KingdeeVoucherRulePreview(statement.getId(), statement.getStatementNo(),
