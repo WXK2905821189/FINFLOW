@@ -1,9 +1,8 @@
 import { useCallback, useState } from 'react';
-import { Button, Card, Descriptions, Empty, InputNumber, Skeleton, Space, Table, Tag, Timeline, Tooltip, message, type TableColumnsType } from 'antd';
+import { Button, Card, Descriptions, Empty, Skeleton, Space, Table, Tag, Timeline, Tooltip, message, type TableColumnsType } from 'antd';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CopyOutlined, LockOutlined, PrinterOutlined, ReloadOutlined } from '@ant-design/icons';
 import { closingApi, statementApi } from '../../services/api';
-import { useAuthStore } from '../../store/auth';
 import { useRemote, ResourceFailure, StatusTag } from '../shared/components';
 import { dateTime, money } from '../shared/format';
 import { toChineseAmount } from './voucherTexts';
@@ -79,40 +78,6 @@ export function VoucherDocPage() {
     .reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
   const balanced = Math.abs(debitTotal - creditTotal) < 0.01 && debitTotal > 0;
 
-  // 置信度可手动调（2026-09-21）：本页是 live 的凭证单据详情页（/statements/voucher-doc/:id）。
-  // 语义：人工调过 = 已人工确认 —— 推送时不再因「置信度低于阈值」把该行科目换成待确认科目；
-  // 反过来调低会触发兜底替换。保存走既有的 PUT /statements/{id}/voucher-draft（只改置信度）。
-  const hasPermission = useAuthStore((state) => state.hasPermission);
-  const canEditDraft = hasPermission('voucher:push');
-  const [confidenceEdits, setConfidenceEdits] = useState<Record<number, number>>({});
-  const [savingConfidence, setSavingConfidence] = useState(false);
-  const editedCount = Object.keys(confidenceEdits).length;
-
-  const saveConfidence = async () => {
-    if (!statementId || !editedCount) return;
-    setSavingConfidence(true);
-    try {
-      await statementApi.saveVoucherDraft(statementId, {
-        summary: suggestion?.suggestedSummary || undefined,
-        entries: entries.map((entry, index) => ({
-          summary: entry.summary || undefined,
-          subjectCode: entry.subjectCode || undefined,
-          subjectName: entry.subjectName,
-          direction: entry.direction,
-          amount: Number(entry.amount),
-          confidence: confidenceEdits[index] == null ? (entry.confidence ?? undefined) : confidenceEdits[index] / 100,
-        })),
-      });
-      message.success('置信度已保存：调高的行视为人工确认，推送时不再替换科目');
-      setConfidenceEdits({});
-      reload();
-    } catch (reason) {
-      message.error(reason instanceof Error ? reason.message : '置信度保存失败');
-    } finally {
-      setSavingConfidence(false);
-    }
-  };
-
   const voucherPeriod = (statement?.transactionTime || '').slice(0, 7);
   const periodLocked = Boolean(voucherPeriod)
     && (closed.data?.records || []).some((row) => row.period === voucherPeriod);
@@ -165,30 +130,7 @@ export function VoucherDocPage() {
       : []),
     { title: '借方', align: 'right', width: 110, render: (_, row) => row.direction === 'DEBIT' ? money(row.amount) : '--' },
     { title: '贷方', align: 'right', width: 110, render: (_, row) => row.direction === 'CREDIT' ? money(row.amount) : '--' },
-    {
-      title: '置信度 %（可改）', width: 150,
-      render: (_, row) => {
-        if (!canEditDraft) {
-          return confidenceCell(row.confidence, Boolean(suggestion?.edited && row.confidence == null));
-        }
-        const current = confidenceEdits[row.keyIndex];
-        const percent = current == null ? (row.confidence == null ? undefined : Math.round(row.confidence * 100)) : current;
-        return <Space size={4}>
-          <InputNumber size="small" min={0} max={100} step={5} controls={false} style={{ width: 66 }}
-            value={percent} placeholder="--"
-            onChange={(value) => setConfidenceEdits((prev) => {
-              const next = { ...prev };
-              if (value == null) {
-                delete next[row.keyIndex];
-              } else {
-                next[row.keyIndex] = Number(value);
-              }
-              return next;
-            })} />
-          {current != null && <Tag color="gold">未保存</Tag>}
-        </Space>;
-      },
-    },
+    { title: '置信度', width: 96, render: (_, row) => confidenceCell(row.confidence, Boolean(suggestion?.edited && row.confidence == null)) },
   ];
 
   if (!statementId) {
@@ -200,13 +142,11 @@ export function VoucherDocPage() {
       <div>
         <span className="section-kicker">凭证中心 / 单据详情</span>
         <h2>{directionTitle(statement?.direction)} · {statement?.voucherNo || statement?.statementNo}</h2>
-        <p className="muted">AI 预填科目与逐行置信度，置信度可直接在本页调整并保存；主摘要回写流水，保证「人工改了什么、金蝶就收什么」。</p>
-        <p className="muted" style={{ fontSize: 12 }}>推送策略：某行**科目在账套不存在**或**置信度低于 60%** 时，推送会自动把该行科目置为「待确认科目 2241.99 其他应付款-其他」并在结果里提示 —— 目的是先让凭证推到金蝶，再由人工在金蝶侧改正。把置信度调到 60% 以上即视为人工确认，不再替换。</p>
+        <p className="muted">AI 预填科目与逐行置信度；推送策略见下方说明，主摘要回写流水，保证「人工改了什么、金蝶就收什么」。</p>
+        <p className="muted" style={{ fontSize: 12 }}>推送策略：某行**科目在账套不存在**或**置信度低于 60%** 时，推送会自动把该行科目置为「待确认科目 2241.99 其他应付款-其他」并在结果里提示 —— 目的是先让凭证推到金蝶，再由人工在金蝶侧改正。</p>
       </div>
       <Space wrap>
         <Button onClick={() => navigate(-1)}>返回</Button>
-        {canEditDraft && editedCount > 0 && <Button type="primary" loading={savingConfidence}
-          onClick={() => void saveConfidence()}>保存置信度（{editedCount}）</Button>}
         {meta.label === '推送失败' && <Button icon={<ReloadOutlined />} type="primary" loading={retrying} onClick={retryPush}>重试推送</Button>}
         <Button icon={<PrinterOutlined />} onClick={() => window.print()}>打印</Button>
       </Space>
