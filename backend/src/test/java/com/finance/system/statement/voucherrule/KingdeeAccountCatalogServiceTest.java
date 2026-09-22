@@ -67,13 +67,17 @@ class KingdeeAccountCatalogServiceTest {
     }
 
     @Test
-    void nameMismatchIsRejectedToPreventSilentMisposting() {
-        // AI 把 2232 当「应付账款」用，账套实为「应付股利」→ 必须拒绝，而不是记错账
-        BusinessException ex = assertThrows(BusinessException.class,
-                () -> service.check("2232", "应付账款"));
-        assertEquals(400, ex.getCode());
-        assertTrue(ex.getMessage().contains("应付股利"), "错误信息要给出账套实际名称");
-        assertTrue(ex.getMessage().contains("应付账款"), "并指出本地名称，便于对照修正");
+    void nameMismatchPassesWithAccountBookNameAndNote() {
+        // 2026-09-21 改判（用户实际被旧行为挡住）：科目编码在账套存在即为可用 ——
+        // 金蝶推送报文只发 FNumber（编码），名称不参与推送，本地因名称不同拒绝属过度拦截。
+        // 现改为「以账套名称为准」并回一条 note 留痕，不再抛错。
+        KingdeeAccountCatalogService.AccountCheck check = service.check("2232", "应付账款");
+        assertEquals("2232", check.code());
+        assertEquals("应付股利", check.name(), "名称以账套为准");
+        assertFalse(check.catalogUnavailable());
+        assertTrue(check.note() != null && check.note().contains("应付股利"),
+                "note 要给出账套实际名称");
+        assertTrue(check.note().contains("应付账款"), "并指出本地名称，便于对照修正");
     }
 
     @Test

@@ -86,6 +86,11 @@ kingdee:
   customer-type-number: ${KINGDEE_CUSTOMER_TYPE_NUMBER:KHLB001_SYS}
   # Optional submit+audit after save (default off; business decision at 9/11 joint test).
   auto-audit: ${KINGDEE_AUTO_AUDIT:false}
+  # 待确认兜底科目（2026-09-21）：AI 科目在账套不存在 / 置信度低于阈值时替换为该科目，
+  # 保证凭证仍能推送成功（人工在金蝶侧改）。实测金蝶拒绝「无科目」分录，故不能留空。
+  fallback-account: ${KINGDEE_FALLBACK_ACCOUNT:2241.99}
+  # 低置信度阈值（0~1）：低于该值的 AI 建议科目走兜底替换。
+  low-confidence-threshold: ${KINGDEE_LOW_CONFIDENCE_THRESHOLD:0.6}
   pay-bill-form-id: ${KINGDEE_PAY_BILL_FORM_ID:AP_PAYBILL}
   receive-bill-form-id: ${KINGDEE_RECEIVE_BILL_FORM_ID:AR_RECEIVEBILL}
 

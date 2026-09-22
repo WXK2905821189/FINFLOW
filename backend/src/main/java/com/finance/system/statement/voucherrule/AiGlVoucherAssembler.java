@@ -4,6 +4,7 @@ import com.finance.system.ai.dto.VoucherEntry;
 import com.finance.system.common.exception.BusinessException;
 import com.finance.system.domain.entity.StatementRecord;
 import com.finance.system.statement.kingdee.BankAccountDimensionResolver;
+import com.finance.system.statement.kingdee.KingdeeProperties;
 import com.finance.system.statement.voucherrule.dto.KingdeeVoucherEntryDraft;
 import org.springframework.stereotype.Component;
 
@@ -21,13 +22,18 @@ import java.util.List;
  *
  * <p><b>上线前的三道闸</b>（都在这里把关，避免金蝶侧才报错或更糟——静默记错账）：</p>
  * <ol>
- *   <li><b>科目编码必须存在</b>：AI 只给名称或给错编码时拒绝，提示去草稿工作台补齐；</li>
- *   <li><b>科目名称必须与账套一致</b>：实测账套 2232=应付股利 而 AI 当「应付账款」，
- *   名称不符即拒绝（{@link KingdeeAccountCatalogService#check}）；</li>
+ *   <li><b>科目编码必须存在</b>：AI 只给名称或给错编码时按名称反查账套科目表；
+ *   反查不到 / 编码在账套不存在时，若有可用的**兜底科目**（{@code kingdee.fallback-account}，默认 2241）
+ *   则替换为该科目并留 warning，保证凭证仍能推到金蝶（用户口径：先推上去，人工在金蝶改）；</li>
+ *   <li><b>科目名称</b>：账套名称优先。金蝶报文只发编码（{@code FNumber}），名称不参与推送 ——
+ *   2026-09-21 起名称不一致**不再阻断**，仅以账套名称为准并留痕（此前因名称不同拒绝属于过度拦截）；</li>
  *   <li><b>银行类科目注入核算维度</b>：科目挂 ZDY0001 银行账号时，按账套实测形态注入；
  *   值取<b>该笔流水所属我方账户</b>的金蝶档案编码（账户级映射，见
  *   {@code KingdeeAccountMappingService}）——未映射即拒绝，不做模糊猜测。</li>
  * </ol>
+ *
+ * <p>另有<b>低置信度兜底</b>：AI 自评置信度低于 {@code kingdee.low-confidence-threshold}（默认 0.6）的分录，
+ * 科目同样走兜底替换；人工在草稿页把置信度调高即视为已确认，不再替换。</p>
  */
 @Component
 public class AiGlVoucherAssembler {
@@ -38,11 +44,14 @@ public class AiGlVoucherAssembler {
 
     private final KingdeeAccountCatalogService catalogService;
     private final BankAccountDimensionResolver bankDimensionResolver;
+    private final KingdeeProperties props;
 
     public AiGlVoucherAssembler(KingdeeAccountCatalogService catalogService,
-                                BankAccountDimensionResolver bankDimensionResolver) {
+                                BankAccountDimensionResolver bankDimensionResolver,
+                                KingdeeProperties props) {
         this.catalogService = catalogService;
         this.bankDimensionResolver = bankDimensionResolver;
+        this.props = props;
     }
 
     /**
@@ -59,7 +68,29 @@ public class AiGlVoucherAssembler {
 
     /** 单条待组装分录（与 ai_suggestion_json 的 entries 元素对应）。 */
     public record EntryInput(String summary, String subjectCode, String subjectName,
-                             String direction, BigDecimal amount) {
+                             String direction, BigDecimal amount, Double confidence) {
+    }
+
+    /**
+     * 科目不可用时的兜底替换（2026-09-21，用户口径「先保证能推到金蝶，大不了手工调」）。
+     *
+     * <p>实测依据（真实账套 400）：金蝶对**无科目**的分录直接拒绝
+     * （「请输入凭证数据，凭证分录不合法！」），所以「留空」走不通；必须换成账套里**真实存在**
+     * 的科目。兜底科目未配置、或它在账套里也不存在时返回 null —— 调用方维持原有拦截，
+     * 不把一个必然被金蝶拒的编码发出去。</p>
+     */
+    private String fallbackAccountOrNull() {
+        String configured = props.getFallbackAccount();
+        if (configured == null || configured.isBlank()) {
+            return null;
+        }
+        String code = configured.trim();
+        return catalogService.exists(code) ? code : null;
+    }
+
+    private static String fallbackNote(int line, String reason, String fallbackCode) {
+        return "第 " + line + " 行 " + reason + "；科目已置为待确认科目 " + fallbackCode
+                + "（先保证推送成功，请在金蝶侧改成正确科目）";
     }
 
     public Assembled assemble(List<EntryInput> entries, StatementRecord statement) {
@@ -93,16 +124,27 @@ public class AiGlVoucherAssembler {
                 // AI 提示词允许「编码不确定就给空字符串」，而 GL 落点必须有编码 —— 按名称反查账套科目表
                 KingdeeAccountCatalogService.NameResolution resolution =
                         catalogService.resolveByName(entry.subjectName());
+                String fallback = fallbackAccountOrNull();
                 if (resolution.unique()) {
                     code = resolution.code();
                 } else if (resolution.ambiguous()) {
-                    throw new BusinessException(400, "第 " + line + " 行分录科目名称「" + entry.subjectName()
-                            + "」在金蝶账套中对应多个科目（" + String.join("、", resolution.candidates())
-                            + "）；请在凭证草稿工作台指定具体科目编码后重试");
+                    if (fallback == null) {
+                        throw new BusinessException(400, "第 " + line + " 行分录科目名称「" + entry.subjectName()
+                                + "」在金蝶账套中对应多个科目（" + String.join("、", resolution.candidates())
+                                + "）；请在凭证草稿工作台指定具体科目编码后重试");
+                    }
+                    warnings.add(fallbackNote(line, "科目名称「" + entry.subjectName() + "」在账套中对应多个科目",
+                            fallback));
+                    code = fallback;
                 } else {
-                    throw new BusinessException(400, "第 " + line + " 行分录缺少科目编码，且名称「"
-                            + entry.subjectName() + "」在账套科目表中没有精确匹配；"
-                            + "请在凭证草稿工作台选定账套科目后再推送");
+                    if (fallback == null) {
+                        throw new BusinessException(400, "第 " + line + " 行分录缺少科目编码，且名称「"
+                                + entry.subjectName() + "」在账套科目表中没有精确匹配；"
+                                + "请在凭证草稿工作台选定账套科目后再推送");
+                    }
+                    warnings.add(fallbackNote(line, "科目名称「" + entry.subjectName() + "」在账套中没有精确匹配",
+                            fallback));
+                    code = fallback;
                 }
             }
             BigDecimal amount = entry.amount();
@@ -114,10 +156,42 @@ public class AiGlVoucherAssembler {
                 throw new BusinessException(400, "第 " + line + " 行分录借贷方向无效：" + entry.direction());
             }
 
-            KingdeeAccountCatalogService.AccountCheck check =
-                    catalogService.check(code, entry.subjectName());
+            KingdeeAccountCatalogService.AccountCheck check;
+            try {
+                check = catalogService.check(code, entry.subjectName());
+            } catch (BusinessException notUsable) {
+                // 科目在账套里不存在：有可用兜底科目就换掉继续推，没有则维持原拦截
+                // （不把必然被金蝶拒的编码发出去 —— 那只是把本地的 400 变成金蝶的 502）
+                String fallback = fallbackAccountOrNull();
+                if (fallback == null) {
+                    throw notUsable;
+                }
+                warnings.add(fallbackNote(line, "原建议科目不可用（" + notUsable.getMessage() + "）", fallback));
+                code = fallback;
+                check = catalogService.check(fallback, null);
+            }
             if (check.catalogUnavailable()) {
                 warnings.add("科目 " + code + " 未校验（目录不可用）");
+            } else if (check.note() != null) {
+                // 名称不一致不再阻断：以账套名称为准，仅留痕供人工复核
+                warnings.add("第 " + line + " 行 " + check.note());
+            }
+
+            // 低置信度视为不可用 → 换兜底科目；人工在草稿页把置信度调高即视为已确认，不再替换
+            Double confidence = entry.confidence();
+            Double threshold = props.getLowConfidenceThreshold();
+            if (confidence != null && threshold != null && confidence < threshold) {
+                String fallback = fallbackAccountOrNull();
+                String percent = Math.round(confidence * 100) + "%";
+                if (fallback == null) {
+                    warnings.add("第 " + line + " 行 AI 置信度 " + percent
+                            + " 低于阈值，但未配置可用兜底科目，按原科目推送");
+                } else if (!fallback.equals(code)) {
+                    warnings.add(fallbackNote(line, "AI 置信度 " + percent + " 低于阈值 "
+                            + Math.round(threshold * 100) + "%", fallback));
+                    code = fallback;
+                    check = catalogService.check(fallback, null);
+                }
             }
             String dimension = null;
             String dimensionValue = null;
@@ -136,8 +210,11 @@ public class AiGlVoucherAssembler {
                 dimensionValue = bankAccountDimension;
             }
 
+            // 名称以账套为准（本地名称可能过时/不一致，金蝶报文只发编码，名称仅作展示）
+            String displayName = check.name() != null && !check.name().isBlank()
+                    ? check.name() : entry.subjectName();
             KingdeeVoucherEntryDraft draft = new KingdeeVoucherEntryDraft(
-                    direction, code, entry.subjectName(), dimension, dimensionValue,
+                    direction, code, displayName, dimension, dimensionValue,
                     amount.setScale(2, java.math.RoundingMode.HALF_UP), "FULL", false);
             if (DEBIT.equals(direction)) {
                 debits.add(draft);
@@ -167,7 +244,7 @@ public class AiGlVoucherAssembler {
         }
         for (VoucherEntry entry : entries) {
             inputs.add(new EntryInput(entry.summary(), entry.subjectCode(), entry.subjectName(),
-                    entry.direction(), entry.amount()));
+                    entry.direction(), entry.amount(), entry.confidence()));
         }
         return inputs;
     }

@@ -101,16 +101,31 @@ public class KingdeeAccountCatalogService {
         }
         if (name != null && !name.isBlank() && ref.name() != null && !ref.name().isBlank()
                 && !ref.name().trim().equals(name.trim())) {
-            throw new BusinessException(400, "科目 " + code + " 名称与账套不一致："
-                    + "本地为「" + name.trim() + "」，账套为「" + ref.name().trim() + "」；"
-                    + "请以金蝶账套科目表为准修正后重试（防止静默记错科目）");
+            // 2026-09-21 改判（用户实际被这条挡住）：科目编码在账套中存在即为可用。
+            // 金蝶推送报文只发 FNumber（编码），名称是账套侧的描述字段、**不参与推送** ——
+            // 本地因名称不同就拒绝属于过度拦截。改为「以账套名称为准」并留 note 供人工复核。
+            return new AccountCheck(code, ref.name(), false,
+                    "科目 " + code + " 名称本地为「" + name.trim() + "」、账套为「" + ref.name().trim()
+                            + "」，已按账套名称处理");
         }
         return new AccountCheck(code, ref.name(), false, null);
     }
 
     /** 该科目是否必须带银行账号核算维度（挂 ZDY0001）。目录不可用时返回 false（不注入，交由金蝶报错校准）。 */
-    public boolean requiresBankDimension(String code) {
+    /**
+     * 该科目编码是否存在于账套科目目录。**目录不可用时返回 true**（不阻断，交由金蝶报错），
+     * 与 {@link #check} 的降级放行口径一致。用于校验「兜底科目」本身是否可用 ——
+     * 若兜底科目在账套里也不存在，替换只会把 400 变成金蝶的 502，等于没解决问题。
+     */
+    public boolean exists(String code) {
         Map<String, KingdeeVoucherGateway.KingdeeAccountRef> snapshot = catalog();
+        if (snapshot.isEmpty()) {
+            return true;
+        }
+        return snapshot.containsKey(code == null ? "" : code.trim());
+    }
+
+    public boolean requiresBankDimension(String code) {        Map<String, KingdeeVoucherGateway.KingdeeAccountRef> snapshot = catalog();
         KingdeeVoucherGateway.KingdeeAccountRef ref = snapshot.get(code == null ? "" : code.trim());
         return ref != null && BANK_ACCOUNT_DIMENSION.equalsIgnoreCase(
                 ref.dimensionCode() == null ? "" : ref.dimensionCode().trim());

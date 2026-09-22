@@ -52,6 +52,28 @@ public class KingdeeProperties {
     /** Organization FNumber used for bill head org references (demo env: 100). */
     private String orgNumber = "100";
 
+    /**
+     * 「待确认兜底科目」编码（2026-09-21）。AI 建议的科目在账套里不存在、或置信度低于阈值时，
+     * 该行科目替换为此编码 + 在推送消息里标注，保证凭证仍能推到金蝶，由人工在金蝶侧改成正确科目。
+     *
+     * <p>为什么不能「留空」：实测（2026-09-21，真实账套 400）金蝶对**无科目**的分录直接拒绝——
+     * 传 {@code FACCOUNTID.FNumber=""} 或整个不传该键，都返回
+     * 「请输入凭证数据，凭证分录不合法！」；对照用例（正常科目）保存成功。故必须用账套里**真实存在**
+     * 的科目兜底。</p>
+     *
+     * <p>为什么默认是 {@code 2241.99} 而不是用户最初提的 {@code 2241}：实测 {@code 2241} 其他应付款是
+     * **父科目**（{@code BD_Account.FIsDetail=false}），金蝶不允许直接记账到父科目（同样报「分录不合法」）；
+     * 而 {@code 2241.99} 其他应付款-其他是**明细科目且不挂必录维度**（实测借 2241.99 / 贷 1001 保存成功，
+     * 单号 16077，已即时删除）。{@code 1901} 待处理财产损溢 同样实测可用。</p>
+     */
+    private String fallbackAccount = "2241.99";
+
+    /**
+     * 低置信度阈值（0~1，默认 0.6）：AI 自评置信度低于该值的分录，科目走兜底替换。
+     * 人工在草稿页把置信度调高（= 人工确认）后即不再替换。
+     */
+    private Double lowConfidenceThreshold = 0.6;
+
     private String payBillFormId = "AP_PAYBILL";
 
     private String receiveBillFormId = "AR_RECEIVEBILL";
@@ -322,5 +344,21 @@ public class KingdeeProperties {
 
     public void setAutoAudit(Boolean autoAudit) {
         this.autoAudit = autoAudit;
+    }
+
+    public String getFallbackAccount() {
+        return fallbackAccount;
+    }
+
+    public void setFallbackAccount(String fallbackAccount) {
+        this.fallbackAccount = fallbackAccount;
+    }
+
+    public Double getLowConfidenceThreshold() {
+        return lowConfidenceThreshold;
+    }
+
+    public void setLowConfidenceThreshold(Double lowConfidenceThreshold) {
+        this.lowConfidenceThreshold = lowConfidenceThreshold;
     }
 }
