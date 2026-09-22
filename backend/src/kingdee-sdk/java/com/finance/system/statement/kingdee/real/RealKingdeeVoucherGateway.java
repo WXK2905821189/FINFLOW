@@ -244,6 +244,44 @@ public class RealKingdeeVoucherGateway implements KingdeeVoucherGateway {
         return statuses;
     }
 
+    /**
+     * 只读全量拉取一类基础资料档案（2026-09-22 用户授权）：FNumber / FName / FDocumentStatus，
+     * TopRowCount 2000（接口契约上限；单类档案超 2000 行的场景目前不存在，出现时再分页）。
+     *
+     * <p>formId 白名单由调用方（KingdeeDimensionMappingService.syncBaseDataCatalog）保证，
+     * 这里不做重复校验。FDocumentStatus 缺列/null 时按 null 返回（调用方按「状态未知」处理）。</p>
+     */
+    @Override
+    public java.util.List<KingdeeBaseDataRef> queryBaseDataCatalog(String formId) {
+        String query = "{\"FormId\":\"" + formId + "\",\"FieldKeys\":\"FNumber,FName,FDocumentStatus\","
+                + "\"TopRowCount\":2000}";
+        java.util.List<KingdeeBaseDataRef> catalog = new java.util.ArrayList<>();
+        try {
+            JsonNode rows = mapper.readTree(client.executeBillQueryJson(query));
+            if (!rows.isArray()) {
+                return catalog;
+            }
+            for (JsonNode row : rows) {
+                if (!row.isArray() || row.size() == 0) {
+                    continue;
+                }
+                String number = row.get(0).asText(null);
+                if (number == null || number.isBlank()) {
+                    continue;
+                }
+                String name = row.size() > 1 ? row.get(1).asText(null) : null;
+                String status = row.size() > 2 && !row.get(2).isNull() ? row.get(2).asText(null) : null;
+                catalog.add(new KingdeeBaseDataRef(number.trim(), name, status));
+            }
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new BusinessException(502,
+                    "基础资料档案目录解析失败：" + abbreviate(String.valueOf(e.getMessage())));
+        }
+        return catalog;
+    }
+
     private String resolveFormId(String direction) {
         if ("EXPENSE".equalsIgnoreCase(direction)) {
             return props.getPayBillFormId();

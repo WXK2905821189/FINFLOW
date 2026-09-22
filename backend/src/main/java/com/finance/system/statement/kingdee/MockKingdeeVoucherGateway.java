@@ -73,4 +73,24 @@ public class MockKingdeeVoucherGateway implements KingdeeVoucherGateway {
         }
         return statuses;
     }
+
+    /**
+     * 模拟基础资料档案目录：与状态回查样例同源（VEN0001~3 供应商、KH0001 客户、
+     * EMP0001~2 员工），含一条暂存档案——让「同步档案」入口在 mock 下有可断言数据。
+     */
+    @Override
+    public java.util.List<KingdeeBaseDataRef> queryBaseDataCatalog(String formId) {
+        return switch (formId == null ? "" : formId) {
+            case "BD_Supplier" -> java.util.List.of(
+                    new KingdeeBaseDataRef("VEN0001", "北京示例供应商一", "C"),
+                    new KingdeeBaseDataRef("VEN0002", "上海示例供应商二", "C"),
+                    new KingdeeBaseDataRef("VEN0003", "深圳示例供应商三（暂存）", "A"));
+            case "BD_Customer" -> java.util.List.of(
+                    new KingdeeBaseDataRef("KH0001", "示例客户一", "C"));
+            case "BD_Empinfo" -> java.util.List.of(
+                    new KingdeeBaseDataRef("EMP0001", "张三", "C"),
+                    new KingdeeBaseDataRef("EMP0002", "李四", "C"));
+            default -> java.util.List.of();
+        };
+    }
 }

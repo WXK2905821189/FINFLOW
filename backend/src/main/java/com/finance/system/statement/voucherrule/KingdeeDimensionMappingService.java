@@ -56,7 +56,7 @@ public class KingdeeDimensionMappingService {
     private static final String KIND_KEYWORD = "KEYWORD";
     private static final String KIND_DEFAULT = "NAME";
 
-    /** 维度类型 → 金蝶基础资料 FormId（P1-3 回查用；BANK_ACCOUNT/BUSINESS_LINE 不在此列）。 */
+    /** 维度类型 → 金蝶基础资料 FormId（P1-3 回查 + 档案同步用；BANK_ACCOUNT/BUSINESS_LINE 不在此列）。 */
     private static final Map<String, String> BASE_DATA_FORM_BY_TYPE = Map.of(
             SUPPLIER, "BD_Supplier",
             CUSTOMER, "BD_Customer",
@@ -285,6 +285,25 @@ public class KingdeeDimensionMappingService {
         entity.setKingdeeName(trimToNull(request.kingdeeName()));
         entity.setEnabled(!Boolean.FALSE.equals(request.enabled()));
         entity.setRemark(trimToNull(request.remark()));
+    }
+
+    // ---------------- 档案同步（2026-09-22 用户授权：只读拉金蝶供应商/客户/员工档案） ----------------
+
+    /**
+     * 只读拉取一类金蝶基础资料档案目录（不做任何写库动作，前端拿去与既有映射比对）。
+     * FormId 白名单校验：BD_Supplier / BD_Customer / BD_Empinfo 之外直接 400，
+     * 避免把该端点当成任意表单的通用查询器。
+     *
+     * <p>网关不可用（Unavailable / Mock 拉不到）返回空表——前端按「档案目录不可用」
+     * 提示，不阻断映射页其他操作。</p>
+     */
+    public List<KingdeeVoucherGateway.KingdeeBaseDataRef> syncBaseDataCatalog(String dimensionType) {
+        String formId = BASE_DATA_FORM_BY_TYPE.get(dimensionType == null ? "" : dimensionType.trim().toUpperCase());
+        if (formId == null) {
+            throw new BusinessException(400, "不支持的档案类型：" + dimensionType
+                    + "（仅支持 SUPPLIER / CUSTOMER / EMPLOYEE）");
+        }
+        return gateway.queryBaseDataCatalog(formId);
     }
 
     // ---------------- 引擎侧解析 ----------------

@@ -50,4 +50,10 @@ public class UnavailableKingdeeVoucherGateway implements KingdeeVoucherGateway {
     public java.util.Map<String, String> queryBaseDataDocumentStatus(String formId, java.util.Collection<String> numbers) {
         return java.util.Map.of();
     }
+
+    /** 网关未激活 → 档案目录不可用（空表）；同步入口据此提示「需先激活 Real 网关」。 */
+    @Override
+    public java.util.List<KingdeeBaseDataRef> queryBaseDataCatalog(String formId) {
+        return java.util.List.of();
+    }
 }

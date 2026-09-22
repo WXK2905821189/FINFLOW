@@ -102,4 +102,15 @@ public class KingdeeDimensionMappingController {
         int affected = service.batchUpsert(requests);
         return ApiResponse.success("已导入 " + affected + " 条维度映射", affected);
     }
+
+    /**
+     * 只读同步金蝶基础资料档案目录（2026-09-22 用户授权 ExecuteBillQuery 拉供应商/客户/员工档案）。
+     * 返回「档案编码 + 名称 + 文档状态」供前端与既有映射比对补差；不写库。
+     */
+    @GetMapping("/kingdee/dimension-mappings/base-data-catalog")
+    @PreAuthorize("hasAuthority('voucher:push')")
+    public ApiResponse<List<com.finance.system.statement.kingdee.KingdeeVoucherGateway.KingdeeBaseDataRef>> syncBaseDataCatalog(
+            @RequestParam(name = "dimensionType") String dimensionType) {
+        return ApiResponse.success(service.syncBaseDataCatalog(dimensionType));
+    }
 }

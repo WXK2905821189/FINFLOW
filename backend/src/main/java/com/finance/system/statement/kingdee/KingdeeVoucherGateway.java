@@ -80,4 +80,30 @@ public interface KingdeeVoucherGateway {
      * @param numbers   档案编码清单（FNumber）
      */
     java.util.Map<String, String> queryBaseDataDocumentStatus(String formId, java.util.Collection<String> numbers);
+
+    /**
+     * 只读全量拉取一类基础资料档案（2026-09-22 用户授权：供应商/客户/员工档案只读同步）。
+     *
+     * <p>用途：AI 制证退役、规则制证唯一化后，维度映射（IN_SUPPLIER_LIST / IN_EMPLOYEE_LIST /
+     * IN_CUSTOMER_MAPPING 算子的命中前提）需要与金蝶侧档案保持同步——金蝶新增/改名档案后，
+     * FINFLOW 侧在「维度映射」页一键拉取比对，而不是等映射失配才暴露。员工维度尤其依赖：
+     * 人事表只有姓名，金蝶员工档案编码（FNumber）只能从账套拉取后按姓名 join 生成映射。</p>
+     *
+     * <p>契约：只读、不写入；单次至多 TopRowCount 2000 行（超出一类档案 2000 行的场景
+     * 目前不存在，出现时再分页）。Mock 返回内置样例；Unavailable 返回空表（调用方
+     * 按「档案目录不可用」提示，不阻断映射维护）。</p>
+     *
+     * @param formId 基础资料表单（BD_Supplier / BD_Customer / BD_Empinfo）
+     */
+    java.util.List<KingdeeBaseDataRef> queryBaseDataCatalog(String formId);
+
+    /**
+     * 金蝶基础资料档案（BD_Supplier / BD_Customer / BD_Empinfo 一行）。
+     *
+     * @param number          档案编码（FNumber）——维度映射 kingdee_value 用的就是它
+     * @param name            档案名称（FName）
+     * @param documentStatus  文档状态（FDocumentStatus：A 暂存 / B 已提交 / C 已审核；查询未返回该列时为 null）
+     */
+    record KingdeeBaseDataRef(String number, String name, String documentStatus) {
+    }
 }

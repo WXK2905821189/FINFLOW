@@ -29,9 +29,13 @@ class KingdeeGlVoucherPayloadBuilderTest {
     private final KingdeeOrgResolver orgResolver = new KingdeeOrgResolver();
     private final KingdeeAccountCatalogService catalogService =
             new KingdeeAccountCatalogService(gateway, props);
+    // 单维度槽位路由（2026-09-22）：非 BANK_ACCOUNT 维度查槽位表；BANK_ACCOUNT 走配置项。
+    // 本测试类所有用例的单维度均为 BANK_ACCOUNT（或 NONE），槽位表 mock 返回 null 即不影响。
+    private final KingdeeDimensionMappingService dimensionService =
+            mock(KingdeeDimensionMappingService.class);
     private final KingdeeGlVoucherPayloadBuilder builder =
             new KingdeeGlVoucherPayloadBuilder(props, new ObjectMapper(),
-                    catalogService, orgResolver);
+                    catalogService, orgResolver, dimensionService);
 
     private static final LocalDateTime T = LocalDateTime.parse("2026-09-16T10:15:00");
 
@@ -285,5 +289,40 @@ class KingdeeGlVoucherPayloadBuilderTest {
                 .path("Model").path("FEntity").get(1).path("FDetailID");
         assertEquals("11050160520009100036", detail.path("FDETAILID__FF100002").path("FNumber").asText());
         assertEquals("VEN00511", detail.path("FDETAILID__FF100004").path("FNumber").asText());
+    }
+
+    // ---------------- 单维度槽位路由（2026-09-22，图虫规则批次引入） ----------------
+
+    @Test
+    void supplierSingleDimensionRoutesToSlotTableInsteadOfBankSlot() throws Exception {
+        // 修正前：SUPPLIER 单维度值被一律写进银行槽 FF100002（错槽——VEN 档案码住进银行账号维度）。
+        // 修正后：SUPPLIER 属槽位表白名单 → 查 kingdee_dimension_slot（mock 返回 FFLEX4）。
+        when(dimensionService.slotOf("SUPPLIER")).thenReturn("FFLEX4");
+        KingdeeVoucherEntryDraft line = new KingdeeVoucherEntryDraft("DEBIT", "2202.01", "应付账款_外部往来",
+                "SUPPLIER", "VEN00511", new BigDecimal("10.00"), "FULL", false);
+        String payload = builder.buildPayload("410", T, "服务费",
+                List.of(line), List.of(line("CREDIT", "1002", "10.00")));
+        JsonNode detail = new ObjectMapper().readTree(payload)
+                .path("Model").path("FEntity").get(0).path("FDetailID");
+        assertEquals("VEN00511", detail.path("FDETAILID__FFLEX4").path("FNumber").asText(),
+                "SUPPLIER 单维度必须路由到槽位表配置的 FFLEX4");
+        assertTrue(detail.path("FDETAILID__FF100002").isMissingNode(),
+                "不得再写进银行槽 FF100002");
+    }
+
+    @Test
+    void fixedSingleDimensionKeepsLegacyBankSlotBehavior() throws Exception {
+        // FIXED/COUNTERPARTY 等非白名单维度保持既有行为（银行槽）：1012 其他货币资金的
+        // FIXED 档案码（R31/38/39/40）就住 FF100002，槽位表查不到它们、也不能因此丢注入。
+        KingdeeVoucherEntryDraft line = new KingdeeVoucherEntryDraft("DEBIT", "1012", "其他货币资金",
+                "FIXED", "1720219225/上海图虫_微信支付_普通商户_CNY_1720219225",
+                new BigDecimal("10.00"), "FULL", false);
+        String payload = builder.buildPayload("410", T, "微信提现",
+                List.of(line), List.of(line("CREDIT", "1002", "10.00")));
+        JsonNode detail = new ObjectMapper().readTree(payload)
+                .path("Model").path("FEntity").get(0).path("FDetailID");
+        assertEquals("1720219225/上海图虫_微信支付_普通商户_CNY_1720219225",
+                detail.path("FDETAILID__FF100002").path("FNumber").asText(),
+                "FIXED 单维度保持既有银行槽注入（槽位表白名单之外的维度不受路由影响）");
     }
 }

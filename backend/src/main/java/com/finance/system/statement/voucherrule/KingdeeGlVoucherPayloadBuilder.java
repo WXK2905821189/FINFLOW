@@ -53,14 +53,17 @@ public class KingdeeGlVoucherPayloadBuilder {
     private final ObjectMapper mapper;
     private final KingdeeAccountCatalogService catalogService;
     private final KingdeeOrgResolver orgResolver;
+    private final KingdeeDimensionMappingService dimensionService;
 
     public KingdeeGlVoucherPayloadBuilder(KingdeeProperties props, ObjectMapper mapper,
                                           KingdeeAccountCatalogService catalogService,
-                                          KingdeeOrgResolver orgResolver) {
+                                          KingdeeOrgResolver orgResolver,
+                                          KingdeeDimensionMappingService dimensionService) {
         this.props = props;
         this.mapper = mapper;
         this.catalogService = catalogService;
         this.orgResolver = orgResolver;
+        this.dimensionService = dimensionService;
     }
 
     /** Builds one GL_VOUCHER save payload from prefilled drafts; validates balance and manual amounts. */
@@ -176,11 +179,12 @@ public class KingdeeGlVoucherPayloadBuilder {
      * <p>原先 {@code appendDimension} 是 {@code putObject} 顺序写入、后者静默覆盖前者——
      * 例如用户在「维度映射 › 值映射」里又给一条分录配了与单维度同槽位的维度（典型：把银行账号
      * 同时配成值映射），同一槽位键会被写两次，最终值取决于写入顺序。不同槽位可正常共存
-     * （既有用例 {@code singleAndMultipleDimensionsCoexistOnOneEntry} 口径），只有撞键才拦。</p>
+     * （既有用例 {@code singleAndMultipleDimensionsCoexistOnOneEntry} 口径），只有撞键才拦。
+     * 2026-09-22 起单维度槽位按维度类型路由（{@link #resolveSlotForDimension}），
+     * 撞键判定同步按路由后的槽位比对。</p>
      */
     private void assertNoSlotCollision(List<KingdeeVoucherEntryDraft> debits,
                                        List<KingdeeVoucherEntryDraft> credits) {
-        String singleSlotKey = props.getGlBankDimensionSlot() == null ? "" : props.getGlBankDimensionSlot().trim();
         for (List<KingdeeVoucherEntryDraft> side : List.of(debits, credits)) {
             for (KingdeeVoucherEntryDraft line : side) {
                 if (line.extraDimensions() == null || line.extraDimensions().isEmpty()) {
@@ -191,15 +195,17 @@ public class KingdeeGlVoucherPayloadBuilder {
                 if (!singleReady) {
                     continue;
                 }
+                String singleSlot = resolveSlotForDimension(line.dimension());
+                String slotKey = singleSlot == null ? "" : singleSlot.trim();
                 for (KingdeeVoucherEntryDraft.DimensionValue dim : line.extraDimensions()) {
                     if (!dim.injectable()) {
                         continue; // 未就绪项由 assertDimensionsReady 拦下
                     }
                     String dimSlot = dim.slot() == null ? "" : dim.slot().trim();
-                    if (!singleSlotKey.isEmpty() && singleSlotKey.equalsIgnoreCase(dimSlot)) {
+                    if (!slotKey.isEmpty() && slotKey.equalsIgnoreCase(dimSlot)) {
                         throw new BusinessException(400, "科目 " + line.account()
                                 + " 的单维度 " + line.dimension() + " 与维度「" + dim.dimension()
-                                + "」都落在槽位 " + singleSlotKey + "，后者会覆盖前者；"
+                                + "」都落在槽位 " + slotKey + "，后者会覆盖前者；"
                                 + "请检查「维度映射」配置，删除重复的那条后重试");
                     }
                 }
@@ -293,17 +299,23 @@ public class KingdeeGlVoucherPayloadBuilder {
      * 内层键必须是**带前缀的完整字段名**（裸槽位名 {@code FF100002} 无效）。
      * 实测凭证 16043 保存成功后回滚。</p>
      *
-     * <p>槽位由 {@code kingdee.gl.bank-dimension-slot} 配置（默认 FF100002=银行账号 ZDY0001）。</p>
+     * <p><b>单维度槽位路由（2026-09-22 修正）</b>：单维度值不再一律写银行槽——
+     * 按 {@code kingdee_dimension_slot} 表把维度类型解析到各自槽位（SUPPLIER=FFLEX4 /
+     * EMPLOYEE=FFLEX7 / ORG=FFLEX11 / CUSTOMER=FFLEX6 / BANK_ACCOUNT=FF100002）。
+     * 原先 SUPPLIER/EMPLOYEE 等单维度也被塞进 FF100002 银行槽，档案编码错位到
+     * 银行账号维度上。表里没配槽位的维度类型回退银行槽（BANK_ACCOUNT 场景保证可用）。</p>
      */
     private void appendDimension(ObjectNode entry, KingdeeVoucherEntryDraft line) {
         ObjectNode detail = null;
         String value = line.dimensionValue();
         boolean singleReady = value != null && !value.isBlank()
                 && !"NONE".equalsIgnoreCase(line.dimension());
-        String singleSlot = props.getGlBankDimensionSlot();
-        if (singleReady && singleSlot != null && !singleSlot.isBlank()) {
-            detail = entry.putObject("FDetailID");
-            detail.putObject("FDETAILID__" + singleSlot.trim()).put("FNumber", value.trim());
+        if (singleReady) {
+            String slot = resolveSlotForDimension(line.dimension());
+            if (slot != null && !slot.isBlank()) {
+                detail = entry.putObject("FDetailID");
+                detail.putObject("FDETAILID__" + slot.trim()).put("FNumber", value.trim());
+            }
         }
         if (line.extraDimensions() == null || line.extraDimensions().isEmpty()) {
             return;
@@ -318,4 +330,31 @@ public class KingdeeGlVoucherPayloadBuilder {
             detail.putObject("FDETAILID__" + dim.slot().trim()).put("FNumber", dim.value().trim());
         }
     }
+
+    /**
+     * 单维度类型 → 弹性域槽位（2026-09-22 修正后的口径）。
+     *
+     * <p><b>白名单路由</b>：槽位表里有明确槽位的维度类型（SUPPLIER/CUSTOMER/EMPLOYEE/ORG/
+     * DEPARTMENT/BUSINESS_LINE）按表路由；其余（BANK_ACCOUNT/FIXED/COUNTERPARTY/
+     * BY_SUMMARY_BRANCH/未知类型）一律回退银行槽配置——这是 2026-09-21~22 的既有行为
+     * （1012 其他货币资金的 FIXED 档案码就住银行槽，既有 seed 的 5 处 FIXED 依赖它），
+     * 不能因引入路由而改变。查表的类型若表里未配置返回 null（不注入，交金蝶报错校准）。</p>
+     */
+    private String resolveSlotForDimension(String dimension) {
+        if (dimension == null) {
+            return null;
+        }
+        String type = dimension.trim();
+        if ("BANK_ACCOUNT".equalsIgnoreCase(type)) {
+            return props.getGlBankDimensionSlot();
+        }
+        if (SLOT_TABLE_DIMENSIONS.contains(type.toUpperCase())) {
+            return dimensionService.slotOf(type);
+        }
+        return props.getGlBankDimensionSlot(); // FIXED / COUNTERPARTY / BY_SUMMARY_BRANCH 等：保持既有银行槽行为
+    }
+
+    /** 走槽位表路由的维度类型白名单（与 V42 槽位 seed 对齐）。 */
+    private static final java.util.Set<String> SLOT_TABLE_DIMENSIONS = java.util.Set.of(
+            "SUPPLIER", "CUSTOMER", "EMPLOYEE", "ORG", "DEPARTMENT", "BUSINESS_LINE");
 }
