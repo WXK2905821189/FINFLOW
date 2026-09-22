@@ -225,8 +225,108 @@ pnpm 在 `frontend/node_modules/.pnpm/...` 建的符号链接指向 `/c/Users/..
 
 ### 12.6 测试纪律
 - 本地全量：`~/.m2` 离线 `mvn.cmd test -o -Djacoco.skip=true`。
-- **用例数随并行会话持续上涨**（同日 386 → 423），别拿旧数字当基线；数字**变小**才要查。
+- **用例数随并行会话持续上涨**（同日 386 → 423 → 429），别拿旧数字当基线；数字**变小**才要查。
 - H2 共享断言自带过滤；vendor SDK 边界 catch-Throwable → `BusinessException(502)`。
+
+### 12.7 交付验证的三个「假绿」陷阱（2026-09-22 W14 实测）
+
+1. **本地 `mvn test` 的增量编译会假绿**：改了 `record` 组件 / 构造器签名后，
+   `mvn -o test-compile` 报 `Nothing to compile - all classes are up to date`，测试类**没重编**，
+   看起来全绿；`mvn -o clean test-compile` 才暴露 `COMPILATION ERROR`。
+   ⇒ **凡改动 public 签名/record 组件/构造器，本地验证一律先 `clean`。**
+
+2. **Spring Boot jar 的 MD5 天生不可复现**：同源代码两次构建，大小相同、
+   `unzip` 后 `BOOT-INF/classes` **逐字节一致**（`diff -rq` 0 差异），但 MD5 不同
+   （zip 条目内嵌构建时间戳）。
+   ⇒ **判「后端有没有变」要比内容**（`diff -rq` 解出的 classes）；MD5 只适用于
+   「同一份文件在本地/ECS/容器内三处一致」的传输校验，不能用来判两次构建是否同源。
+
+3. **前端改动可能落在不可达文件里（tree-shake）**：CI 全绿、`vite build` 成功，
+   但新功能在构件里 0 命中。判据与做法：
+   - 先 grep **本批独有的业务文案**（不是入口 hash —— 改动可能落在独立 chunk，入口 hash 本就不变）；
+   - 0 命中时**先查可达性**：`grep -rn "<组件名>" frontend/src`，若只有定义、没有引用
+     ⇒ 该文件是死代码（实例：`statements/VoucherDraftDrawer.tsx` 在 V34 ⑦ 后已无引用，
+     只有同文件的 `AuditDrawer` 被 `VoucherCenterPage` 引用）；
+   - 确认可达后再怀疑「构件陈旧 / gh 拉错 run」。
+   - 交付前必须做「构件探针」：把本次新增的**用户可见文案**逐个 grep 线上 chunk（详见 skill `finflow-deploy`）。
+
+---
+
+## 14. 金蝶科目可用性与制证兜底策略（W14，全部实测）
+
+### 14.1 四条实测铁律（真实账套 400，保存成功即删）
+| # | 用例 | 结果 |
+|---|---|---|
+| 1 | 借方 `FACCOUNTID.FNumber=""`（空值） | ❌「请输入凭证数据，凭证分录不合法！」 |
+| 2 | 借方完全不写 `FACCOUNTID` | ❌ 同上 |
+| 3 | 借 `2241` 其他应付款（**父科目**，`BD_Account.FIsDetail=false`） | ❌ 同上（**父科目不允许记账**） |
+| 4 | 借 `2241.99` 其他应付款-其他（明细 + 无必录维度） | ✅ 接受 |
+| 5 | 借 `1901` 待处理财产损溢（明细） | ✅ 接受 |
+| 6 | 借 `2241.05` 内部往来（明细但有必录维度） | ❌「必录维度未录入或不可用：组织机构」（对照组） |
+
+⇒ ①「科目录空推上去」**不成立**；②只能换成账套里**存在且可记账**的科目；
+③**科目名称不参与推送**（报文只发 `FNumber`）⇒ 名称不一致不该阻断。
+
+探测脚本（可复用到其它账套）：`tmp/kd-probe-empty-account.py`、
+`tmp/kd-probe-fallback-candidates.py`、`tmp/kd-find-fallback.py`
+（在 ECS 上跑：凭据只从本机 `/opt/finflow/.env` 读，不外传；`SERVER_URL` 已含 `/k3cloud/`，别再拼一次）。
+
+### 14.2 落地策略（代码位置）
+- `KingdeeProperties.fallbackAccount`（默认 `2241.99`）/ `lowConfidenceThreshold`（默认 0.6），
+  对应 `application.yml` 的 `kingdee.fallback-account` / `low-confidence-threshold`（env 同名大写），
+  并已加入 `deploy/docker-compose.yml` 白名单。
+- `KingdeeAccountCatalogService.check()`：名称不一致 → **以账套名称为准**返回带 note 的结果（不抛错）。
+- `AiGlVoucherAssembler`：编码不存在/反查不到/置信度低于阈值 → 替换为兜底科目 + warning；
+  兜底科目自身不存在 → 维持原拦截。
+- 前端：`VoucherDocPage`（live 单据详情页）置信度可编辑 + 「保存置信度」→ `PUT /statements/{id}/voucher-draft`。
+
+---
+
+## 15. 模块结论明细（从 `MEMORY.md` 下沉，2026-09-22）
+
+### 15.1 AI 制证
+- **max_tokens（W12b 口径）**：制证阶段**不设上限** —— 网关仅当调用方显式传值时才发 `max_tokens`；
+  分类能力仍显式 4096。排查：`GET /api/ai/call-logs` 看 `completionTokens` 与 `finish_reason`。
+- **失败不再伪装成功（W12b）**：DRAFT 模式 AI 调用失败 ⇒ 行级 `FAILED` + 原因写
+  `statement_record.review_comment` + `AI_VOUCHER_DRAFT` 失败审计；流水保持 `PENDING`
+  ⇒ 凭证中心「待复核」仍看得到（旧行为 `DRAFT_CREATED` + 「AI 建议不可用」已废弃）。
+- **异步化（V40）**：`POST /api/bank-data/ai-voucher` 返 `AiVoucherSubmitResult`；
+  进度 `GET /api/bank-data/ai-voucher-jobs/latest`（无任务 `data:null`）。
+
+### 15.2 凭证中心状态桶（W13 修正）
+6 桶：待复核(`PENDING`) / 待推送(`APPROVED` 且未推送) / 已推送 / 失败(`push_status ∈ FAILED|GL_FAILED`) /
+**已撤回(`WITHDRAWN`)** / ALL。
+**ALL 条件 = `voucher_no 非空 OR review_status ∈ (PENDING, APPROVED, WITHDRAWN, REJECTED)`** ——
+W13 之前只认前两者，导致线上 16 条记录（11 撤回 + 5 驳回）**全部落在桶外**、
+驳回行的「重新打开」按钮不可达（实测：旧桶 0 行 → 新桶 16 行）。
+
+### 15.3 假成功的通用纪律（W12b + W13 两次事故）
+所有「假成功」都出自同一模式：**update 影响 0 行却照样返回成功**。
+- W12b：AI 调用失败被 catch 后仍返回 `DRAFT_CREATED`；
+- W13：写入条件 `.eq(reviewStatus, PENDING)` 对撤回态命中 0 行，仍返回「草稿已生成」。
+⇒ **任何写操作后都断言 `updated == 1`**；撤回态重新制证要先 `reviveWithdrawn()` 复位为待复核。
+
+### 15.4 同步计划（V25）
+- `BankDataScheduledSyncService.scheduledRequestId` = f(公司, 账户, adapter, **T-1 全天窗口**)；
+  窗口在同一自然日内恒定 ⇒ **一天内第二个计划时刻必然被幂等复用**（`BankDataSyncService` 命中同
+  requestId 直接 `return 旧任务`：不新建、不执行、不打日志）⇒ 用户感受为「计划没启动」。
+- 语义 = **一天只真正拉一次**（界面已写明）；W13 起调度补 `scan done` 汇总日志 + 下发被拒 WARN。
+- 开关 `BANKDATA_SYNC_SCHEDULE_ENABLED=true`（线上已开）；禁选整点/半点（银行并发高峰）。
+
+### 15.5 字典中心（V26）
+- 管理端点 8 个（`system:dict:manage` id=41）；消费端点 `GET /api/system/dicts/{typeCode}/items`
+  仅需登录态，**类型不存在返空数组、不抛错**。
+- **前端已上线（W11b）**：银行中文名由字典 `bank` 类型驱动（`useBankNames`，覆盖 6 处），
+  `BANK_NAME_TEXT` 降级为兜底 ⇒ **新增银行在字典中心加项即可、无需发版**。
+- 方案：`docs/dict-center-plan-20260921.md`。
+
+### 15.6 余额查询分组汇总口径（2026-09-21）
+**不显示「可用余额合计」** —— 同一账户在筛选区间内可能有多天余额，逐行求和属重复计入，
+且余额可能是多币种、不可相加；「M 个账户」改为**按账户去重**（原先用行数）。
+流水侧「N 笔 · 借 X / 贷 Y」口径正确（一行即一笔），不变。
+
+
+
 
 ---
 
