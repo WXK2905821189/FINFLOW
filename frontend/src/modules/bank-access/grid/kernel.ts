@@ -62,6 +62,13 @@ export interface GridColumn {
    * 的行集口径分裂，全量合计与翻页会对不上）。chips 上标【全量】，筛选浮层副标题同步改口径。
    */
   filterServer?: boolean;
+  /**
+   * W16-B5 排序服务端化：该列排序由服务端执行 —— 内核通过 onSortChange 把排序规格交给页面，
+   * 页面映射成查询参数重新请求；内核本身**不再对当前页做本地重排**（对已分页的行集本地排序
+   * 只会打乱本页顺序，得不到「全量排序」语义）。表头箭头 / 视图 / 偏好快照照常工作。
+   * 当前仅支持单列（交易时间）；多列或混合（一列 server 一列本地）时不生效，回落本地排序。
+   */
+  sortServer?: boolean;
   /** 列头筛选输入框的占位文案（缺省「包含文本，如 货款」；账号尾号这类后缀语义列必须显式声明）。 */
   filterPlaceholder?: string;
   /** 「无发生额」的 0 视同空值（借贷双轨列）。 */
@@ -157,6 +164,11 @@ export interface GridOptions {
    * 不可映射的列仍按「仅本页」在内核本地过滤。
    */
   onFilterChange?: (filters: Record<string, GridFilter>) => void;
+  /**
+   * W16-B5 排序服务端化：排序规格变化时回调（表头点击 / 清除 / 视图与偏好恢复都会触发；
+   * 挂载首渲染不触发）。页面把 sortServer 列映射成查询参数重新请求。
+   */
+  onSortChange?: (sort: GridSortSpec[]) => void;
 }
 
 export interface GridState {
@@ -358,6 +370,11 @@ export function createGrid(opts: GridOptions): GridInstance | null {
 
   function sorted(rows: GridRow[]): GridRow[] {
     if (!st.sort.length) return rows.slice();
+    // W16-B5：排序集合中存在 sortServer 列时，本地不再重排（服务端已按该列全量排序，
+    // 本页行序就是服务端返回序；本地重排只会打乱当前页、得不到「全量排序」语义）。
+    // 混合场景（server 列 + 本地列并存）保持谨慎：只要出现 server 列就整体放行服务端序，
+    // 避免「半本地半服务端」产生没人能解释的顺序。
+    if (st.sort.some((s) => st.cols.find((c) => c.k === s.k)?.sortServer)) return rows.slice();
     const out = rows.slice();
     out.sort((a, b) => {
       for (let i = 0; i < st.sort.length; i++) {
@@ -421,7 +438,7 @@ export function createGrid(opts: GridOptions): GridInstance | null {
       if (c.align === 'num') cls.push('num');
       h += '<th class="' + cls.join(' ') + '" data-k="' + c.k + '" data-ci="' + i + '"'
         + ' style="width:' + c.w + 'px;min-width:' + c.w + 'px;' + (i < st.frozen ? 'left:' + off[c.k] + 'px' : '') + '"'
-        + ' title="点击排序（Shift+点击多列）；仅本页排序">'
+        + ' title="点击排序（Shift+点击多列）；拖动调整列序；仅本页排序">'
         + '<span class="th-inner"><span class="th-t">' + esc(c.t) + '</span>'
         + '<span class="sort-ind"><i></i><i></i></span>'
         + '<span class="sort-rank">' + (st.sort.length > 1 && s ? st.sort.indexOf(s) + 1 : '') + '</span>'
@@ -763,6 +780,13 @@ export function createGrid(opts: GridOptions): GridInstance | null {
       lastFiltersJson = filtersJson;
       if (opts.onFilterChange) opts.onFilterChange(JSON.parse(filtersJson) as Record<string, GridFilter>);
     }
+    // W16-B5：排序变化通知（仅当存在 sortServer 列时才有意义，但无论有无都回报 ——
+    // 页面自己决定是否消费；避免「先点了 server 列再切回本地列」时页面残留旧参数）。
+    const sortJson = JSON.stringify(st.sort);
+    if (sortJson !== lastSortJson) {
+      lastSortJson = sortJson;
+      if (opts.onSortChange) opts.onSortChange(JSON.parse(sortJson) as GridSortSpec[]);
+    }
     if (notifySnapshot && opts.onSnapshotChange) opts.onSnapshotChange(snap());
   }
 
@@ -780,6 +804,11 @@ export function createGrid(opts: GridOptions): GridInstance | null {
     } else st.sort.push({ k, dir: 1 });
     renderAll();
   }
+
+  /* W16-B5：排序变化通知 —— 与筛选通知（lastFiltersJson diff）同一套手法：
+     renderAll 统一出口拦截，值没变不回调；挂载首渲染初值对齐 → 不触发。
+     视图应用 / 偏好恢复 / 表头点击全部经 renderAll 落地，在这拦不会漏。 */
+  let lastSortJson = JSON.stringify(st.sort);
 
   /* ---------- 筛选浮层 ---------- */
   const filterHost = el('filter-pop');
@@ -925,7 +954,7 @@ export function createGrid(opts: GridOptions): GridInstance | null {
   };
   const onHeadClick = (e: MouseEvent) => {
     const target = e.target as HTMLElement;
-    if (resized || target.closest('[data-resize]')) return;
+    if (resized || colDragMoved || target.closest('[data-resize]')) return;
     const fb = target.closest<HTMLElement>('[data-filter]');
     if (fb) {
       // 必须 stopPropagation：document 级的「点外部关浮层」在冒泡末端，否则刚开的浮层会被立刻关掉
@@ -957,6 +986,75 @@ export function createGrid(opts: GridOptions): GridInstance | null {
   thead.addEventListener('mousedown', onHeadMouseDown);
   thead.addEventListener('dblclick', onHeadDblClick);
   thead.addEventListener('click', onHeadClick);
+
+  /* ---------- 表头拖拽列序（W16-B1） ----------
+     与表头已有三种交互共存的手法：mousedown 挂起，水平位移超过阈值（6px）才升级为列拖拽，
+     未移动原样松开仍走 click 排序 —— 与列宽拖拽用 resized 抑制 click 同一套约定。
+     约束：必需列（req）可拖动但不可拖入冻结区；冻结区（前 st.frozen 列）整体有序，
+     普通列不可拖入冻结区、冻结列不可拖出，避免 sticky 偏移表错位。 */
+  const COL_DRAG_THRESHOLD = 6;
+  let colDrag: { k: string; x0: number; armed: boolean } | null = null;
+  let colDragMoved = false;
+  const colIsFrozen = (k: string) => {
+    const vis = visCols();
+    const i = vis.findIndex((c) => c.k === k);
+    return i >= 0 && i < st.frozen;
+  };
+  const onHeadColDragDown = (e: MouseEvent) => {
+    if (e.button !== 0) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-resize]') || target.closest('[data-filter]')) return;
+    const th = target.closest<HTMLElement>('th[data-k]');
+    if (!th?.dataset.k) return;
+    e.preventDefault();   // 阻止表头文字原生选取（拖拽期间视觉更干净；不影响 click 排序）
+    colDrag = { k: th.dataset.k, x0: e.clientX, armed: false };
+    colDragMoved = false;
+  };
+  const onDocColDragMove = (e: MouseEvent) => {
+    if (!colDrag) return;
+    if (!colDrag.armed) {
+      if (Math.abs(e.clientX - colDrag.x0) < COL_DRAG_THRESHOLD) return;
+      colDrag.armed = true;
+      colDragMoved = true;
+      document.body.style.cursor = 'grabbing';
+      setSelecting(true);
+      toast('松开鼠标完成列移动（列设置里也可微调）');
+    }
+  };
+  const onDocColDragUp = (e: MouseEvent) => {
+    if (!colDrag) return;
+    const drag = colDrag;
+    colDrag = null;
+    document.body.style.cursor = '';
+    if (!drag.armed) return;   // 未升级为拖拽 → click 正常走排序
+    setSelecting(false);
+    const th = (e.target as HTMLElement).closest<HTMLElement>('th[data-k]');
+    const targetKey = th?.dataset.k;
+    if (!targetKey || targetKey === drag.k) return;
+    // 冻结归属判定必须在 splice 之前 —— 移除后 findIndex 拿不到该列，判定会失效
+    const dragFrozen = colIsFrozen(drag.k);
+    const targetFrozen = colIsFrozen(targetKey);
+    const from = st.cols.findIndex((c) => c.k === drag.k);
+    if (from < 0) return;
+    let to = st.cols.findIndex((c) => c.k === targetKey);
+    if (to < 0) return;   // 目标列已被藏（理论上不可能：th 来自当前可见表头）
+    if (dragFrozen !== targetFrozen) {
+      toast(dragFrozen ? '冻结列不可拖出冻结区（可在列设置里调整冻结数）' : '普通列不可拖入冻结区');
+      return;
+    }
+    const moved = st.cols.splice(from, 1)[0];
+    // 松手位置在目标列左半 → 插到目标前；右半 → 插到目标后（to 是移除后的下标，直接可用）
+    const box = th!.getBoundingClientRect();
+    const insertAt = e.clientX >= box.left + box.width / 2 ? to + 1 : to;
+    st.cols.splice(insertAt, 0, moved);
+    renderAll();
+    notifySnapshot = true;
+    renderAll();
+    toast('已调整列序');
+  };
+  thead.addEventListener('mousedown', onHeadColDragDown);
+  document.addEventListener('mousemove', onDocColDragMove);
+  document.addEventListener('mouseup', onDocColDragUp);
 
   /* ---------- 选区 ---------- */
   /* 单元格内可能放交互控件（复制标签、行内按钮）。若在 mousedown 就重渲染，

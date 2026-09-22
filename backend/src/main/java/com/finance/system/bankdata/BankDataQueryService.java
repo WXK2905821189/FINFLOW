@@ -152,6 +152,20 @@ public class BankDataQueryService {
                                                              String requestId, Long companyIdFilter,
                                                              List<Long> companyIdsFilter,
                                                              BankDataExtraFilter extraFilter) {
+        return queryProjection(userId, resource, page, size, status, bankAccountIds, keyword, from, to,
+                sourceSystem, syncJobNo, requestId, companyIdFilter, companyIdsFilter, extraFilter, null);
+    }
+
+    /** W16-B5（2026-09-21）排序服务端化：sortDir 作用于流水交易时间全量排序（asc/desc，null=默认 desc）。 */
+    public BankDataProjectionPageResponse<?> queryProjection(Long userId, String resource,
+                                                             int page, int size, String status,
+                                                             List<Long> bankAccountIds, String keyword,
+                                                             LocalDateTime from, LocalDateTime to,
+                                                             String sourceSystem, String syncJobNo,
+                                                             String requestId, Long companyIdFilter,
+                                                             List<Long> companyIdsFilter,
+                                                             BankDataExtraFilter extraFilter,
+                                                             String sortDir) {
         BankDataExtraFilter extra = extraFilter == null ? BankDataExtraFilter.none() : extraFilter;
         String normalized = resource == null ? "" : resource.trim().toLowerCase(Locale.ROOT);
         if (!List.of("balances", "statements").contains(normalized)) {
@@ -177,8 +191,14 @@ public class BankDataQueryService {
             return emptyProjectionPage(page, size, "指定任务不是真实银行直联的同步任务，或没有匹配记录");
         }
         if ("balances".equals(normalized)) {
+            // W16-B4（2026-09-21）时间节点语义：
+            //  · 未传 from/to（不筛选时间）→ 每账户只取最新一个节点的余额（默认视图 = 当前时点快照）；
+            //  · 传了 node → 该账户取 ≤ node 的最新一个节点（查看历史时点快照）；
+            //  · 传了 from/to（区间）→ 保留旧行为（区间内全部节点，兼容对账场景）。
+            boolean timeRangeGiven = from != null || to != null;
+            boolean latestPerAccount = !timeRangeGiven;
             PageResponse<BankDataBalanceResponse> balances = listBalances(companyIds, page, size, bankAccountIds,
-                    status, from, to, taskIds, extra);
+                    status, from, to, taskIds, extra, latestPerAccount);
             Map<Long, BankDataSyncTask> tasksById = taskScope.tasksById(companyIds,
                     balances.records().stream().map(BankDataBalanceResponse::taskId).toList());
             // 公司主体列锚定<b>账户当前归属</b>（bank_account.company_id，单一事实源）：
@@ -224,9 +244,15 @@ public class BankDataQueryService {
                         .or().like(BankDataStatement::getRemarkTextClt, keyword.trim())
                         .or().like(BankDataStatement::getYurRef, keyword.trim())
                         .or().like(BankDataStatement::getBillNumber, keyword.trim())
-                        .or().like(BankDataStatement::getBankRequestNo, keyword.trim()))
-                .orderByDesc(BankDataStatement::getTransactionTime)
-                .orderByDesc(BankDataStatement::getId);
+                        .or().like(BankDataStatement::getBankRequestNo, keyword.trim()));
+        // W16-B5 排序服务端化：交易时间方向由前端下发（asc=升序）。id 作稳定尾排序键，
+        // 升序时同样升序，保证同秒流水页序稳定可复现。
+        boolean asc = "asc".equalsIgnoreCase(sortDir);
+        if (asc) {
+            query.orderByAsc(BankDataStatement::getTransactionTime).orderByAsc(BankDataStatement::getId);
+        } else {
+            query.orderByDesc(BankDataStatement::getTransactionTime).orderByDesc(BankDataStatement::getId);
+        }
         Page<BankDataStatement> result = statementMapper.selectPage(
                 new Page<>(Math.max(1, page), boundedSize(size)), query);
         Map<Long, BankDataSyncTask> tasksById = taskScope.tasksById(companyIds,
@@ -292,8 +318,77 @@ public class BankDataQueryService {
                                                                 List<Long> bankAccountIds, String validationStatus,
                                                                 LocalDateTime from, LocalDateTime to,
                                                                 List<Long> taskIds, BankDataExtraFilter extraFilter) {
+        return listBalances(companyIds, page, size, bankAccountIds, validationStatus, from, to, taskIds,
+                extraFilter, false);
+    }
+
+    /**
+     * W16-B4（2026-09-21）时间节点语义：latestPerAccount=true 时每账户只取 as_of_time 最新的一条。
+     * 实现走两步查询（MySQL 8 窗口函数等价写法，兼容 MySQL 5.7 / H2）：
+     * ① 按 (bank_account_id) 分组取 MAX(as_of_time) 得「每账户最新节点」集合；
+     * ② 以 (bank_account_id, as_of_time) 回表精确圈定行。
+     * 同一账户同一时刻的并发重复行由 id 降序 + 分页天然收敛为一条（历史数据不存在同刻多行）。
+     */
+    private PageResponse<BankDataBalanceResponse> listBalances(Collection<Long> companyIds, int page, int size,
+                                                                List<Long> bankAccountIds, String validationStatus,
+                                                                LocalDateTime from, LocalDateTime to,
+                                                                List<Long> taskIds, BankDataExtraFilter extraFilter,
+                                                                boolean latestPerAccount) {
         BankDataExtraFilter extra = extraFilter == null ? BankDataExtraFilter.none() : extraFilter;
-        LambdaQueryWrapper<BankDataBalance> query = new LambdaQueryWrapper<BankDataBalance>()
+        if (latestPerAccount) {
+            // 时间节点语义：先按当前 WHERE 圈出参与账户，再对每个账户取其最新 as_of_time。
+            // ②回表条件 = 账户集合 + 每账户各自的 MAX(as_of_time) —— 用 OR 分组逐账户下发
+            //（账户数有限（几十级），OR 组规模可控；避免引原生 SQL 破坏 Lambda 缓存与租户列内联）。
+            // ⚠️ 探针与回表必须各用**全新** wrapper：LambdaQueryWrapper.select(...) 会写入 wrapper
+            // 的 sqlSelect 且不可逆，跨查询复用会让分页 SQL 只 SELECT 两列、其余字段全 null，
+            // assembler 组装时对不可变 Map 的 null key 调 get 直接 NPE（2026-09-22 三测 500 根因）。
+            List<BankDataBalance> scoped = balanceMapper.selectList(
+                    balanceQuery(companyIds, bankAccountIds, validationStatus, from, to, taskIds, extra)
+                            .select(BankDataBalance::getBankAccountId, BankDataBalance::getAsOfTime));
+            if (scoped.isEmpty()) {
+                return new PageResponse<>(Math.max(1, page), boundedSize(size), 0, List.of());
+            }
+            Map<Long, LocalDateTime> latestByAccount = new java.util.LinkedHashMap<>();
+            for (BankDataBalance row : scoped) {
+                LocalDateTime cur = latestByAccount.get(row.getBankAccountId());
+                if (cur == null || (row.getAsOfTime() != null && row.getAsOfTime().isAfter(cur))) {
+                    latestByAccount.put(row.getBankAccountId(), row.getAsOfTime());
+                }
+            }
+            LambdaQueryWrapper<BankDataBalance> pageQuery =
+                    balanceQuery(companyIds, bankAccountIds, validationStatus, from, to, taskIds, extra)
+                            .and(nested -> {
+                                for (Map.Entry<Long, LocalDateTime> e : latestByAccount.entrySet()) {
+                                    final Long accountId = e.getKey();
+                                    final LocalDateTime asOf = e.getValue();
+                                    nested.or(n -> n.eq(BankDataBalance::getBankAccountId, accountId)
+                                            .eq(BankDataBalance::getAsOfTime, asOf));
+                                }
+                            });
+            pageQuery.orderByDesc(BankDataBalance::getAsOfTime)
+                    .orderByDesc(BankDataBalance::getId);
+            Page<BankDataBalance> result = balanceMapper.selectPage(new Page<>(Math.max(1, page), boundedSize(size)), pageQuery);
+            return new PageResponse<>(result.getCurrent(), result.getSize(), result.getTotal(),
+                    responseAssembler.balances(result.getRecords(), companyIds));
+        }
+        LambdaQueryWrapper<BankDataBalance> query =
+                balanceQuery(companyIds, bankAccountIds, validationStatus, from, to, taskIds, extra);
+        query.orderByDesc(BankDataBalance::getAsOfTime)
+                .orderByDesc(BankDataBalance::getId);
+        Page<BankDataBalance> result = balanceMapper.selectPage(new Page<>(Math.max(1, page), boundedSize(size)), query);
+        return new PageResponse<>(result.getCurrent(), result.getSize(), result.getTotal(),
+                responseAssembler.balances(result.getRecords(), companyIds));
+    }
+
+    /**
+     * 余额查询公共 WHERE（WP-C：账号后 4/6 位 + 币种，余额与流水同口径）。
+     * 每次调用返回**全新** wrapper——wrapper 携带 select/排序状态，严禁跨查询复用。
+     */
+    private LambdaQueryWrapper<BankDataBalance> balanceQuery(Collection<Long> companyIds, List<Long> bankAccountIds,
+                                                             String validationStatus, LocalDateTime from,
+                                                             LocalDateTime to, List<Long> taskIds,
+                                                             BankDataExtraFilter extra) {
+        return new LambdaQueryWrapper<BankDataBalance>()
                 .in(BankDataBalance::getCompanyId, companyIds)
                 .in(bankAccountIds != null && !bankAccountIds.isEmpty(), BankDataBalance::getBankAccountId, bankAccountIds)
                 .in(taskIds != null && !taskIds.isEmpty(), BankDataBalance::getTaskId, taskIds)
@@ -301,16 +396,10 @@ public class BankDataQueryService {
                         validationStatus == null ? null : validationStatus.trim().toUpperCase(Locale.ROOT))
                 .ge(from != null, BankDataBalance::getAsOfTime, from)
                 .le(to != null, BankDataBalance::getAsOfTime, to)
-                // WP-C：账号后 4/6 位 + 币种（余额与流水同口径）。
                 .likeLeft(extra.accountNoSuffix() != null, BankDataBalance::getBankAccountNo, extra.accountNoSuffix())
                 .and(extra.currency() != null, nested -> nested
                         .in(BankDataBalance::getVendorCurrencyCode, currencyCodes(extra.currency()))
-                        .or().eq(BankDataBalance::getCurrency, currencyCodes(extra.currency()).get(0)))
-                .orderByDesc(BankDataBalance::getAsOfTime)
-                .orderByDesc(BankDataBalance::getId);
-        Page<BankDataBalance> result = balanceMapper.selectPage(new Page<>(Math.max(1, page), boundedSize(size)), query);
-        return new PageResponse<>(result.getCurrent(), result.getSize(), result.getTotal(),
-                responseAssembler.balances(result.getRecords(), companyIds));
+                        .or().eq(BankDataBalance::getCurrency, currencyCodes(extra.currency()).get(0)));
     }
 
     /** WP-C 币种语义匹配：CNY 展开 {CNY,10,01}（银行码与 ISO 并存），其余原样。 */

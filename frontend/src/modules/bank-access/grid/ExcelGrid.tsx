@@ -7,6 +7,7 @@ import {
   type GridInstance,
   type GridRow,
   type GridSnapshot,
+  type GridSortSpec,
   type GridView,
 } from './kernel';
 import './grid.css';
@@ -74,6 +75,8 @@ export interface ExcelGridProps {
   onSnapshotChange?: (snapshot: GridSnapshot) => void;
   /** V36 筛选服务端化：列头筛选集合变化 → 页面映射查询参数重新请求（详见 kernel.ts）。 */
   onFilterChange?: (filters: Record<string, GridFilter>) => void;
+  /** W16-B5 排序服务端化：排序规格变化 → 页面映射查询参数重新请求（详见 kernel.ts）。 */
+  onSortChange?: (sort: GridSortSpec[]) => void;
   toast?: (message: string) => void;
   /** 表格下方（分页器等）。 */
   footer?: ReactNode;
@@ -137,6 +140,7 @@ export function ExcelGrid(props: ExcelGridProps) {
       onExportRows: (picked) => read().onExportRows?.(picked),
       onSnapshotChange: (snapshot) => read().onSnapshotChange?.(snapshot),
       onFilterChange: (filters) => read().onFilterChange?.(filters),
+      onSortChange: (sort) => read().onSortChange?.(sort),
       toast: (message) => read().toast?.(message),
       onClosePops: () => closePops(),
     });
@@ -220,6 +224,11 @@ export function ExcelGrid(props: ExcelGridProps) {
     pageSize ? `${pageSize} 行/页` : '',
     groupBy ? '分组时按合计排组' : '',
   ].filter(Boolean).join(' · ');
+  // W16-B5：存在 sortServer 列时口径提示要如实反映——交易时间列已是全量排序。
+  const hasSortServer = cols.some((c) => c.sortServer);
+  const effectiveSortScopeHint = hasSortServer
+    ? '交易时间排序＝服务端全量 · ' + sortScopeHint
+    : sortScopeHint;
 
   return (
     <div ref={rootRef} className={className ? `xgrid ${className}` : 'xgrid'} style={style}>
@@ -240,7 +249,7 @@ export function ExcelGrid(props: ExcelGridProps) {
             className="sort-scope"
             title="排序 / 选区汇总只作用于已加载的本页行，不代表全量。列头筛选按 chips 标注的口径生效：【全量】＝服务端全量（翻页 / 导出同口径），其余＝仅本页。分组视图下：排序先作用于组内，组顺序按该列合计排列。"
           >
-            <span className="dot" />{sortScopeHint}
+            <span className="dot" />{effectiveSortScopeHint}
           </div>
 
           {showGroupSwitch && (

@@ -146,8 +146,9 @@ public class BankDataSyncResponseAssembler {
                         .in(BankAccount::getCompanyId, companyIds)
                         .in(BankAccount::getId, accountIds))
                 .stream().collect(Collectors.toMap(BankAccount::getId, Function.identity()));
-        return balances.stream().map(item -> balance(item, rawMessages.get(item.getRawMessageId()),
-                accounts.get(item.getBankAccountId()))).toList();
+        return balances.stream().map(item -> balance(item,
+                item.getRawMessageId() == null ? null : rawMessages.get(item.getRawMessageId()),
+                item.getBankAccountId() == null ? null : accounts.get(item.getBankAccountId()))).toList();
     }
 
     private BankDataBalanceResponse balance(BankDataBalance balance, BankDataRawMessage raw, BankAccount account) {

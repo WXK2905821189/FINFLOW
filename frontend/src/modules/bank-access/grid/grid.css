@@ -266,7 +266,9 @@
 
 /* ---------- 条件格式 ---------- */
 .xgrid table.data td.cf-neg { color: var(--danger); font-weight: 700; }
-.xgrid table.data td.cf-big { font-weight: 700; box-shadow: inset 3px 0 0 var(--warn); }
+/* W16-B3（2026-09-21）：删除 .cf-big（金额≥100万：加粗 + 左缘 3px 金色竖条）。
+   用户反馈「删除金条和加粗字体」「把竖杠删除」，且与凭证中心的金色竖杠视觉混淆，
+   三处（余额/流水/凭证中心）一并去掉。cf 类名仍可从列定义返回，仅不再有任何样式。 */
 .xgrid table.data td.cf-late { color: #9b3636; }
 .xgrid table.data td .cf-mute, .xgrid table.data td.cf-mute { color: var(--text-4); }
 

@@ -105,6 +105,16 @@ public class BankDataExportService {
                                  String keyword, LocalDateTime from, LocalDateTime to,
                                  String syncJobNo, String requestId, Long companyIdFilter,
                                  com.finance.system.bankdata.dto.BankDataExtraFilter extraFilter) {
+        return export(userId, resource, status, bankAccountIds, keyword, from, to, syncJobNo, requestId,
+                companyIdFilter, extraFilter, null);
+    }
+
+    /** W16-B5（2026-09-21）：导出与屏幕查询同口径 —— 交易时间排序方向随屏幕选择下发。 */
+    public BankDataExport export(Long userId, String resource, String status, List<Long> bankAccountIds,
+                                 String keyword, LocalDateTime from, LocalDateTime to,
+                                 String syncJobNo, String requestId, Long companyIdFilter,
+                                 com.finance.system.bankdata.dto.BankDataExtraFilter extraFilter,
+                                 String sortDir) {
         com.finance.system.bankdata.dto.BankDataExtraFilter extra = extraFilter == null
                 ? com.finance.system.bankdata.dto.BankDataExtraFilter.none() : extraFilter;
         String normalized = resource == null ? "" : resource.trim().toLowerCase(Locale.ROOT);
@@ -159,7 +169,7 @@ public class BankDataExportService {
             return new BankDataExport("银行余额_" + stamp + ".csv",
                     BankDataCsvWriter.write(BALANCE_EXPORT_HEADERS, csv));
         }
-        List<BankDataStatement> rows = exportRows(new LambdaQueryWrapper<BankDataStatement>()
+        LambdaQueryWrapper<BankDataStatement> query = new LambdaQueryWrapper<BankDataStatement>()
                 .eq(BankDataStatement::getCompanyId, companyId)
                 .in(bankAccountIds != null && !bankAccountIds.isEmpty(), BankDataStatement::getBankAccountId, bankAccountIds)
                 .in(BankDataStatement::getTaskId, taskIds)
@@ -184,9 +194,15 @@ public class BankDataExportService {
                         .or().like(BankDataStatement::getRemarkTextClt, keyword.trim())
                         .or().like(BankDataStatement::getYurRef, keyword.trim())
                         .or().like(BankDataStatement::getBillNumber, keyword.trim())
-                        .or().like(BankDataStatement::getBankRequestNo, keyword.trim()))
-                .orderByDesc(BankDataStatement::getTransactionTime)
-                .orderByDesc(BankDataStatement::getId), statementMapper);
+                        .or().like(BankDataStatement::getBankRequestNo, keyword.trim()));
+        // W16-B5：与屏幕查询同方向（asc 升序 / 默认 desc 降序），id 尾排序键同向保证行序稳定。
+        boolean exportAsc = "asc".equalsIgnoreCase(sortDir);
+        if (exportAsc) {
+            query.orderByAsc(BankDataStatement::getTransactionTime).orderByAsc(BankDataStatement::getId);
+        } else {
+            query.orderByDesc(BankDataStatement::getTransactionTime).orderByDesc(BankDataStatement::getId);
+        }
+        List<BankDataStatement> rows = exportRows(query, statementMapper);
         Map<Long, com.finance.system.domain.entity.BankDataSyncTask> tasksById = taskScope.tasksById(List.of(companyId),
                 rows.stream().map(BankDataStatement::getTaskId).toList());
         Map<Long, BankDataTaskScope.AccountLabel> labels = taskScope.accountLabels(

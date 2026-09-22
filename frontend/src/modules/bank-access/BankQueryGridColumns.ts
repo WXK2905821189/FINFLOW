@@ -22,12 +22,12 @@ import type { BankDataBalanceRow, BankDataStatementRow } from '../../types';
 
 const isNum = (v: unknown) => v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v));
 
-/** 金额条件格式（对应 demo 的 cf: 'balance'）：负额红字、百万以上加左侧色条。 */
+/** 金额条件格式（对应 demo 的 cf: 'balance'）：负额红字。
+ *  W16-B3（2026-09-21）：移除 cf-big 分支（金额≥100万的加粗 + 金色竖条）——用户反馈删除。 */
 const moneyCf = (v: unknown) => {
   if (!isNum(v)) return '';
   const n = Number(v);
   if (n < 0) return 'cf-neg';
-  if (n >= 1_000_000) return 'cf-big';
   return '';
 };
 
@@ -203,7 +203,9 @@ export function decorateStatementRows<T extends BankDataStatementRow>(rows: T[])
 export const statementGridColumns = ({ canCrossCompany }: { canCrossCompany: boolean }): GridColumn[] => {
   const cols: GridColumn[] = [
     {
-      k: 'transactionTime', t: '交易时间', w: 160, on: true, def: '默认', type: 'text', filter: 'date',
+      // W16-B5 排序服务端化：交易时间升降序由服务端对全量流水执行（用户反馈：排序要对
+      // 所有流水生效，本页排序对财务对账无意义）。内核收到 sortServer 标记后不再本地重排。
+      k: 'transactionTime', t: '交易时间', w: 160, on: true, def: '默认', type: 'text', filter: 'date', sortServer: true,
       cell: statement((r) => esc(dateTime(r.transactionTime))),
       text: statement((r) => dateTime(r.transactionTime)),
     },

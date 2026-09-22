@@ -137,6 +137,9 @@ public class BankPipelineController {
             @RequestParam(required = false) java.math.BigDecimal minAmount,
             @RequestParam(required = false) java.math.BigDecimal maxAmount,
             @RequestParam(required = false) String currency,
+            // W16-B5（2026-09-21）排序服务端化：交易时间全量排序方向（asc/desc）。
+            // 不传 = 服务端默认（transactionTime desc + id desc，最新在前）。
+            @RequestParam(required = false) String sortDir,
             @AuthenticationPrincipal UserPrincipal principal) {
         if (!principal.getAuthorities().stream().anyMatch(authority -> authority.getAuthority().equals("bankdata:view"))
                 && !principal.getAuthorities().stream().anyMatch(authority -> authority.getAuthority().equals(permissionFor(resource)))) {
@@ -146,7 +149,7 @@ public class BankPipelineController {
                 statementNo, minAmount, maxAmount, currency).normalize();
         return ApiResponse.success(queryService.queryProjection(principal.getId(), resource, page, size, status,
                 accountIds, keyword, from, to, sourceSystem, syncJobNo, requestId, companyId,
-                normalizeCompanyIds(companyIds), extra));
+                normalizeCompanyIds(companyIds), extra, sortDir));
     }
 
     /**
@@ -177,6 +180,8 @@ public class BankPipelineController {
             @RequestParam(required = false) java.math.BigDecimal minAmount,
             @RequestParam(required = false) java.math.BigDecimal maxAmount,
             @RequestParam(required = false) String currency,
+            // W16-B5：导出与屏幕查询同口径 —— 交易时间排序方向随屏幕选择下发。
+            @RequestParam(required = false) String sortDir,
             @AuthenticationPrincipal UserPrincipal principal) {
         if (!principal.getAuthorities().stream().anyMatch(authority -> authority.getAuthority().equals("bankdata:view"))
                 && !principal.getAuthorities().stream().anyMatch(authority -> authority.getAuthority().equals(permissionFor(resource)))) {
@@ -195,7 +200,7 @@ public class BankPipelineController {
             exportCompanyId = wantedCompanies.get(0);
         }
         BankDataExportService.BankDataExport export = exportService.export(principal.getId(), resource, status,
-                accountIds, keyword, from, to, syncJobNo, requestId, exportCompanyId, extra);
+                accountIds, keyword, from, to, syncJobNo, requestId, exportCompanyId, extra, sortDir);
         // RFC 6266 / RFC 5987: the ASCII fallback keeps old clients working, filename* carries
         // the Chinese name Excel actually shows.
         String encoded = URLEncoder.encode(export.filename(), StandardCharsets.UTF_8).replace("+", "%20");
