@@ -39,6 +39,13 @@ public class StatementRecord {
     /** V39（W10）：凭证撤回 —— 撤回时间/操作人（review_status 置 WITHDRAWN 时写入）。 */
     private LocalDateTime withdrawnAt;
     private Long withdrawnBy;
+    /** V44（W16-A2）：问题凭证落桶标记 —— 非空 = 在问题凭证桶；推送成功（GL_PUSHED）时清空出列。 */
+    private String problemType;
+    private String problemReason;
+    /** A2 编辑器的人工编辑态（分录数组 JSON，VoucherProblemEditDoc 序列化）。 */
+    private String problemEditJson;
+    private Long problemUpdatedBy;
+    private LocalDateTime problemUpdatedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -94,6 +101,16 @@ public class StatementRecord {
     public void setWithdrawnAt(LocalDateTime withdrawnAt) { this.withdrawnAt = withdrawnAt; }
     public Long getWithdrawnBy() { return withdrawnBy; }
     public void setWithdrawnBy(Long withdrawnBy) { this.withdrawnBy = withdrawnBy; }
+    public String getProblemType() { return problemType; }
+    public void setProblemType(String problemType) { this.problemType = problemType; }
+    public String getProblemReason() { return problemReason; }
+    public void setProblemReason(String problemReason) { this.problemReason = problemReason; }
+    public String getProblemEditJson() { return problemEditJson; }
+    public void setProblemEditJson(String problemEditJson) { this.problemEditJson = problemEditJson; }
+    public Long getProblemUpdatedBy() { return problemUpdatedBy; }
+    public void setProblemUpdatedBy(Long problemUpdatedBy) { this.problemUpdatedBy = problemUpdatedBy; }
+    public LocalDateTime getProblemUpdatedAt() { return problemUpdatedAt; }
+    public void setProblemUpdatedAt(LocalDateTime problemUpdatedAt) { this.problemUpdatedAt = problemUpdatedAt; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }

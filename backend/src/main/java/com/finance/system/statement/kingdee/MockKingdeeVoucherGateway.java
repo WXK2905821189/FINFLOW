@@ -29,7 +29,9 @@ public class MockKingdeeVoucherGateway implements KingdeeVoucherGateway {
 
     /**
      * 模拟账套科目表：仅保留方案 B 校验链路的判定所需样本——
-     * 1002 挂银行账号维度（ZDY0001），1001/6603.04 无维度。
+     * 1002 挂银行账号维度（ZDY0001），1001/6603.04 无维度；
+     * 6603 为父科目（存在子科目 6603.04 ⇒ isDetailAccount=false，A2 科目必明细校验用），
+     * 2241.99 为兜底明细科目（W14 金蝶兜底口径）。
      * 真实环境请以账套实际科目表为准（Real 网关只读拉取 BD_Account）。
      */
     @Override
@@ -37,9 +39,11 @@ public class MockKingdeeVoucherGateway implements KingdeeVoucherGateway {
         return java.util.List.of(
                 new KingdeeAccountRef("1001", "库存现金", null),
                 new KingdeeAccountRef("1002", "银行存款", "ZDY0001"),
+                new KingdeeAccountRef("6603", "财务费用", null),
                 new KingdeeAccountRef("6603.04", "手续费", null),
                 new KingdeeAccountRef("6602", "管理费用", null),
-                new KingdeeAccountRef("2241.06", "外部往来", null));
+                new KingdeeAccountRef("2241.06", "外部往来", null),
+                new KingdeeAccountRef("2241.99", "其他应付款-其他", null));
     }
 
     /**

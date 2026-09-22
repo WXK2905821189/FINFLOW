@@ -125,6 +125,37 @@ public class KingdeeAccountCatalogService {
     }
 
     /**
+     * 科目是否为**明细科目**（W16-A2 科目必明细校验）。
+     *
+     * <p>金蝶 {@code FIsDetail=false} 的父科目不能记账（2026-09-22 实测：
+     * 空科目推不上去、父科目报「凭证分录不合法」），编辑器选科目必须明细。</p>
+     *
+     * <p>判定口径：BD_Account 目录拉的是**账套全量科目行**（父+明细都在），无法直接区分；
+     * 采用「子科目存在即父」启发式——若存在其他科目编码以 {@code code + "."} 开头
+     * （如存在 6603.04 ⇒ 6603 是父科目），则该科目为父科目，禁止记账。
+     * 目录不可用时返回 true（fail-open，交由金蝶报错，与既有降级口径一致）。</p>
+     */
+    public boolean isDetailAccount(String code) {
+        String target = code == null ? "" : code.trim();
+        if (target.isEmpty()) {
+            return false;
+        }
+        Map<String, KingdeeVoucherGateway.KingdeeAccountRef> snapshot = catalog();
+        if (snapshot.isEmpty()) {
+            log.warn("科目目录不可用，无法判定科目 {} 是否为明细科目（本次按明细放行，"
+                    + "若金蝶报「凭证分录不合法」应优先排查父科目选择）", target);
+            return true;
+        }
+        String childPrefix = target + ".";
+        for (String number : snapshot.keySet()) {
+            if (number.startsWith(childPrefix)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
      * 该科目是否必须带银行账号核算维度（挂 ZDY0001）。
      *
      * <p><b>降级口径与可观测性（2026-09-22 P1-1）</b>：目录不可用时返回 false（不注入，

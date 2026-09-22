@@ -22,6 +22,8 @@ import com.finance.system.statement.dto.StatementTransferRequest;
 import com.finance.system.statement.voucherrule.KingdeeVoucherEngineService;
 import com.finance.system.statement.voucherrule.KingdeeVoucherMatchingService;
 import com.finance.system.statement.voucherrule.dto.KingdeeVoucherRulePreview;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -56,6 +58,8 @@ import java.util.Objects;
  */
 @Service
 public class BankDataPushService {
+
+    private static final Logger log = LoggerFactory.getLogger(BankDataPushService.class);
 
     private static final String MANUAL_MODE = "MANUAL";
     private static final String VALIDATION_PASSED = "PASSED";
@@ -167,7 +171,7 @@ public class BankDataPushService {
 
         // 逐行：规则匹配 → 唯一命中自动推 / 其余进问题凭证。
         for (BankDataStatement row : eligible) {
-            results.put(row.getId(), processRow(row, operatorId));
+            results.put(row.getId(), processRowAndMark(row, operatorId));
         }
 
         List<PushRowResult> ordered = ids.stream().map(results::get)
@@ -180,6 +184,77 @@ public class BankDataPushService {
                 (int) ordered.stream().filter(r -> r.outcome() != null && r.outcome().startsWith("SKIPPED")).count(),
                 (int) ordered.stream().filter(r -> "ALREADY_PUSHED".equals(r.outcome())).count(),
                 ordered);
+    }
+
+    /**
+     * 单行编排 + 落桶标记（W16-A2）：processRow 产出 PROBLEM_* 行结果时，同步把落桶
+     * 标记写到 statement_record（problem_type/problem_reason），否则清空标记（出列）。
+     * 落桶失败只 WARN 不阻断主流程——行结果仍会在 bank_push_job.rows_json 可见。
+     */
+    private PushRowResult processRowAndMark(BankDataStatement row, Long operatorId) {
+        PushRowResult result = processRow(row, operatorId);
+        try {
+            if (PushRowResult.isProblem(result.outcome())) {
+                markProblem(row, result, operatorId);
+            } else if ("PUSHED".equals(result.outcome())) {
+                // 推送成功即出列（引擎 recordPush 已写 GL_PUSHED，这里只清落桶痕迹）。
+                clearProblem(result.statementNo(), row.getCompanyId());
+            }
+        } catch (Exception e) {
+            log.warn("问题凭证落桶标记写入失败（不影响推送主流程）statementNo={} outcome={}：{}",
+                    result.statementNo(), result.outcome(), e.getMessage());
+        }
+        return result;
+    }
+
+    /**
+     * 落桶：按 (company_id, statement_no) 定位标准流水（与 processRow 同口径），写标记五列。
+     * 写后断言影响行数；命中 0 行说明转入链路未生成该记录（校验未通过等），WARN 降级。
+     */
+    private void markProblem(BankDataStatement row, PushRowResult result, Long operatorId) {
+        StatementRecord record = recordMapper.selectOne(new LambdaQueryWrapper<StatementRecord>()
+                .eq(StatementRecord::getCompanyId, row.getCompanyId())
+                .eq(StatementRecord::getStatementNo, result.statementNo().trim())
+                .last("LIMIT 1"));
+        if (record == null) {
+            log.warn("问题凭证落桶未找到标准流水 statementNo={}（PROBLEM_ELIGIBLE 转入前失败行，仅记 rows_json）",
+                    result.statementNo());
+            return;
+        }
+        int updated = recordMapper.update(null, new LambdaUpdateWrapper<StatementRecord>()
+                .set(StatementRecord::getProblemType, result.outcome())
+                .set(StatementRecord::getProblemReason, truncateProblemReason(result.message()))
+                .set(StatementRecord::getProblemUpdatedBy, operatorId)
+                .set(StatementRecord::getProblemUpdatedAt, java.time.LocalDateTime.now())
+                .eq(StatementRecord::getId, record.getId()));
+        if (updated != 1) {
+            log.warn("问题凭证落桶标记影响 0 行 statementNo={}（记录可能已被并发清理）", result.statementNo());
+        }
+    }
+
+    /** 出列：清空落桶标记（推送成功 / A2 编辑器 submit 成功后调用）。 */
+    private void clearProblem(String statementNo, Long companyId) {
+        StatementRecord record = recordMapper.selectOne(new LambdaQueryWrapper<StatementRecord>()
+                .eq(StatementRecord::getCompanyId, companyId)
+                .eq(StatementRecord::getStatementNo, statementNo.trim())
+                .last("LIMIT 1"));
+        if (record == null) {
+            return;
+        }
+        recordMapper.update(null, new LambdaUpdateWrapper<StatementRecord>()
+                .set(StatementRecord::getProblemType, null)
+                .set(StatementRecord::getProblemReason, null)
+                .set(StatementRecord::getProblemEditJson, null)
+                .set(StatementRecord::getProblemUpdatedBy, null)
+                .set(StatementRecord::getProblemUpdatedAt, null)
+                .eq(StatementRecord::getId, record.getId()));
+    }
+
+    private static String truncateProblemReason(String message) {
+        if (message == null) {
+            return null;
+        }
+        return message.length() > 500 ? message.substring(0, 500) : message;
     }
 
     /** 单行编排：读标准流水 → 规则匹配 → 分流（自动推 / 问题凭证 / 跳过）。 */

@@ -16,6 +16,8 @@ import com.finance.system.statement.kingdee.KingdeeVoucherResult;
 import com.finance.system.statement.voucherrule.dto.KingdeeVoucherEntryDraft;
 import com.finance.system.statement.voucherrule.dto.KingdeeVoucherRulePreview;
 import com.finance.system.statement.voucherrule.dto.KingdeeVoucherRuleResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -43,6 +45,8 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 @Service
 public class KingdeeVoucherEngineService {
+
+    private static final Logger log = LoggerFactory.getLogger(KingdeeVoucherEngineService.class);
 
     private final StatementRecordMapper statementMapper;
     private final BankAccountMapper bankAccountMapper;
@@ -212,6 +216,74 @@ public class KingdeeVoucherEngineService {
             throw new BusinessException(409, "该流水已推送金蝶（凭证号 " + statement.getVoucherNo()
                     + "），不可重复推送；如金蝶侧凭证已删除需重推，请联系管理员人工重开"
                     + "（见 docs/pending-fixes.md FIX-011 手工修法）");
+        }
+    }
+
+    /**
+     * 手工分录推送（W16-A2 问题凭证编辑器）：人工在编辑器里改好科目/金额/维度/摘要后，
+     * 绕过规则匹配直接组装分录推送金蝶草稿。与 {@link #push} 共享全部硬防线：
+     * P1-5 锁内重读、APPROVED 闸门、W7 账期锁、ensureBankDimensionPresent、
+     * payloadBuilder 借贷合计校验（400 双保险的后端侧）、recordPush 落库与审计。
+     *
+     * <p>成功后清空 problem_* 五列（出列）；失败走 pushOne → recordPush(GL_FAILED)，
+     * problem_reason 由编辑器 submit 调用方更新（留桶）。</p>
+     *
+     * @param explanation 凭证摘要（编辑器「摘要/附言」域，空时回退流水 summary）
+     * @param debitLines  借方分录（金额必须已填正数，MANUAL 语义不适用）
+     * @param creditLines 贷方分录（同上）
+     */
+    public KingdeeVoucherPushResult pushManual(Long statementId, String explanation,
+                                               List<KingdeeVoucherEntryDraft> debitLines,
+                                               List<KingdeeVoucherEntryDraft> creditLines,
+                                               Long operatorId) {
+        ReentrantLock lock = pushLocks.computeIfAbsent(statementId, id -> new ReentrantLock());
+        lock.lock();
+        try {
+            StatementRecord statement = statementMapper.selectById(statementId);
+            if (statement == null) {
+                throw new BusinessException(404, "流水不存在: " + statementId);
+            }
+            if (!"APPROVED".equals(statement.getReviewStatus())) {
+                throw new BusinessException(400, "流水复核状态为 " + statement.getReviewStatus()
+                        + "，规则制证仅受理 APPROVED");
+            }
+            assertNotAlreadyPushed(statement);
+            closingService.ensurePeriodOpen(statement.getCompanyId(), statement.getTransactionTime());
+
+            BankAccount account = loadAccount(statement);
+            Company company = loadCompany(statement);
+            String orgCode = company == null ? null : orgResolver.resolveOrgCode(company.getName());
+
+            String effectiveExplanation = explanation == null || explanation.isBlank()
+                    ? (statement.getSummary() == null || statement.getSummary().isBlank()
+                        ? "问题凭证修复" : statement.getSummary())
+                    : explanation.trim();
+
+            // 成功路径必须 recordPush（GL_PUSHED + voucher_no + 审计）；失败路径
+            // pushOne 内部已 recordPush(GL_FAILED)。
+            String voucherNo = pushOne(orgCode, statement, effectiveExplanation, debitLines, creditLines);
+            recordPush(statement, null, "GL_PUSHED", voucherNo, null, operatorId, null);
+
+            // 出列：清空问题凭证标记五列（与推送成功语义绑定）。
+            // ⚠️ updateById(entity) 与 LambdaUpdateWrapper.set() 混用会让 SET 列重复
+            // （entity 非 null 字段先生成 SET，wrapper 再追加同名列 → H2 Duplicate column）。
+            // 统一走纯 wrapper（entity 传 null），与 W16-B wrapper 红线同源的坑。
+            int cleared = statementMapper.update(null,
+                    new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<StatementRecord>()
+                            .eq(StatementRecord::getId, statement.getId())
+                            .set(StatementRecord::getProblemType, null)
+                            .set(StatementRecord::getProblemReason, null)
+                            .set(StatementRecord::getProblemEditJson, null)
+                            .set(StatementRecord::getProblemUpdatedBy, operatorId)
+                            .set(StatementRecord::getProblemUpdatedAt, LocalDateTime.now()));
+            if (cleared != 1) {
+                log.warn("问题凭证出列标记清理影响 {} 行 statementId={}（可能已并发出列）", cleared, statement.getId());
+            }
+
+            return new KingdeeVoucherPushResult(statementId, null, voucherNo, null,
+                    "PUSHED", "GL_VOUCHER 草稿已保存：" + voucherNo + "（问题凭证修复出列）");
+        } finally {
+            lock.unlock();
         }
     }
 
