@@ -20,6 +20,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -32,8 +34,10 @@ class KingdeeDimensionMappingServiceTest {
 
     private final KingdeeDimensionSlotMapper slotMapper = mock(KingdeeDimensionSlotMapper.class);
     private final KingdeeDimensionMappingMapper mappingMapper = mock(KingdeeDimensionMappingMapper.class);
+    private final com.finance.system.statement.kingdee.KingdeeVoucherGateway gateway =
+            mock(com.finance.system.statement.kingdee.KingdeeVoucherGateway.class);
     private final KingdeeDimensionMappingService service =
-            new KingdeeDimensionMappingService(slotMapper, mappingMapper);
+            new KingdeeDimensionMappingService(slotMapper, mappingMapper, gateway);
 
     // ---------------- slotOf ----------------
 
@@ -193,6 +197,53 @@ class KingdeeDimensionMappingServiceTest {
                 "SUPPLIER", "某供应商", "NAME", "VEN1", null, null, true, null)));
         // org_code 为 NOT NULL DEFAULT ''（唯一索引需要），null 须归一化为空串
         verify(mappingMapper).insert(any(KingdeeDimensionMapping.class));
+    }
+
+    // ---------------- P1-3：导入后档案状态回查（2026-09-22） ----------------
+
+    @Test
+    void batchUpsertQueriesDocumentStatusForBaseDataRows() {
+        // FIX-006 教训：金蝶单据只能引用已审核(C)档案。导入行指向暂存/不存在档案时
+        // 要在导入时刻预警，而不是等首推才收到「必录维度未录入或不可用」。
+        when(mappingMapper.selectOne(any())).thenReturn(null);
+        when(gateway.queryBaseDataDocumentStatus(any(), any()))
+                .thenReturn(java.util.Map.of("VEN0001", "A"));
+
+        service.batchUpsert(List.of(
+                new MappingUpsertRequest("SUPPLIER", "已审核供应商", "NAME", "VEN0001", null, "", true, null),
+                new MappingUpsertRequest("SUPPLIER", "暂存供应商", "NAME", "VEN0003", null, "", true, null),
+                new MappingUpsertRequest("SUPPLIER", "不存在档案供应商", "NAME", "VEN9999", null, "", true, null)));
+
+        // SUPPLIER 三行按表单 BD_Supplier 分组去重，一次回查带全部编码
+        verify(gateway, times(1)).queryBaseDataDocumentStatus(
+                eq("BD_Supplier"), argThat(numbers -> numbers.contains("VEN0001")
+                        && numbers.contains("VEN0003") && numbers.contains("VEN9999")));
+    }
+
+    @Test
+    void batchUpsertAuditFailureDoesNotBlockImport() {
+        // 档案状态是预警信息不是准入门槛：回查抛错时导入必须照常成功
+        when(mappingMapper.selectOne(any())).thenReturn(null);
+        when(gateway.queryBaseDataDocumentStatus(any(), any()))
+                .thenThrow(new BusinessException(502, "Kingdee unreachable"));
+
+        int affected = service.batchUpsert(List.of(new MappingUpsertRequest(
+                "SUPPLIER", "某供应商", "NAME", "VEN0001", null, "", true, null)));
+
+        assertEquals(1, affected, "回查失败不得阻断导入");
+        verify(mappingMapper).insert(any(KingdeeDimensionMapping.class));
+    }
+
+    @Test
+    void batchUpsertSkipsStatusAuditWhenNoBaseDataRows() {
+        // 全是 BANK_ACCOUNT/BUSINESS_LINE 行时不发起任何回查（这两类不走基础资料档案）
+        when(mappingMapper.selectOne(any())).thenReturn(null);
+
+        int affected = service.batchUpsert(List.of(new MappingUpsertRequest(
+                "BANK_ACCOUNT", "11050160520009100036", "NAME", "CN_ACC1", null, "", true, null)));
+
+        assertEquals(1, affected);
+        verify(gateway, times(0)).queryBaseDataDocumentStatus(any(), any());
     }
 
     // ---------------- fixtures ----------------

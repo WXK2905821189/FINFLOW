@@ -51,10 +51,16 @@ public class KingdeeGlVoucherPayloadBuilder {
 
     private final KingdeeProperties props;
     private final ObjectMapper mapper;
+    private final KingdeeAccountCatalogService catalogService;
+    private final KingdeeOrgResolver orgResolver;
 
-    public KingdeeGlVoucherPayloadBuilder(KingdeeProperties props, ObjectMapper mapper) {
+    public KingdeeGlVoucherPayloadBuilder(KingdeeProperties props, ObjectMapper mapper,
+                                          KingdeeAccountCatalogService catalogService,
+                                          KingdeeOrgResolver orgResolver) {
         this.props = props;
         this.mapper = mapper;
+        this.catalogService = catalogService;
+        this.orgResolver = orgResolver;
     }
 
     /** Builds one GL_VOUCHER save payload from prefilled drafts; validates balance and manual amounts. */
@@ -85,15 +91,31 @@ public class KingdeeGlVoucherPayloadBuilder {
         model.put("FDate", date);
         model.put("FBUSDATE", date);
         model.putObject("FVOUCHERGROUPID").put("FNumber", props.getGlVoucherGroupNumber());
-        model.putObject("FAccountBookID").put("FNumber", props.getGlAcctbookNumber());
+        // 账簿跟随组织（2026-09-22 定案）：维度值档案必须属于账簿对应组织，固定 400 会让
+        // 非雪云主体的「银行账号」维度被判「不可用」。orgCode 为 null 时回退全局默认。
+        model.putObject("FAccountBookID").put("FNumber",
+                orgResolver.resolveAcctbookCode(orgCode, props.getGlAcctbookNumber()));
         model.putObject("FACCBOOKORGID").put("FNumber", orgCode);
 
         ArrayNode entries = model.putArray("FEntity");
         appendSide(entries, explanation, debitLines, DC_DEBIT);
         appendSide(entries, explanation, creditLines, DC_CREDIT);
+        // 先触发按需加载再校验：规则路径上本方法是目录服务的首个调用点
+        //（AI 路径由 AiGlVoucherAssembler 预热），不预热的话下方 isCatalogAvailable()
+        // 会因「从未加载」误判不可用，P1-1 维度校验被静默跳过。
+        catalogService.catalog();
         assertDimensionsReady(debitLines, creditLines);
+        assertBankDimensionInjectedForBankAccounts(debitLines, creditLines);
+        assertNoSlotCollision(debitLines, creditLines);
+        if (!catalogService.isCatalogAvailable()) {
+            // 目录降级口径（P1-1）：不阻断推送，但必须留痕。注意提示只能进日志——
+            // 本方法返回值就是发金蝶 Save 的请求体，任何非 JSON 尾巴都会让报文解析失败。
+            log.warn("GL_VOUCHER 报文构建时账套科目目录不可用，本次未做「科目是否需要银行账号维度」判定"
+                    + "（若金蝶报「必录维度未录入」，请先做一次连接测试恢复目录后重推）");
+        }
         log.info("GL_VOUCHER 报文摘要（诊断用，不含金额明细）：acctbook={} org={} 行数={} 分录={}",
-                props.getGlAcctbookNumber(), orgCode, entries.size(), summarizeEntries(entries));
+                model.path("FAccountBookID").path("FNumber").asText(), orgCode, entries.size(),
+                summarizeEntries(entries));
         return root.toString();
     }
 
@@ -146,6 +168,81 @@ public class KingdeeGlVoucherPayloadBuilder {
                 }
             }
         }
+    }
+
+    /**
+     * P1-2（2026-09-22）：单维度与 extraDimensions 写到**同一弹性域槽位**时拒绝推送。
+     *
+     * <p>原先 {@code appendDimension} 是 {@code putObject} 顺序写入、后者静默覆盖前者——
+     * 例如用户在「维度映射 › 值映射」里又给一条分录配了与单维度同槽位的维度（典型：把银行账号
+     * 同时配成值映射），同一槽位键会被写两次，最终值取决于写入顺序。不同槽位可正常共存
+     * （既有用例 {@code singleAndMultipleDimensionsCoexistOnOneEntry} 口径），只有撞键才拦。</p>
+     */
+    private void assertNoSlotCollision(List<KingdeeVoucherEntryDraft> debits,
+                                       List<KingdeeVoucherEntryDraft> credits) {
+        String singleSlotKey = props.getGlBankDimensionSlot() == null ? "" : props.getGlBankDimensionSlot().trim();
+        for (List<KingdeeVoucherEntryDraft> side : List.of(debits, credits)) {
+            for (KingdeeVoucherEntryDraft line : side) {
+                if (line.extraDimensions() == null || line.extraDimensions().isEmpty()) {
+                    continue;
+                }
+                boolean singleReady = line.dimensionValue() != null && !line.dimensionValue().isBlank()
+                        && !"NONE".equalsIgnoreCase(line.dimension());
+                if (!singleReady) {
+                    continue;
+                }
+                for (KingdeeVoucherEntryDraft.DimensionValue dim : line.extraDimensions()) {
+                    if (!dim.injectable()) {
+                        continue; // 未就绪项由 assertDimensionsReady 拦下
+                    }
+                    String dimSlot = dim.slot() == null ? "" : dim.slot().trim();
+                    if (!singleSlotKey.isEmpty() && singleSlotKey.equalsIgnoreCase(dimSlot)) {
+                        throw new BusinessException(400, "科目 " + line.account()
+                                + " 的单维度 " + line.dimension() + " 与维度「" + dim.dimension()
+                                + "」都落在槽位 " + singleSlotKey + "，后者会覆盖前者；"
+                                + "请检查「维度映射」配置，删除重复的那条后重试");
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * P1-1（2026-09-22）：科目挂「银行账号」必录维度但分录没带维度值时，推送前拦下
+     * （把金蝶的「必录维度未录入」报错前移到 FINFLOW 侧，附可执行指引）。
+     *
+     * <p>判定来源 = 账套科目目录（BD_Account 的 FFlEXITEMPROPERTYID），与 AI 链路
+     * {@code AiGlVoucherAssembler} 同一口径。目录不可用时跳过（fail-open，与既有降级
+     * 语义一致——推送消息会标注「未做维度需求判定」）。规则模板漏声明 BANK_ACCOUNT、
+     * 或账户级映射失效导致的缺失，都会在此处得到明确报错而不是金蝶的模糊报错。</p>
+     */
+    private void assertBankDimensionInjectedForBankAccounts(List<KingdeeVoucherEntryDraft> debits,
+                                                            List<KingdeeVoucherEntryDraft> credits) {
+        if (!catalogService.isCatalogAvailable()) {
+            return; // 目录不可用：不判定（requiresBankDimension 内部已 WARN），由金蝶报错校准
+        }
+        for (List<KingdeeVoucherEntryDraft> side : List.of(debits, credits)) {
+            for (KingdeeVoucherEntryDraft line : side) {
+                if (!catalogService.requiresBankDimension(line.account())) {
+                    continue;
+                }
+                boolean hasValue = line.dimensionValue() != null && !line.dimensionValue().isBlank()
+                        && !"NONE".equalsIgnoreCase(line.dimension());
+                boolean declaredInExtra = line.extraDimensions() != null && line.extraDimensions().stream()
+                        .anyMatch(dim -> "BANK_ACCOUNT".equalsIgnoreCase(dim.dimension())
+                                && dim.value() != null && !dim.value().isBlank());
+                if (!hasValue && !declaredInExtra) {
+                    throw new BusinessException(400, "科目 " + line.account() + "（"
+                            + safeName(line) + "）在账套挂了必录的「银行账号」核算维度，但本条分录未携带维度值；"
+                            + "请确认流水所属银行账户已做金蝶账户映射（银行账户页），"
+                            + "或规则模板已声明 BANK_ACCOUNT 维度");
+                }
+            }
+        }
+    }
+
+    private static String safeName(KingdeeVoucherEntryDraft line) {
+        return line.accountName() == null ? "" : line.accountName();
     }
 
     private static BigDecimal sumSide(List<KingdeeVoucherEntryDraft> lines) {

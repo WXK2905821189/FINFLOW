@@ -2,6 +2,7 @@ package com.finance.system.statement.voucherrule;
 
 import com.finance.system.common.exception.BusinessException;
 import com.finance.system.statement.kingdee.KingdeeProperties;
+import com.finance.system.statement.kingdee.KingdeeVoucherGateway;
 import com.finance.system.statement.voucherrule.dto.KingdeeVoucherEntryDraft;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -14,6 +15,8 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * GL_VOUCHER payload 构建（WP-B）：借贷平衡闸门、方向/金额/币别常量、凭证字/账簿配置。
@@ -22,8 +25,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class KingdeeGlVoucherPayloadBuilderTest {
 
     private final KingdeeProperties props = new KingdeeProperties();
+    private final KingdeeVoucherGateway gateway = mock(KingdeeVoucherGateway.class);
+    private final KingdeeOrgResolver orgResolver = new KingdeeOrgResolver();
+    private final KingdeeAccountCatalogService catalogService =
+            new KingdeeAccountCatalogService(gateway, props);
     private final KingdeeGlVoucherPayloadBuilder builder =
-            new KingdeeGlVoucherPayloadBuilder(props, new ObjectMapper());
+            new KingdeeGlVoucherPayloadBuilder(props, new ObjectMapper(),
+                    catalogService, orgResolver);
 
     private static final LocalDateTime T = LocalDateTime.parse("2026-09-16T10:15:00");
 
@@ -39,7 +47,8 @@ class KingdeeGlVoucherPayloadBuilderTest {
         assertEquals("2026-09-16", model.path("FBUSDATE").asText());
         assertEquals("PRE001", model.path("FVOUCHERGROUPID").path("FNumber").asText(),
                 "凭证字=记（PRE001），来自 kingdee.gl.voucher-group-number");
-        assertEquals("400", model.path("FAccountBookID").path("FNumber").asText());
+        assertEquals("710", model.path("FAccountBookID").path("FNumber").asText(),
+                "账簿跟随组织（2026-09-22 定案）：org 710 → 账簿 710");
         assertEquals("710", model.path("FACCBOOKORGID").path("FNumber").asText(),
                 "核算组织=规则主体解析出的组织编码");
 
@@ -141,6 +150,32 @@ class KingdeeGlVoucherPayloadBuilderTest {
         JsonNode credit = new ObjectMapper().readTree(payload).path("Model").path("FEntity").get(1);
         assertTrue(credit.path("FDetailID").isMissingNode(),
                 "无维度值时不输出 FDetailID（避免空壳字段触发金蝶校验）");
+    }
+
+    // ---------------- 账簿跟随组织（2026-09-22 定案） ----------------
+
+    @Test
+    void accountBookFollowsOrgForNonSnowEntities() throws Exception {
+        // 差分实验（2026-09-22）：「银行账号」维度档案必须属于账簿对应组织——
+        // 图虫档案在账簿 400（雪云）下被金蝶判「不可用」，在账簿 410 下保存成功（16096）。
+        String payload = builder.buildPayload("410", T, "服务费",
+                List.of(line("DEBIT", "6602.11", "500.00")),
+                List.of(line("CREDIT", "1002", "500.00")));
+        JsonNode model = new ObjectMapper().readTree(payload).path("Model");
+        assertEquals("410", model.path("FAccountBookID").path("FNumber").asText(),
+                "图虫（org 410）必须推账簿 410（图虫账簿），不能落雪云账簿 400");
+        assertEquals("410", model.path("FACCBOOKORGID").path("FNumber").asText());
+    }
+
+    @Test
+    void accountBookFallsBackToConfiguredWhenOrgUnresolved() throws Exception {
+        // 公司名未命中任何组织别名（orgCode=null）时保持旧行为：回退全局配置 400。
+        String payload = builder.buildPayload(null, T, "测试",
+                List.of(line("DEBIT", "6603.04", "10.00")),
+                List.of(line("CREDIT", "1001", "10.00")));
+        JsonNode model = new ObjectMapper().readTree(payload).path("Model");
+        assertEquals("400", model.path("FAccountBookID").path("FNumber").asText(),
+                "orgCode=null 回退 kingdee.gl.acctbook-number（全局默认）");
     }
 
     // ---------------- 多维度（V42，2026-09-21） ----------------

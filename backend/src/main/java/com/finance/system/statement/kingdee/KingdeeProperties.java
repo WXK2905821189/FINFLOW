@@ -122,9 +122,10 @@ public class KingdeeProperties {
 
     /**
      * GL_VOUCHER account-book FNumber (FAccountBookID, MustInput=1 per the 2026-09-11
-     * QueryBusinessInfo snapshot). The production account set is org 400 (雪云); per-org
-     * books need REAL-mode calibration, so the rule-engine builder uses this single value
-     * until the per-org mapping lands.
+     * QueryBusinessInfo snapshot). <b>2026-09-22 起仅作回退默认值</b>：账簿改为跟随核算组织
+     * （{@code KingdeeOrgResolver.resolveAcctbookCode}，账簿号 = 组织号，实查核实）——
+     * 「银行账号」维度值档案必须属于账簿对应组织，固定 400 会让非雪云主体的维度被金蝶判
+     * 「不可用」。仅当公司名未命中任何组织别名（orgCode=null）时才使用本值。
      */
     private String glAcctbookNumber = "400";
 

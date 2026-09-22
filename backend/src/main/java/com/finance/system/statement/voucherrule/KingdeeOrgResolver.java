@@ -61,6 +61,36 @@ public class KingdeeOrgResolver {
     }
 
     /**
+     * GL_VOUCHER 核算账簿（FAccountBookID）解析：**账簿号 = 核算组织号**（2026-09-22 实测定案）。
+     *
+     * <p>为什么不能继续用全局固定账簿：真实账套差分实验（2026-09-22，四点互证）证明
+     * 「银行账号」维度值（CN_BANKACNT 档案）**必须属于账簿对应组织**，否则金蝶报
+     * 「必录维度未录入或不可用：银行账号」——这正是图虫流水推账簿 400（雪云账簿）
+     * 一直失败的根因：</p>
+     * <ul>
+     *   <li>账簿 400 + 雪云档案（org 400）→ ✅ 成功（单号 16094）；</li>
+     *   <li>账簿 400 + 图虫档案（org 410）→ ❌（组织 400/410/411 三种 FACCBOOKORGID 全失败）；</li>
+     *   <li>账簿 410（图虫账簿）+ 图虫档案 → ✅ 成功（单号 16096）；</li>
+     *   <li>账簿 410 + 雪云档案 → ❌ 同报错（对称互证）。</li>
+     * </ul>
+     *
+     * <p>同号依据：{@code BD_AccountBook} 全量实查（2026-09-22），本表 9 个组织编码
+     * （300/400/410/411/420/421/710/720/900）均有同号账簿，且账簿名称与组织一一对应
+     * （410=上海图虫、411=上海映脉、420=图虫浙江…）。若后续出现账簿号与组织号不一致的
+     * 新主体，改本表即可。</p>
+     *
+     * @param orgCode 核算组织编码；null（公司名未命中别名）时回退
+     *                {@code kingdee.gl.acctbook-number}（全局默认，保持旧行为）
+     */
+    public String resolveAcctbookCode(String orgCode, String defaultAcctbook) {
+        if (orgCode == null || orgCode.isBlank()) {
+            return defaultAcctbook;
+        }
+        // 组织编码同时就是账簿编码（实查核实）；无需查表，直接同值。
+        return orgCode;
+    }
+
+    /**
      * True when the counterparty name looks like an internal group entity
      * (rule 2 IN_ORG_LIST with the ORG_NAMES placeholder resolves to this list).
      */
