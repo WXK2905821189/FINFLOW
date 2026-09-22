@@ -393,7 +393,8 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
         for (Long id : request.ids().stream().filter(Objects::nonNull).distinct().toList()) {
             try {
                 StatementRecord record = require(id, view);
-                if (PUSHED.equals(record.getPushStatus())) {
+                if (PUSH_COMPLETED.contains(record.getPushStatus())) {
+                    // P1-6：PUSHED（出纳单）/ GL_PUSHED（总账）都算已推送，幂等跳过
                     rows.add(new StatementBatchOpRowResult(id, record.getStatementNo(), "ALREADY_PUSHED",
                             record.getVoucherNo(), "此前已推送金蝶（幂等跳过）"));
                     continue;
@@ -405,7 +406,8 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
                     continue;
                 }
                 StatementResponse pushed = pushVoucher(id, operatorId);
-                if (PUSHED.equals(pushed.pushStatus())) {
+                if (PUSH_COMPLETED.contains(pushed.pushStatus())) {
+                    // P1-6：GL 落点成功写 GL_PUSHED；原判断只认 PUSHED，会把成功行误报为 FAILED
                     rows.add(new StatementBatchOpRowResult(id, pushed.statementNo(), "PUSHED", pushed.voucherNo(),
                             pushed.pushMessage() == null ? "已推送金蝶" : pushed.pushMessage()));
                 } else {
@@ -517,7 +519,10 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
         if (!VALID.equals(existing.getValidationStatus()) || !REVIEW_APPROVED.equals(existing.getReviewStatus())) {
             throw new BusinessException(409, "Only validated and approved statements can be pushed");
         }
-        if (PUSHED.equals(existing.getPushStatus())) {
+        if (PUSH_COMPLETED.contains(existing.getPushStatus())) {
+            // 幂等：PUSHED（出纳单落点）/ GL_PUSHED（总账落点）都直接返回当前态，不重复推送。
+            // P1-6（2026-09-22）：原先只认 PUSHED，GL_PUSHED 会落到下方 CAS 被拒成 409
+            // 「already in progress or has completed」——语义误导（其实是已成功）。
             return toResponse(existing);
         }
         // W7 账期锁：CLOSED 账期禁止推送（按流水所属公司+交易时间归月；批量链路 409 转为行级 SKIPPED）。
@@ -527,7 +532,11 @@ public class StatementService extends ServiceImpl<StatementRecordMapper, Stateme
                 .set(StatementRecord::getPushStatus, PUSH_PROCESSING)
                 .eq(StatementRecord::getId, id)
                 .eq(!view.crossCompany(), StatementRecord::getCompanyId, view.ownCompanyId())
-                .in(StatementRecord::getPushStatus, PUSH_NOT_STARTED, "FAILED"));
+                // P1-6（2026-09-22 端到端实测抓出）：必须含 GL_FAILED。总账落点失败写的是
+                // GL_FAILED（与出纳单落点的 FAILED 不同字面量），漏掉它会让**总账推送失败的
+                // 流水在凭证中心永久无法重推**——用户看到的是 409「已在推送中或已完成」，
+                // 与事实（失败、待重试）不符。这正是 W15「修了根因仍推不上去」的另一半原因。
+                .in(StatementRecord::getPushStatus, PUSH_NOT_STARTED, "FAILED", "GL_FAILED"));
         if (claimed != 1) {
             throw new BusinessException(409, "Statement push is already in progress or has completed");
         }
