@@ -225,4 +225,65 @@ class KingdeeGlVoucherPayloadBuilderTest {
         assertEquals("11050160520009100036", detail.path("FDETAILID__FF100002").path("FNumber").asText());
         assertEquals("YX002", detail.path("FDETAILID__FF100008").path("FNumber").asText());
     }
+
+    // ---------------- P1-1/P1-2：必录维度拦截 + 撞槽拒绝（2026-09-22） ----------------
+
+    @Test
+    void bankAccountWithoutDimensionValueIsRejectedBeforeKingdee() {
+        // 科目挂 ZDY0001（必录银行账号维度）但分录没带维度值 → 本地 400 前置拦截，
+        // 不再等到金蝶报「必录维度未录入」（W15 线上问题的前移防线）。
+        when(gateway.queryAccountCatalog()).thenReturn(List.of(
+                new KingdeeVoucherGateway.KingdeeAccountRef("1002", "银行存款", "ZDY0001")));
+        BusinessException ex = assertThrows(BusinessException.class, () -> builder.buildPayload(
+                "400", T, "收款",
+                List.of(line("DEBIT", "6603.04", "10.00")),
+                List.of(line("CREDIT", "1002", "10.00"))));
+        assertEquals(400, ex.getCode());
+        assertTrue(ex.getMessage().contains("1002"), ex.getMessage());
+        assertTrue(ex.getMessage().contains("银行账号"), ex.getMessage());
+        assertTrue(ex.getMessage().contains("金蝶账户映射"), "指引必须指向处置入口");
+    }
+
+    @Test
+    void dimensionRequirementSkippedWhenCatalogUnavailable() throws Exception {
+        // 目录不可用 = fail-open 保持：不拦截（交由金蝶报错校准），但服务端会 WARN 留痕。
+        // 关键回归点：目录拉取失败时 buildPayload 必须照常产出合法 JSON 报文
+        //（曾出过把中文提示拼在 JSON 尾部导致报文非法的缺陷，本用例防回归）。
+        when(gateway.queryAccountCatalog()).thenThrow(
+                new BusinessException(502, "catalog read timed out"));
+        String payload = builder.buildPayload("400", T, "手续费",
+                List.of(line("DEBIT", "6603.04", "10.00")),
+                List.of(line("CREDIT", "1002", "10.00")));
+        JsonNode model = new ObjectMapper().readTree(payload).path("Model"); // 必须可解析
+        assertTrue(model.path("FEntity").isArray());
+    }
+
+    @Test
+    void extraDimensionCollidingWithSingleDimensionSlotIsRejected() {
+        // 单维度（BANK_ACCOUNT → FF100002）与 extra 维度同槽位：后者会静默覆盖前者 → 400
+        KingdeeVoucherEntryDraft colliding = new KingdeeVoucherEntryDraft("CREDIT", "1002", "银行存款",
+                "BANK_ACCOUNT", "11050160520009100036", new BigDecimal("10.00"), "FULL", false,
+                List.of(new KingdeeVoucherEntryDraft.DimensionValue("BANK_ACCOUNT", "FF100002", "CN_OTHER", null)));
+        BusinessException ex = assertThrows(BusinessException.class, () -> builder.buildPayload(
+                "400", T, "收款",
+                List.of(line("DEBIT", "6603.04", "10.00")),
+                List.of(colliding)));
+        assertEquals(400, ex.getCode());
+        assertTrue(ex.getMessage().contains("FF100002"), ex.getMessage());
+        assertTrue(ex.getMessage().contains("覆盖"), ex.getMessage());
+    }
+
+    @Test
+    void extraDimensionOnDifferentSlotStillCoexists() throws Exception {
+        // 回归护栏：撞槽只拦同槽位，不同槽位共存口径不变（对照既有 coexist 用例，换科目再证一次）
+        KingdeeVoucherEntryDraft line = new KingdeeVoucherEntryDraft("CREDIT", "1002", "银行存款",
+                "BANK_ACCOUNT", "11050160520009100036", new BigDecimal("10.00"), "FULL", false,
+                List.of(new KingdeeVoucherEntryDraft.DimensionValue("SUPPLIER", "FF100004", "VEN00511", null)));
+        String payload = builder.buildPayload("400", T, "收款",
+                List.of(line("DEBIT", "6603.04", "10.00")), List.of(line));
+        JsonNode detail = new ObjectMapper().readTree(payload)
+                .path("Model").path("FEntity").get(1).path("FDetailID");
+        assertEquals("11050160520009100036", detail.path("FDETAILID__FF100002").path("FNumber").asText());
+        assertEquals("VEN00511", detail.path("FDETAILID__FF100004").path("FNumber").asText());
+    }
 }

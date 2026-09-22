@@ -132,6 +132,34 @@ class KingdeeVoucherEngineIntegrationTest {
         assertEquals("APPROVED", after.getReviewStatus(), "被阻断的推送不得改动流水状态");
     }
 
+    /**
+     * P1-5 并发守卫（2026-09-22）：已推送成功（GL_PUSHED）的流水再次推送必须 409 ——
+     * 金蝶侧没有幂等键，重复 Save 会生成两张内容相同的草稿凭证。
+     * （并发竞态本身由 JVM 锁保证；本用例锁的是「成功态拒绝」这条语义。）
+     */
+    @Test
+    void alreadyPushedStatementIsRejectedOnSecondPush() {
+        Company company = insertCompany("雪云");
+        BankAccount account = insertAccount(company.getId(), "CITIC");
+        StatementRecord statement = insertStatement(company.getId(), account.getId(),
+                "EXPENSE", new BigDecimal("345.67"), "银行手续费");
+
+        KingdeeVoucherEngineService.KingdeeVoucherPushResult first =
+                engineService.push(statement.getId(), 6, null, 1L);
+        assertEquals("PUSHED", first.status());
+
+        BusinessException second = assertThrows(BusinessException.class,
+                () -> engineService.push(statement.getId(), 6, null, 1L));
+        assertEquals(409, second.getCode());
+        assertTrue(second.getMessage().contains("不可重复推送"), second.getMessage());
+        assertTrue(second.getMessage().contains(first.voucherNo()), "报错要带上已生成的凭证号");
+
+        // 状态未被第二次请求破坏
+        StatementRecord after = statementRecordMapper.selectById(statement.getId());
+        assertEquals("GL_PUSHED", after.getPushStatus());
+        assertEquals(first.voucherNo(), after.getVoucherNo());
+    }
+
     // ---- fixture：Company 名必须含组织关键词（orgResolver 按名解析），code 唯一随机 ----
 
     private Company insertCompany(String aliasKeyword) {

@@ -408,3 +408,48 @@ GL（默认）→ 委托 `KingdeeVoucherEngineService.pushAiVoucher()`（与 AI 
 ### 验收标准
 前置 1~6 清完后，19 条规则一次入库：规则中心可见、`preview` 对图虫系流水命中、
 推送产出 GL 凭证草稿（含供应商/部门等多维度），无「配好但推不通」的静默失效。
+
+---
+
+## FIX-011（P2 · 功能缺口：GL_PUSHED 流水无法重推，暂以手工修法兜底）2026-09-22 登记
+
+> 来源：金蝶模块风险前瞻（docs/kingdee-risk-predictions-20260922.md P1-4）。本期按「P1 前置防护」
+> 最小改动原则只做**拦截**（防重复推送，P1-5）+ 本登记；「受控强制重开端点」留下轮排期。
+
+### 场景
+财务在金蝶侧发现凭证录错 → 删除了 GL 草稿凭证 → 回 FINFLOW 想重推，
+但流水的 `push_status` 已是 `GL_PUSHED` → 被推送守卫 409 拒绝 → **死锁**：
+FINFLOW 认为已推、金蝶实际已无此凭证。
+
+### 现状守卫
+- `KingdeeVoucherEngineService.assertNotAlreadyPushed`（P1-5）：GL_PUSHED/PUSHED 直接 409；
+- `StatementService.withdraw`：`PUSH_COMPLETED` 状态不可撤回（409「请在金蝶侧处理」）。
+
+### 手工修法（当前唯一可行路径，管理员执行）
+1. 金蝶侧确认凭证已删除（或在金蝶删除草稿凭证）。
+2. 直连 RDS 复核流水当前状态（只读）：
+   ```sql
+   SELECT id, statement_no, review_status, push_status, voucher_no, push_message
+   FROM statement_record WHERE id = <流水ID>;
+   ```
+3. 重开（写操作，须在确认无在途推送后执行）：
+   ```sql
+   UPDATE statement_record
+   SET push_status = 'FAILED',
+       push_message = CONCAT('人工重开（金蝶凭证已删除）: ', IFNULL(voucher_no, ''), '，操作人: <姓名>'),
+       voucher_no = NULL,
+       pushed_at = NULL
+   WHERE id = <流水ID> AND push_status = 'GL_PUSHED';
+   ```
+   - **必须带 `AND push_status='GL_PUSHED'` 条件**并核对影响行数 = 1（假成功纪律）；
+   - 置为 `FAILED` 而非 `NOT_PUSHED`：FAILED 可走既有「重试推送」能力，同时 push_message 留痕；
+   - 审计留痕：人工改库不走应用审计事件，请在部署日志/工单记录操作人与原因。
+4. 回 FINFLOW 凭证中心，对该流水正常重推。
+
+### 完整功能方向（留下轮）
+受控强制重开端点：需新增 `voucher:force-reopen` 权限（V43 迁移 + 权限目录同步）+
+强制填原因 + 审计事件。未做的原因：本期无迁移配额；复用 `ai:config`（仅超管）作守卫属语义滥用。
+
+### 验收标准（实施时）
+- 持权管理员对 GL_PUSHED 流水执行「强制重开」→ 流水回 FAILED 态 + 审计记录原因与操作人；
+- 非持权者 403；重推后新凭证号正常回写。
