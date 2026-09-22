@@ -252,7 +252,7 @@ function VoucherEditor({ statement, suggestion, onSaved, onClose }: {
           <th>科目名称</th>
           <th style={{ width: 120, textAlign: 'right' }}>借方金额</th>
           <th style={{ width: 120, textAlign: 'right' }}>贷方金额</th>
-          <th style={{ width: 150 }}>置信度 %（可改）</th>
+          <th style={{ width: 96 }}>置信度</th>
           <th style={{ width: 40 }} />
         </tr>
       </thead>
@@ -279,20 +279,7 @@ function VoucherEditor({ statement, suggestion, onSaved, onClose }: {
                 debit: value ? '' : row.debit,
               })}
               disabled={!editable} placeholder="0.00" /></td>
-            {/* 置信度可手动调（2026-09-21）：改动即标记为人工（human=true）。语义上「人工调过」
-                = 已人工确认，推送时不再因低置信度被换成待确认科目；调低则会触发兜底替换。 */}
-            <td>
-              <Space size={4}>
-                <InputNumber size="small" variant="borderless" style={{ width: 66 }} min={0} max={100} step={5}
-                  controls={false}
-                  value={row.confidence == null ? undefined : Math.round(row.confidence * 100)}
-                  onChange={(value) => updateRow(row.key, {
-                    confidence: value == null ? null : Number(value) / 100,
-                  })}
-                  disabled={!editable} placeholder="--" />
-                <ConfidenceBadge confidence={row.confidence} human={row.human} />
-              </Space>
-            </td>
+            <td><ConfidenceBadge confidence={row.confidence} human={row.human} /></td>
             <td>{editable && rows.length > 2
               ? <Button type="text" size="small" icon={<DeleteOutlined />} onClick={() => removeRow(row.key)} />
               : null}</td>
@@ -320,13 +307,6 @@ function VoucherEditor({ statement, suggestion, onSaved, onClose }: {
       onChange={(event) => setMainSummary(event.target.value)} placeholder="入账摘要" />
 
     <Alert style={{ marginTop: 12 }} type="info" showIcon={false}
-      message={<span className="table-sub">
-        推送策略：某行**科目在账套不存在**或**置信度低于 60%** 时，推送会自动把该行科目置为
-        「待确认科目 2241.99 其他应付款-其他」并回显提示 —— 目的是先让凭证能推到金蝶，再由人工在金蝶侧改正。
-        把置信度改成 60% 以上即视为人工确认，不再替换。
-      </span>} />
-
-    <Alert style={{ marginTop: 8 }} type="info" showIcon={false}
       message={<span className="table-sub">
         AI 参考：{suggestion.businessCategory || '--'}
         {suggestion.confidence != null && `（整体置信度 ${Math.round(suggestion.confidence * 100)}%）`}
