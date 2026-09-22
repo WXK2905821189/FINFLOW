@@ -117,7 +117,7 @@ public class KingdeeGlVoucherPayloadBuilder {
             } else {
                 ((ObjectNode) detail).fields().forEachRemaining(field ->
                         text.append(' ').append(field.getKey()).append('=')
-                                .append(field.path("FNumber").asText("-")));
+                                .append(field.getValue().path("FNumber").asText("-")));
             }
             text.append(" | ");
         }
