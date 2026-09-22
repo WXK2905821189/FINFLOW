@@ -280,6 +280,24 @@ pnpm 在 `frontend/node_modules/.pnpm/...` 建的符号链接指向 `/c/Users/..
   兜底科目自身不存在 → 维持原拦截。
 - 前端：`VoucherDocPage`（live 单据详情页）置信度可编辑 + 「保存置信度」→ `PUT /statements/{id}/voucher-draft`。
 
+### 14.3 推送链路与金蝶侧校验顺序（原登记于 `pending-fixes.md`，条目闭环后下沉）
+- **落点分流要覆盖所有推送入口**：AI 制证 PUSH、凭证中心 `StatementService.pushVoucher`、规则引擎，
+  三条链路都必须按 `kingdee.voucher-target`（默认 GL）分流；漏一条即报「当前组织未启用出纳」
+  （FIX-009 的成因就是凭证中心那条没分流，现已对齐）。
+- **「总账已开通」≠「出纳已开通」**：`GL_VOUCHER`（总账）与 `AR_RECEIVEBILL` / `AP_PAYBILL`
+  （应收/应付 + 出纳）是两套模块的单据，互不代表对方已开通。问金蝶管理员要问到点上
+  （「出纳管理模块在境内主体是否已启用」）。
+- **金蝶侧校验顺序**（实测得出，排查按此顺序看）：
+  我方银行账户可用性 → 出纳模块启用 → 币别/汇率 → 其他字段。
+  账户与组织不匹配时会先报「银行业务的结算方式，我方银行相关信息必录！」，
+  **遮住**后面的检查 ⇒ 先确认账户与组织匹配，再看是否出纳/汇率问题。
+- **对手方自动建档须三步**：`Save` + `Submit` + `Audit`。只 `Save` 的档案是暂存态
+  （`FDocumentStatus='A'`），被单据引用时金蝶判「往来单位必填」——不是字段漏传（FIX-006 根因）。
+  实现见 `RealKingdeeVoucherGateway.ensureBaseDataAudited`（建档后、复用历史档案前统一补审核 + 回查）。
+- **公司域校验口径有两处实现**（`AccountingSuggestionService.requireInCompanyScope` 与
+  `BankDataAccountingService.refreshAiSuggestion`）⇒ 改一处必须同步另一处，否则跨公司流水会被误拒
+  （FIX-008 的成因）。放行凭据：`bankdata:cross-company:view`。
+
 ---
 
 ## 15. 模块结论明细（从 `MEMORY.md` 下沉，2026-09-22）
