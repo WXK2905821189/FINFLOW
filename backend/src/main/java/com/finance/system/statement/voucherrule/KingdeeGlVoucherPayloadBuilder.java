@@ -6,6 +6,8 @@ import com.finance.system.statement.voucherrule.dto.KingdeeVoucherEntryDraft;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -44,6 +46,8 @@ public class KingdeeGlVoucherPayloadBuilder {
     static final int DC_CREDIT = 2;
 
     private static final DateTimeFormatter DATE = DateTimeFormatter.ISO_LOCAL_DATE;
+
+    private static final Logger log = LoggerFactory.getLogger(KingdeeGlVoucherPayloadBuilder.class);
 
     private final KingdeeProperties props;
     private final ObjectMapper mapper;
@@ -88,7 +92,36 @@ public class KingdeeGlVoucherPayloadBuilder {
         appendSide(entries, explanation, debitLines, DC_DEBIT);
         appendSide(entries, explanation, creditLines, DC_CREDIT);
         assertDimensionsReady(debitLines, creditLines);
+        log.info("GL_VOUCHER 报文摘要（诊断用，不含金额明细）：acctbook={} org={} 行数={} 分录={}",
+                props.getGlAcctbookNumber(), orgCode, entries.size(), summarizeEntries(entries));
         return root.toString();
+    }
+
+    /**
+     * 报文摘要（诊断插桩，2026-09-22）：逐行输出「科目编码 + 该行 FDetailID 的槽位=值」。
+     *
+     * <p>存在的原因：线上出现「金蝶报必录维度未录入，但本地各项判定都成立」的矛盾 ——
+     * 静态推断已到极限，需要一个能证明「报文里到底带没带维度」的观测点。
+     * **只打印科目编码与维度键值**（银行账号档案编码本身是档案号，非账号明文），不含金额与摘要。</p>
+     */
+    private static String summarizeEntries(ArrayNode entries) {
+        StringBuilder text = new StringBuilder();
+        int index = 0;
+        for (com.fasterxml.jackson.databind.JsonNode entry : entries) {
+            index++;
+            String account = entry.path("FACCOUNTID").path("FNumber").asText("(无科目)");
+            text.append('#').append(index).append(' ').append(account);
+            com.fasterxml.jackson.databind.JsonNode detail = entry.get("FDetailID");
+            if (detail == null || !detail.isObject() || detail.isEmpty()) {
+                text.append(" 维度[无]");
+            } else {
+                ((ObjectNode) detail).fields().forEachRemaining(field ->
+                        text.append(' ').append(field.getKey()).append('=')
+                                .append(field.path("FNumber").asText("-")));
+            }
+            text.append(" | ");
+        }
+        return text.toString();
     }
 
     /**
