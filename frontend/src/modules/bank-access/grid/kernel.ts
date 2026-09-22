@@ -1036,7 +1036,7 @@ export function createGrid(opts: GridOptions): GridInstance | null {
     const targetFrozen = colIsFrozen(targetKey);
     const from = st.cols.findIndex((c) => c.k === drag.k);
     if (from < 0) return;
-    let to = st.cols.findIndex((c) => c.k === targetKey);
+    const to = st.cols.findIndex((c) => c.k === targetKey);
     if (to < 0) return;   // 目标列已被藏（理论上不可能：th 来自当前可见表头）
     if (dragFrozen !== targetFrozen) {
       toast(dragFrozen ? '冻结列不可拖出冻结区（可在列设置里调整冻结数）' : '普通列不可拖入冻结区');

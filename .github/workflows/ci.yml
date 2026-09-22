@@ -236,7 +236,7 @@ jobs:
           app_pid=$!
           trap 'kill "$app_pid" 2>/dev/null || true; wait "$app_pid" 2>/dev/null || true' EXIT
           wait_for_health "$first_log"
-          grep -q 'Successfully applied 42 migrations' "$first_log"
+          grep -q 'Successfully applied 43 migrations' "$first_log"
           kill "$app_pid"
           wait "$app_pid" || true
           app_pid=""
