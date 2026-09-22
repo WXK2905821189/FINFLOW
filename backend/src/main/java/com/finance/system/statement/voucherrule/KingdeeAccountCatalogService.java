@@ -111,7 +111,6 @@ public class KingdeeAccountCatalogService {
         return new AccountCheck(code, ref.name(), false, null);
     }
 
-    /** 该科目是否必须带银行账号核算维度（挂 ZDY0001）。目录不可用时返回 false（不注入，交由金蝶报错校准）。 */
     /**
      * 该科目编码是否存在于账套科目目录。**目录不可用时返回 true**（不阻断，交由金蝶报错），
      * 与 {@link #check} 的降级放行口径一致。用于校验「兜底科目」本身是否可用 ——
@@ -125,10 +124,33 @@ public class KingdeeAccountCatalogService {
         return snapshot.containsKey(code == null ? "" : code.trim());
     }
 
-    public boolean requiresBankDimension(String code) {        Map<String, KingdeeVoucherGateway.KingdeeAccountRef> snapshot = catalog();
+    /**
+     * 该科目是否必须带银行账号核算维度（挂 ZDY0001）。
+     *
+     * <p><b>降级口径与可观测性（2026-09-22 P1-1）</b>：目录不可用时返回 false（不注入，
+     * 交由金蝶报错校准）——fail-open 语义保持不变；但「该科目可能需要维度而系统判定不了」
+     * 必须**留痕**，否则会出现「金蝶报必录维度未录入、本地却查不到任何判定错误」的静默盲区
+     * （W15 排查曾因此推断到极限）。目录不可用时打 WARN，供排查时直接定位。</p>
+     */
+    public boolean requiresBankDimension(String code) {
+        Map<String, KingdeeVoucherGateway.KingdeeAccountRef> snapshot = catalog();
+        if (snapshot.isEmpty()) {
+            log.warn("科目目录不可用，无法判定科目 {} 是否需要「银行账号」核算维度（本次推送未做维度需求判定，"
+                    + "若金蝶报「必录维度未录入」应优先排查目录拉取）", code);
+            return false;
+        }
         KingdeeVoucherGateway.KingdeeAccountRef ref = snapshot.get(code == null ? "" : code.trim());
         return ref != null && BANK_ACCOUNT_DIMENSION.equalsIgnoreCase(
                 ref.dimensionCode() == null ? "" : ref.dimensionCode().trim());
+    }
+
+    /** 科目编码 → 账套科目引用（含维度类型）；目录不可用或编码不存在返回 null。 */
+    public KingdeeVoucherGateway.KingdeeAccountRef refOf(String code) {
+        Map<String, KingdeeVoucherGateway.KingdeeAccountRef> snapshot = catalog();
+        if (snapshot.isEmpty()) {
+            return null;
+        }
+        return snapshot.get(code == null ? "" : code.trim());
     }
 
     /**

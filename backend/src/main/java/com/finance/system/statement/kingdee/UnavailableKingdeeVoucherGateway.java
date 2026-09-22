@@ -44,4 +44,10 @@ public class UnavailableKingdeeVoucherGateway implements KingdeeVoucherGateway {
     public java.util.List<KingdeeBankAccountRef> queryBankAccountCatalog() {
         return java.util.List.of();
     }
+
+    /** 网关未激活 → 无法回查档案状态；导入校验据此跳过标注。 */
+    @Override
+    public java.util.Map<String, String> queryBaseDataDocumentStatus(String formId, java.util.Collection<String> numbers) {
+        return java.util.Map.of();
+    }
 }

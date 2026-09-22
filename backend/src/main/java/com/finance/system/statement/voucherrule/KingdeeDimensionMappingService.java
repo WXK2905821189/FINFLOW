@@ -6,18 +6,25 @@ import com.finance.system.domain.entity.KingdeeDimensionMapping;
 import com.finance.system.domain.entity.KingdeeDimensionSlot;
 import com.finance.system.domain.mapper.KingdeeDimensionMappingMapper;
 import com.finance.system.domain.mapper.KingdeeDimensionSlotMapper;
+import com.finance.system.statement.kingdee.KingdeeVoucherGateway;
 import com.finance.system.statement.voucherrule.dto.KingdeeDimensionDtos.MappingResponse;
 import com.finance.system.statement.voucherrule.dto.KingdeeDimensionDtos.MappingUpsertRequest;
 import com.finance.system.statement.voucherrule.dto.KingdeeDimensionDtos.ResolvedDimension;
 import com.finance.system.statement.voucherrule.dto.KingdeeDimensionDtos.SlotResponse;
 import com.finance.system.statement.voucherrule.dto.KingdeeDimensionDtos.SlotUpsertRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * 金蝶核算维度配置服务（V42，2026-09-21）：槽位解析 + 来源值→档案编码翻译 + 界面维护能力。
@@ -37,6 +44,8 @@ import java.util.List;
 @Service
 public class KingdeeDimensionMappingService {
 
+    private static final Logger log = LoggerFactory.getLogger(KingdeeDimensionMappingService.class);
+
     /** 维度类型常量（与 kingdee_dimension_slot.dimension_type、规则模板 dimension 字段同字面量）。 */
     public static final String BANK_ACCOUNT = "BANK_ACCOUNT";
     public static final String SUPPLIER = "SUPPLIER";
@@ -47,13 +56,22 @@ public class KingdeeDimensionMappingService {
     private static final String KIND_KEYWORD = "KEYWORD";
     private static final String KIND_DEFAULT = "NAME";
 
+    /** 维度类型 → 金蝶基础资料 FormId（P1-3 回查用；BANK_ACCOUNT/BUSINESS_LINE 不在此列）。 */
+    private static final Map<String, String> BASE_DATA_FORM_BY_TYPE = Map.of(
+            SUPPLIER, "BD_Supplier",
+            CUSTOMER, "BD_Customer",
+            EMPLOYEE, "BD_Empinfo");
+
     private final KingdeeDimensionSlotMapper slotMapper;
     private final KingdeeDimensionMappingMapper mappingMapper;
+    private final KingdeeVoucherGateway gateway;
 
     public KingdeeDimensionMappingService(KingdeeDimensionSlotMapper slotMapper,
-                                          KingdeeDimensionMappingMapper mappingMapper) {
+                                          KingdeeDimensionMappingMapper mappingMapper,
+                                          KingdeeVoucherGateway gateway) {
         this.slotMapper = slotMapper;
         this.mappingMapper = mappingMapper;
+        this.gateway = gateway;
     }
 
     // ---------------- 槽位配置 ----------------
@@ -161,24 +179,80 @@ public class KingdeeDimensionMappingService {
     /**
      * 批量新增（前端「批量粘贴」入口，供应商/员工动辄数百条，逐条点不现实）。
      * 同 (类型,来源值,组织) 已存在的行按「更新」处理，便于反复导入修订表。
+     *
+     * <p><b>P1-3 档案状态回查（2026-09-22）</b>：SUPPLIER/CUSTOMER/EMPLOYEE 行落库后，
+     * 按类型分组去重回查金蝶档案的 {@code FDocumentStatus}——**暂存(A)/已提交(B)/查不到**
+     * 的行打 WARN 汇总日志。FIX-006 的教训：金蝶单据只能引用已审核(C)档案，暂存档案被
+     * 引用视同未填；映射档案是财务在金蝶侧手工维护的，等首推才暴露会得到一句
+     * 「必录维度未录入**或不可用**」，难以定位到具体哪行映射有问题。回查失败（网关不可用）
+     * 只记日志不阻断导入——档案状态是预警信息，不是准入门槛。</p>
      */
     @Transactional
     public int batchUpsert(List<MappingUpsertRequest> requests) {
         if (requests == null || requests.isEmpty()) {
             throw new BusinessException(400, "批量导入内容为空");
         }
-        int affected = 0;
+        List<KingdeeDimensionMapping> inserted = new ArrayList<>(requests.size());
         for (MappingUpsertRequest request : requests) {
             KingdeeDimensionMapping existing = findByKey(request.dimensionType(), request.sourceKey(),
                     normalizeOrg(request.orgCode()));
+            KingdeeDimensionMapping entity;
             if (existing == null) {
-                createMapping(request);
+                entity = new KingdeeDimensionMapping();
+                applyMapping(entity, request, true);
+                entity.setCreatedAt(LocalDateTime.now());
+                entity.setUpdatedAt(LocalDateTime.now());
+                mappingMapper.insert(entity);
             } else {
-                updateMapping(existing.getId(), request);
+                entity = mappingMapper.selectById(existing.getId());
+                applyMapping(entity, request, false);
+                entity.setUpdatedAt(LocalDateTime.now());
+                mappingMapper.updateById(entity);
             }
-            affected++;
+            inserted.add(entity);
         }
-        return affected;
+        auditBaseDataStatus(inserted);
+        return inserted.size();
+    }
+
+    /**
+     * P1-3：导入行指向的金蝶档案状态回查（只读、非阻断）。
+     * 汇总 WARN 一条日志，便于导入后立即从服务端日志确认哪些档案要先去金蝶补审核。
+     */
+    private void auditBaseDataStatus(List<KingdeeDimensionMapping> rows) {
+        Map<String, Set<String>> numbersByForm = new LinkedHashMap<>();
+        for (KingdeeDimensionMapping row : rows) {
+            String formId = BASE_DATA_FORM_BY_TYPE.get(row.getDimensionType());
+            if (formId != null && row.getKingdeeValue() != null && !row.getKingdeeValue().isBlank()) {
+                numbersByForm.computeIfAbsent(formId, key -> new LinkedHashSet<>()).add(row.getKingdeeValue().trim());
+            }
+        }
+        if (numbersByForm.isEmpty()) {
+            return;
+        }
+        List<String> warnings = new ArrayList<>();
+        for (Map.Entry<String, Set<String>> entry : numbersByForm.entrySet()) {
+            try {
+                Map<String, String> statuses = gateway.queryBaseDataDocumentStatus(
+                        entry.getKey(), entry.getValue());
+                for (String number : entry.getValue()) {
+                    String status = statuses.get(number);
+                    if (status == null) {
+                        warnings.add(entry.getKey() + " " + number + "：档案不存在");
+                    } else if (!"C".equalsIgnoreCase(status.trim())) {
+                        warnings.add(entry.getKey() + " " + number + "：未审核（状态 " + status
+                                + "），推送引用时会报「必录维度未录入或不可用」，请先在金蝶完成提交+审核");
+                    }
+                }
+            } catch (Exception e) {
+                // 回查失败不阻断导入（预警信息而已）；留痕供排查
+                log.warn("维度映射导入的档案状态回查失败（{}）：{}", entry.getKey(), e.getMessage());
+            }
+        }
+        if (!warnings.isEmpty()) {
+            log.warn("维度映射导入完成，但有 {} 条指向的金蝶档案暂不可引用：{}", warnings.size(),
+                    String.join("；", warnings));
+        }
     }
 
     private KingdeeDimensionMapping findByKey(String dimensionType, String sourceKey, String orgCode) {

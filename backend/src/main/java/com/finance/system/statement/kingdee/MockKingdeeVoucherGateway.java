@@ -55,4 +55,22 @@ public class MockKingdeeVoucherGateway implements KingdeeVoucherGateway {
                 new KingdeeBankAccountRef("110922659010201", "招商银行股份有限公司北京首体科技金融支行", "410"),
                 new KingdeeBankAccountRef("110922659010201", "招商银行上海分行营业部", "411"));
     }
+
+    /**
+     * 模拟档案状态回查：内置样例里 VEN0001/VEN0002/KH0001/EMP0001 已审核(C)，
+     * VEN0003 暂存(A)——让导入回查链路在 mock 下也有可断言的行为（含暂存警示路径）。
+     */
+    @Override
+    public java.util.Map<String, String> queryBaseDataDocumentStatus(String formId, java.util.Collection<String> numbers) {
+        java.util.Map<String, String> statuses = new java.util.LinkedHashMap<>();
+        for (String number : numbers) {
+            if ("VEN0001".equals(number) || "VEN0002".equals(number)
+                    || "KH0001".equals(number) || "EMP0001".equals(number)) {
+                statuses.put(number, "C");
+            } else if ("VEN0003".equals(number)) {
+                statuses.put(number, "A");
+            }
+        }
+        return statuses;
+    }
 }

@@ -24,6 +24,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * 规则引擎编排服务（V34 WP-B）：预览解析 + 确认推送。
@@ -56,6 +58,19 @@ public class KingdeeVoucherEngineService {
     private final StatementAuditEventMapper auditEventMapper;
     private final KingdeeOrgResolver orgResolver;
     private final com.finance.system.closing.ClosingService closingService;
+
+    /**
+     * P1-5（2026-09-22）：同一条流水的并发推送守卫（单实例 JVM 锁）。
+     *
+     * <p>为什么需要：push 流程是「读状态 → 调金蝶 Save → 回写」三步，中间有一次跨网络往返。
+     * 两个人（或双击）同时推同一条流水时，两边都能读到「可推送」状态并各自 Save ——
+     * 金蝶侧没有幂等键，会生成两张内容相同的草稿凭证。锁粒度按 statementId，
+     * 锁内**重读**复核 push_status（GL_PUSHED/PUSHED 成功态直接 409 拒绝）。
+     * 单实例部署（ECS docker compose）下 JVM 锁足够；将来多实例部署时需换数据库
+     * 条件更新（{@code UPDATE ... SET push_status='GL_PUSHED' WHERE push_status NOT IN (...)})
+     * 作跨实例守卫，见 docs/kingdee-risk-predictions-20260922.md P1-5。</p>
+     */
+    private final ConcurrentHashMap<Long, ReentrantLock> pushLocks = new ConcurrentHashMap<>();
 
     public KingdeeVoucherEngineService(StatementRecordMapper statementMapper,
                                        BankAccountMapper bankAccountMapper,
@@ -110,32 +125,41 @@ public class KingdeeVoucherEngineService {
      *                           502（金蝶保存失败，原文透传）
      */
     public KingdeeVoucherPushResult pushAiVoucher(Long statementId, Long operatorId) {
-        StatementRecord statement = statementMapper.selectById(statementId);
-        if (statement == null) {
-            throw new BusinessException(404, "流水不存在: " + statementId);
+        ReentrantLock lock = pushLocks.computeIfAbsent(statementId, id -> new ReentrantLock());
+        lock.lock();
+        try {
+            StatementRecord statement = statementMapper.selectById(statementId);
+            if (statement == null) {
+                throw new BusinessException(404, "流水不存在: " + statementId);
+            }
+            if (!"APPROVED".equals(statement.getReviewStatus())) {
+                throw new BusinessException(400, "流水复核状态为 " + statement.getReviewStatus()
+                        + "，AI 制证仅受理 APPROVED");
+            }
+            // P1-5：锁内重读 push_status，已在推送中的流水直接拒绝（防并发双推 → 金蝶重复凭证）
+            assertNotAlreadyPushed(statement);
+
+            closingService.ensurePeriodOpen(statement.getCompanyId(), statement.getTransactionTime());
+
+            VoucherSuggestionDto doc = parseSuggestion(statement.getAiSuggestionJson());
+            AiGlVoucherAssembler.Assembled assembled = assembler.assemble(
+                    AiGlVoucherAssembler.toInputs(doc == null ? null : doc.entries()), statement);
+
+            Company company = loadCompany(statement);
+            String orgCode = company == null ? null : orgResolver.resolveOrgCode(company.getName());
+            String explanation = doc != null && doc.suggestedSummary() != null && !doc.suggestedSummary().isBlank()
+                    ? doc.suggestedSummary()
+                    : statement.getSummary();
+            String voucherNo = pushOne(orgCode, statement, explanation,
+                    assembled.debitLines(), assembled.creditLines());
+
+            String message = "GL_VOUCHER 草稿已保存：" + voucherNo
+                    + (assembled.warnings().isEmpty() ? "" : "；提示：" + String.join("；", assembled.warnings()));
+            recordPush(statement, null, "GL_PUSHED", voucherNo, null, operatorId, null);
+            return new KingdeeVoucherPushResult(statementId, null, voucherNo, null, "PUSHED", message);
+        } finally {
+            lock.unlock();
         }
-        if (!"APPROVED".equals(statement.getReviewStatus())) {
-            throw new BusinessException(400, "流水复核状态为 " + statement.getReviewStatus()
-                    + "，AI 制证仅受理 APPROVED");
-        }
-        closingService.ensurePeriodOpen(statement.getCompanyId(), statement.getTransactionTime());
-
-        VoucherSuggestionDto doc = parseSuggestion(statement.getAiSuggestionJson());
-        AiGlVoucherAssembler.Assembled assembled = assembler.assemble(
-                AiGlVoucherAssembler.toInputs(doc == null ? null : doc.entries()), statement);
-
-        Company company = loadCompany(statement);
-        String orgCode = company == null ? null : orgResolver.resolveOrgCode(company.getName());
-        String explanation = doc != null && doc.suggestedSummary() != null && !doc.suggestedSummary().isBlank()
-                ? doc.suggestedSummary()
-                : statement.getSummary();
-        String voucherNo = pushOne(orgCode, statement, explanation,
-                assembled.debitLines(), assembled.creditLines());
-
-        String message = "GL_VOUCHER 草稿已保存：" + voucherNo
-                + (assembled.warnings().isEmpty() ? "" : "；提示：" + String.join("；", assembled.warnings()));
-        recordPush(statement, null, "GL_PUSHED", voucherNo, null, operatorId, null);
-        return new KingdeeVoucherPushResult(statementId, null, voucherNo, null, "PUSHED", message);
     }
 
     private VoucherSuggestionDto parseSuggestion(String json) {
@@ -172,50 +196,74 @@ public class KingdeeVoucherEngineService {
     public KingdeeVoucherPushResult push(Long statementId, int ruleNo,
                                          Map<Integer, BigDecimal> manualAmounts,
                                          Long operatorId) {
-        StatementRecord statement = statementMapper.selectById(statementId);
-        if (statement == null) {
-            throw new BusinessException(404, "流水不存在: " + statementId);
+        ReentrantLock lock = pushLocks.computeIfAbsent(statementId, id -> new ReentrantLock());
+        lock.lock();
+        try {
+            StatementRecord statement = statementMapper.selectById(statementId);
+            if (statement == null) {
+                throw new BusinessException(404, "流水不存在: " + statementId);
+            }
+            if (!"APPROVED".equals(statement.getReviewStatus())) {
+                throw new BusinessException(400, "流水复核状态为 " + statement.getReviewStatus()
+                        + "，规则制证仅受理 APPROVED");
+            }
+            // P1-5：锁内重读 push_status，已在推送中的流水直接拒绝（防并发双推 → 金蝶重复凭证）
+            assertNotAlreadyPushed(statement);
+
+            // W7 账期锁：CLOSED 账期禁止规则制证推送（按流水所属公司+交易时间归月）。
+            closingService.ensurePeriodOpen(statement.getCompanyId(), statement.getTransactionTime());
+            KingdeeVoucherRule ruleEntity = ruleMapper.selectOne(
+                    new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<KingdeeVoucherRule>()
+                            .eq(KingdeeVoucherRule::getRuleNo, ruleNo));
+            if (ruleEntity == null) {
+                throw new BusinessException(404, "凭证规则不存在: ruleNo=" + ruleNo);
+            }
+            KingdeeVoucherRuleResponse rule = ruleService.getByRuleNo(ruleNo);
+
+            BankAccount account = loadAccount(statement);
+            Company company = loadCompany(statement);
+            String orgCode = company == null ? null : orgResolver.resolveOrgCode(company.getName());
+            KingdeeVoucherRulePreview.Candidate candidate =
+                    matchingService.buildCandidate(rule, statement, statement.getAmount(), account, orgCode);
+
+            applyManualAmounts(candidate, manualAmounts);
+
+            String explanation = statement.getSummary() == null || statement.getSummary().isBlank()
+                    ? rule.businessType()
+                    : statement.getSummary();
+            String voucherNo = pushOne(orgCode, statement, explanation,
+                    candidate.debitLines(), candidate.creditLines());
+
+            String extraVoucherNo = null;
+            if (candidate.extraVoucher() != null) {
+                // Same summary by design (直接确认费用): 往来凭证在前，费用凭证在后，顺序固定。
+                extraVoucherNo = pushOne(orgCode, statement, explanation,
+                        candidate.extraVoucher().debitLines(), candidate.extraVoucher().creditLines());
+            }
+
+            recordPush(statement, ruleNo, "GL_PUSHED", voucherNo, extraVoucherNo, operatorId, null);
+            return new KingdeeVoucherPushResult(statementId, ruleNo, voucherNo, extraVoucherNo,
+                    "PUSHED", extraVoucherNo == null
+                            ? "GL_VOUCHER 草稿已保存：" + voucherNo
+                            : "GL_VOUCHER 草稿已保存：" + voucherNo + " + " + extraVoucherNo + "（第二张）");
+        } finally {
+            lock.unlock();
         }
-        if (!"APPROVED".equals(statement.getReviewStatus())) {
-            throw new BusinessException(400, "流水复核状态为 " + statement.getReviewStatus()
-                    + "，规则制证仅受理 APPROVED");
+    }
+
+    /**
+     * P1-5：GL 链路已在推送成功态（GL_PUSHED）时拒绝重复推送。
+     *
+     * <p>注意放行 FAILED：失败后重推是既有能力（单据详情页「重试推送」按钮），
+     * 只拦「已成功」——这正是防重复凭证的关键窗口。注意 push_status 与
+     * review_status 是两个独立字段（同名不同域的「状态字面量」陷阱），此处只看 push_status。</p>
+     */
+    private static void assertNotAlreadyPushed(StatementRecord statement) {
+        if ("GL_PUSHED".equals(statement.getPushStatus()) || "PUSHED".equals(statement.getPushStatus())) {
+            throw new BusinessException(409, "该流水已推送金蝶（凭证号 " + statement.getVoucherNo()
+                    + "），不可重复推送；如金蝶侧凭证已删除需重推，请联系管理员人工重开"
+                    + "（见 docs/pending-fixes.md FIX-011 手工修法）");
         }
-        // W7 账期锁：CLOSED 账期禁止规则制证推送（按流水所属公司+交易时间归月）。
-        closingService.ensurePeriodOpen(statement.getCompanyId(), statement.getTransactionTime());
-        KingdeeVoucherRule ruleEntity = ruleMapper.selectOne(
-                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<KingdeeVoucherRule>()
-                        .eq(KingdeeVoucherRule::getRuleNo, ruleNo));
-        if (ruleEntity == null) {
-            throw new BusinessException(404, "凭证规则不存在: ruleNo=" + ruleNo);
-        }
-        KingdeeVoucherRuleResponse rule = ruleService.getByRuleNo(ruleNo);
-
-        BankAccount account = loadAccount(statement);
-        Company company = loadCompany(statement);
-        String orgCode = company == null ? null : orgResolver.resolveOrgCode(company.getName());
-        KingdeeVoucherRulePreview.Candidate candidate =
-                matchingService.buildCandidate(rule, statement, statement.getAmount(), account, orgCode);
-
-        applyManualAmounts(candidate, manualAmounts);
-
-        String explanation = statement.getSummary() == null || statement.getSummary().isBlank()
-                ? rule.businessType()
-                : statement.getSummary();
-        String voucherNo = pushOne(orgCode, statement, explanation,
-                candidate.debitLines(), candidate.creditLines());
-
-        String extraVoucherNo = null;
-        if (candidate.extraVoucher() != null) {
-            // Same summary by design (直接确认费用): 往来凭证在前，费用凭证在后，顺序固定。
-            extraVoucherNo = pushOne(orgCode, statement, explanation,
-                    candidate.extraVoucher().debitLines(), candidate.extraVoucher().creditLines());
-        }
-
-        recordPush(statement, ruleNo, "GL_PUSHED", voucherNo, extraVoucherNo, operatorId, null);
-        return new KingdeeVoucherPushResult(statementId, ruleNo, voucherNo, extraVoucherNo,
-                "PUSHED", extraVoucherNo == null
-                        ? "GL_VOUCHER 草稿已保存：" + voucherNo
-                        : "GL_VOUCHER 草稿已保存：" + voucherNo + " + " + extraVoucherNo + "（第二张）");
     }
 
     private String pushOne(String orgCode, StatementRecord statement, String explanation,

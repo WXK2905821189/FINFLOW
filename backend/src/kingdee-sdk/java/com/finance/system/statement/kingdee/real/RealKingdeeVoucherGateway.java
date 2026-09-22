@@ -199,6 +199,51 @@ public class RealKingdeeVoucherGateway implements KingdeeVoucherGateway {
         return catalog;
     }
 
+    /**
+     * 只读批量回查基础资料档案状态（P1-3，2026-09-22）：按 FNumber 过滤一次 BillQuery，
+     * 返回「编码 → FDocumentStatus」。查不到的编码不在结果里（导入侧按「档案不存在」标注）。
+     *
+     * <p>沿用 FIX-006 的状态语义：A=暂存 / B=已提交 / C=已审核；单据只能引用 C。</p>
+     */
+    @Override
+    public java.util.Map<String, String> queryBaseDataDocumentStatus(String formId, java.util.Collection<String> numbers) {
+        java.util.Map<String, String> statuses = new java.util.LinkedHashMap<>();
+        if (formId == null || formId.isBlank() || numbers == null || numbers.isEmpty()) {
+            return statuses;
+        }
+        // FNumber 可能含引号类字符的场景极少（档案编码），仍按既有口径做转义
+        String quoted = numbers.stream()
+                .filter(number -> number != null && !number.isBlank())
+                .map(number -> "'" + number.trim().replace("'", "''") + "'")
+                .collect(java.util.stream.Collectors.joining(","));
+        if (quoted.isEmpty()) {
+            return statuses;
+        }
+        String query = "{\"FormId\":\"" + formId + "\",\"FieldKeys\":\"FNumber,FDocumentStatus\","
+                + "\"FilterString\":\"FNumber in (" + quoted + ")\",\"Limit\":2000}";
+        try {
+            JsonNode rows = mapper.readTree(client.executeBillQueryJson(query));
+            if (!rows.isArray()) {
+                return statuses;
+            }
+            for (JsonNode row : rows) {
+                if (!row.isArray() || row.size() < 2) {
+                    continue;
+                }
+                String number = row.get(0).asText(null);
+                String status = row.get(1).isNull() ? null : row.get(1).asText(null);
+                if (number != null && !number.isBlank()) {
+                    statuses.put(number.trim(), status);
+                }
+            }
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new BusinessException(502, "基础资料状态回查解析失败：" + abbreviate(String.valueOf(e.getMessage())));
+        }
+        return statuses;
+    }
+
     private String resolveFormId(String direction) {
         if ("EXPENSE".equalsIgnoreCase(direction)) {
             return props.getPayBillFormId();

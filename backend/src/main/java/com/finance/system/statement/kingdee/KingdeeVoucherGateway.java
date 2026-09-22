@@ -64,4 +64,20 @@ public interface KingdeeVoucherGateway {
      */
     record KingdeeBankAccountRef(String number, String name, String orgNumber) {
     }
+
+    /**
+     * 只读批量回查基础资料档案状态（P1-3，2026-09-22）。
+     *
+     * <p>用途：维度映射批量导入前，回查映射指向的金蝶档案（供应商/客户/员工）是否**已审核**
+     * ——FIX-006 的教训：金蝶单据只能引用已审核基础资料，暂存(A)档案被引用视同未填。
+     * 映射里的档案是财务在金蝶侧手工维护的，不走 FINFLOW 的 auto-audit，暂存态只能在
+     * 导入时提前暴露（导入结果标注、不阻断），否则要等到首推才收到「未录入或不可用」。</p>
+     *
+     * <p>契约：只读、不写入；返回「档案编码 → FDocumentStatus（A 暂存/B 已提交/C 已审核）」，
+     * 查不到的编码不出现在结果里。Unavailable 返回空 Map（调用方按「无法回查」跳过标注）。</p>
+     *
+     * @param formId    基础资料表单（BD_Supplier / BD_Customer / BD_Empinfo）
+     * @param numbers   档案编码清单（FNumber）
+     */
+    java.util.Map<String, String> queryBaseDataDocumentStatus(String formId, java.util.Collection<String> numbers);
 }
