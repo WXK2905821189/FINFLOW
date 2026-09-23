@@ -49,14 +49,10 @@ function SyncScheduleCard() {
       return;
     }
     const hhmm = newTime.format('HH:mm');
-    if (newTime.minute() === 0 || newTime.minute() === 30) {
-      message.error('不能选择整点/半点（银行高峰期），请错峰设置，如 02:10');
-      return;
-    }
     setCreating(true);
     try {
       await bankPipelineApi.createSchedule(hhmm);
-      message.success(`同步计划已添加：每天 ${hhmm}（同一天多个时刻只有首个会真正拉取）`);
+      message.success(`同步计划已添加：每天 ${hhmm}（每个时刻都会真实执行一次 T-1 拉取）`);
       setNewTime(undefined);
       reload();
     } catch (reason) {
@@ -134,8 +130,9 @@ function SyncScheduleCard() {
         </Space>
       )}
       <p className="muted" style={{ fontSize: 12, marginTop: 8, marginBottom: 0 }}>
-        到点触发一轮全账户 T-1 同步；<b>同一 T-1 窗口当天已同步过时不会重复拉取</b>（同步任务列表里会出现一条「复用」记录），
-        因此同一天设多个时刻只有第一个会真正产生新任务。银行补发历史数据请用上方「补拉历史数据」。
+        到点触发一轮全账户 T-1 同步；支持任意分钟（0-59）。每个时刻都会真实执行一次拉取，
+        同一窗口重复拉到的流水由去重层自动跳过，不会产生重复数据。
+        银行补发历史数据请用上方「补拉历史数据」。
       </p>
     </Card>
   );

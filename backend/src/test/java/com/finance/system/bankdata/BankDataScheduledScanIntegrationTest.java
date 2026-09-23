@@ -86,15 +86,89 @@ class BankDataScheduledScanIntegrationTest {
         Company company = insertCompany("QA-SCAN");
         BankAccount realAccount = insertRealQaAccount(company.getId(), "QA real scheduled account");
 
-        // Two scans in the same T-1 window: the second must reuse the first task (request-id
-        // idempotency), so exactly one SCHEDULED task exists for the account.
-        bankDataSyncService.triggerScheduledSyncs();
-        bankDataSyncService.triggerScheduledSyncs();
+        // Two scans at the SAME trigger minute in the same T-1 window: the second must reuse the
+        // first task (request-id idempotency, requestId includes the trigger HH:mm since
+        // 2026-09-23), so exactly one SCHEDULED task exists for the account.
+        java.time.LocalDateTime triggerAt = java.time.LocalDateTime.now().withSecond(0).withNano(0);
+        scheduledSyncService.triggerScheduledSyncs(triggerAt);
+        scheduledSyncService.triggerScheduledSyncs(triggerAt);
 
         assertEquals(1, taskMapper.selectCount(new LambdaQueryWrapper<BankDataSyncTask>()
                 .eq(BankDataSyncTask::getCompanyId, company.getId())
                 .eq(BankDataSyncTask::getBankAccountId, realAccount.getId())
                 .eq(BankDataSyncTask::getTriggerType, "SCHEDULED")));
+    }
+
+    /**
+     * 2026-09-23 W17 包 B1：同一天两个计划时刻必须各自真实执行（用户设 15:45 没跑的根因修复）。
+     * 旧行为 requestId 只含 T-1 全天窗口，同日第二个时刻被 TASK_REUSED 静默复用；现在
+     * requestId 加入触发时刻 HH:mm，两个时刻各建各的任务。同 requestId 重放仍幂等复用。
+     */
+    @Test
+    void twoScheduleTimesOnSameDayCreateTwoDistinctTasks() {
+        Company company = insertCompany("QA-TWO");
+        BankAccount realAccount = insertRealQaAccount(company.getId(), "QA two-times account");
+        java.time.LocalDate today = java.time.LocalDate.now();
+        java.time.LocalDateTime morning = java.time.LocalDateTime.of(today, java.time.LocalTime.of(2, 10));
+        java.time.LocalDateTime afternoon = java.time.LocalDateTime.of(today, java.time.LocalTime.of(15, 45));
+
+        scheduledSyncService.triggerScheduledSyncs(morning);
+        scheduledSyncService.triggerScheduledSyncs(afternoon);
+
+        assertEquals(2, taskMapper.selectCount(new LambdaQueryWrapper<BankDataSyncTask>()
+                        .eq(BankDataSyncTask::getCompanyId, company.getId())
+                        .eq(BankDataSyncTask::getBankAccountId, realAccount.getId())
+                        .eq(BankDataSyncTask::getTriggerType, "SCHEDULED")),
+                "同一天两个时刻 → 两个 requestId → 两个任务都真实创建");
+        // requestId 必须互不相同（触发时刻参与 key）。
+        long distinctRequestIds = taskMapper.selectList(new LambdaQueryWrapper<BankDataSyncTask>()
+                        .eq(BankDataSyncTask::getCompanyId, company.getId())
+                        .eq(BankDataSyncTask::getBankAccountId, realAccount.getId())
+                        .eq(BankDataSyncTask::getTriggerType, "SCHEDULED"))
+                .stream().map(BankDataSyncTask::getRequestId).distinct().count();
+        assertEquals(2, distinctRequestIds);
+
+        // 同一触发时刻重放：幂等复用，不新建任务（口径与旧行为一致）。
+        scheduledSyncService.triggerScheduledSyncs(morning);
+        assertEquals(2, taskMapper.selectCount(new LambdaQueryWrapper<BankDataSyncTask>()
+                .eq(BankDataSyncTask::getCompanyId, company.getId())
+                .eq(BankDataSyncTask::getBankAccountId, realAccount.getId())
+                .eq(BankDataSyncTask::getTriggerType, "SCHEDULED")));
+    }
+
+    /**
+     * 2026-09-23 W17 包 B3 防呆：手动「立即同步」走 UUID requestId，与计划触发的
+     * scheduled-* requestId 永不冲突 —— 同一分钟内手动 + 计划各自建任务，互不静默复用。
+     * （同账户同窗口并发仍由既有 409 护栏拦截；本用例手动触发使用不同窗口避免踩 409。）
+     */
+    @Test
+    void manualTriggerAndScheduledTriggerNeverShareRequestId() {
+        Company company = insertCompany("QA-MANUAL");
+        BankAccount realAccount = insertRealQaAccount(company.getId(), "QA manual-vs-schedule account");
+
+        // 计划触发：T-1 全天窗口，scheduled-* requestId（含触发时刻）。
+        java.time.LocalDateTime triggerAt = java.time.LocalDateTime.now().withSecond(0).withNano(0);
+        scheduledSyncService.triggerScheduledSyncs(triggerAt);
+
+        // 手动触发：明确窗口（更早的历史区间），requestId 为 UUID —— 与计划 key 结构天然不同。
+        bankDataSyncService.triggerForCompany(company.getId(), null,
+                new BankDataSyncRequest(null, realAccount.getId(), "REAL_QA",
+                        LocalDateTime.parse("2026-08-25T00:00:00"),
+                        LocalDateTime.parse("2026-08-25T23:59:59")),
+                UUID.randomUUID().toString(), "MANUAL");
+
+        var scheduledTasks = taskMapper.selectList(new LambdaQueryWrapper<BankDataSyncTask>()
+                .eq(BankDataSyncTask::getCompanyId, company.getId())
+                .eq(BankDataSyncTask::getBankAccountId, realAccount.getId())
+                .eq(BankDataSyncTask::getTriggerType, "SCHEDULED"));
+        assertEquals(1, scheduledTasks.size());
+        assertTrue(scheduledTasks.get(0).getRequestId().startsWith("scheduled-"),
+                "计划任务 requestId 保持 scheduled- 前缀");
+        assertEquals(1, taskMapper.selectCount(new LambdaQueryWrapper<BankDataSyncTask>()
+                .eq(BankDataSyncTask::getCompanyId, company.getId())
+                .eq(BankDataSyncTask::getBankAccountId, realAccount.getId())
+                .eq(BankDataSyncTask::getTriggerType, "MANUAL")),
+                "手动触发独立建任务，不被计划 requestId 复用");
     }
 
     @Test
@@ -197,7 +271,8 @@ class BankDataScheduledScanIntegrationTest {
 
     /**
      * 心跳命中端到端（V25 / D1=A1）：固定时钟（覆写 currentTime）避免「建计划在当前分钟、
-     * fireIfDue 前翻页」的竞态（CI runner 慢时必炸）；命中触发一轮同步，同 T-1 窗口幂等。
+     * fireIfDue 前翻页」的竞态（CI runner 慢时必炸）；命中触发一轮同步，同一分钟内
+     * （含触发时刻的 requestId 相同）重放仍幂等。
      */
     @Test
     void heartbeatFiresWhenMinuteMatchesAndStaysIdempotent() {
@@ -218,7 +293,7 @@ class BankDataScheduledScanIntegrationTest {
         assertEquals(1, taskMapper.selectCount(new LambdaQueryWrapper<BankDataSyncTask>()
                 .eq(BankDataSyncTask::getCompanyId, company.getId())
                 .eq(BankDataSyncTask::getTriggerType, "SCHEDULED")),
-                "命中时刻触发一轮同步，且同窗口幂等不重复建任务");
+                "命中时刻触发一轮同步，同一触发时刻重放幂等不重复建任务");
         bankSyncScheduleService.delete(schedule.getId(), 1L);
     }
 

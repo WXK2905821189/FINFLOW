@@ -68,6 +68,7 @@ import type {
   RoleCreatePayload,
   RoleUpdatePayload,
   UserUpsertPayload,
+  PermissionOverrideItem,
 } from '../modules/admin/types';
 
 export const authApi = {
@@ -85,6 +86,7 @@ export const bankApi = {
   archive: () => http.get<never, CompanyArchiveView>('/bank-account-archive'),
   createArchiveCompany: (name: string) => http.post<never, CompanyArchiveCompany>('/bank-account-archive/companies', { name }),
   renameArchiveCompany: (id: number, name: string) => http.put<never, CompanyArchiveCompany>(`/bank-account-archive/companies/${id}`, { name }),
+  deleteArchiveCompany: (id: number) => http.delete<never, void>(`/bank-account-archive/companies/${id}`),
   /** 归类：账户改挂公司档案，历史流水/余额一并迁移。 */
   assignArchiveAccount: (id: number, companyId: number) => http.put<never, CompanyArchiveAccount>(`/bank-account-archive/accounts/${id}/company`, { companyId }),
   /** 取消归属：账户拖回「未归属」区（历史流水/余额口径对称置空）。 */
@@ -118,6 +120,18 @@ export const userApi = {
   update: (id: number, data: UserUpsertPayload) => http.put<never, User>(`/users/${id}`, data),
   /** V36-W5：物理删除（有业务/审计引用时后端 409，提示改用停用）。 */
   remove: (id: number) => http.delete<never, void>(`/users/${id}`),
+  /**
+   * V45（W17 包 D）：账号级权限覆盖。GET 返回当前覆盖全量；PUT 全量替换
+   * （body: [{code, effect}]，同一 code 不得同时 GRANT 与 DENY，后端 400；
+   * 对超管/本人 DENY role:manage 后端 409）。
+   */
+  permissionOverrides: (id: number) =>
+    http.get<never, { userId: number; overrides: PermissionOverrideItem[] }>(`/users/${id}/permission-overrides`),
+  replacePermissionOverrides: (id: number, overrides: PermissionOverrideItem[]) =>
+    http.put<never, { userId: number; overrides: PermissionOverrideItem[] }>(
+      `/users/${id}/permission-overrides`,
+      overrides,
+    ),
 };
 
 /**
@@ -560,7 +574,7 @@ export const bankPipelineApi = {
   pushJob: (id: number) => http.get<never, PushJobResult>(`/bank-data/push-jobs/${id}`),
   /** 定时同步计划（V25）：读取全部计划时刻（查看权限即可读）。 */
   listSchedules: () => http.get<never, BankSyncScheduleRow[]>('/bank-sync-schedules'),
-  /** 新建计划时刻（HH:mm，禁整点/半点；bank:manage）。 */
+  /** 新建计划时刻（HH:mm，分钟 0-59 均可；bank:manage）。 */
   createSchedule: (executeHhmm: string) => http.post<never, BankSyncScheduleRow>('/bank-sync-schedules', { executeHhmm }),
   /** 启用/停用计划（bank:manage）。 */
   updateScheduleEnabled: (id: number, enabled: boolean) => http.put<never, void>(`/bank-sync-schedules/${id}/enabled/${enabled}`),

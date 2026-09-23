@@ -452,6 +452,8 @@ export type BankAccountCreatePayload = {
   availableBalance?: number;
   status?: string;
   companyId?: number;
+  /** 新建时可直接填写金蝶 CN_BANKACNT 档案编码。 */
+  kingdeeAccountNumber?: string;
 };
 
 /** AI 公司主体归类建议（V32）：建议只读，应用走 aiApplyCompanies。 */

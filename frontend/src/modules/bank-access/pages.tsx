@@ -80,6 +80,7 @@ export function BankAccountPage() {
         currency: values.currency || undefined,
         availableBalance: values.availableBalance ?? undefined,
         companyId: values.companyId ?? undefined,
+        kingdeeAccountNumber: values.kingdeeAccountNumber?.trim() || undefined,
       });
       message.success('银行账户已创建');
       setCreateOpen(false);
@@ -204,6 +205,9 @@ export function BankAccountPage() {
             <InputNumber min={0} precision={2} placeholder="默认 0.00" style={{ width: 160 }} />
           </Form.Item>
         </Space>
+        <Form.Item name="kingdeeAccountNumber" label="金蝶账号编码（可选）" extra="填写金蝶 CN_BANKACNT 档案的 FNumber；留空可稍后在「金蝶账户映射」中处理。">
+          <Input className="mono" placeholder="例如：银行账号档案 FNumber" maxLength={128} />
+        </Form.Item>
         <Form.Item name="companyId" label="归属公司主体（可选）" extra="缺省归属你所在的公司主体；跨公司归属需要跨公司数据权限，也可之后在「档案管理」中调整。">
           <Select
             allowClear
