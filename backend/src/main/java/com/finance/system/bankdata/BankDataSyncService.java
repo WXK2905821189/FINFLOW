@@ -151,15 +151,14 @@ public class BankDataSyncService {
         String safeRequestId = requestedRequestId.length() > 64 ? requestedRequestId.substring(0, 64) : requestedRequestId;
         SyncWindow window = parseWindow(request.windowStart(), request.windowEnd());
         String safeTriggerType = normalize(triggerType, "MANUAL");
-        String syncKey = syncKey(account.getId(), connectionId, adapterCode, window);
         // 2026-09-23 W17 包 B1：SCHEDULED 触发的 syncKey 追加 requestId（其已含触发时刻 HH:mm）。
         // 否则同一天第二个计划时刻仍会命中「account+adapter+window 相同」的 syncKey 复用路径
         // （TASK_REUSED），requestId 修了也白修。计划触发的同 requestId 重放幂等改由
         // uk company+requestId 兜底；手动路径 syncKey 语义不变。
-        // （final 局部变量：下方 DuplicateKeyException 分支的 lambda 引用了 syncKey。）
-        final String effectiveSyncKey = "SCHEDULED".equals(normalize(triggerType, "MANUAL"))
-                ? syncKey + ":" + safeRequestId : syncKey;
-        syncKey = effectiveSyncKey;
+        // final：下方 DuplicateKeyException 分支的 lambda 引用本变量（赋值一次，effectively final）。
+        final String syncKey = "SCHEDULED".equals(safeTriggerType)
+                ? syncKey(account.getId(), connectionId, adapterCode, window) + ":" + safeRequestId
+                : syncKey(account.getId(), connectionId, adapterCode, window);
 
         BankDataSyncTask existing = taskMapper.selectOne(new LambdaQueryWrapper<BankDataSyncTask>()
                 .eq(BankDataSyncTask::getCompanyId, companyId)
