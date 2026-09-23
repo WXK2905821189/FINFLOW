@@ -156,9 +156,10 @@ public class BankDataSyncService {
         // 否则同一天第二个计划时刻仍会命中「account+adapter+window 相同」的 syncKey 复用路径
         // （TASK_REUSED），requestId 修了也白修。计划触发的同 requestId 重放幂等改由
         // uk company+requestId 兜底；手动路径 syncKey 语义不变。
-        if ("SCHEDULED".equals(safeTriggerType)) {
-            syncKey = syncKey + ":" + safeRequestId;
-        }
+        // （final 局部变量：下方 DuplicateKeyException 分支的 lambda 引用了 syncKey。）
+        final String effectiveSyncKey = "SCHEDULED".equals(normalize(triggerType, "MANUAL"))
+                ? syncKey + ":" + safeRequestId : syncKey;
+        syncKey = effectiveSyncKey;
 
         BankDataSyncTask existing = taskMapper.selectOne(new LambdaQueryWrapper<BankDataSyncTask>()
                 .eq(BankDataSyncTask::getCompanyId, companyId)

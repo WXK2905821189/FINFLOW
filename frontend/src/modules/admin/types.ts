@@ -43,6 +43,12 @@ export type UserUpsertPayload = {
   password?: string;
 };
 
+/** V45：账号级权限覆盖条目（effect 限 GRANT / DENY，后端校验 code 必须在权限目录内）。 */
+export type PermissionOverrideItem = {
+  code: string;
+  effect: 'GRANT' | 'DENY';
+};
+
 /** 内置角色（V1 种子）。V33 起 FINANCE_STAFF / FINANCE_MANAGER / VIEWER 的权限集
  *  可由超管在角色编辑器可视化调整（保存即生效、写入审计）；仅 ADMIN 受保护不可改。 */
 export const BUILT_IN_ROLE_CODES = ['ADMIN', 'FINANCE_STAFF', 'FINANCE_MANAGER', 'VIEWER'];
