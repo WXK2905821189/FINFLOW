@@ -336,10 +336,10 @@ export function VoucherProblemEditorPage() {
                 placeholder="凭证主摘要（回写金蝶单据备注）"
               />
               <Card type="inner" size="small" title={`借方分录（合计 ¥${balance.debit.toFixed(2)}）`}>
-                {renderLines('debit', debitLines)}
+                {renderLines('debit', debitLines || [])}
               </Card>
               <Card type="inner" size="small" title={`贷方分录（合计 ¥${balance.credit.toFixed(2)}）`}>
-                {renderLines('credit', creditLines)}
+                {renderLines('credit', creditLines || [])}
               </Card>
               <div>
                 {diff <= 0.01 && balance.debit > 0
