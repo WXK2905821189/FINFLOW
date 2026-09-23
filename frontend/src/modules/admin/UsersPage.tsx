@@ -83,10 +83,6 @@ function AccountsTab() {
   // V45：权限目录（供覆盖编辑下拉选择，code 从服务端取，绝不前端杜撰）
   const permissionsLoader = useCallback(() => rbacApi.permissions(), []);
   const { data: permissions } = useRemote<SysPermission[]>(permissionsLoader, [permissionsLoader]);
-  const permissionNameByCode = useMemo(
-    () => new Map((permissions || []).map((permission) => [permission.code, permission.name])),
-    [permissions],
-  );
 
   /** V45：打开覆盖抽屉，加载当前覆盖 + 角色默认权限（只读展示）。 */
   const openOverrides = async (user: User) => {
