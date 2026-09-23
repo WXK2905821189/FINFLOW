@@ -23,7 +23,9 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -170,6 +172,89 @@ public class RealCmbBankDataAdapter implements BankDataAdapter {
                                       BankExchangeEvidence evidence) {
         return new BankDataCollection(bankRequestNo, List.of(), List.of(), false, null,
                 statusCode, statusCode, null, evidence);
+    }
+
+    /**
+     * W17 包 F：NTQABINF 历史余额（按日快照）。窗口取 context 的 windowStart/End（含两端），
+     * 调用方（回补编排层）保证区间 ≤31 天且早于当日；本方法只负责一次报文交换与映射，
+     * 不做切分。响应 ntqabinfz 每行 = 一个历史日的余额，asOfTime = trsdat 当日 00:00。
+     */
+    @Override
+    public BankDataCollection collectHistoryBalance(BankDataSyncContext context) {
+        if (context == null || context.bankAccountId() == null) {
+            throw new BusinessException(400, "CMB history balance requires a bank account scope");
+        }
+        if (context.windowStart() == null || context.windowEnd() == null) {
+            throw new BusinessException(400, "CMB history balance requires a sync window");
+        }
+        requireConfigured();
+        String accountNo = resolveAccountNumber(context);
+        LocalDate from = context.windowStart().toLocalDate();
+        LocalDate to = context.windowEnd().toLocalDate();
+        // 查询区间必须早于当日（doc 7 硬约束）——窗口含今日时收缩上界到昨日。
+        LocalDate yesterday = LocalDate.now().minusDays(1);
+        if (!to.isBefore(yesterday.plusDays(1))) {
+            to = yesterday;
+        }
+        if (to.isBefore(from)) {
+            return new BankDataCollection(CmbCryptoHelper.newReqId(), List.of(), List.of(),
+                    false, null, SUCCESS, SUCCESS);
+        }
+        CmbHistoryBalanceQuery query = new CmbHistoryBalanceQuery(accountNo, properties.getBranchCode(),
+                from, to, null);
+        String requestNo = CmbCryptoHelper.newReqId();
+        CmbHttpGateway.CmbExchange exchange = gateway.exchangeDetailed(CmbRequestBuilder.FUNCODE_HISTORY_BALANCE,
+                CmbRequestBuilder.historyBalanceDocument(requireUid(), requestNo, query));
+        BankExchangeEvidence evidence = new BankExchangeEvidence(properties.getUrl(),
+                CmbRequestBuilder.FUNCODE_HISTORY_BALANCE, exchange.plainRequest(), exchange.responseText(),
+                exchange.durationMs(), exchange.httpStatus(), null);
+        Envelope envelope = CmbResponseParser.parseEnvelope(exchange.responseText());
+        if (!envelope.succeeded()) {
+            return new BankDataCollection(requestNo, List.of(), List.of(), false, null,
+                    envelope.resultcode(), envelope.resultcode(), null, evidence);
+        }
+        List<BankDataBalanceEntry> balances = new ArrayList<>();
+        for (CmbResponseParser.HistoryBalanceRow row : CmbResponseParser.parseHistoryBalanceRows(envelope)) {
+            if (row.accnbr() == null || !accountNo.equals(row.accnbr().trim())) {
+                continue;
+            }
+            LocalDateTime asOfTime = historyDay(row.trsdat());
+            BigDecimal amount = decimal(row.balamt());
+            if (asOfTime == null || amount == null) {
+                continue;
+            }
+            balances.add(new BankDataBalanceEntry(requestNo, context.bankAccountId(),
+                    amount, null, asOfTime,
+                    null, null, null, trim(row.rsv30z()), trim(row.bbknbr()),
+                    trim(row.accnbr()), null, null, null, null, null,
+                    null, null, null, null, null, null));
+        }
+        return new BankDataCollection(requestNo, List.of(), List.copyOf(balances), false, null,
+                SUCCESS, SUCCESS, null, evidence);
+    }
+
+    private static LocalDateTime historyDay(String trsdat) {
+        String value = trim(trsdat);
+        if (value == null) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(value, DAY).atStartOfDay();
+        } catch (java.time.format.DateTimeParseException e) {
+            return null;
+        }
+    }
+
+    private static BigDecimal decimal(String value) {
+        String text = trim(value);
+        if (text == null) {
+            return null;
+        }
+        try {
+            return new BigDecimal(text);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private String resolveAccountNumber(BankDataSyncContext context) {

@@ -5,6 +5,8 @@ import com.finance.system.bankdata.adapter.citic.CiticAdapterProperties;
 import com.finance.system.bankdata.adapter.citic.CiticBalanceQuery;
 import com.finance.system.bankdata.adapter.citic.CiticBalanceResult;
 import com.finance.system.bankdata.adapter.citic.CiticEnvelopeCodec;
+import com.finance.system.bankdata.adapter.citic.CiticHistoryBalanceQuery;
+import com.finance.system.bankdata.adapter.citic.CiticHistoryBalanceRow;
 import com.finance.system.bankdata.adapter.citic.CiticRequestXml;
 import com.finance.system.bankdata.adapter.citic.CiticResponseXml;
 import com.finance.system.bankdata.adapter.citic.CiticRowMapper;
@@ -18,6 +20,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -116,6 +119,53 @@ public class RealCiticBankDataAdapter implements BankDataAdapter {
         boolean noTransaction = CiticRowMapper.isEmptyOutcome(statements.page().status());
         boolean hasMore = !noTransaction && fullPage(statements.page(), pageSize);
         return page(bankRequestNo, entries, List.of(), hasMore, startRecord, pageSize, evidence);
+    }
+
+    /**
+     * W17 包 F：DLHBLQRY 历史余额（按日快照，vendor dev-guide §5.4）。窗口取 context 的
+     * windowStart/End（含两端日期），调用方（回补编排层）保证区间 ≤30 天；本方法只做一次
+     * 报文交换与映射，不做切分。响应每行 = 一个历史日的余额，asOfTime = date 当日 00:00。
+     */
+    @Override
+    public BankDataCollection collectHistoryBalance(BankDataSyncContext context) {
+        if (context == null || context.bankAccountId() == null) {
+            throw new BusinessException(400, "CITIC history balance requires a bank account scope");
+        }
+        if (context.windowStart() == null || context.windowEnd() == null) {
+            throw new BusinessException(400, "CITIC history balance requires a sync window");
+        }
+        String accountNo = resolveAccountNumber(context);
+        String userName = requireUserName();
+        String requestId = context.requestId() == null || context.requestId().isBlank()
+                ? "finflow" : context.requestId();
+        String bankRequestNo = CiticEnvelopeCodec.clientId(requestId, 1);
+        CiticHistoryBalanceQuery query = new CiticHistoryBalanceQuery(accountNo,
+                context.windowStart().toLocalDate(), context.windowEnd().toLocalDate());
+        String businessXml = CiticRequestXml.buildHistoryBalanceQuery(userName, query);
+        long start = System.nanoTime();
+        String responseXml = sdk.exchange("DLHBLQRY", businessXml, bankRequestNo);
+        long durationMs = (System.nanoTime() - start) / 1_000_000L;
+        BankExchangeEvidence evidence = new BankExchangeEvidence(safeEndpoint(), "DLHBLQRY",
+                businessXml, responseXml, durationMs, null, null);
+        List<CiticHistoryBalanceRow> rows = CiticResponseXml.parseHistoryBalanceRows(responseXml);
+        List<BankDataBalanceEntry> balances = new ArrayList<>(rows.size());
+        for (CiticHistoryBalanceRow row : rows) {
+            if (row.date() == null || row.balance() == null) {
+                continue;
+            }
+            balances.add(new BankDataBalanceEntry(bankRequestNo, context.bankAccountId(),
+                    row.balance(), null, row.date().atStartOfDay()));
+        }
+        return new BankDataCollection(bankRequestNo, List.of(), List.copyOf(balances), false, null,
+                CiticRowMapper.SUCCESS, CiticRowMapper.SUCCESS, null, evidence);
+    }
+
+    private String safeEndpoint() {
+        try {
+            return properties.getSdk().getUrl();
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 
     /** One balance exchange plus its wire evidence (page-1 DLBALQRY snapshot). */

@@ -54,6 +54,23 @@ public final class CiticRequestXml {
                 .append("</stream>").toString();
     }
 
+    /**
+     * DLHBLQRY business XML (vendor dev-guide §5.4): accountNo + startDate + endDate,
+     * window gap at most 30 days.
+     *
+     * @param userName vendor login name varchar(30)
+     * @param query    historical balance query model
+     */
+    public static String buildHistoryBalanceQuery(String userName, CiticHistoryBalanceQuery query) {
+        return new StringBuilder(XML_HEADER).append("<stream>")
+                .append("<action>DLHBLQRY</action>")
+                .append("<userName>").append(escape(userName)).append("</userName>")
+                .append("<accountNo>").append(escape(query.accountNo())).append("</accountNo>")
+                .append("<startDate>").append(query.startDateText()).append("</startDate>")
+                .append("<endDate>").append(query.endDateText()).append("</endDate>")
+                .append("</stream>").toString();
+    }
+
     /** Minimal XML text escaping for element content (values originate from local data). */
     public static String escape(String value) {
         if (value == null || value.isEmpty()) {

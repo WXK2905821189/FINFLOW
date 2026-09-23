@@ -82,6 +82,49 @@ public final class CiticResponseXml {
                 List.copyOf(balanceRows));
     }
 
+    /**
+     * DLHBLQRY historical balance rows (vendor dev-guide §5.4): container carries
+     * mngNode/cryType plus a list of {date, balance} rows. The vendor guide does not pin
+     * the list container name for this interface (unlike DLBALQRY/DLTRNALL's
+     * userDataList), so any list child of the stream is accepted and unparsable rows are
+     * skipped rather than failing, mirroring the unknown-field tolerance of the other
+     * CITIC parsers.
+     */
+    public static List<CiticHistoryBalanceRow> parseHistoryBalanceRows(String businessXml) {
+        Element root = parseRoot(businessXml);
+        List<Element> rows = anyListRows(root);
+        List<CiticHistoryBalanceRow> historyRows = new ArrayList<>(rows.size());
+        for (Element row : rows) {
+            CiticHistoryBalanceRow parsed = CiticHistoryBalanceRow.of(
+                    firstChildText(row, "date"), firstChildText(row, "balance"));
+            if (parsed != null) {
+                historyRows.add(parsed);
+            }
+        }
+        return List.copyOf(historyRows);
+    }
+
+    /** Rows of the first list child regardless of its name attribute. */
+    private static List<Element> anyListRows(Element root) {
+        NodeList children = root.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Node child = children.item(i);
+            if (!(child instanceof Element element) || !"list".equals(element.getTagName())) {
+                continue;
+            }
+            List<Element> rows = new ArrayList<>();
+            NodeList rowNodes = element.getChildNodes();
+            for (int j = 0; j < rowNodes.getLength(); j++) {
+                Node rowNode = rowNodes.item(j);
+                if (rowNode instanceof Element rowElement && "row".equals(rowElement.getTagName())) {
+                    rows.add(rowElement);
+                }
+            }
+            return rows;
+        }
+        return List.of();
+    }
+
     static Element parseRoot(String businessXml) {
         if (businessXml == null || businessXml.isBlank()) {
             throw new BusinessException(400, "CITIC business XML response is required");

@@ -64,6 +64,11 @@ public final class CmbResponseParser {
                                 List<StatementRow> rows) {
     }
 
+    /** NTQABINF per-day historical balance row (ntqabinfz element) — doc 7 fields, verbatim. */
+    public record HistoryBalanceRow(String bbknbr, String accnbr, String trsdat,
+                                    String balamt, String rsv30z) {
+    }
+
     public static Envelope parseEnvelope(String decryptedJson) {
         JsonObject root;
         try {
@@ -103,6 +108,19 @@ public final class CmbResponseParser {
                     text(row.get("accblv")), text(row.get("accitm")), text(row.get("relnbr")),
                     text(row.get("opndat")), text(row.get("inttyp")), text(row.get("dpstxt")),
                     text(row.get("intcod")), text(row.get("intrat")), text(row.get("mutdat"))));
+        }
+        return List.copyOf(rows);
+    }
+
+    /** NTQABINF body {@code ntqabinfz} → per-day historical balance rows (doc 7). */
+    public static List<HistoryBalanceRow> parseHistoryBalanceRows(Envelope envelope) {
+        JsonArray array = arrayOrEmpty(envelope.body(), "ntqabinfz");
+        List<HistoryBalanceRow> rows = new ArrayList<>(array.size());
+        for (JsonElement element : array) {
+            JsonObject row = element.getAsJsonObject();
+            rows.add(new HistoryBalanceRow(
+                    text(row.get("bbknbr")), text(row.get("accnbr")), text(row.get("trsdat")),
+                    text(row.get("balamt")), text(row.get("rsv30z"))));
         }
         return List.copyOf(rows);
     }

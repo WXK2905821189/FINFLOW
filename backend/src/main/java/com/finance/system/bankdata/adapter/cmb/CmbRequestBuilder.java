@@ -16,6 +16,8 @@ public final class CmbRequestBuilder {
 
     public static final String FUNCODE_BALANCE = "NTQADINF";
     public static final String FUNCODE_STATEMENT = "trsQryByBreakPoint";
+    /** NTQABINF 查询账户历史余额 (vendor doc 7, W17 包 F 历史余额回补). */
+    public static final String FUNCODE_HISTORY_BALANCE = "NTQABINF";
     public static final String SIG_PLACEHOLDER = "__signature_sigdat__";
 
     private CmbRequestBuilder() {
@@ -63,6 +65,30 @@ public final class CmbRequestBuilder {
             body.add("TRANSQUERYBYBREAKPOINT_Y1", breakPointArray(query.breakPoints()));
         }
         return document(uid, FUNCODE_STATEMENT, reqid, body);
+    }
+
+    /**
+     * NTQABINF body (vendor doc 7): {@code body.ntqabinfy} = single record
+     * ({accnbr, bbknbr?, bgndat, enddat, ccynbr?}). 间隔 ≤31 天且必须早于当日的约束由
+     * {@link CmbHistoryBalanceQuery} 构造器硬校验；续传（ctnkey）按 doc 说明回传
+     * ntqabinfy 内容，本接口单账户区间 ≤31 天时一页即完，暂不携带续传键。
+     */
+    public static JsonObject historyBalanceDocument(String uid, String reqid, CmbHistoryBalanceQuery query) {
+        JsonObject item = new JsonObject();
+        item.addProperty("accnbr", query.accountNo());
+        if (notBlank(query.branchCode())) {
+            item.addProperty("bbknbr", query.branchCode());
+        }
+        item.addProperty("bgndat", query.startDateText());
+        item.addProperty("enddat", query.endDateText());
+        if (notBlank(query.currency())) {
+            item.addProperty("ccynbr", query.currency());
+        }
+        JsonArray array = new JsonArray();
+        array.add(item);
+        JsonObject body = new JsonObject();
+        body.add("ntqabinfy", array);
+        return document(uid, FUNCODE_HISTORY_BALANCE, reqid, body);
     }
 
     private static JsonArray breakPointArray(List<CmbStatementQuery.CmbStatementBreakPoint> points) {
