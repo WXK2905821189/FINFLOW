@@ -335,24 +335,16 @@ public class BankDataQueryService {
                                                                 List<Long> taskIds, BankDataExtraFilter extraFilter,
                                                                 boolean latestPerAccount) {
         BankDataExtraFilter extra = extraFilter == null ? BankDataExtraFilter.none() : extraFilter;
-        LambdaQueryWrapper<BankDataBalance> query = new LambdaQueryWrapper<BankDataBalance>()
-                .in(BankDataBalance::getCompanyId, companyIds)
-                .in(bankAccountIds != null && !bankAccountIds.isEmpty(), BankDataBalance::getBankAccountId, bankAccountIds)
-                .in(taskIds != null && !taskIds.isEmpty(), BankDataBalance::getTaskId, taskIds)
-                .eq(validationStatus != null && !validationStatus.isBlank(), BankDataBalance::getValidationStatus,
-                        validationStatus == null ? null : validationStatus.trim().toUpperCase(Locale.ROOT))
-                .ge(from != null, BankDataBalance::getAsOfTime, from)
-                .le(to != null, BankDataBalance::getAsOfTime, to)
-                // WP-C：账号后 4/6 位 + 币种（余额与流水同口径）。
-                .likeLeft(extra.accountNoSuffix() != null, BankDataBalance::getBankAccountNo, extra.accountNoSuffix())
-                .and(extra.currency() != null, nested -> nested
-                        .in(BankDataBalance::getVendorCurrencyCode, currencyCodes(extra.currency()))
-                        .or().eq(BankDataBalance::getCurrency, currencyCodes(extra.currency()).get(0)));
         if (latestPerAccount) {
             // 时间节点语义：先按当前 WHERE 圈出参与账户，再对每个账户取其最新 as_of_time。
             // ②回表条件 = 账户集合 + 每账户各自的 MAX(as_of_time) —— 用 OR 分组逐账户下发
             //（账户数有限（几十级），OR 组规模可控；避免引原生 SQL 破坏 Lambda 缓存与租户列内联）。
-            List<BankDataBalance> scoped = balanceMapper.selectList(query
+            // ⚠️ 探针与回表必须各用**全新** wrapper：LambdaQueryWrapper.select(...) 会写入 wrapper
+            // 的 sqlSelect 且不可逆，跨查询复用会让分页 SQL 只 SELECT 两列、其余字段全 null，
+            // assembler 组装时对不可变 Map 的 null key 调 get 直接 NPE（2026-09-22 三测 500 根因；
+            // 2026-09-23 CI 35816501842 又因 wrapper 内联复用回归一次，三测同栽 BankDataQueryService:211）。
+            List<BankDataBalance> scoped = balanceMapper.selectList(balanceQuery(
+                    companyIds, bankAccountIds, validationStatus, from, to, taskIds, extra)
                     .select(BankDataBalance::getBankAccountId, BankDataBalance::getAsOfTime));
             if (scoped.isEmpty()) {
                 return new PageResponse<>(Math.max(1, page), boundedSize(size), 0, List.of());
@@ -364,20 +356,51 @@ public class BankDataQueryService {
                     latestByAccount.put(row.getBankAccountId(), row.getAsOfTime());
                 }
             }
-            query.and(nested -> {
-                for (Map.Entry<Long, LocalDateTime> e : latestByAccount.entrySet()) {
-                    final Long accountId = e.getKey();
-                    final LocalDateTime asOf = e.getValue();
-                    nested.or(n -> n.eq(BankDataBalance::getBankAccountId, accountId)
-                            .eq(BankDataBalance::getAsOfTime, asOf));
-                }
-            });
+            LambdaQueryWrapper<BankDataBalance> pageQuery = balanceQuery(
+                    companyIds, bankAccountIds, validationStatus, from, to, taskIds, extra)
+                    .and(nested -> {
+                        for (Map.Entry<Long, LocalDateTime> e : latestByAccount.entrySet()) {
+                            final Long accountId = e.getKey();
+                            final LocalDateTime asOf = e.getValue();
+                            nested.or(n -> n.eq(BankDataBalance::getBankAccountId, accountId)
+                                    .eq(BankDataBalance::getAsOfTime, asOf));
+                        }
+                    });
+            pageQuery.orderByDesc(BankDataBalance::getAsOfTime)
+                    .orderByDesc(BankDataBalance::getId);
+            Page<BankDataBalance> result = balanceMapper.selectPage(new Page<>(Math.max(1, page), boundedSize(size)), pageQuery);
+            return new PageResponse<>(result.getCurrent(), result.getSize(), result.getTotal(),
+                    responseAssembler.balances(result.getRecords(), companyIds));
         }
+        LambdaQueryWrapper<BankDataBalance> query = balanceQuery(
+                companyIds, bankAccountIds, validationStatus, from, to, taskIds, extra);
         query.orderByDesc(BankDataBalance::getAsOfTime)
                 .orderByDesc(BankDataBalance::getId);
         Page<BankDataBalance> result = balanceMapper.selectPage(new Page<>(Math.max(1, page), boundedSize(size)), query);
         return new PageResponse<>(result.getCurrent(), result.getSize(), result.getTotal(),
                 responseAssembler.balances(result.getRecords(), companyIds));
+    }
+
+    /**
+     * 余额查询公共 WHERE（WP-C：账号后 4/6 位 + 币种，余额与流水同口径）。
+     * 每次调用返回**全新** wrapper——wrapper 携带 select/排序状态，严禁跨查询复用。
+     */
+    private LambdaQueryWrapper<BankDataBalance> balanceQuery(Collection<Long> companyIds, List<Long> bankAccountIds,
+                                                             String validationStatus, LocalDateTime from,
+                                                             LocalDateTime to, List<Long> taskIds,
+                                                             BankDataExtraFilter extra) {
+        return new LambdaQueryWrapper<BankDataBalance>()
+                .in(BankDataBalance::getCompanyId, companyIds)
+                .in(bankAccountIds != null && !bankAccountIds.isEmpty(), BankDataBalance::getBankAccountId, bankAccountIds)
+                .in(taskIds != null && !taskIds.isEmpty(), BankDataBalance::getTaskId, taskIds)
+                .eq(validationStatus != null && !validationStatus.isBlank(), BankDataBalance::getValidationStatus,
+                        validationStatus == null ? null : validationStatus.trim().toUpperCase(Locale.ROOT))
+                .ge(from != null, BankDataBalance::getAsOfTime, from)
+                .le(to != null, BankDataBalance::getAsOfTime, to)
+                .likeLeft(extra.accountNoSuffix() != null, BankDataBalance::getBankAccountNo, extra.accountNoSuffix())
+                .and(extra.currency() != null, nested -> nested
+                        .in(BankDataBalance::getVendorCurrencyCode, currencyCodes(extra.currency()))
+                        .or().eq(BankDataBalance::getCurrency, currencyCodes(extra.currency()).get(0)));
     }
 
     /** WP-C 币种语义匹配：CNY 展开 {CNY,10,01}（银行码与 ISO 并存），其余原样。 */
