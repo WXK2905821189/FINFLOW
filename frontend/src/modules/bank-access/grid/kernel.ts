@@ -666,7 +666,7 @@ export function createGrid(opts: GridOptions): GridInstance | null {
   function renderColPanel() {
     if (!colPanelEl) return;
     let h = '<div class="pop-head"><div><h3>列 · 顺序 · 冻结</h3>'
-      + '<div class="sub">拖动 ⋮⋮ 调列序，勾选即生效；偏好随账号保存（服务端，跨设备一致）</div></div>'
+      + '<div class="sub">表头拖拽或 ↑/↓ 调列序，勾选即生效；偏好随账号保存（服务端，跨设备一致）</div></div>'
       + '<button class="btn btn-sm" data-col-reset>恢复默认</button></div>';
     h += '<div class="pop-body">';
     h += '<div class="hint" style="padding:6px 8px 10px">冻结前 <span class="seg">'
@@ -674,7 +674,6 @@ export function createGrid(opts: GridOptions): GridInstance | null {
       + '</span> 列<span class="hint" style="margin-left:8px">冻结列横向滚动时保持可见</span></div>';
     st.cols.forEach((c) => {
       h += '<div class="colrow" data-colrow="' + c.k + '">'
-        + '<span class="drag-handle" data-coldrag="' + c.k + '" title="拖动调整列序">⋮⋮</span>'
         + '<span class="box' + (c.on ? ' on' : '') + '" data-coltoggle="' + c.k + '">' + (c.on ? '✓' : '') + '</span>'
         + esc(c.t)
         + (c.req ? '<span class="badge-default">必需，不可关闭</span>' : (c.def ? '<span class="badge-default">' + c.def + '</span>' : ''))
@@ -1162,42 +1161,9 @@ export function createGrid(opts: GridOptions): GridInstance | null {
   tbody.addEventListener('click', onBodyClick);
   document.addEventListener('mouseup', onDocMouseUp);
 
-  /* ---------- 列设置事件（含拖拽列序） ---------- */
-  let dragKey: string | null = null;
-  const onColDragStart = (e: DragEvent) => {
-    const row = (e.target as HTMLElement).closest<HTMLElement>('.colrow');
-    if (!row) return;
-    dragKey = row.dataset.colrow || null;
-    row.classList.add('is-dragging');
-  };
-  const onColDragOver = (e: DragEvent) => {
-    const row = (e.target as HTMLElement).closest<HTMLElement>('.colrow');
-    if (!row || !dragKey) return;
-    e.preventDefault();
-    colPanelEl!.querySelectorAll('.colrow').forEach((r) => r.classList.remove('drop-before', 'drop-after'));
-    const box = row.getBoundingClientRect();
-    row.classList.add(e.clientY < box.top + box.height / 2 ? 'drop-before' : 'drop-after');
-  };
-  const onColDrop = (e: DragEvent) => {
-    const row = (e.target as HTMLElement).closest<HTMLElement>('.colrow');
-    if (!row || !dragKey) return;
-    e.preventDefault();
-    const targetKey = row.dataset.colrow;
-    const before = row.classList.contains('drop-before');
-    if (targetKey === dragKey) { dragKey = null; return; }
-    const from = st.cols.findIndex((c) => c.k === dragKey);
-    const moved = st.cols.splice(from, 1)[0];
-    let to = st.cols.findIndex((c) => c.k === targetKey);
-    if (!before) to += 1;
-    st.cols.splice(to, 0, moved);
-    dragKey = null;
-    renderAll();
-    toast('已调整列序');
-  };
-  const onColDragEnd = () => {
-    dragKey = null;
-    colPanelEl?.querySelectorAll('.colrow').forEach((r) => r.classList.remove('is-dragging', 'drop-before', 'drop-after'));
-  };
+  /* ---------- 列设置事件 ---------- */
+  /* W17 包 C（2026-09-23）：面板内 ⋮⋮ 拖拽手柄及其 dragstart/dragover/drop/dragend
+     处理已删除 —— 列序调整统一走「表头拖拽 + 面板 ↑/↓」，面板交互更简单。 */
   const onColPanelClick = (e: MouseEvent) => {
     const target = e.target as HTMLElement;
     const t = target.closest<HTMLElement>('[data-coltoggle]');
@@ -1240,10 +1206,6 @@ export function createGrid(opts: GridOptions): GridInstance | null {
     renderAll();
   }
   if (colPanelEl) {
-    colPanelEl.addEventListener('dragstart', onColDragStart);
-    colPanelEl.addEventListener('dragover', onColDragOver);
-    colPanelEl.addEventListener('drop', onColDrop);
-    colPanelEl.addEventListener('dragend', onColDragEnd);
     colPanelEl.addEventListener('click', onColPanelClick);
   }
 
@@ -1447,10 +1409,6 @@ export function createGrid(opts: GridOptions): GridInstance | null {
       document.removeEventListener('mouseup', onDocMouseUp);
       document.removeEventListener('selectstart', onDocSelectStart);
       if (colPanelEl) {
-        colPanelEl.removeEventListener('dragstart', onColDragStart);
-        colPanelEl.removeEventListener('dragover', onColDragOver);
-        colPanelEl.removeEventListener('drop', onColDrop);
-        colPanelEl.removeEventListener('dragend', onColDragEnd);
         colPanelEl.removeEventListener('click', onColPanelClick);
         colPanelEl.removeEventListener('click', onPopClose);
       }
