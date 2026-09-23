@@ -78,14 +78,16 @@ public class BankSyncScheduleService {
 
     /** 心跳入口：当前分钟命中任一启用计划时触发一轮同步。同一分钟内只触发一次。 */
     public void fireIfDue() {
-        String now = currentTime().format(HHMM);
+        LocalDateTime now = currentTime().withSecond(0).withNano(0);
+        String hhmm = now.format(HHMM);
         Set<String> due = list().stream()
                 .filter(s -> Boolean.TRUE.equals(s.getEnabled()))
                 .map(BankSyncSchedule::getExecuteHhmm)
                 .collect(Collectors.toSet());
-        if (due.contains(now)) {
-            log.info("bank sync schedule fired at {}", now);
-            scheduledSyncService.triggerScheduledSyncs();
+        if (due.contains(hhmm)) {
+            log.info("bank sync schedule fired at {}", hhmm);
+            // 触发时刻参与 requestId，同一天的不同计划时刻各自真实执行（2026-09-23 语义修正）。
+            scheduledSyncService.triggerScheduledSyncs(now);
         }
     }
 
@@ -113,9 +115,6 @@ public class BankSyncScheduleService {
         }
         if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
             throw new BusinessException(400, "执行时刻超出 00:00-23:59 范围");
-        }
-        if (minute == 0 || minute == 30) {
-            throw new BusinessException(400, "不能选择整点/半点（银行高峰期），请错峰设置，如 02:10");
         }
         return String.format("%02d:%02d", hour, minute);
     }
