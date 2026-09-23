@@ -88,6 +88,9 @@ export function KingdeeMappingDrawer({ open, onClose }: { open: boolean; onClose
     }
   };
 
+  const unresolvedCount = (preview?.rows || []).filter((row) => !['MAPPED', 'NOT_REQUIRED'].includes(row.status)).length;
+  const unresolvedRows = (preview?.rows || []).filter((row) => !['MAPPED', 'NOT_REQUIRED'].includes(row.status));
+
   const columns: TableColumnsType<KingdeeMappingRow> = [
     {
       title: '账户',
@@ -156,6 +159,19 @@ export function KingdeeMappingDrawer({ open, onClose }: { open: boolean; onClose
         账号对不上的（虚拟账户）请人工指定。
       </p>
       {preview?.note ? <Alert type="warning" showIcon message={preview.note} style={{ marginBottom: 12 }} /> : null}
+      {unresolvedCount > 0 ? (
+        <Alert
+          type="warning"
+          showIcon
+          message={`${unresolvedCount} 个账户尚未映射金蝶编码，制证将被阻断`}
+          description="可先一键自动匹配，再对未命中或多义账户人工指定。"
+          action={<Button size="small" onClick={() => {
+            const first = unresolvedRows[0];
+            if (first) openEdit(first);
+          }}>处理未映射</Button>}
+          style={{ marginBottom: 12 }}
+        />
+      ) : null}
       {error ? <Alert type="error" showIcon message="加载失败" description={error} style={{ marginBottom: 12 }} /> : null}
       <Table
         rowKey="accountId"

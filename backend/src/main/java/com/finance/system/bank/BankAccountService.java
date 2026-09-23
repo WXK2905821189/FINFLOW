@@ -87,8 +87,13 @@ public class BankAccountService extends ServiceImpl<BankAccountMapper, BankAccou
         if (!rbacService.permissionCodesForUser(userId).contains("bankdata:cross-company:view")) {
             throw new BusinessException(403, "跨公司建立银行账户需要跨公司数据权限");
         }
-        if (companyMapper.selectById(requestedCompanyId) == null) {
+        Company target = companyMapper.selectById(requestedCompanyId);
+        if (target == null) {
             throw new BusinessException(404, "目标公司主体不存在");
+        }
+        // W17 #1a：INACTIVE 主体禁挂新账户（409）——软删主体必须从所有写入路径中退出。
+        if (!"ACTIVE".equals(target.getStatus())) {
+            throw new BusinessException(409, "目标公司主体已停用，不能挂靠新账户");
         }
         return requestedCompanyId;
     }
@@ -137,6 +142,8 @@ public class BankAccountService extends ServiceImpl<BankAccountMapper, BankAccou
         // V31 制证模式：null 保持默认（KINGDEE_AUTO），显式 MANUAL 才落纯人工制证。
         account.setAccountingMode(request.accountingMode() == null ? "KINGDEE_AUTO"
                 : request.accountingMode().trim().toUpperCase());
+        account.setKingdeeAccountNumber(request.kingdeeAccountNumber() == null || request.kingdeeAccountNumber().isBlank()
+                ? null : request.kingdeeAccountNumber().trim());
     }
 
     private BankAccountResponse toResponse(BankAccount account, AccountDirectStatusService.DirectStatusView direct,

@@ -7,15 +7,22 @@ import com.finance.system.bank.dto.AiCompanyApplyResponse;
 import com.finance.system.bank.dto.CompanyArchiveAccount;
 import com.finance.system.bank.dto.CompanyArchiveCompany;
 import com.finance.system.bank.dto.CompanyArchiveView;
+import com.finance.system.audit.SystemAuditService;
 import com.finance.system.common.exception.BusinessException;
 import com.finance.system.domain.entity.BankAccount;
 import com.finance.system.domain.entity.BankDataBalance;
 import com.finance.system.domain.entity.BankDataStatement;
 import com.finance.system.domain.entity.Company;
+import com.finance.system.domain.entity.StatementRecord;
 import com.finance.system.domain.mapper.BankAccountMapper;
 import com.finance.system.domain.mapper.BankDataBalanceMapper;
 import com.finance.system.domain.mapper.BankDataStatementMapper;
 import com.finance.system.domain.mapper.CompanyMapper;
+import com.finance.system.domain.mapper.StatementRecordMapper;
+import com.finance.system.domain.entity.KingdeeVoucherRule;
+import com.finance.system.domain.entity.SysUser;
+import com.finance.system.domain.mapper.KingdeeVoucherRuleMapper;
+import com.finance.system.domain.mapper.SysUserMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,20 +46,31 @@ public class CompanyArchiveService {
     private final BankAccountMapper bankAccountMapper;
     private final BankDataBalanceMapper balanceMapper;
     private final BankDataStatementMapper statementMapper;
+    private final StatementRecordMapper statementRecordMapper;
     private final AccountDirectStatusService directStatusService;
+    private final SysUserMapper sysUserMapper;
+    private final KingdeeVoucherRuleMapper ruleMapper;
+    private final SystemAuditService auditService;
 
     public CompanyArchiveService(CompanyMapper companyMapper, BankAccountMapper bankAccountMapper,
                                  BankDataBalanceMapper balanceMapper, BankDataStatementMapper statementMapper,
-                                 AccountDirectStatusService directStatusService) {
+                                 StatementRecordMapper statementRecordMapper,
+                                 AccountDirectStatusService directStatusService, SysUserMapper sysUserMapper,
+                                 KingdeeVoucherRuleMapper ruleMapper, SystemAuditService auditService) {
         this.companyMapper = companyMapper;
         this.bankAccountMapper = bankAccountMapper;
         this.balanceMapper = balanceMapper;
         this.statementMapper = statementMapper;
+        this.statementRecordMapper = statementRecordMapper;
         this.directStatusService = directStatusService;
+        this.sysUserMapper = sysUserMapper;
+        this.ruleMapper = ruleMapper;
+        this.auditService = auditService;
     }
 
     public CompanyArchiveView view() {
         List<Company> companies = companyMapper.selectList(new LambdaQueryWrapper<Company>()
+                .eq(Company::getStatus, "ACTIVE")
                 .orderByAsc(Company::getId));
         List<BankAccount> accounts = bankAccountMapper.selectList(new LambdaQueryWrapper<BankAccount>()
                 .orderByAsc(BankAccount::getId));
@@ -82,6 +100,73 @@ public class CompanyArchiveService {
                 company.getStatus(), 0L);
     }
 
+    @Transactional
+    public void deleteCompany(Long operatorId, Long id) {
+        Company company = companyMapper.selectById(id);
+        if (company == null || !"ACTIVE".equals(company.getStatus())) {
+            throw new BusinessException(404, "公司主体不存在或已停用");
+        }
+        List<String> references = new ArrayList<>();
+        // 引用判据（W17 #1a）：账户「活跃」= 自身 status 非 INACTIVE（软删账户由 @TableLogic
+        // 自动排除，不算占用）；用户只算 ACTIVE；银行流水/余额按 company_id 计数；凭证规则
+        // scope 按公司编码精确分词匹配（LIKE 是超集，误伤同前缀编码，见 scopeReferencesCompany）。
+        long activeAccounts = bankAccountMapper.selectCount(new LambdaQueryWrapper<BankAccount>()
+                .eq(BankAccount::getCompanyId, id)
+                .ne(BankAccount::getStatus, "INACTIVE"));
+        if (activeAccounts > 0) references.add("活跃银行账户 " + activeAccounts + " 个");
+        long activeUsers = sysUserMapper.selectCount(new LambdaQueryWrapper<SysUser>()
+                .eq(SysUser::getCompanyId, id).eq(SysUser::getStatus, "ACTIVE"));
+        if (activeUsers > 0) references.add("在职用户 " + activeUsers + " 个");
+        long statements = statementMapper.selectCount(new LambdaQueryWrapper<BankDataStatement>()
+                .eq(BankDataStatement::getCompanyId, id));
+        if (statements > 0) references.add("未归档银行流水 " + statements + " 笔");
+        long balances = balanceMapper.selectCount(new LambdaQueryWrapper<BankDataBalance>()
+                .eq(BankDataBalance::getCompanyId, id));
+        if (balances > 0) references.add("未归档银行余额 " + balances + " 条");
+        long standardStatements = statementRecordMapper.selectCount(new LambdaQueryWrapper<StatementRecord>()
+                .eq(StatementRecord::getCompanyId, id));
+        if (standardStatements > 0) references.add("标准流水记录 " + standardStatements + " 笔");
+        long scopedRuleHits = 0;
+        for (KingdeeVoucherRule rule : ruleMapper.selectList(new LambdaQueryWrapper<KingdeeVoucherRule>()
+                .eq(KingdeeVoucherRule::getEnabled, true))) {
+            if (scopeReferencesCompany(rule.getScopeOrgs(), company.getCode())) {
+                scopedRuleHits++;
+            }
+        }
+        if (scopedRuleHits > 0) references.add("启用中的凭证规则（主体范围引用 " + company.getCode() + "）" + scopedRuleHits + " 条");
+        if (!references.isEmpty()) {
+            throw new BusinessException(409, "公司主体仍被以下资源引用，无法停用：" + String.join("；", references));
+        }
+        Company update = new Company();
+        update.setId(id);
+        update.setStatus("INACTIVE");
+        int updated = companyMapper.updateById(update);
+        if (updated != 1) {
+            throw new BusinessException(409, "公司主体状态更新失败，请重试");
+        }
+        auditService.record(operatorId, "COMPANY_ARCHIVE_DELETE", "COMPANY", company.getCode(), null,
+                "SUCCESS", "companyId=" + id + ", name=" + company.getName());
+    }
+
+    /**
+     * 规则 scope_orgs 是 CSV（如 "ALL" 或 "300,410,710"）；"ALL" 表示全主体（含待删主体），
+     * 其余按分词后精确比对——不用 LIKE，避免编码 300 误匹配 3001。
+     */
+    private boolean scopeReferencesCompany(String scopeOrgs, String companyCode) {
+        if (scopeOrgs == null || scopeOrgs.isBlank()) {
+            return false;
+        }
+        if ("ALL".equalsIgnoreCase(scopeOrgs.trim())) {
+            return true;
+        }
+        for (String part : scopeOrgs.split(",")) {
+            if (part.trim().equals(companyCode)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public CompanyArchiveCompany renameCompany(Long id, String name) {
         Company company = companyMapper.selectById(id);
         if (company == null) {
@@ -108,7 +193,8 @@ public class CompanyArchiveService {
             throw new BusinessException(404, "Company archive not found");
         }
         if (!"ACTIVE".equals(company.getStatus())) {
-            throw new BusinessException(400, "目标公司档案未启用，不能归入");
+            // W17 #1a：INACTIVE 主体禁作归类目标（409），前端据此提示用户改选其他主体。
+            throw new BusinessException(409, "目标公司主体已停用，不能归入");
         }
         if (!companyId.equals(account.getCompanyId())) {
             account.setCompanyId(companyId);

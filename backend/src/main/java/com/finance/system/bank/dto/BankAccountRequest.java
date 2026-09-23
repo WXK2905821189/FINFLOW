@@ -26,6 +26,8 @@ public record BankAccountRequest(
         /** 制证模式（V31，可选）：KINGDEE_AUTO=AI 制证推送金蝶；MANUAL=纯人工制证。null 时保持默认 KINGDEE_AUTO。 */
         @Pattern(regexp = "^(KINGDEE_AUTO|MANUAL)$", message = "Accounting mode must be KINGDEE_AUTO or MANUAL") String accountingMode,
         /** 可选归属公司主体（V34 ⑧）：null=操作人本公司；跨公司需 cross-company 权限。 */
-        Long companyId
+        Long companyId,
+        /** 可选金蝶 CN_BANKACNT 档案编码，填入后可直接参与制证。 */
+        @Size(max = 128) String kingdeeAccountNumber
 ) {
 }

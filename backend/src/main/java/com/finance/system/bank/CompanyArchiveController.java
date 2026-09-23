@@ -15,6 +15,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -64,6 +65,15 @@ public class CompanyArchiveController {
                                                             @Valid @RequestBody CompanyArchiveNameRequest request,
                                                             @AuthenticationPrincipal UserPrincipal principal) {
         return ApiResponse.success("公司档案已更新", archiveService.renameCompany(id, request.name()));
+    }
+
+    @DeleteMapping("/bank-account-archive/companies/{id}")
+    @PreAuthorize("hasAuthority('bank:manage')")
+    @Operation(summary = "Soft-delete a company archive after reference checks")
+    public ApiResponse<Void> deleteCompany(@PathVariable Long id,
+                                           @AuthenticationPrincipal UserPrincipal principal) {
+        archiveService.deleteCompany(principal.getId(), id);
+        return ApiResponse.success("公司主体已停用", null);
     }
 
     @PutMapping("/bank-account-archive/accounts/{id}/company")

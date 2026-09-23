@@ -2,6 +2,7 @@ import { useState, type CSSProperties, type DragEvent } from 'react';
 import { Alert, Badge, Button, Descriptions, Drawer, Empty, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Tag, message, type TableColumnsType } from 'antd';
 import { ApiOutlined, DeleteOutlined, EditOutlined, FolderAddOutlined, PlusOutlined, RobotOutlined } from '@ant-design/icons';
 import { bankApi } from '../../services/api';
+import { ApiRequestError } from '../../services/http';
 import { useAuthStore } from '../../store/auth';
 import { useRemote, ResourceFailure } from '../shared/components';
 import { dateTime } from '../shared/format';
@@ -42,10 +43,14 @@ function ArchiveBoard() {
   const [renaming, setRenaming] = useState<CompanyArchiveCompany>();
   const [renameValue, setRenameValue] = useState('');
   const [renamingBusy, setRenamingBusy] = useState(false);
+  const [deletingCompanyId, setDeletingCompanyId] = useState<number>();
+  // 409 引用检查占用清单：响应原文展示，用户据此先清理引用再删主体。
+  const [deleteConflict, setDeleteConflict] = useState<{ company: CompanyArchiveCompany; detail: string }>();
   const [createAcctOpen, setCreateAcctOpen] = useState(false);
   const [creatingAcct, setCreatingAcct] = useState(false);
   const emptyAcctDraft: BankAccountCreatePayload = { bankCode: 'CITIC', accountName: '', accountNumber: '', currency: 'CNY', availableBalance: 0, status: 'ACTIVE' };
   const [acctDraft, setAcctDraft] = useState<BankAccountCreatePayload>(emptyAcctDraft);
+  const [kingdeeCode, setKingdeeCode] = useState('');
   const [testingId, setTestingId] = useState<number>();
   const [testResult, setTestResult] = useState<{ accountName: string; result: BankConnectionTestResult }>();
   // AI 智能归类（V32）：建议 → 预览（公司名可编辑/行可勾选）→ 批量应用。
@@ -93,6 +98,26 @@ function ArchiveBoard() {
     }
   };
 
+  const deleteCompany = async (company: CompanyArchiveCompany) => {
+    if (deletingCompanyId) return;
+    setDeletingCompanyId(company.id);
+    try {
+      await bankApi.deleteArchiveCompany(company.id);
+      message.success(`公司主体「${company.name}」已停用`);
+      await reload();
+    } catch (reason) {
+      const detail = reason instanceof Error ? reason.message : '';
+      if (reason instanceof ApiRequestError && reason.status === 409) {
+        // 409：Modal 完整展示服务端占用清单（活跃账户/用户/流水/余额/规则引用各计数）。
+        setDeleteConflict({ company, detail });
+      } else {
+        message.error(detail || '公司主体删除失败');
+      }
+    } finally {
+      setDeletingCompanyId(undefined);
+    }
+  };
+
   const submitAccount = async () => {
     if (creatingAcct) return;
     const name = acctDraft.accountName.trim();
@@ -107,10 +132,11 @@ function ArchiveBoard() {
     }
     setCreatingAcct(true);
     try {
-      await bankApi.createAccount({ ...acctDraft, accountName: name, accountNumber: number, currency: (acctDraft.currency ?? '').trim().toUpperCase() || 'CNY' });
+      await bankApi.createAccount({ ...acctDraft, accountName: name, accountNumber: number, currency: (acctDraft.currency ?? '').trim().toUpperCase() || 'CNY', kingdeeAccountNumber: kingdeeCode.trim() || undefined });
       message.success(`账户「${name}」已创建，可在下方档案板拖拽归类到公司主体`);
       setCreateAcctOpen(false);
       setAcctDraft(emptyAcctDraft);
+      setKingdeeCode('');
       await reload();
     } catch (reason) {
       message.error(reason instanceof Error ? reason.message : '未能创建银行账户');
@@ -385,15 +411,34 @@ function ArchiveBoard() {
             <span style={{ fontWeight: 600 }}>{company.name}</span>
             {company.status !== 'ACTIVE' && <Tag color="default">停用</Tag>}
           </Space>
-          <Button
-            type="text"
-            size="small"
-            icon={<EditOutlined />}
-            onClick={() => {
-              setRenaming(company);
-              setRenameValue(company.name);
-            }}
-          />
+          <Space size={2}>
+            <Button
+              type="text"
+              size="small"
+              icon={<EditOutlined />}
+              onClick={() => {
+                setRenaming(company);
+                setRenameValue(company.name);
+              }}
+            />
+            {canManage && (
+              <Popconfirm
+                title={`停用公司主体「${company.name}」？`}
+                description="系统会先检查活跃账户、用户、流水、余额和规则引用；存在引用时会返回原因。"
+                okText="确认停用"
+                cancelText="取消"
+                onConfirm={() => void deleteCompany(company)}
+              >
+                <Button
+                  type="text"
+                  size="small"
+                  danger
+                  icon={<DeleteOutlined />}
+                  loading={deletingCompanyId === company.id}
+                />
+              </Popconfirm>
+            )}
+          </Space>
         </div>
         {rows.length === 0
           ? <div style={{ color: '#bbb', fontSize: 12, padding: '8px 0' }}>暂无账户，拖动账户卡片到这里归类</div>
@@ -423,7 +468,7 @@ function ArchiveBoard() {
             onPressEnter={() => void createCompany()}
           />
           <Button type="primary" icon={<FolderAddOutlined />} loading={creating} onClick={() => void createCompany()}>
-            新建档案
+            新建公司主体
           </Button>
         </Space.Compact>
         {canManage && (
@@ -494,6 +539,26 @@ function ArchiveBoard() {
         />
       </Modal>
       <Modal
+        title={`无法停用「${deleteConflict?.company.name ?? ''}」`}
+        open={Boolean(deleteConflict)}
+        footer={<Button type="primary" onClick={() => setDeleteConflict(undefined)}>知道了</Button>}
+        onCancel={() => setDeleteConflict(undefined)}
+        width={520}
+      >
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message="公司主体仍被以下资源引用，停用前请先处理："
+        />
+        <div style={{ whiteSpace: 'pre-wrap', lineHeight: 1.9 }}>
+          {deleteConflict?.detail ?? ''}
+        </div>
+        <div style={{ color: '#999', fontSize: 12, marginTop: 12 }}>
+          处理完引用后回到本页重新点「删除」即可。账户可拖到其他主体或从档案移除；规则主体范围请在凭证规则中心调整。
+        </div>
+      </Modal>
+      <Modal
         title="新增银行账户"
         open={createAcctOpen}
         onOk={() => void submitAccount()}
@@ -555,6 +620,16 @@ function ArchiveBoard() {
             showIcon
             message="创建后账户归属你所在的公司主体，可在档案板拖拽改挂；初始余额仅作展示，真实余额以银行同步结果为准。创建后点卡片上的「测试连接」验证银行侧连通。"
           />
+          <Input
+            className="mono"
+            placeholder="金蝶账号编码（可选，如 CN_BANKACNT 档案 FNumber）"
+            value={kingdeeCode}
+            maxLength={128}
+            onChange={(event) => setKingdeeCode(event.target.value)}
+          />
+          <div style={{ color: '#999', fontSize: 12 }}>
+            填写后新账户即可直接参与银行流水制证推送金蝶；留空可稍后在「金蝶账户映射」中补配（未配置的账户制证会被阻断）。
+          </div>
         </Space>
       </Modal>
       <Modal
