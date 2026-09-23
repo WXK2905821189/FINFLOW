@@ -116,9 +116,10 @@ class UserPermissionOverrideIntegrationTest {
 
         // 守卫②：把新账号提升为第二个超管（ADMIN 角色后续可恢复，非「降级最后一个超管」），再对它
         // DENY role:manage —— 操作者（admin）≠ 目标，纯「超管账号」守卫 → 409
+        // 注意：登录即踢人（单会话模型），全程必须复用同一个 adminToken，中途再 loginAdmin 会踢掉它
         long nano = System.nanoTime();
         String username = "qa_admin2_" + nano;
-        long secondAdminId = createUser(username);
+        long secondAdminId = createUser(username, adminToken);
         mockMvc.perform(put("/api/users/" + secondAdminId).header("Authorization", bearer(adminToken))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"" + username + "\",\"email\":\"" + username + "@finflow.test\","
@@ -172,13 +173,18 @@ class UserPermissionOverrideIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn();
         List<String> codes = new java.util.ArrayList<>();
-        objectMapper.readTree(permissions.getResponse().getContentAsString()).get("data")
-                .forEachRemaining(node -> codes.add(node.get("code").asText()));
+        for (var node : objectMapper.readTree(permissions.getResponse().getContentAsString()).get("data")) {
+            codes.add(node.get("code").asText());
+        }
         return codes;
     }
 
     private long createUser(String username) throws Exception {
-        String token = loginAdmin();
+        return createUser(username, loginAdmin());
+    }
+
+    /** 带显式 token 的重载：同一用例内多次操作 admin 目标时避免中途 re-login 踢掉操作者会话。 */
+    private long createUser(String username, String token) throws Exception {
         MvcResult created = mockMvc.perform(post("/api/users").header("Authorization", bearer(token))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"username\":\"" + username + "\",\"email\":\"" + username + "@finflow.test\","

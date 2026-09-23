@@ -15,6 +15,7 @@ import com.finance.system.user.dto.UserUpsertRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -34,10 +35,13 @@ public class UserController {
 
     private final SysUserService userService;
     private final AuthService authService;
+    private final UserPermissionOverrideService permissionOverrideService;
 
-    public UserController(SysUserService userService, AuthService authService) {
+    public UserController(SysUserService userService, AuthService authService,
+                          UserPermissionOverrideService permissionOverrideService) {
         this.userService = userService;
         this.authService = authService;
+        this.permissionOverrideService = permissionOverrideService;
     }
 
     @GetMapping

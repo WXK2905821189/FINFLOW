@@ -57,6 +57,9 @@ class CompanyDeleteIntegrationTest {
     @Autowired
     private KingdeeVoucherRuleMapper ruleMapper;
 
+    @Autowired
+    private com.finance.system.domain.mapper.BankAccountMapper bankAccountMapper;
+
     /** 删除成功：status 落 INACTIVE（软删），重复删除 404（幂等边界），档案视图不再显示。 */
     @Test
     void deleteCompanySoftDeletesAndHidesFromView() throws Exception {
@@ -103,11 +106,9 @@ class CompanyDeleteIntegrationTest {
                 .andExpect(jsonPath("$.message").value(
                         org.hamcrest.Matchers.containsString("活跃银行账户")));
 
-        // 账户从档案移除（软删，@TableLogic 自动排除）后引用清空 → 可删
-        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
-                        .delete("/api/bank-accounts/" + accountId)
-                        .header("Authorization", bearer(token)))
-                .andExpect(status().isOk());
+        // 账户已 assign 到目标公司，admin（companyId=1）走 API 删会被公司数据隔离挡住（404）；
+        // 测试目的只是清掉「活跃账户」引用 → 直接 mapper 软删（@TableLogic 自动排除）等价于档案移除
+        bankAccountMapper.deleteById(accountId);
         mockMvc.perform(delete("/api/bank-account-archive/companies/" + companyId)
                         .header("Authorization", bearer(token)))
                 .andExpect(status().isOk());

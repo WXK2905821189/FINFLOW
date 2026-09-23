@@ -149,15 +149,14 @@ public class CompanyArchiveService {
     }
 
     /**
-     * 规则 scope_orgs 是 CSV（如 "ALL" 或 "300,410,710"）；"ALL" 表示全主体（含待删主体），
-     * 其余按分词后精确比对——不用 LIKE，避免编码 300 误匹配 3001。
+     * 规则 scope_orgs 是 CSV（如 "ALL" 或 "300,410,710"）。按分词后精确比对——不用 LIKE，
+     * 避免编码 300 误匹配 3001。"ALL" 表示「全部主体」的通配语义，不特指任何一家公司、
+     * 也不随主体增减变化，因此不构成对特定主体的「引用」，不算占用（否则种子 ALL 规则
+     * 会把所有主体的停用全部挡死）。
      */
     private boolean scopeReferencesCompany(String scopeOrgs, String companyCode) {
         if (scopeOrgs == null || scopeOrgs.isBlank()) {
             return false;
-        }
-        if ("ALL".equalsIgnoreCase(scopeOrgs.trim())) {
-            return true;
         }
         for (String part : scopeOrgs.split(",")) {
             if (part.trim().equals(companyCode)) {

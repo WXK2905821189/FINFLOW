@@ -233,7 +233,7 @@ public class RealCmbBankDataAdapter implements BankDataAdapter {
                 SUCCESS, SUCCESS, null, evidence);
     }
 
-    private static LocalDateTime historyDay(String trsdat) {
+    private LocalDateTime historyDay(String trsdat) {
         String value = trim(trsdat);
         if (value == null) {
             return null;
@@ -245,7 +245,7 @@ public class RealCmbBankDataAdapter implements BankDataAdapter {
         }
     }
 
-    private static BigDecimal decimal(String value) {
+    private BigDecimal decimal(String value) {
         String text = trim(value);
         if (text == null) {
             return null;

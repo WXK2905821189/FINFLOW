@@ -75,6 +75,8 @@ public class BankDataBackfillService {
         BankDataAdapter require(String adapterCode);
     }
 
+    /** 多构造器场景必须显式标注 Spring 注入点（否则回落默认构造器失败）。 */
+    @org.springframework.beans.factory.annotation.Autowired
     public BankDataBackfillService(BankDataSyncService syncService,
                                    CompanyScopeService companyScope,
                                    BankAccountMapper bankAccountMapper,
