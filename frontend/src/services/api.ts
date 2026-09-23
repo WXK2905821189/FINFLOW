@@ -48,6 +48,10 @@ import type {
   AiVoucherSuggestion,
   VoucherDraftSavePayload,
   VoucherGroupRow,
+  VoucherProblemRow,
+  VoucherProblemEditDocPayload,
+  VoucherProblemDetail,
+  VoucherProblemSubmitResult,
   VoucherRuleGroup,
   VoucherRuleImportPreview,
   VoucherRuleRow,
@@ -330,6 +334,20 @@ export const statementApi = {
 export const voucherGroupApi = {
   list: (params: { page?: number; size?: number; status?: string; keyword?: string }) =>
     http.get<never, PageResponse<VoucherGroupRow>>('/statements/voucher-groups', { params }),
+};
+
+/**
+ * W16-A2 问题凭证编辑器（voucher:push，2026-09-23）：一键推送落桶行（PROBLEM_*）的
+ * 修复闭环——列表（type 筛选 + keyword 搜索）→ 详情（编辑态优先 + 规则预填）→
+ * PUT 保存重校验（借贷平衡/科目必明细后端兜底）→ POST submit 推送（成功自动出列）。
+ */
+export const voucherProblemApi = {
+  list: (params: { page?: number; size?: number; type?: string; keyword?: string }) =>
+    http.get<never, PageResponse<VoucherProblemRow>>('/vouchers/problems', { params }),
+  get: (id: number) => http.get<never, VoucherProblemDetail>(`/vouchers/problems/${id}`),
+  save: (id: number, editDoc: VoucherProblemEditDocPayload) =>
+    http.put<never, VoucherProblemRow>(`/vouchers/problems/${id}`, { editDoc }),
+  submit: (id: number) => http.post<never, VoucherProblemSubmitResult>(`/vouchers/problems/${id}/submit`),
 };
 
 /** W4 规则中心（voucher:push）：金蝶凭证规则 CRUD + 分组 + Excel 导入（AI 映射 + 人工审阅）。 */

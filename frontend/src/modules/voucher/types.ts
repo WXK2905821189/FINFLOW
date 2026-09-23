@@ -164,3 +164,96 @@ export type DimensionMappingUpsertPayload = {
   enabled?: boolean;
   remark?: string | null;
 };
+
+// ---------------- 问题凭证编辑器（W16-A2，2026-09-23，GET/PUT/POST /vouchers/problems 契约） ----------------
+
+/** 问题凭证列表行（后端 VoucherProblemService.ProblemRowResponse 镜像）。 */
+export type VoucherProblemRow = {
+  /** statement_record.id（编辑器路由参数）。 */
+  id: number;
+  statementNo: string;
+  problemType: string;
+  problemReason: string | null;
+  problemUpdatedAt: string | null;
+  voucherNo: string | null;
+  transactionTime: string | null;
+  direction: string | null;
+  amount: number | string | null;
+  currency: string | null;
+  summary: string | null;
+  counterpartyName: string | null;
+  reviewStatus: string | null;
+  pushStatus: string | null;
+};
+
+/**
+ * 编辑器单行分录入参（后端 VoucherProblemEditDoc.ProblemLine 镜像）。
+ * 只走「单维度 + 值」：多维度联合注入是规则侧能力（V42 extraDimensions），编辑器不放开，
+ * 双路由同槽位会被 assertNoSlotCollision 拒绝（BANK_ACCOUNT 双落 FF100002 实测教训）。
+ */
+export type VoucherProblemLinePayload = {
+  account: string;
+  accountName: string | null;
+  dimension: string | null;
+  dimensionValue: string | null;
+  amount: number | string | null;
+  share?: string | null;
+  note?: string | null;
+};
+
+/** 人工编辑态文档（problem_edit_json；PUT 请求体 editDoc）。 */
+export type VoucherProblemEditDocPayload = {
+  summary: string | null;
+  debitLines: VoucherProblemLinePayload[];
+  creditLines: VoucherProblemLinePayload[];
+  editedBy?: number | null;
+  editedAt?: string | null;
+};
+
+/** 规则预填行（后端 KingdeeVoucherEntryDraft 镜像；manual 行金额为 null，须人工补齐）。 */
+export type VoucherProblemDraftLine = {
+  side: string;
+  account: string;
+  accountName: string | null;
+  dimension: string | null;
+  dimensionValue: string | null;
+  amount: number | string | null;
+  share: string | null;
+  manual: boolean;
+  extraDimensions: Array<{
+    dimension: string;
+    slot: string | null;
+    value: string | null;
+    note: string | null;
+  }> | null;
+};
+
+/** 问题凭证详情（后端 ProblemDetailResponse 镜像）：流水上下文 + 编辑态 + 规则预填。 */
+export type VoucherProblemDetail = {
+  row: VoucherProblemRow;
+  direction: string | null;
+  amount: number | string | null;
+  currency: string | null;
+  counterpartyName: string | null;
+  counterpartyAccount: string | null;
+  transactionTime: string | null;
+  validationStatus: string | null;
+  reviewStatus: string | null;
+  pushStatus: string | null;
+  voucherNo: string | null;
+  editDoc: VoucherProblemEditDocPayload | null;
+  prefillDebitLines: VoucherProblemDraftLine[] | null;
+  prefillCreditLines: VoucherProblemDraftLine[] | null;
+  prefillRuleNo: number | null;
+  prefillBusinessType: string | null;
+  prefillNeedManualAmount: boolean;
+};
+
+/** POST submit 结果：成功 GL_PUSHED 已出列（row.problemType 为 null），失败留桶。 */
+export type VoucherProblemSubmitResult = {
+  status: string;
+  voucherNo: string | null;
+  message: string | null;
+  pushStatus: string | null;
+  row: VoucherProblemRow;
+};

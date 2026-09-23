@@ -5,6 +5,30 @@ import type { VoucherGroupFilter, VoucherRuleLine } from './types';
  * 全部为无副作用纯函数，便于复用与测试。
  */
 
+/** W16-A2：问题凭证类型文案（与后端 KNOWN_PROBLEM_TYPES / PushJobBanner OUTCOME_META 对齐）。 */
+export const PROBLEM_TYPE_TEXT: Record<string, string> = {
+  PROBLEM_CANDIDATES: '多候选规则',
+  PROBLEM_UNMATCHED: '未命中规则',
+  PROBLEM_MANUAL_AMOUNT: '需人工定金额',
+  PROBLEM_ELIGIBLE: '流水不满足自动制证条件',
+  PROBLEM_PUSH_FAILED: '金蝶推送失败',
+};
+
+export const problemTypeText = (value?: string | null): string =>
+  value ? (PROBLEM_TYPE_TEXT[value] ?? value) : '--';
+
+/** 编辑器维度类型下拉（单维度口径；NONE 表示该行不挂辅助核算）。 */
+export const PROBLEM_DIMENSION_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: 'NONE', label: '无（不挂辅助核算）' },
+  { value: 'BANK_ACCOUNT', label: '银行账户' },
+  { value: 'ORG', label: '公司主体(组织)' },
+  { value: 'EMPLOYEE', label: '员工' },
+  { value: 'SUPPLIER', label: '供应商' },
+  { value: 'CUSTOMER', label: '客户' },
+  { value: 'COUNTERPARTY', label: '对手方' },
+  { value: 'FIXED', label: '固定值' },
+];
+
 /** 凭证中心状态签（与后端 VoucherGroupService bucket 对齐）。 */
 export function voucherStatusTag(row: { pushStatus: string | null; reviewStatus: string; voucherNo: string | null }):
   { color: string; text: string } {

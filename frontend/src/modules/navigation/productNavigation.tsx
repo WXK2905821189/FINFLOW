@@ -5,6 +5,7 @@ import {
   CodeOutlined,
   DashboardOutlined,
   DatabaseOutlined,
+  ExceptionOutlined,
   FileTextOutlined,
   NotificationOutlined,
   ProfileOutlined,
@@ -31,6 +32,7 @@ export const pageTitles: Record<string, string> = {
   '/bank-access/data/statements': '流水查询',
   '/bank-access/raw-messages': '原始报文',
   '/statements/vouchers': '凭证中心',
+  '/statements/voucher-problems': '问题凭证',
   '/voucher-rules': '规则中心',
   '/closing': '账期结账',
   '/users': '用户管理',
@@ -69,10 +71,11 @@ export function buildProductNavigation(hasPermission: HasPermission): MenuProps[
     ...(canViewRawMessages ? [{ key: '/bank-access/raw-messages', icon: <CodeOutlined />, label: <Link to="/bank-access/raw-messages">原始报文</Link> }] : []),
   ];
 
-  // V34 ②⑦ + W4：凭证链路一等页面组——规则中心（大类规则 CRUD/分组/导入，内嵌校验与入账映射）+ 凭证中心。
+  // V34 ②⑦ + W4 + W16-A2：凭证链路一等页面组——规则中心 + 凭证中心 + 问题凭证（落桶修复闭环）。
   const voucherChildren = [
     ...(canViewVoucher ? [{ key: '/voucher-rules', icon: <ProfileOutlined />, label: <Link to="/voucher-rules">规则中心</Link> }] : []),
     ...(canViewVoucher ? [{ key: '/statements/vouchers', icon: <SendOutlined />, label: <Link to="/statements/vouchers">凭证中心</Link> }] : []),
+    ...(canViewVoucher ? [{ key: '/statements/voucher-problems', icon: <ExceptionOutlined />, label: <Link to="/statements/voucher-problems">问题凭证</Link> }] : []),
   ];
 
   const systemChildren = [

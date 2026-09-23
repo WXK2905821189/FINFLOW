@@ -70,6 +70,12 @@ export type {
 export type {
   VoucherGroupRow,
   VoucherGroupFilter,
+  VoucherProblemRow,
+  VoucherProblemLinePayload,
+  VoucherProblemEditDocPayload,
+  VoucherProblemDraftLine,
+  VoucherProblemDetail,
+  VoucherProblemSubmitResult,
   VoucherRuleLine,
   VoucherRuleRow,
   VoucherRuleGroup,

@@ -37,6 +37,8 @@ const AiStatusPage = lazy(() => import('./modules/admin/AiStatusPage').then((mod
 const VoucherCenterPage = lazy(() => import('./modules/voucher/VoucherCenterPage').then((module) => ({ default: module.VoucherCenterPage })));
 const VoucherDocPage = lazy(() => import('./modules/voucher/VoucherDocPage').then((module) => ({ default: module.VoucherDocPage })));
 const CategoryRulesPage = lazy(() => import('./modules/voucher/CategoryRulesPage').then((module) => ({ default: module.CategoryRulesPage })));
+const VoucherProblemListPage = lazy(() => import('./modules/voucher/VoucherProblemListPage').then((module) => ({ default: module.VoucherProblemListPage })));
+const VoucherProblemEditorPage = lazy(() => import('./modules/voucher/VoucherProblemEditorPage').then((module) => ({ default: module.VoucherProblemEditorPage })));
 
 function AppRoutes() {
   const hydrate = useAuthStore((state) => state.hydrate);
@@ -79,6 +81,13 @@ function AppRoutes() {
           </Route>
           <Route element={<PermissionGuard permissions={['voucher:push']} />}>
             <Route path="/statements/voucher-doc/:statementId" element={<VoucherDocPage />} />
+          </Route>
+          {/* W16-A2：问题凭证（一键推送落桶行的修复闭环）——列表 + 编辑器详情。 */}
+          <Route element={<PermissionGuard permissions={['voucher:push']} />}>
+            <Route path="/statements/voucher-problems" element={<VoucherProblemListPage />} />
+          </Route>
+          <Route element={<PermissionGuard permissions={['voucher:push']} />}>
+            <Route path="/statements/voucher-problems/:statementId" element={<VoucherProblemEditorPage />} />
           </Route>
           {/* V34 ②：大类规则（kingdee_voucher_rule 只读清单，规则维护走迁移）。 */}
           <Route element={<PermissionGuard permissions={['voucher:push']} />}>
