@@ -7,11 +7,13 @@ import com.finance.system.domain.entity.SysPermission;
 import com.finance.system.domain.entity.SysRole;
 import com.finance.system.domain.entity.SysRolePermission;
 import com.finance.system.domain.entity.SysUser;
+import com.finance.system.domain.entity.SysUserPermission;
 import com.finance.system.domain.entity.SysUserRole;
 import com.finance.system.domain.mapper.SysPermissionMapper;
 import com.finance.system.domain.mapper.SysRoleMapper;
 import com.finance.system.domain.mapper.SysRolePermissionMapper;
 import com.finance.system.domain.mapper.SysUserMapper;
+import com.finance.system.domain.mapper.SysUserPermissionMapper;
 import com.finance.system.domain.mapper.SysUserRoleMapper;
 import com.finance.system.rbac.dto.RolePermissionsResponse;
 import com.finance.system.rbac.dto.RoleRequest;
@@ -45,6 +47,7 @@ public class RbacService {
     private final SysUserRoleMapper userRoleMapper;
     private final SysRolePermissionMapper rolePermissionMapper;
     private final SysUserMapper userMapper;
+    private final SysUserPermissionMapper userPermissionMapper;
     private final SystemAuditService auditService;
 
     public RbacService(SysRoleMapper roleMapper,
@@ -52,12 +55,14 @@ public class RbacService {
                        SysUserRoleMapper userRoleMapper,
                        SysRolePermissionMapper rolePermissionMapper,
                        SysUserMapper userMapper,
+                       SysUserPermissionMapper userPermissionMapper,
                        SystemAuditService auditService) {
         this.roleMapper = roleMapper;
         this.permissionMapper = permissionMapper;
         this.userRoleMapper = userRoleMapper;
         this.rolePermissionMapper = rolePermissionMapper;
         this.userMapper = userMapper;
+        this.userPermissionMapper = userPermissionMapper;
         this.auditService = auditService;
     }
 
@@ -82,7 +87,18 @@ public class RbacService {
     }
 
     public List<String> permissionCodesForUser(Long userId) {
-        return permissionsForUser(userId).stream().map(SysPermission::getCode).sorted().toList();
+        // V45（W17 包 D）：在角色权限之上叠加账号级覆盖 —— 有效权限 = (角色权限 ∪ GRANT) − DENY。
+        // 权限无缓存层（UserDetailsServiceImpl 每请求实时加载），覆盖保存即生效。
+        Set<String> codes = new LinkedHashSet<>(permissionsForUser(userId).stream()
+                .map(SysPermission::getCode).toList());
+        for (SysUserPermission override : userPermissionMapper.findByUserId(userId)) {
+            if (SysUserPermission.EFFECT_GRANT.equals(override.getEffect())) {
+                codes.add(override.getPermissionCode());
+            } else if (SysUserPermission.EFFECT_DENY.equals(override.getEffect())) {
+                codes.remove(override.getPermissionCode());
+            }
+        }
+        return codes.stream().sorted().toList();
     }
 
     public List<String> authorityCodes(Long userId) {

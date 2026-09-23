@@ -6,6 +6,10 @@ import com.finance.system.auth.dto.CurrentUserResponse;
 import com.finance.system.common.api.ApiResponse;
 import com.finance.system.common.api.PageResponse;
 import com.finance.system.common.exception.BusinessException;
+import com.finance.system.rbac.UserPermissionOverrideService;
+import com.finance.system.rbac.dto.UserPermissionOverrideItem;
+import com.finance.system.rbac.dto.UserPermissionOverrideItemRequest;
+import com.finance.system.rbac.dto.UserPermissionOverrideResponse;
 import com.finance.system.security.UserPrincipal;
 import com.finance.system.user.dto.UserUpsertRequest;
 import io.swagger.v3.oas.annotations.Operation;
@@ -83,6 +87,26 @@ public class UserController {
     public ApiResponse<Void> delete(@AuthenticationPrincipal UserPrincipal principal, @PathVariable Long id) {
         userService.delete(principal.getId(), id);
         return ApiResponse.success("User deleted", null);
+    }
+
+    /** V45（W17 包 D）：账号级权限覆盖（复用 role:manage 权限点保护，不新建权限点）。 */
+    @GetMapping("/{id}/permission-overrides")
+    @PreAuthorize("hasAuthority('role:manage')")
+    @Operation(summary = "List account-level permission overrides (V45)")
+    public ApiResponse<UserPermissionOverrideResponse> listPermissionOverrides(@PathVariable Long id) {
+        return ApiResponse.success(new UserPermissionOverrideResponse(id, permissionOverrideService.listForUser(id)));
+    }
+
+    /** V45：全量替换覆盖（body: [{code, effect}]）；校验/互斥/防自锁规则见 UserPermissionOverrideService。 */
+    @PutMapping("/{id}/permission-overrides")
+    @PreAuthorize("hasAuthority('role:manage')")
+    @Operation(summary = "Replace account-level permission overrides (V45)")
+    public ApiResponse<UserPermissionOverrideResponse> replacePermissionOverrides(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id,
+            @Valid @RequestBody List<UserPermissionOverrideItemRequest> request) {
+        List<UserPermissionOverrideItem> overrides = permissionOverrideService.replaceAll(principal.getId(), id, request);
+        return ApiResponse.success("Permission overrides updated", new UserPermissionOverrideResponse(id, overrides));
     }
 
     private long normalizePage(long page) {

@@ -24,8 +24,14 @@ import { PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import { rbacApi, userApi } from '../../services/api';
 import { useRemote, ResourceFailure, StatusTag } from '../shared/components';
 import type { PageResponse, User } from '../../types';
-import type { SysPermission, SysRole } from './types';
+import type { PermissionOverrideItem, SysPermission, SysRole } from './types';
 import { BUILT_IN_ROLE_CODES, PROTECTED_ROLE_CODES, ROLE_LABELS, USER_STATUS_OPTIONS } from './types';
+
+/** V45：账号权限行操作标签。 */
+const OVERRIDE_EFFECT_LABELS: Record<PermissionOverrideItem['effect'], string> = {
+  GRANT: '授予',
+  DENY: '剔除',
+};
 
 const DOMAIN_LABELS: Record<string, string> = {
   dashboard: '工作台',
@@ -61,12 +67,65 @@ function AccountsTab() {
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [form] = Form.useForm();
 
+  // V45：权限覆盖抽屉状态（overrideUser 非空即打开）
+  const [overrideUser, setOverrideUser] = useState<User | null>(null);
+  const [overrides, setOverrides] = useState<PermissionOverrideItem[]>([]);
+  const [overrideLoading, setOverrideLoading] = useState(false);
+  const [overrideSaving, setOverrideSaving] = useState(false);
+
   const rolesLoader = useCallback(() => rbacApi.roles(), []);
   const { data: roles } = useRemote<SysRole[]>(rolesLoader, [rolesLoader]);
   const usersLoader = useCallback(() => userApi.list({ page, size: 20 }), [page]);
   const { data, loading, error, reload } = useRemote<PageResponse<User>>(usersLoader, [usersLoader]);
 
   const roleIdByCode = useMemo(() => new Map((roles || []).map((role) => [role.code, role.id])), [roles]);
+
+  // V45：权限目录（供覆盖编辑下拉选择，code 从服务端取，绝不前端杜撰）
+  const permissionsLoader = useCallback(() => rbacApi.permissions(), []);
+  const { data: permissions } = useRemote<SysPermission[]>(permissionsLoader, [permissionsLoader]);
+  const permissionNameByCode = useMemo(
+    () => new Map((permissions || []).map((permission) => [permission.code, permission.name])),
+    [permissions],
+  );
+
+  /** V45：打开覆盖抽屉，加载当前覆盖 + 角色默认权限（只读展示）。 */
+  const openOverrides = async (user: User) => {
+    setOverrideUser(user);
+    setOverrideLoading(true);
+    try {
+      const response = await userApi.permissionOverrides(user.id);
+      setOverrides(response.overrides);
+    } catch (requestError) {
+      message.error(requestError instanceof Error ? requestError.message : '加载权限覆盖失败');
+      setOverrideUser(null);
+    } finally {
+      setOverrideLoading(false);
+    }
+  };
+
+  /** V45：保存前本地校验（同 code GRANT+DENY 后端会 400，前端先拦一道给更快反馈）。 */
+  const submitOverrides = async () => {
+    if (!overrideUser) return;
+    const seen = new Map<string, PermissionOverrideItem['effect']>();
+    for (const item of overrides) {
+      const previous = seen.get(item.code);
+      if (previous && previous !== item.effect) {
+        message.error(`同一权限 ${item.code} 不能同时「授予」和「剔除」`);
+        return;
+      }
+      seen.set(item.code, item.effect);
+    }
+    setOverrideSaving(true);
+    try {
+      const response = await userApi.replacePermissionOverrides(overrideUser.id, overrides);
+      setOverrides(response.overrides);
+      message.success('权限覆盖已保存，该账号下一个请求即按新有效权限鉴权');
+    } catch (requestError) {
+      message.error(requestError instanceof Error ? requestError.message : '保存失败');
+    } finally {
+      setOverrideSaving(false);
+    }
+  };
 
   const openCreate = () => {
     form.resetFields();
@@ -167,6 +226,7 @@ function AccountsTab() {
       render: (_, record) => (
         <Space size={8}>
           <Button size="small" onClick={() => openEdit(record)}>编辑 / 重置密码</Button>
+          <Button size="small" onClick={() => void openOverrides(record)}>权限覆盖</Button>
           <Popconfirm
             title={record.status === 'ACTIVE' ? '停用该账号？' : '启用该账号？'}
             description={record.status === 'ACTIVE' ? '停用后该账号立即无法访问系统。' : undefined}
@@ -263,6 +323,119 @@ function AccountsTab() {
           </Form.Item>
         </Form>
       </Modal>
+
+      {/* V45：账号级权限覆盖抽屉 —— 角色默认权限（只读）+ 覆盖列表（GRANT/DENY 可增删），保存走 PUT 全量替换。 */}
+      <Drawer
+        title={`权限覆盖：${overrideUser?.username ?? ''}`}
+        width={640}
+        open={overrideUser != null}
+        onClose={() => setOverrideUser(null)}
+        extra={
+          <Space>
+            <Button onClick={() => setOverrideUser(null)}>取消</Button>
+            <Button type="primary" loading={overrideSaving} onClick={submitOverrides}>保存</Button>
+          </Space>
+        }
+      >
+        {overrideUser && (
+          <>
+            <Alert
+              type="info"
+              showIcon
+              style={{ marginBottom: 16 }}
+              message="生效公式"
+              description="有效权限 = (角色权限 ∪ 账号「授予」) − 账号「剔除」。覆盖只影响该账号，保存后下一个请求即生效；不允许对超管账号或自己剔除 role:manage。"
+            />
+            <Card size="small" title="角色默认权限（只读）" style={{ marginBottom: 16 }}>
+              {(() => {
+                const roleIds = overrideUser.roles
+                  .map((code) => roleIdByCode.get(code))
+                  .filter((id): id is number => id != null);
+                const rolePermissionIds = new Set(
+                  (roles || []).filter((role) => roleIds.includes(role.id))
+                    .flatMap((role) => role.permissionIds || []),
+                );
+                const defaults = (permissions || []).filter((permission) => rolePermissionIds.has(permission.id));
+                return defaults.length === 0 ? (
+                  <span className="muted">（角色未携带权限）</span>
+                ) : (
+                  <Space size={4} wrap>
+                    {defaults.map((permission) => (
+                      <Tooltip key={permission.code} title={permission.name}>
+                        <Tag>{permission.code}</Tag>
+                      </Tooltip>
+                    ))}
+                  </Space>
+                );
+              })()}
+            </Card>
+            <Card
+              size="small"
+              title="账号覆盖"
+              extra={(
+                <Button
+                  size="small"
+                  icon={<PlusOutlined />}
+                  onClick={() => {
+                    const firstPermission = (permissions || [])[0];
+                    if (!firstPermission) {
+                      message.warning('权限目录为空');
+                      return;
+                    }
+                    setOverrides([...overrides, { code: firstPermission.code, effect: 'GRANT' }]);
+                  }}
+                >
+                  添加覆盖
+                </Button>
+              )}
+              loading={overrideLoading}
+            >
+              {overrides.length === 0 ? (
+                <Empty description="没有覆盖，账号完全按角色权限生效" />
+              ) : (
+                <Space direction="vertical" style={{ width: '100%' }} size={8}>
+                  {overrides.map((item, index) => (
+                    <Space key={`${item.code}-${index}`} style={{ display: 'flex' }} wrap>
+                      <Select
+                        style={{ width: 280 }}
+                        value={item.code}
+                        options={(permissions || []).map((permission) => ({
+                          value: permission.code,
+                          label: `${permission.code}（${permission.name}）`,
+                        }))}
+                        onChange={(code) => {
+                          const next = [...overrides];
+                          next[index] = { ...item, code };
+                          setOverrides(next);
+                        }}
+                      />
+                      <Select
+                        style={{ width: 110 }}
+                        value={item.effect}
+                        options={(Object.keys(OVERRIDE_EFFECT_LABELS) as PermissionOverrideItem['effect'][])
+                          .map((effect) => ({ value: effect, label: OVERRIDE_EFFECT_LABELS[effect] }))}
+                        onChange={(effect) => {
+                          const next = [...overrides];
+                          // Select onChange 参数是宽 string，收窄到 GRANT/DENY 字面量
+                          next[index] = { ...item, effect: effect as PermissionOverrideItem['effect'] };
+                          setOverrides(next);
+                        }}
+                      />
+                      <Button
+                        size="small"
+                        danger
+                        onClick={() => setOverrides(overrides.filter((_, removeIndex) => removeIndex !== index))}
+                      >
+                        移除
+                      </Button>
+                    </Space>
+                  ))}
+                </Space>
+              )}
+            </Card>
+          </>
+        )}
+      </Drawer>
     </>
   );
 }
